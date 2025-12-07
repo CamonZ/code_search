@@ -5,6 +5,8 @@
 
 mod calls_from;
 mod calls_to;
+mod depended_by;
+mod depends_on;
 mod function;
 mod import;
 mod location;
@@ -16,6 +18,8 @@ mod trace;
 
 pub use calls_from::CallsFromCmd;
 pub use calls_to::CallsToCmd;
+pub use depended_by::DependedByCmd;
+pub use depends_on::DependsOnCmd;
 pub use function::FunctionCmd;
 pub use import::ImportCmd;
 pub use location::LocationCmd;
@@ -70,6 +74,12 @@ pub enum Command {
     /// Find a call path between two functions
     Path(PathCmd),
 
+    /// Show what modules a given module depends on (outgoing module dependencies)
+    DependsOn(DependsOnCmd),
+
+    /// Show what modules depend on a given module (incoming module dependencies)
+    DependedBy(DependedByCmd),
+
     /// Catch-all for unknown commands
     #[command(external_subcommand)]
     Unknown(Vec<String>),
@@ -116,6 +126,14 @@ impl Command {
                 Ok(result.format(format))
             }
             Command::Path(cmd) => {
+                let result = cmd.execute(db_path)?;
+                Ok(result.format(format))
+            }
+            Command::DependsOn(cmd) => {
+                let result = cmd.execute(db_path)?;
+                Ok(result.format(format))
+            }
+            Command::DependedBy(cmd) => {
                 let result = cmd.execute(db_path)?;
                 Ok(result.format(format))
             }
