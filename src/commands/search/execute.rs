@@ -74,7 +74,7 @@ fn search_modules(
     db: &cozo::DbInstance,
     pattern: &str,
     project: Option<&str>,
-    limit: usize,
+    limit: u32,
     use_regex: bool,
 ) -> Result<Vec<ModuleResult>, Box<dyn Error>> {
     let match_fn = if use_regex { "regex_matches" } else { "str_includes" };
@@ -126,7 +126,7 @@ fn search_functions(
     db: &cozo::DbInstance,
     pattern: &str,
     project: Option<&str>,
-    limit: usize,
+    limit: u32,
     use_regex: bool,
 ) -> Result<Vec<FunctionResult>, Box<dyn Error>> {
     let match_fn = if use_regex { "regex_matches" } else { "str_includes" };

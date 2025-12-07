@@ -76,7 +76,7 @@ fn find_locations(
     arity: Option<i64>,
     project: Option<&str>,
     use_regex: bool,
-    limit: usize,
+    limit: u32,
 ) -> Result<Vec<FunctionLocation>, Box<dyn Error>> {
     // Build the query based on whether we're using regex or exact match
     let fn_cond = if use_regex {

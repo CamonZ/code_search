@@ -27,9 +27,9 @@ pub struct SearchCmd {
     #[arg(long)]
     pub project: Option<String>,
 
-    /// Maximum number of results to return
-    #[arg(short, long, default_value_t = 100)]
-    pub limit: usize,
+    /// Maximum number of results to return (1-1000)
+    #[arg(short, long, default_value_t = 100, value_parser = clap::value_parser!(u32).range(1..=1000))]
+    pub limit: u32,
 
     /// Treat pattern as a regular expression
     #[arg(short, long, default_value_t = false)]
@@ -138,5 +138,31 @@ mod tests {
             }
             _ => panic!("Expected Search command"),
         }
+    }
+
+    #[rstest]
+    fn test_search_limit_zero_rejected() {
+        let result = Args::try_parse_from([
+            "code_search",
+            "search",
+            "--pattern",
+            "User",
+            "--limit",
+            "0",
+        ]);
+        assert!(result.is_err());
+    }
+
+    #[rstest]
+    fn test_search_limit_exceeds_max_rejected() {
+        let result = Args::try_parse_from([
+            "code_search",
+            "search",
+            "--pattern",
+            "User",
+            "--limit",
+            "1001",
+        ]);
+        assert!(result.is_err());
     }
 }
