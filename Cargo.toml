@@ -1,0 +1,11 @@
+[package]
+name = "code_search"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3"
+rstest = "0.23"
