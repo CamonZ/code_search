@@ -8,11 +8,14 @@ Each command is a directory module under `src/commands/` with this structure:
 
 ```
 src/commands/<name>/
-├── mod.rs      # Command struct with clap attributes
-├── execute.rs  # Execute trait impl, result type, tests
-├── output.rs   # Outputable impl for result type
-└── models.rs   # (optional) Data models
+├── mod.rs       # Command struct with clap attributes
+├── cli_tests.rs # CLI parsing tests (using test macros)
+├── execute.rs   # Execute trait impl, result type, tests
+├── output.rs    # Outputable impl for result type
+└── models.rs    # (optional) Data models
 ```
+
+See [TESTING_STRATEGY.md](./TESTING_STRATEGY.md) for details on the test macros and when to use them.
 
 ## Step-by-Step Recipe
 
@@ -25,31 +28,73 @@ mkdir src/commands/<name>
 ### 2. Define the command struct (`mod.rs`)
 
 ```rust
+mod cli_tests;
 mod execute;
 mod output;
 
 use clap::Args;
 
+/// Description of what the command does
 #[derive(Args, Debug)]
+#[command(after_help = "\
+Examples:
+  code_search <name> --arg value    # Example usage")]
 pub struct <Name>Cmd {
     /// Description of the argument
     #[arg(short, long)]
     pub some_arg: String,
 
+    /// Project to search in
+    #[arg(long, default_value = "default")]
+    pub project: String,
+
     /// Maximum number of results to return (1-1000)
     #[arg(short, long, default_value_t = 100, value_parser = clap::value_parser!(u32).range(1..=1000))]
     pub limit: u32,
 }
+```
 
+### 3. Add CLI tests (`cli_tests.rs`)
+
+Use the test macros for standard patterns. See [TESTING_STRATEGY.md](./TESTING_STRATEGY.md) for details.
+
+```rust
 #[cfg(test)]
 mod tests {
-    // CLI parsing tests including limit validation:
-    // - test_<name>_limit_zero_rejected
-    // - test_<name>_limit_exceeds_max_rejected
+    use crate::cli::Args;
+    use clap::Parser;
+    use rstest::rstest;
+
+    // Required argument test
+    crate::cli_required_arg_test! {
+        command: "<name>",
+        test_name: test_requires_some_arg,
+        required_arg: "--some-arg",
+    }
+
+    // Option tests
+    crate::cli_option_test! {
+        command: "<name>",
+        variant: <Name>,
+        test_name: test_with_project,
+        args: ["--some-arg", "value", "--project", "my_app"],
+        field: project,
+        expected: "my_app",
+    }
+
+    // Limit validation (generates 3 tests)
+    crate::cli_limit_tests! {
+        command: "<name>",
+        variant: <Name>,
+        required_args: ["--some-arg", "value"],
+        limit: { field: limit, default: 100, max: 1000 },
+    }
+
+    // Edge cases that need regular tests go here
 }
 ```
 
-### 3. Implement Execute (`execute.rs`)
+### 4. Implement Execute (`execute.rs`)
 
 This file contains the core command logic and its tests.
 
@@ -108,7 +153,7 @@ mod tests {
 }
 ```
 
-### 4. Implement Outputable (`output.rs`)
+### 5. Implement Outputable (`output.rs`)
 
 ```rust
 use crate::output::Outputable;
@@ -154,7 +199,7 @@ mod tests {
 }
 ```
 
-### 5. Register the command (`src/commands/mod.rs`)
+### 6. Register the command (`src/commands/mod.rs`)
 
 Add the module declaration:
 
@@ -202,7 +247,7 @@ impl Command {
 }
 ```
 
-### 6. Verify
+### 7. Verify
 
 ```bash
 cargo build
@@ -214,13 +259,24 @@ cargo run -- <name> --help
 
 - [ ] Created `src/commands/<name>/` directory
 - [ ] Defined command struct with clap attributes in `mod.rs`
-- [ ] Added `--limit` with range validation (1-1000) using `value_parser = clap::value_parser!(u32).range(1..=1000)`
-- [ ] Added limit validation tests (zero rejected, exceeds max rejected)
+- [ ] Added `#[command(after_help = "...")]` with usage examples
+- [ ] Added `--limit` with range validation (1-1000)
+- [ ] Created `cli_tests.rs` with test macros (see [TESTING_STRATEGY.md](./TESTING_STRATEGY.md))
+  - [ ] Required argument tests (`cli_required_arg_test!`)
+  - [ ] Option tests (`cli_option_test!`)
+  - [ ] Limit validation tests (`cli_limit_tests!`)
+  - [ ] Edge case tests (regular tests for `matches!` etc.)
 - [ ] Implemented `Execute` trait in `execute.rs`
 - [ ] Added execution tests in `execute.rs`
+  - [ ] Empty database test
+  - [ ] No match test
+  - [ ] Core functionality tests
 - [ ] Created result type with `#[derive(Debug, Default, Serialize)]`
 - [ ] Implemented `Outputable` in `output.rs`
-- [ ] Added output tests with expected string constants in `output.rs`
+- [ ] Added output tests in `output.rs`
+  - [ ] Table format tests
+  - [ ] JSON format test
+  - [ ] Toon format test
 - [ ] Registered command in `src/commands/mod.rs`
 - [ ] Added match arm in `Command::run()`
 - [ ] Verified with `cargo build && cargo test`
