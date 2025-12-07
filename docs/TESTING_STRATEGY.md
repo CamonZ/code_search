@@ -10,7 +10,8 @@ Tests are organized by file type within each command module:
 |------|---------|---------------|
 | `cli_tests.rs` | CLI argument parsing | Defaults, options, required args, limit validation |
 | `execute.rs` | Database query execution | Empty DB, no match, core functionality, filters |
-| `output.rs` | Output formatting | Table output, JSON format, Toon format |
+| `output.rs` | Output formatting implementation | (no tests - implementation only) |
+| `output_tests.rs` | Output formatting tests | Table/JSON/Toon snapshots using macros |
 
 ## Test Macros
 
@@ -130,26 +131,53 @@ crate::execute_empty_db_test! {
 
 ### Output Test Macros
 
-#### `output_table_test!`
+Output tests live in a separate `output_tests.rs` file and use the `output_table_test!` macro with string literal snapshots. This approach provides exact output verification and makes test failures easy to debug.
 
-Tests that `to_table()` produces an expected string.
+#### `output_table_test!` (Recommended)
 
+Tests that output exactly matches an expected string. Works with fixtures and supports all output formats.
+
+**For Table format (default):**
 ```rust
 crate::output_table_test! {
     test_name: test_to_table_empty,
-    result: SearchResult { pattern: "test".into(), modules: vec![], functions: vec![] },
-    expected: "Search: test (modules)\n\nNo results found.",
+    fixture: empty_result,
+    fixture_type: SearchResult,
+    expected: EMPTY_TABLE,
 }
 ```
 
-#### `output_json_test!`
+**For JSON format:**
+```rust
+crate::output_table_test! {
+    test_name: test_format_json,
+    fixture: single_result,
+    fixture_type: SearchResult,
+    expected: SINGLE_JSON,
+    format: Json,
+}
+```
 
-Tests that JSON output is valid and contains expected fields.
+**For Toon format:**
+```rust
+crate::output_table_test! {
+    test_name: test_format_toon,
+    fixture: single_result,
+    fixture_type: SearchResult,
+    expected: SINGLE_TOON,
+    format: Toon,
+}
+```
+
+#### `output_json_test!` (Partial Matching)
+
+Tests that JSON output contains expected field values. Use when exact matching is too brittle.
 
 ```rust
 crate::output_json_test! {
     test_name: test_format_json,
-    result: SearchResult { ... },
+    fixture: single_result,
+    fixture_type: SearchResult,
     assertions: {
         "pattern": "MyApp",
         "kind": "modules",
@@ -157,17 +185,34 @@ crate::output_json_test! {
 }
 ```
 
-#### `output_toon_test!`
+#### `output_toon_test!` (Partial Matching)
 
-Tests that Toon output contains expected strings.
+Tests that Toon output contains expected strings. Use when exact matching is too brittle.
 
 ```rust
 crate::output_toon_test! {
     test_name: test_format_toon,
-    result: SearchResult { ... },
+    fixture: single_result,
+    fixture_type: SearchResult,
     contains: ["pattern: MyApp", "modules["],
 }
 ```
+
+#### Getting Snapshot Values
+
+To capture the actual output for your snapshot constants, add a temporary test:
+
+```rust
+#[test]
+fn print_outputs() {
+    use crate::output::{Outputable, OutputFormat};
+    let result = single_result();
+    println!("JSON:\n{}\n", result.format(OutputFormat::Json));
+    println!("TOON:\n{}\n", result.format(OutputFormat::Toon));
+}
+```
+
+Run with `cargo test <cmd>::output_tests::tests::print_outputs -- --nocapture`
 
 ## When to Use Regular Tests
 
@@ -195,55 +240,14 @@ Use regular tests (not macros) when:
 
 5. **Parameterized edge cases** - Using rstest's `#[case]` for multiple inputs
 
-## Example: Converting a Command's Tests
+## Example Test Files
 
-Here's the pattern for organizing a command's CLI tests:
+Annotated examples are available in the `docs/examples/` directory as a reference for the patterns described above:
 
-```rust
-// src/commands/<name>/cli_tests.rs
+- **[cli_tests.rs.example](./examples/cli_tests.rs.example)** - CLI argument parsing test patterns
+- **[output_tests.rs.example](./examples/output_tests.rs.example)** - Output formatting test patterns with snapshots
 
-#[cfg(test)]
-mod tests {
-    use crate::cli::Args;
-    use clap::Parser;
-    use rstest::rstest;
-
-    // =========================================================================
-    // Macro-generated tests (standard patterns)
-    // =========================================================================
-
-    crate::cli_required_arg_test! {
-        command: "<name>",
-        test_name: test_requires_<arg>,
-        required_arg: "--<arg>",
-    }
-
-    crate::cli_option_test! {
-        command: "<name>",
-        variant: <Name>,
-        test_name: test_with_<option>,
-        args: ["--<required>", "value", "--<option>", "value"],
-        field: <option>,
-        expected: "value",
-    }
-
-    crate::cli_limit_tests! {
-        command: "<name>",
-        variant: <Name>,
-        required_args: ["--<required>", "value"],
-        limit: { field: limit, default: 100, max: 1000 },
-    }
-
-    // =========================================================================
-    // Edge case tests (require regular test syntax)
-    // =========================================================================
-
-    #[rstest]
-    fn test_<edge_case>() {
-        // Custom test logic
-    }
-}
-```
+These are guidelines, not templates to copy blindly. Each command has different requirements - use the patterns that apply to your specific case.
 
 ## Checklist for New Command Tests
 
@@ -258,8 +262,8 @@ mod tests {
   - [ ] No match scenarios
   - [ ] Core functionality with populated database
   - [ ] Filter combinations
-- [ ] In `output.rs`, add tests for:
-  - [ ] Empty result formatting
-  - [ ] Single/multiple result formatting
-  - [ ] JSON format validity
-  - [ ] Toon format field presence
+- [ ] Create `output_tests.rs` with snapshot tests for:
+  - [ ] Empty result table formatting
+  - [ ] Single/multiple result table formatting
+  - [ ] JSON format exact snapshot
+  - [ ] Toon format exact snapshots (empty and populated)

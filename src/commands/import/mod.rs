@@ -2,6 +2,7 @@ mod cli_tests;
 mod execute;
 mod models;
 mod output;
+mod output_tests;
 
 use std::path::PathBuf;
 

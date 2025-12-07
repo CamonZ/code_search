@@ -1,6 +1,7 @@
 mod cli_tests;
 mod execute;
 mod output;
+mod output_tests;
 
 use clap::Args;
 

@@ -266,35 +266,97 @@ macro_rules! execute_empty_db_test {
 // =============================================================================
 
 /// Generate a test that verifies table output matches expected string.
+///
+/// Works with rstest fixtures by accepting a fixture parameter.
+///
+/// # Example
+/// ```ignore
+/// output_table_test! {
+///     test_name: test_to_table_empty,
+///     fixture: empty_result,
+///     fixture_type: SearchResult,
+///     expected: EMPTY_TABLE_OUTPUT,
+/// }
+/// ```
 #[macro_export]
 macro_rules! output_table_test {
+    // With format parameter (Json, Toon)
     (
         test_name: $test_name:ident,
-        result: $result:expr,
+        fixture: $fixture:ident,
+        fixture_type: $fixture_type:ty,
+        expected: $expected:expr,
+        format: $format:ident $(,)?
+    ) => {
+        #[rstest]
+        fn $test_name($fixture: $fixture_type) {
+            use crate::output::{Outputable, OutputFormat};
+            assert_eq!($fixture.format(OutputFormat::$format), $expected);
+        }
+    };
+    // Default table format
+    (
+        test_name: $test_name:ident,
+        fixture: $fixture:ident,
+        fixture_type: $fixture_type:ty,
         expected: $expected:expr $(,)?
     ) => {
         #[rstest]
-        fn $test_name() {
+        fn $test_name($fixture: $fixture_type) {
             use crate::output::Outputable;
-            let result = $result;
-            assert_eq!(result.to_table(), $expected);
+            assert_eq!($fixture.to_table(), $expected);
+        }
+    };
+}
+
+/// Generate a test that verifies table output contains expected strings.
+///
+/// Use this when exact string matching is too brittle.
+#[macro_export]
+macro_rules! output_table_contains_test {
+    (
+        test_name: $test_name:ident,
+        fixture: $fixture:ident,
+        fixture_type: $fixture_type:ty,
+        contains: [$($needle:literal),* $(,)?] $(,)?
+    ) => {
+        #[rstest]
+        fn $test_name($fixture: $fixture_type) {
+            use crate::output::Outputable;
+            let output = $fixture.to_table();
+            $(
+                assert!(output.contains($needle), concat!("Table output should contain: ", $needle));
+            )*
         }
     };
 }
 
 /// Generate a test that verifies JSON output is valid and contains expected fields.
+///
+/// # Example
+/// ```ignore
+/// output_json_test! {
+///     test_name: test_format_json,
+///     fixture: single_result,
+///     fixture_type: SearchResult,
+///     assertions: {
+///         "pattern": "MyApp",
+///         "modules".len(): 2,
+///     },
+/// }
+/// ```
 #[macro_export]
 macro_rules! output_json_test {
     (
         test_name: $test_name:ident,
-        result: $result:expr,
+        fixture: $fixture:ident,
+        fixture_type: $fixture_type:ty,
         assertions: { $($field:literal : $expected:expr),* $(,)? } $(,)?
     ) => {
         #[rstest]
-        fn $test_name() {
+        fn $test_name($fixture: $fixture_type) {
             use crate::output::{Outputable, OutputFormat};
-            let result = $result;
-            let output = result.format(OutputFormat::Json);
+            let output = $fixture.format(OutputFormat::Json);
             let parsed: serde_json::Value = serde_json::from_str(&output)
                 .expect("Should produce valid JSON");
             $(
@@ -305,18 +367,28 @@ macro_rules! output_json_test {
 }
 
 /// Generate a test that verifies Toon output contains expected strings.
+///
+/// # Example
+/// ```ignore
+/// output_toon_test! {
+///     test_name: test_format_toon,
+///     fixture: single_result,
+///     fixture_type: SearchResult,
+///     contains: ["pattern: MyApp", "modules["],
+/// }
+/// ```
 #[macro_export]
 macro_rules! output_toon_test {
     (
         test_name: $test_name:ident,
-        result: $result:expr,
+        fixture: $fixture:ident,
+        fixture_type: $fixture_type:ty,
         contains: [$($needle:literal),* $(,)?] $(,)?
     ) => {
         #[rstest]
-        fn $test_name() {
+        fn $test_name($fixture: $fixture_type) {
             use crate::output::{Outputable, OutputFormat};
-            let result = $result;
-            let output = result.format(OutputFormat::Toon);
+            let output = $fixture.format(OutputFormat::Toon);
             $(
                 assert!(output.contains($needle), concat!("Toon output should contain: ", $needle));
             )*

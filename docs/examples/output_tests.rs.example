@@ -1,0 +1,216 @@
+//! Output formatting tests for <name> command.
+//!
+//! This file demonstrates the standard patterns for testing output formatting.
+//! Copy this template when creating a new command's output_tests.rs file.
+//!
+//! The key pattern is using string literal snapshots for exact output matching.
+//! This makes tests easy to understand and failures easy to debug.
+
+#[cfg(test)]
+mod tests {
+    use super::super::execute::{<Name>Result, <Name>Item};
+    use rstest::{fixture, rstest};
+
+    // =========================================================================
+    // Expected outputs (string literal snapshots)
+    // =========================================================================
+    //
+    // Define your expected outputs as string constants. Use:
+    // - Regular strings with \ for multi-line table output
+    // - r#"..."# for JSON to avoid escaping quotes
+    //
+    // Naming convention:
+    // - EMPTY_TABLE, SINGLE_TABLE, MULTIPLE_TABLE for table format
+    // - SINGLE_JSON, MULTIPLE_JSON for JSON format
+    // - SINGLE_TOON, EMPTY_TOON for Toon format
+
+    const EMPTY_TABLE: &str = "\
+<Name>: MyApp.Accounts
+
+No results found.";
+
+    const SINGLE_TABLE: &str = "\
+<Name>: MyApp.Accounts
+
+Found 1 result(s):
+  [default] MyApp.Accounts.get_user/1
+       file: lib/accounts.ex
+       line: 42";
+
+    const MULTIPLE_TABLE: &str = "\
+<Name>: MyApp.Accounts
+
+Found 2 result(s):
+  [default] MyApp.Accounts.get_user/1
+       file: lib/accounts.ex
+       line: 42
+  [default] MyApp.Accounts.list_users/0
+       file: lib/accounts.ex
+       line: 55";
+
+    const SINGLE_JSON: &str = r#"{
+  "pattern": "MyApp.Accounts",
+  "results": [
+    {
+      "project": "default",
+      "module": "MyApp.Accounts",
+      "name": "get_user",
+      "arity": 1,
+      "file": "lib/accounts.ex",
+      "line": 42
+    }
+  ]
+}"#;
+
+    const SINGLE_TOON: &str = "\
+pattern: MyApp.Accounts
+results[1]{arity,file,line,module,name,project}:
+  1,lib/accounts.ex,42,MyApp.Accounts,get_user,default";
+
+    const EMPTY_TOON: &str = "\
+pattern: MyApp.Accounts
+results[0]:";
+
+    // =========================================================================
+    // Fixtures
+    // =========================================================================
+    //
+    // Define fixtures that create test data for your result types.
+    // Common fixtures:
+    // - empty_result: No results found
+    // - single_result: One result
+    // - multiple_result: Multiple results (tests ordering, separators)
+    // - filtered_result: Results with filters applied (if applicable)
+
+    #[fixture]
+    fn empty_result() -> <Name>Result {
+        <Name>Result {
+            pattern: "MyApp.Accounts".to_string(),
+            results: vec![],
+        }
+    }
+
+    #[fixture]
+    fn single_result() -> <Name>Result {
+        <Name>Result {
+            pattern: "MyApp.Accounts".to_string(),
+            results: vec![<Name>Item {
+                project: "default".to_string(),
+                module: "MyApp.Accounts".to_string(),
+                name: "get_user".to_string(),
+                arity: 1,
+                file: "lib/accounts.ex".to_string(),
+                line: 42,
+            }],
+        }
+    }
+
+    #[fixture]
+    fn multiple_result() -> <Name>Result {
+        <Name>Result {
+            pattern: "MyApp.Accounts".to_string(),
+            results: vec![
+                <Name>Item {
+                    project: "default".to_string(),
+                    module: "MyApp.Accounts".to_string(),
+                    name: "get_user".to_string(),
+                    arity: 1,
+                    file: "lib/accounts.ex".to_string(),
+                    line: 42,
+                },
+                <Name>Item {
+                    project: "default".to_string(),
+                    module: "MyApp.Accounts".to_string(),
+                    name: "list_users".to_string(),
+                    arity: 0,
+                    file: "lib/accounts.ex".to_string(),
+                    line: 55,
+                },
+            ],
+        }
+    }
+
+    // =========================================================================
+    // Table format tests
+    // =========================================================================
+
+    crate::output_table_test! {
+        test_name: test_to_table_empty,
+        fixture: empty_result,
+        fixture_type: <Name>Result,
+        expected: EMPTY_TABLE,
+    }
+
+    crate::output_table_test! {
+        test_name: test_to_table_single,
+        fixture: single_result,
+        fixture_type: <Name>Result,
+        expected: SINGLE_TABLE,
+    }
+
+    crate::output_table_test! {
+        test_name: test_to_table_multiple,
+        fixture: multiple_result,
+        fixture_type: <Name>Result,
+        expected: MULTIPLE_TABLE,
+    }
+
+    // =========================================================================
+    // JSON format tests
+    // =========================================================================
+
+    crate::output_table_test! {
+        test_name: test_format_json,
+        fixture: single_result,
+        fixture_type: <Name>Result,
+        expected: SINGLE_JSON,
+        format: Json,
+    }
+
+    // =========================================================================
+    // Toon format tests
+    // =========================================================================
+
+    crate::output_table_test! {
+        test_name: test_format_toon,
+        fixture: single_result,
+        fixture_type: <Name>Result,
+        expected: SINGLE_TOON,
+        format: Toon,
+    }
+
+    crate::output_table_test! {
+        test_name: test_format_toon_empty,
+        fixture: empty_result,
+        fixture_type: <Name>Result,
+        expected: EMPTY_TOON,
+        format: Toon,
+    }
+
+    // =========================================================================
+    // Helper: Generate snapshot values (remove after use)
+    // =========================================================================
+    //
+    // Uncomment this test to print the actual output values.
+    // Run with: cargo test <name>::output_tests::tests::print_outputs -- --nocapture
+    // Then copy the output into your constants above.
+    //
+    // #[test]
+    // fn print_outputs() {
+    //     use crate::output::{Outputable, OutputFormat};
+    //
+    //     let empty = empty_result();
+    //     let single = single_result();
+    //
+    //     println!("=== EMPTY_TABLE ===");
+    //     println!("{}", empty.to_table());
+    //     println!("\n=== SINGLE_TABLE ===");
+    //     println!("{}", single.to_table());
+    //     println!("\n=== SINGLE_JSON ===");
+    //     println!("{}", single.format(OutputFormat::Json));
+    //     println!("\n=== SINGLE_TOON ===");
+    //     println!("{}", single.format(OutputFormat::Toon));
+    //     println!("\n=== EMPTY_TOON ===");
+    //     println!("{}", empty.format(OutputFormat::Toon));
+    // }
+}

@@ -8,11 +8,12 @@ Each command is a directory module under `src/commands/` with this structure:
 
 ```
 src/commands/<name>/
-├── mod.rs       # Command struct with clap attributes
-├── cli_tests.rs # CLI parsing tests (using test macros)
-├── execute.rs   # Execute trait impl, result type, tests
-├── output.rs    # Outputable impl for result type
-└── models.rs    # (optional) Data models
+├── mod.rs         # Command struct with clap attributes
+├── cli_tests.rs   # CLI parsing tests (using test macros)
+├── execute.rs     # Execute trait impl, result type, tests
+├── output.rs      # Outputable impl for result type
+├── output_tests.rs # Output formatting tests (using test macros)
+└── models.rs      # (optional) Data models
 ```
 
 See [TESTING_STRATEGY.md](./TESTING_STRATEGY.md) for details on the test macros and when to use them.
@@ -31,6 +32,7 @@ mkdir src/commands/<name>
 mod cli_tests;
 mod execute;
 mod output;
+mod output_tests;
 
 use clap::Args;
 
@@ -56,43 +58,7 @@ pub struct <Name>Cmd {
 
 ### 3. Add CLI tests (`cli_tests.rs`)
 
-Use the test macros for standard patterns. See [TESTING_STRATEGY.md](./TESTING_STRATEGY.md) for details.
-
-```rust
-#[cfg(test)]
-mod tests {
-    use crate::cli::Args;
-    use clap::Parser;
-    use rstest::rstest;
-
-    // Required argument test
-    crate::cli_required_arg_test! {
-        command: "<name>",
-        test_name: test_requires_some_arg,
-        required_arg: "--some-arg",
-    }
-
-    // Option tests
-    crate::cli_option_test! {
-        command: "<name>",
-        variant: <Name>,
-        test_name: test_with_project,
-        args: ["--some-arg", "value", "--project", "my_app"],
-        field: project,
-        expected: "my_app",
-    }
-
-    // Limit validation (generates 3 tests)
-    crate::cli_limit_tests! {
-        command: "<name>",
-        variant: <Name>,
-        required_args: ["--some-arg", "value"],
-        limit: { field: limit, default: 100, max: 1000 },
-    }
-
-    // Edge cases that need regular tests go here
-}
-```
+See [examples/cli_tests.rs.example](./examples/cli_tests.rs.example) for a reference showing the available test patterns. Refer to [TESTING_STRATEGY.md](./TESTING_STRATEGY.md) for details on when to use each macro.
 
 ### 4. Implement Execute (`execute.rs`)
 
@@ -165,41 +131,13 @@ impl Outputable for <Name>Result {
         todo!()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::output::OutputFormat;
-    use rstest::{fixture, rstest};
-
-    const EXPECTED_TABLE_OUTPUT: &str = "...";
-
-    #[fixture]
-    fn result() -> <Name>Result {
-        <Name>Result { /* fields */ }
-    }
-
-    #[rstest]
-    fn test_to_table(result: <Name>Result) {
-        assert_eq!(result.to_table(), EXPECTED_TABLE_OUTPUT);
-    }
-
-    #[rstest]
-    fn test_format_json(result: <Name>Result) {
-        let output = result.format(OutputFormat::Json);
-        let _: serde_json::Value = serde_json::from_str(&output).expect("Valid JSON");
-    }
-
-    #[rstest]
-    fn test_format_toon(result: <Name>Result) {
-        let output = result.format(OutputFormat::Toon);
-        // Verify toon format contains expected fields
-        assert!(output.contains("field_name:"));
-    }
-}
 ```
 
-### 6. Register the command (`src/commands/mod.rs`)
+### 6. Add output tests (`output_tests.rs`)
+
+See [examples/output_tests.rs.example](./examples/output_tests.rs.example) for a reference showing the snapshot testing pattern. The example includes a helper for generating the actual output values to use in your snapshots.
+
+### 7. Register the command (`src/commands/mod.rs`)
 
 Add the module declaration:
 
@@ -247,11 +185,11 @@ impl Command {
 }
 ```
 
-### 7. Verify
+### 8. Verify
 
 ```bash
 cargo build
-cargo nextest run
+cargo test
 cargo run -- <name> --help
 ```
 
@@ -273,10 +211,10 @@ cargo run -- <name> --help
   - [ ] Core functionality tests
 - [ ] Created result type with `#[derive(Debug, Default, Serialize)]`
 - [ ] Implemented `Outputable` in `output.rs`
-- [ ] Added output tests in `output.rs`
-  - [ ] Table format tests
-  - [ ] JSON format test
-  - [ ] Toon format test
+- [ ] Created `output_tests.rs` with test macros
+  - [ ] Table format tests (empty and populated)
+  - [ ] JSON format test with snapshot
+  - [ ] Toon format tests (empty and populated)
 - [ ] Registered command in `src/commands/mod.rs`
 - [ ] Added match arm in `Command::run()`
 - [ ] Verified with `cargo build && cargo test`

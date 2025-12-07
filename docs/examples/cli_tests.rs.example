@@ -1,0 +1,130 @@
+//! CLI parsing tests for <name> command.
+//!
+//! This file demonstrates the standard patterns for testing CLI argument parsing.
+//! Use it as a reference - not all patterns will apply to every command.
+
+#[cfg(test)]
+mod tests {
+    use crate::cli::Args;
+    use clap::Parser;
+    use rstest::rstest;
+
+    // =========================================================================
+    // Required argument tests
+    // =========================================================================
+
+    // Test that the command requires a specific argument
+    crate::cli_required_arg_test! {
+        command: "<name>",
+        test_name: test_requires_module,
+        required_arg: "--module",
+    }
+
+    // Add more required argument tests as needed
+    crate::cli_required_arg_test! {
+        command: "<name>",
+        test_name: test_requires_function,
+        required_arg: "--function",
+    }
+
+    // =========================================================================
+    // Option tests
+    // =========================================================================
+
+    // Test that an option sets the expected field value
+    crate::cli_option_test! {
+        command: "<name>",
+        variant: <Name>,
+        test_name: test_with_module,
+        args: ["--module", "MyApp.Accounts"],
+        field: module,
+        expected: "MyApp.Accounts",
+    }
+
+    // Test with multiple options
+    crate::cli_option_test! {
+        command: "<name>",
+        variant: <Name>,
+        test_name: test_with_project,
+        args: ["--module", "MyApp", "--project", "my_app"],
+        field: project,
+        expected: "my_app",
+    }
+
+    // Test boolean flags
+    crate::cli_option_test! {
+        command: "<name>",
+        variant: <Name>,
+        test_name: test_with_regex,
+        args: ["--module", "MyApp", "--regex"],
+        field: regex,
+        expected: true,
+    }
+
+    // =========================================================================
+    // Limit validation tests (generates 3 tests automatically)
+    // =========================================================================
+
+    crate::cli_limit_tests! {
+        command: "<name>",
+        variant: <Name>,
+        required_args: ["--module", "MyApp"],
+        limit: {
+            field: limit,
+            default: 100,
+            max: 1000,
+        },
+    }
+
+    // =========================================================================
+    // Defaults test (when command has no required args)
+    // =========================================================================
+
+    // Use this when the command can be invoked without any arguments
+    // crate::cli_defaults_test! {
+    //     command: "<name>",
+    //     variant: <Name>,
+    //     required_args: [],
+    //     defaults: {
+    //         project: "default",
+    //         regex: false,
+    //         limit: 100,
+    //     },
+    // }
+
+    // =========================================================================
+    // Edge case tests (require regular test syntax)
+    // =========================================================================
+
+    // Use regular tests when you need:
+    // - matches! macro for enum variants
+    // - Complex assertions
+    // - Custom setup/teardown
+    // - Multiple assertions on the same parsed result
+
+    #[rstest]
+    fn test_kind_default_is_modules() {
+        let args = Args::try_parse_from(["code_search", "<name>", "--module", "MyApp"]).unwrap();
+        match args.command {
+            crate::commands::Command::<Name>(cmd) => {
+                // Use matches! for enum variant checking
+                assert!(matches!(cmd.kind, SomeKind::DefaultVariant));
+            }
+            _ => panic!("Expected <Name> command"),
+        }
+    }
+
+    #[rstest]
+    fn test_conflicting_options_rejected() {
+        // Test that mutually exclusive options are rejected
+        let result = Args::try_parse_from([
+            "code_search",
+            "<name>",
+            "--module",
+            "MyApp",
+            "--private-only",
+            "--public-only",
+        ]);
+        assert!(result.is_err());
+    }
+}

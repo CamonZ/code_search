@@ -6,7 +6,6 @@ mod db;
 pub mod output;
 #[macro_use]
 mod test_macros;
-
 use cli::Args;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

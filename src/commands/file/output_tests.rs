@@ -1,0 +1,197 @@
+//! Output formatting tests for file command.
+
+#[cfg(test)]
+mod tests {
+    use super::super::execute::{FileFunctionDef, FileResult, FileWithFunctions};
+    use rstest::{fixture, rstest};
+
+    // =========================================================================
+    // Expected outputs
+    // =========================================================================
+
+    const EMPTY_TABLE: &str = "\
+Functions in files matching 'nonexistent.ex' (project: test_project)
+
+No files found.";
+
+    const SINGLE_FILE_TABLE: &str = "\
+Functions in files matching 'lib/accounts.ex' (project: test_project)
+
+lib/accounts.ex:
+    10-20   [def] MyApp.Accounts.get_user/1
+    25-30   [def] MyApp.Accounts.list_users/0";
+
+    const MULTIPLE_FILES_TABLE: &str = "\
+Functions in files matching 'lib/' (project: test_project)
+
+lib/accounts.ex:
+    10-20   [def] MyApp.Accounts.get_user/1
+
+lib/service.ex:
+     5-15   [def] MyApp.Service.process/1";
+
+    const SINGLE_JSON: &str = r#"{
+  "project": "test_project",
+  "file_pattern": "lib/accounts.ex",
+  "files": [
+    {
+      "file": "lib/accounts.ex",
+      "functions": [
+        {
+          "module": "MyApp.Accounts",
+          "name": "get_user",
+          "arity": 1,
+          "kind": "def",
+          "start_line": 10,
+          "end_line": 20
+        },
+        {
+          "module": "MyApp.Accounts",
+          "name": "list_users",
+          "arity": 0,
+          "kind": "def",
+          "start_line": 25,
+          "end_line": 30
+        }
+      ]
+    }
+  ]
+}"#;
+
+    const SINGLE_TOON: &str = "\
+file_pattern: lib/accounts.ex
+files[1]:
+  - file: lib/accounts.ex
+    functions[2]{arity,end_line,kind,module,name,start_line}:
+      1,20,def,MyApp.Accounts,get_user,10
+      0,30,def,MyApp.Accounts,list_users,25
+project: test_project";
+
+    const EMPTY_TOON: &str = "\
+file_pattern: nonexistent.ex
+files[0]:
+project: test_project";
+
+    // =========================================================================
+    // Fixtures
+    // =========================================================================
+
+    #[fixture]
+    fn empty_result() -> FileResult {
+        FileResult {
+            project: "test_project".to_string(),
+            file_pattern: "nonexistent.ex".to_string(),
+            files: vec![],
+        }
+    }
+
+    #[fixture]
+    fn single_file_result() -> FileResult {
+        FileResult {
+            project: "test_project".to_string(),
+            file_pattern: "lib/accounts.ex".to_string(),
+            files: vec![FileWithFunctions {
+                file: "lib/accounts.ex".to_string(),
+                functions: vec![
+                    FileFunctionDef {
+                        module: "MyApp.Accounts".to_string(),
+                        name: "get_user".to_string(),
+                        arity: 1,
+                        kind: "def".to_string(),
+                        start_line: 10,
+                        end_line: 20,
+                    },
+                    FileFunctionDef {
+                        module: "MyApp.Accounts".to_string(),
+                        name: "list_users".to_string(),
+                        arity: 0,
+                        kind: "def".to_string(),
+                        start_line: 25,
+                        end_line: 30,
+                    },
+                ],
+            }],
+        }
+    }
+
+    #[fixture]
+    fn multiple_files_result() -> FileResult {
+        FileResult {
+            project: "test_project".to_string(),
+            file_pattern: "lib/".to_string(),
+            files: vec![
+                FileWithFunctions {
+                    file: "lib/accounts.ex".to_string(),
+                    functions: vec![FileFunctionDef {
+                        module: "MyApp.Accounts".to_string(),
+                        name: "get_user".to_string(),
+                        arity: 1,
+                        kind: "def".to_string(),
+                        start_line: 10,
+                        end_line: 20,
+                    }],
+                },
+                FileWithFunctions {
+                    file: "lib/service.ex".to_string(),
+                    functions: vec![FileFunctionDef {
+                        module: "MyApp.Service".to_string(),
+                        name: "process".to_string(),
+                        arity: 1,
+                        kind: "def".to_string(),
+                        start_line: 5,
+                        end_line: 15,
+                    }],
+                },
+            ],
+        }
+    }
+
+    // =========================================================================
+    // Tests
+    // =========================================================================
+
+    crate::output_table_test! {
+        test_name: test_to_table_empty,
+        fixture: empty_result,
+        fixture_type: FileResult,
+        expected: EMPTY_TABLE,
+    }
+
+    crate::output_table_test! {
+        test_name: test_to_table_single_file,
+        fixture: single_file_result,
+        fixture_type: FileResult,
+        expected: SINGLE_FILE_TABLE,
+    }
+
+    crate::output_table_test! {
+        test_name: test_to_table_multiple_files,
+        fixture: multiple_files_result,
+        fixture_type: FileResult,
+        expected: MULTIPLE_FILES_TABLE,
+    }
+
+    crate::output_table_test! {
+        test_name: test_format_json,
+        fixture: single_file_result,
+        fixture_type: FileResult,
+        expected: SINGLE_JSON,
+        format: Json,
+    }
+
+    crate::output_table_test! {
+        test_name: test_format_toon,
+        fixture: single_file_result,
+        fixture_type: FileResult,
+        expected: SINGLE_TOON,
+        format: Toon,
+    }
+
+    crate::output_table_test! {
+        test_name: test_format_toon_empty,
+        fixture: empty_result,
+        fixture_type: FileResult,
+        expected: EMPTY_TOON,
+        format: Toon,
+    }
+}
