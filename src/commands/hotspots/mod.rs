@@ -17,6 +17,12 @@ pub enum HotspotKind {
 
 /// Find functions with the most incoming/outgoing calls
 #[derive(Args, Debug)]
+#[command(after_help = "\
+Examples:
+  code_search hotspots                       # Most called functions (incoming)
+  code_search hotspots -k outgoing           # Functions that call many others
+  code_search hotspots -k total              # Highest total connections
+  code_search hotspots -m MyApp -l 10        # Top 10 in MyApp namespace")]
 pub struct HotspotsCmd {
     /// Type of hotspots to find
     #[arg(short, long, value_enum, default_value_t = HotspotKind::Incoming)]

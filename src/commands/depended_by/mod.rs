@@ -5,6 +5,10 @@ use clap::Args;
 
 /// Show what modules depend on a given module (incoming module dependencies)
 #[derive(Args, Debug)]
+#[command(after_help = "\
+Examples:
+  code_search depended-by -m MyApp.Repo          # Who depends on Repo?
+  code_search depended-by -m 'Ecto\\..*' -r      # Who depends on Ecto modules?")]
 pub struct DependedByCmd {
     /// Module name (exact match or pattern with --regex)
     #[arg(short, long)]

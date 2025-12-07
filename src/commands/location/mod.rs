@@ -3,7 +3,14 @@ mod output;
 
 use clap::Args;
 
+/// Find where a function is defined (file:line_start:line_end)
 #[derive(Args, Debug)]
+#[command(after_help = "\
+Examples:
+  code_search location -f get_user           # Find all get_user functions
+  code_search location -m MyApp -f get_user  # In specific module
+  code_search location -f get_user -a 1      # With specific arity
+  code_search location -f 'get_.*' -r        # Regex pattern matching")]
 pub struct LocationCmd {
     /// Module name (exact match or pattern with --regex). If not specified, searches all modules.
     #[arg(short, long)]

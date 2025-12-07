@@ -3,7 +3,13 @@ mod output;
 
 use clap::Args;
 
+/// Show function signature (args, return type)
 #[derive(Args, Debug)]
+#[command(after_help = "\
+Examples:
+  code_search function -m MyApp.Accounts -f get_user      # Show signature
+  code_search function -m MyApp -f get_user -a 1          # Specific arity
+  code_search function -m 'MyApp\\..*' -f 'get_.*' -r     # Regex matching")]
 pub struct FunctionCmd {
     /// Module name (exact match or pattern with --regex)
     #[arg(short, long)]

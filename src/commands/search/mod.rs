@@ -13,7 +13,13 @@ pub enum SearchKind {
     Functions,
 }
 
+/// Search for modules or functions by name pattern
 #[derive(Args, Debug)]
+#[command(after_help = "\
+Examples:
+  code_search search -p User                 # Find modules containing 'User'
+  code_search search -p get_ -k functions    # Find functions starting with 'get_'
+  code_search search -p '^MyApp\\.API' -r    # Regex match for module prefix")]
 pub struct SearchCmd {
     /// Pattern to search for (substring match by default, regex with --regex)
     #[arg(short, long)]

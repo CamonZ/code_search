@@ -5,6 +5,11 @@ use clap::Args;
 
 /// Trace call chains from a starting function (forward traversal)
 #[derive(Args, Debug)]
+#[command(after_help = "\
+Examples:
+  code_search trace -m MyApp.Web -f index            # Trace from controller action
+  code_search trace -m MyApp -f handle_call --depth 10   # Deeper traversal
+  code_search trace -m 'MyApp\\..*' -f 'handle_.*' -r    # Regex pattern")]
 pub struct TraceCmd {
     /// Starting module name (exact match or pattern with --regex)
     #[arg(short, long)]

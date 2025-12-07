@@ -5,6 +5,10 @@ use clap::Args;
 
 /// Show what modules a given module depends on (outgoing module dependencies)
 #[derive(Args, Debug)]
+#[command(after_help = "\
+Examples:
+  code_search depends-on -m MyApp.Accounts       # What does Accounts depend on?
+  code_search depends-on -m 'MyApp\\.Web.*' -r   # Dependencies of Web modules")]
 pub struct DependsOnCmd {
     /// Module name (exact match or pattern with --regex)
     #[arg(short, long)]

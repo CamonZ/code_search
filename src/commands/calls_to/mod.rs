@@ -3,7 +3,13 @@ mod output;
 
 use clap::Args;
 
+/// Show what calls a module/function (incoming edges)
 #[derive(Args, Debug)]
+#[command(after_help = "\
+Examples:
+  code_search calls-to -m MyApp.Repo                 # All callers of module
+  code_search calls-to -m MyApp.Repo -f get          # Callers of specific function
+  code_search calls-to -m MyApp.Repo -f get -a 2     # With specific arity")]
 pub struct CallsToCmd {
     /// Module name (exact match or pattern with --regex)
     #[arg(short, long)]

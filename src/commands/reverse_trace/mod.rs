@@ -5,6 +5,11 @@ use clap::Args;
 
 /// Trace call chains backwards - who calls the callers of a target
 #[derive(Args, Debug)]
+#[command(after_help = "\
+Examples:
+  code_search reverse-trace -m MyApp.Repo -f get     # Who ultimately calls Repo.get?
+  code_search reverse-trace -m Ecto.Repo -f insert --depth 10  # Deeper traversal
+  code_search reverse-trace -m MyApp -f 'handle_.*' -r   # Regex pattern")]
 pub struct ReverseTraceCmd {
     /// Target module name (exact match or pattern with --regex)
     #[arg(short, long)]

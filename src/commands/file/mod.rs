@@ -5,6 +5,11 @@ use clap::Args;
 
 /// Show all functions defined in a file
 #[derive(Args, Debug)]
+#[command(after_help = "\
+Examples:
+  code_search file -f lib/accounts.ex        # Functions in specific file
+  code_search file -f accounts               # Files containing 'accounts'
+  code_search file -f 'lib/.*_test.ex' -r    # All test files with regex")]
 pub struct FileCmd {
     /// File path pattern (substring match by default, regex with --regex)
     #[arg(short = 'f', long)]

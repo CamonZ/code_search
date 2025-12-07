@@ -5,6 +5,13 @@ use clap::Args;
 
 /// Find functions that are never called
 #[derive(Args, Debug)]
+#[command(after_help = "\
+Examples:
+  code_search unused                         # Find all unused functions
+  code_search unused --public-only           # Find unused public API
+  code_search unused -m MyApp.Accounts       # Filter to specific module
+  code_search unused -Px                     # Public only, exclude generated
+  code_search unused -m 'Accounts' --regex   # Match module with regex")]
 pub struct UnusedCmd {
     /// Module pattern to filter results (substring match by default, regex with --regex)
     #[arg(short, long)]

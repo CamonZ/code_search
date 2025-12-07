@@ -5,6 +5,12 @@ use clap::Args;
 
 /// Find a call path between two functions
 #[derive(Args, Debug)]
+#[command(after_help = "\
+Examples:
+  code_search path --from-module MyApp.Web --from-function index \\
+                   --to-module MyApp.Repo --to-function get
+  code_search path --from-module MyApp.API --from-function create \\
+                   --to-module Ecto.Repo --to-function insert --depth 15")]
 pub struct PathCmd {
     /// Source module name
     #[arg(long)]
