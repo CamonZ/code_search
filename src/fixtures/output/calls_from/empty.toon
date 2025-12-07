@@ -1,0 +1,3 @@
+calls[0]:
+function_pattern: get_user
+module_pattern: MyApp.Accounts

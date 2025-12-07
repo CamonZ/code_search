@@ -1,0 +1,17 @@
+{
+  "target_module": "MyApp.Repo",
+  "target_function": "get",
+  "max_depth": 5,
+  "steps": [
+    {
+      "depth": 1,
+      "caller_module": "MyApp.Service",
+      "caller_function": "fetch",
+      "callee_module": "MyApp.Repo",
+      "callee_function": "get",
+      "callee_arity": 2,
+      "file": "lib/service.ex",
+      "line": 15
+    }
+  ]
+}

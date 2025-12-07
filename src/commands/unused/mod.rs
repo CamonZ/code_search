@@ -1,5 +1,6 @@
 mod cli_tests;
 mod execute;
+mod execute_tests;
 mod output;
 mod output_tests;
 

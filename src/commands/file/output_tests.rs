@@ -30,47 +30,6 @@ lib/accounts.ex:
 lib/service.ex:
      5-15   [def] MyApp.Service.process/1";
 
-    const SINGLE_JSON: &str = r#"{
-  "project": "test_project",
-  "file_pattern": "lib/accounts.ex",
-  "files": [
-    {
-      "file": "lib/accounts.ex",
-      "functions": [
-        {
-          "module": "MyApp.Accounts",
-          "name": "get_user",
-          "arity": 1,
-          "kind": "def",
-          "start_line": 10,
-          "end_line": 20
-        },
-        {
-          "module": "MyApp.Accounts",
-          "name": "list_users",
-          "arity": 0,
-          "kind": "def",
-          "start_line": 25,
-          "end_line": 30
-        }
-      ]
-    }
-  ]
-}"#;
-
-    const SINGLE_TOON: &str = "\
-file_pattern: lib/accounts.ex
-files[1]:
-  - file: lib/accounts.ex
-    functions[2]{arity,end_line,kind,module,name,start_line}:
-      1,20,def,MyApp.Accounts,get_user,10
-      0,30,def,MyApp.Accounts,list_users,25
-project: test_project";
-
-    const EMPTY_TOON: &str = "\
-file_pattern: nonexistent.ex
-files[0]:
-project: test_project";
 
     // =========================================================================
     // Fixtures
@@ -175,7 +134,7 @@ project: test_project";
         test_name: test_format_json,
         fixture: single_file_result,
         fixture_type: FileResult,
-        expected: SINGLE_JSON,
+        expected: crate::test_utils::load_output_fixture("file", "single.json"),
         format: Json,
     }
 
@@ -183,7 +142,7 @@ project: test_project";
         test_name: test_format_toon,
         fixture: single_file_result,
         fixture_type: FileResult,
-        expected: SINGLE_TOON,
+        expected: crate::test_utils::load_output_fixture("file", "single.toon"),
         format: Toon,
     }
 
@@ -191,7 +150,7 @@ project: test_project";
         test_name: test_format_toon_empty,
         fixture: empty_result,
         fixture_type: FileResult,
-        expected: EMPTY_TOON,
+        expected: crate::test_utils::load_output_fixture("file", "empty.toon"),
         format: Toon,
     }
 }

@@ -86,3 +86,20 @@ pub fn type_signatures_db(project: &str) -> NamedTempFile {
 pub fn structs_db(project: &str) -> NamedTempFile {
     setup_test_db(fixtures::STRUCTS, project)
 }
+
+// =============================================================================
+// Output fixture helpers
+// =============================================================================
+
+use std::path::Path;
+
+/// Load a fixture file from src/fixtures/output/<command>/<name>
+pub fn load_output_fixture(command: &str, name: &str) -> String {
+    let fixture_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("src/fixtures/output")
+        .join(command)
+        .join(name);
+
+    std::fs::read_to_string(&fixture_path)
+        .unwrap_or_else(|e| panic!("Failed to read fixture {}: {}", fixture_path.display(), e))
+}

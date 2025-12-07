@@ -1,0 +1,9 @@
+{
+  "source_module": "MyApp.Controller",
+  "dependencies": [
+    {
+      "module": "MyApp.Service",
+      "call_count": 5
+    }
+  ]
+}

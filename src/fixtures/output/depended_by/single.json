@@ -1,0 +1,9 @@
+{
+  "target_module": "MyApp.Repo",
+  "dependents": [
+    {
+      "module": "MyApp.Service",
+      "call_count": 3
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+hotspots[0]:
+kind: incoming
+module_filter: null
+project: test_project

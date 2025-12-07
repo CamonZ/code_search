@@ -1,0 +1,3 @@
+function_pattern: get_user
+functions[0]:
+module_pattern: MyApp.Accounts

@@ -1,0 +1,5 @@
+hotspots[1]{function,incoming,module,outgoing,total}:
+  get_user,3,MyApp.Accounts,1,4
+kind: incoming
+module_filter: null
+project: test_project

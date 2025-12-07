@@ -1,0 +1,4 @@
+calls[1]{call_type,callee_arity,callee_function,callee_module,caller_function,caller_module,file,line,project}:
+  remote,2,get,MyApp.Repo,get_user,MyApp.Accounts,lib/my_app/accounts.ex,12,default
+function_pattern: get
+module_pattern: MyApp.Repo

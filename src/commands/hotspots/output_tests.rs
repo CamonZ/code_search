@@ -21,33 +21,6 @@ FUNCTION                                                 IN      OUT    TOTAL
 ------------------------------------------------------------------------------
 MyApp.Accounts.get_user                                   3        1        4";
 
-    const SINGLE_JSON: &str = r#"{
-  "project": "test_project",
-  "kind": "incoming",
-  "module_filter": null,
-  "hotspots": [
-    {
-      "module": "MyApp.Accounts",
-      "function": "get_user",
-      "incoming": 3,
-      "outgoing": 1,
-      "total": 4
-    }
-  ]
-}"#;
-
-    const SINGLE_TOON: &str = "\
-hotspots[1]{function,incoming,module,outgoing,total}:
-  get_user,3,MyApp.Accounts,1,4
-kind: incoming
-module_filter: null
-project: test_project";
-
-    const EMPTY_TOON: &str = "\
-hotspots[0]:
-kind: incoming
-module_filter: null
-project: test_project";
 
     // =========================================================================
     // Fixtures
@@ -125,7 +98,7 @@ project: test_project";
         test_name: test_format_json,
         fixture: single_result,
         fixture_type: HotspotsResult,
-        expected: SINGLE_JSON,
+        expected: crate::test_utils::load_output_fixture("hotspots", "single.json"),
         format: Json,
     }
 
@@ -133,7 +106,7 @@ project: test_project";
         test_name: test_format_toon,
         fixture: single_result,
         fixture_type: HotspotsResult,
-        expected: SINGLE_TOON,
+        expected: crate::test_utils::load_output_fixture("hotspots", "single.toon"),
         format: Toon,
     }
 
@@ -141,7 +114,7 @@ project: test_project";
         test_name: test_format_toon_empty,
         fixture: empty_result,
         fixture_type: HotspotsResult,
-        expected: EMPTY_TOON,
+        expected: crate::test_utils::load_output_fixture("hotspots", "empty.toon"),
         format: Toon,
     }
 }

@@ -1,0 +1,7 @@
+exclude_generated: false
+functions[1]{arity,file,kind,line,module,name}:
+  0,lib/accounts.ex,defp,35,MyApp.Accounts,unused_helper
+module_filter: null
+private_only: false
+project: test_project
+public_only: false

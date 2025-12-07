@@ -40,34 +40,6 @@ Import Summary:
   Function locations:     45
   Total:                 210";
 
-    const FULL_JSON_OUTPUT: &str = r#"{
-  "schemas": {
-    "created": [
-      "modules",
-      "functions"
-    ],
-    "already_existed": [
-      "calls"
-    ]
-  },
-  "cleared": true,
-  "modules_imported": 10,
-  "functions_imported": 50,
-  "calls_imported": 100,
-  "structs_imported": 5,
-  "function_locations_imported": 45
-}"#;
-
-    const FULL_TOON_OUTPUT: &str = "\
-calls_imported: 100
-cleared: true
-function_locations_imported: 45
-functions_imported: 50
-modules_imported: 10
-schemas:
-  already_existed[1]: calls
-  created[2]: modules,functions
-structs_imported: 5";
 
     #[fixture]
     fn empty_result() -> ImportResult {
@@ -116,7 +88,7 @@ structs_imported: 5";
         test_name: test_format_json,
         fixture: full_result,
         fixture_type: ImportResult,
-        expected: FULL_JSON_OUTPUT,
+        expected: crate::test_utils::load_output_fixture("import", "full.json"),
         format: Json,
     }
 
@@ -124,7 +96,7 @@ structs_imported: 5";
         test_name: test_format_toon,
         fixture: full_result,
         fixture_type: ImportResult,
-        expected: FULL_TOON_OUTPUT,
+        expected: crate::test_utils::load_output_fixture("import", "full.toon"),
         format: Toon,
     }
 

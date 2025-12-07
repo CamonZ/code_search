@@ -30,36 +30,6 @@ Found 2 caller(s) in chain:
   [1] MyApp.Service.fetch (lib/service.ex:15) -> MyApp.Repo.get/2
     [2] MyApp.Controller.index (lib/controller.ex:7) -> MyApp.Service.fetch/1";
 
-    const SINGLE_JSON: &str = r#"{
-  "target_module": "MyApp.Repo",
-  "target_function": "get",
-  "max_depth": 5,
-  "steps": [
-    {
-      "depth": 1,
-      "caller_module": "MyApp.Service",
-      "caller_function": "fetch",
-      "callee_module": "MyApp.Repo",
-      "callee_function": "get",
-      "callee_arity": 2,
-      "file": "lib/service.ex",
-      "line": 15
-    }
-  ]
-}"#;
-
-    const SINGLE_TOON: &str = "\
-max_depth: 5
-steps[1]{callee_arity,callee_function,callee_module,caller_function,caller_module,depth,file,line}:
-  2,get,MyApp.Repo,fetch,MyApp.Service,1,lib/service.ex,15
-target_function: get
-target_module: MyApp.Repo";
-
-    const EMPTY_TOON: &str = "\
-max_depth: 5
-steps[0]:
-target_function: get
-target_module: MyApp.Repo";
 
     // =========================================================================
     // Fixtures
@@ -154,7 +124,7 @@ target_module: MyApp.Repo";
         test_name: test_format_json,
         fixture: single_result,
         fixture_type: ReverseTraceResult,
-        expected: SINGLE_JSON,
+        expected: crate::test_utils::load_output_fixture("reverse_trace", "single.json"),
         format: Json,
     }
 
@@ -162,7 +132,7 @@ target_module: MyApp.Repo";
         test_name: test_format_toon,
         fixture: single_result,
         fixture_type: ReverseTraceResult,
-        expected: SINGLE_TOON,
+        expected: crate::test_utils::load_output_fixture("reverse_trace", "single.toon"),
         format: Toon,
     }
 
@@ -170,7 +140,7 @@ target_module: MyApp.Repo";
         test_name: test_format_toon_empty,
         fixture: empty_result,
         fixture_type: ReverseTraceResult,
-        expected: EMPTY_TOON,
+        expected: crate::test_utils::load_output_fixture("reverse_trace", "empty.toon"),
         format: Toon,
     }
 }

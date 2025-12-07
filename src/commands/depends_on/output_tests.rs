@@ -27,24 +27,6 @@ Found 2 module(s):
   MyApp.Service (5 calls)
   Phoenix.View (2 calls)";
 
-    const SINGLE_JSON: &str = r#"{
-  "source_module": "MyApp.Controller",
-  "dependencies": [
-    {
-      "module": "MyApp.Service",
-      "call_count": 5
-    }
-  ]
-}"#;
-
-    const SINGLE_TOON: &str = "\
-dependencies[1]{call_count,module}:
-  5,MyApp.Service
-source_module: MyApp.Controller";
-
-    const EMPTY_TOON: &str = "\
-dependencies[0]:
-source_module: MyApp.Controller";
 
     // =========================================================================
     // Fixtures
@@ -115,7 +97,7 @@ source_module: MyApp.Controller";
         test_name: test_format_json,
         fixture: single_result,
         fixture_type: DependsOnResult,
-        expected: SINGLE_JSON,
+        expected: crate::test_utils::load_output_fixture("depends_on", "single.json"),
         format: Json,
     }
 
@@ -123,7 +105,7 @@ source_module: MyApp.Controller";
         test_name: test_format_toon,
         fixture: single_result,
         fixture_type: DependsOnResult,
-        expected: SINGLE_TOON,
+        expected: crate::test_utils::load_output_fixture("depends_on", "single.toon"),
         format: Toon,
     }
 
@@ -131,7 +113,7 @@ source_module: MyApp.Controller";
         test_name: test_format_toon_empty,
         fixture: empty_result,
         fixture_type: DependsOnResult,
-        expected: EMPTY_TOON,
+        expected: crate::test_utils::load_output_fixture("depends_on", "empty.toon"),
         format: Toon,
     }
 }

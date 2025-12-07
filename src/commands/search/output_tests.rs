@@ -27,37 +27,6 @@ Search: get_ (functions)
 Functions (1):
   [default] MyApp.Accounts.get_user/1 -> User.t()";
 
-    const MODULES_JSON: &str = r#"{
-  "pattern": "MyApp",
-  "kind": "modules",
-  "modules": [
-    {
-      "project": "default",
-      "name": "MyApp.Accounts",
-      "source": "unknown"
-    },
-    {
-      "project": "default",
-      "name": "MyApp.Users",
-      "source": "unknown"
-    }
-  ],
-  "functions": []
-}"#;
-
-    const MODULES_TOON: &str = "\
-functions[0]:
-kind: modules
-modules[2]{name,project,source}:
-  MyApp.Accounts,default,unknown
-  MyApp.Users,default,unknown
-pattern: MyApp";
-
-    const EMPTY_TOON: &str = "\
-functions[0]:
-kind: modules
-modules[0]:
-pattern: test";
 
     // =========================================================================
     // Fixtures
@@ -139,7 +108,7 @@ pattern: test";
         test_name: test_format_json,
         fixture: modules_result,
         fixture_type: SearchResult,
-        expected: MODULES_JSON,
+        expected: crate::test_utils::load_output_fixture("search", "modules.json"),
         format: Json,
     }
 
@@ -147,7 +116,7 @@ pattern: test";
         test_name: test_format_toon,
         fixture: modules_result,
         fixture_type: SearchResult,
-        expected: MODULES_TOON,
+        expected: crate::test_utils::load_output_fixture("search", "modules.toon"),
         format: Toon,
     }
 
@@ -155,7 +124,7 @@ pattern: test";
         test_name: test_format_toon_empty,
         fixture: empty_result,
         fixture_type: SearchResult,
-        expected: EMPTY_TOON,
+        expected: crate::test_utils::load_output_fixture("search", "empty.toon"),
         format: Toon,
     }
 }

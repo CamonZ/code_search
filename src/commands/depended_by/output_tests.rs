@@ -27,24 +27,6 @@ Found 2 module(s):
   MyApp.Service (5 calls)
   MyApp.Controller (2 calls)";
 
-    const SINGLE_JSON: &str = r#"{
-  "target_module": "MyApp.Repo",
-  "dependents": [
-    {
-      "module": "MyApp.Service",
-      "call_count": 3
-    }
-  ]
-}"#;
-
-    const SINGLE_TOON: &str = "\
-dependents[1]{call_count,module}:
-  3,MyApp.Service
-target_module: MyApp.Repo";
-
-    const EMPTY_TOON: &str = "\
-dependents[0]:
-target_module: MyApp.Repo";
 
     // =========================================================================
     // Fixtures
@@ -115,7 +97,7 @@ target_module: MyApp.Repo";
         test_name: test_format_json,
         fixture: single_result,
         fixture_type: DependedByResult,
-        expected: SINGLE_JSON,
+        expected: crate::test_utils::load_output_fixture("depended_by", "single.json"),
         format: Json,
     }
 
@@ -123,7 +105,7 @@ target_module: MyApp.Repo";
         test_name: test_format_toon,
         fixture: single_result,
         fixture_type: DependedByResult,
-        expected: SINGLE_TOON,
+        expected: crate::test_utils::load_output_fixture("depended_by", "single.toon"),
         format: Toon,
     }
 
@@ -131,7 +113,7 @@ target_module: MyApp.Repo";
         test_name: test_format_toon_empty,
         fixture: empty_result,
         fixture_type: DependedByResult,
-        expected: EMPTY_TOON,
+        expected: crate::test_utils::load_output_fixture("depended_by", "empty.toon"),
         format: Toon,
     }
 }

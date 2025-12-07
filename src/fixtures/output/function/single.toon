@@ -1,0 +1,4 @@
+function_pattern: get_user
+functions[1]{args,arity,module,name,project,return_type}:
+  integer(),1,MyApp.Accounts,get_user,default,User.t() | nil
+module_pattern: MyApp.Accounts

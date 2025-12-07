@@ -28,40 +28,6 @@ Found 1 unused function(s):
   [defp] MyApp.Accounts.unused_helper/0
        lib/accounts.ex:35";
 
-    const SINGLE_JSON: &str = r#"{
-  "project": "test_project",
-  "module_filter": null,
-  "private_only": false,
-  "public_only": false,
-  "exclude_generated": false,
-  "functions": [
-    {
-      "module": "MyApp.Accounts",
-      "name": "unused_helper",
-      "arity": 0,
-      "kind": "defp",
-      "file": "lib/accounts.ex",
-      "line": 35
-    }
-  ]
-}"#;
-
-    const SINGLE_TOON: &str = "\
-exclude_generated: false
-functions[1]{arity,file,kind,line,module,name}:
-  0,lib/accounts.ex,defp,35,MyApp.Accounts,unused_helper
-module_filter: null
-private_only: false
-project: test_project
-public_only: false";
-
-    const EMPTY_TOON: &str = "\
-exclude_generated: false
-functions[0]:
-module_filter: null
-private_only: false
-project: test_project
-public_only: false";
 
     // =========================================================================
     // Fixtures
@@ -146,7 +112,7 @@ public_only: false";
         test_name: test_format_json,
         fixture: single_result,
         fixture_type: UnusedResult,
-        expected: SINGLE_JSON,
+        expected: crate::test_utils::load_output_fixture("unused", "single.json"),
         format: Json,
     }
 
@@ -154,7 +120,7 @@ public_only: false";
         test_name: test_format_toon,
         fixture: single_result,
         fixture_type: UnusedResult,
-        expected: SINGLE_TOON,
+        expected: crate::test_utils::load_output_fixture("unused", "single.toon"),
         format: Toon,
     }
 
@@ -162,7 +128,7 @@ public_only: false";
         test_name: test_format_toon_empty,
         fixture: empty_result,
         fixture_type: UnusedResult,
-        expected: EMPTY_TOON,
+        expected: crate::test_utils::load_output_fixture("unused", "empty.toon"),
         format: Toon,
     }
 }

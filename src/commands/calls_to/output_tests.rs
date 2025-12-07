@@ -27,34 +27,6 @@ Found 2 caller(s):
   [default] MyApp.Accounts.get_user (lib/my_app/accounts.ex:12) -> MyApp.Repo.get/2
   [default] MyApp.Users.update_user (lib/my_app/users.ex:40) -> MyApp.Repo.get/2";
 
-    const SINGLE_JSON: &str = r#"{
-  "module_pattern": "MyApp.Repo",
-  "function_pattern": "get",
-  "calls": [
-    {
-      "project": "default",
-      "caller_module": "MyApp.Accounts",
-      "caller_function": "get_user",
-      "callee_module": "MyApp.Repo",
-      "callee_function": "get",
-      "callee_arity": 2,
-      "file": "lib/my_app/accounts.ex",
-      "line": 12,
-      "call_type": "remote"
-    }
-  ]
-}"#;
-
-    const SINGLE_TOON: &str = "\
-calls[1]{call_type,callee_arity,callee_function,callee_module,caller_function,caller_module,file,line,project}:
-  remote,2,get,MyApp.Repo,get_user,MyApp.Accounts,lib/my_app/accounts.ex,12,default
-function_pattern: get
-module_pattern: MyApp.Repo";
-
-    const EMPTY_TOON: &str = "\
-calls[0]:
-function_pattern: get
-module_pattern: MyApp.Repo";
 
     // =========================================================================
     // Fixtures
@@ -149,7 +121,7 @@ module_pattern: MyApp.Repo";
         test_name: test_format_json,
         fixture: single_result,
         fixture_type: CallsToResult,
-        expected: SINGLE_JSON,
+        expected: crate::test_utils::load_output_fixture("calls_to", "single.json"),
         format: Json,
     }
 
@@ -157,7 +129,7 @@ module_pattern: MyApp.Repo";
         test_name: test_format_toon,
         fixture: single_result,
         fixture_type: CallsToResult,
-        expected: SINGLE_TOON,
+        expected: crate::test_utils::load_output_fixture("calls_to", "single.toon"),
         format: Toon,
     }
 
@@ -165,7 +137,7 @@ module_pattern: MyApp.Repo";
         test_name: test_format_toon_empty,
         fixture: empty_result,
         fixture_type: CallsToResult,
-        expected: EMPTY_TOON,
+        expected: crate::test_utils::load_output_fixture("calls_to", "empty.toon"),
         format: Toon,
     }
 }

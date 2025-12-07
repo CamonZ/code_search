@@ -33,31 +33,6 @@ Found 2 signature(s):
        args: integer(), keyword()
        returns: User.t() | nil";
 
-    const SINGLE_JSON: &str = r#"{
-  "module_pattern": "MyApp.Accounts",
-  "function_pattern": "get_user",
-  "functions": [
-    {
-      "project": "default",
-      "module": "MyApp.Accounts",
-      "name": "get_user",
-      "arity": 1,
-      "args": "integer()",
-      "return_type": "User.t() | nil"
-    }
-  ]
-}"#;
-
-    const SINGLE_TOON: &str = "\
-function_pattern: get_user
-functions[1]{args,arity,module,name,project,return_type}:
-  integer(),1,MyApp.Accounts,get_user,default,User.t() | nil
-module_pattern: MyApp.Accounts";
-
-    const EMPTY_TOON: &str = "\
-function_pattern: get_user
-functions[0]:
-module_pattern: MyApp.Accounts";
 
     // =========================================================================
     // Fixtures
@@ -143,7 +118,7 @@ module_pattern: MyApp.Accounts";
         test_name: test_format_json,
         fixture: single_result,
         fixture_type: FunctionResult,
-        expected: SINGLE_JSON,
+        expected: crate::test_utils::load_output_fixture("function", "single.json"),
         format: Json,
     }
 
@@ -151,7 +126,7 @@ module_pattern: MyApp.Accounts";
         test_name: test_format_toon,
         fixture: single_result,
         fixture_type: FunctionResult,
-        expected: SINGLE_TOON,
+        expected: crate::test_utils::load_output_fixture("function", "single.toon"),
         format: Toon,
     }
 
@@ -159,7 +134,7 @@ module_pattern: MyApp.Accounts";
         test_name: test_format_toon_empty,
         fixture: empty_result,
         fixture_type: FunctionResult,
-        expected: EMPTY_TOON,
+        expected: crate::test_utils::load_output_fixture("function", "empty.toon"),
         format: Toon,
     }
 }

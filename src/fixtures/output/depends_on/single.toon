@@ -1,0 +1,3 @@
+dependencies[1]{call_count,module}:
+  5,MyApp.Service
+source_module: MyApp.Controller

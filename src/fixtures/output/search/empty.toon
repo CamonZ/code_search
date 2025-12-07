@@ -1,0 +1,4 @@
+functions[0]:
+kind: modules
+modules[0]:
+pattern: test

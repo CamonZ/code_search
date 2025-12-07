@@ -34,42 +34,6 @@ Found 2 struct(s):
   [default] MyApp.Post
     *title :: String.t() \\ nil";
 
-    const SINGLE_JSON: &str = r#"{
-  "module_pattern": "MyApp.User",
-  "structs": [
-    {
-      "project": "default",
-      "module": "MyApp.User",
-      "fields": [
-        {
-          "name": "id",
-          "default_value": "nil",
-          "required": true,
-          "inferred_type": "integer()"
-        },
-        {
-          "name": "name",
-          "default_value": "nil",
-          "required": false,
-          "inferred_type": "String.t()"
-        }
-      ]
-    }
-  ]
-}"#;
-
-    const SINGLE_TOON: &str = "\
-module_pattern: MyApp.User
-structs[1]:
-  - fields[2]{default_value,inferred_type,name,required}:
-    nil,integer(),id,true
-    nil,String.t(),name,false
-    module: MyApp.User
-    project: default";
-
-    const EMPTY_TOON: &str = "\
-module_pattern: MyApp.User
-structs[0]:";
 
     // =========================================================================
     // Fixtures
@@ -166,7 +130,7 @@ structs[0]:";
         test_name: test_format_json,
         fixture: single_result,
         fixture_type: StructResult,
-        expected: SINGLE_JSON,
+        expected: crate::test_utils::load_output_fixture("struct_cmd", "single.json"),
         format: Json,
     }
 
@@ -174,7 +138,7 @@ structs[0]:";
         test_name: test_format_toon,
         fixture: single_result,
         fixture_type: StructResult,
-        expected: SINGLE_TOON,
+        expected: crate::test_utils::load_output_fixture("struct_cmd", "single.toon"),
         format: Toon,
     }
 
@@ -182,7 +146,7 @@ structs[0]:";
         test_name: test_format_toon_empty,
         fixture: empty_result,
         fixture_type: StructResult,
-        expected: EMPTY_TOON,
+        expected: crate::test_utils::load_output_fixture("struct_cmd", "empty.toon"),
         format: Toon,
     }
 }

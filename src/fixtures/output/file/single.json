@@ -1,0 +1,27 @@
+{
+  "project": "test_project",
+  "file_pattern": "lib/accounts.ex",
+  "files": [
+    {
+      "file": "lib/accounts.ex",
+      "functions": [
+        {
+          "module": "MyApp.Accounts",
+          "name": "get_user",
+          "arity": 1,
+          "kind": "def",
+          "start_line": 10,
+          "end_line": 20
+        },
+        {
+          "module": "MyApp.Accounts",
+          "name": "list_users",
+          "arity": 0,
+          "kind": "def",
+          "start_line": 25,
+          "end_line": 30
+        }
+      ]
+    }
+  ]
+}

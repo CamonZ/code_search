@@ -30,36 +30,6 @@ Found 2 call(s) in chain:
   [1] MyApp.Controller.index (lib/controller.ex:7) -> MyApp.Service.fetch/1
     [2] MyApp.Service.fetch (lib/service.ex:15) -> MyApp.Repo.get/2";
 
-    const SINGLE_JSON: &str = r#"{
-  "start_module": "MyApp.Controller",
-  "start_function": "index",
-  "max_depth": 5,
-  "steps": [
-    {
-      "depth": 1,
-      "caller_module": "MyApp.Controller",
-      "caller_function": "index",
-      "callee_module": "MyApp.Service",
-      "callee_function": "fetch",
-      "callee_arity": 1,
-      "file": "lib/controller.ex",
-      "line": 7
-    }
-  ]
-}"#;
-
-    const SINGLE_TOON: &str = "\
-max_depth: 5
-start_function: index
-start_module: MyApp.Controller
-steps[1]{callee_arity,callee_function,callee_module,caller_function,caller_module,depth,file,line}:
-  1,fetch,MyApp.Service,index,MyApp.Controller,1,lib/controller.ex,7";
-
-    const EMPTY_TOON: &str = "\
-max_depth: 5
-start_function: index
-start_module: MyApp.Controller
-steps[0]:";
 
     // =========================================================================
     // Fixtures
@@ -154,7 +124,7 @@ steps[0]:";
         test_name: test_format_json,
         fixture: single_result,
         fixture_type: TraceResult,
-        expected: SINGLE_JSON,
+        expected: crate::test_utils::load_output_fixture("trace", "single.json"),
         format: Json,
     }
 
@@ -162,7 +132,7 @@ steps[0]:";
         test_name: test_format_toon,
         fixture: single_result,
         fixture_type: TraceResult,
-        expected: SINGLE_TOON,
+        expected: crate::test_utils::load_output_fixture("trace", "single.toon"),
         format: Toon,
     }
 
@@ -170,7 +140,7 @@ steps[0]:";
         test_name: test_format_toon_empty,
         fixture: empty_result,
         fixture_type: TraceResult,
-        expected: EMPTY_TOON,
+        expected: crate::test_utils::load_output_fixture("trace", "empty.toon"),
         format: Toon,
     }
 }

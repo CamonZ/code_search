@@ -25,58 +25,6 @@ Path 1:
   [1] MyApp.Controller.index (lib/controller.ex:7) -> MyApp.Service.fetch/1
     [2] MyApp.Service.fetch (lib/service.ex:15) -> MyApp.Repo.get/2";
 
-    const SINGLE_PATH_JSON: &str = r#"{
-  "from_module": "MyApp.Controller",
-  "from_function": "index",
-  "to_module": "MyApp.Repo",
-  "to_function": "get",
-  "max_depth": 10,
-  "paths": [
-    {
-      "steps": [
-        {
-          "depth": 1,
-          "caller_module": "MyApp.Controller",
-          "caller_function": "index",
-          "callee_module": "MyApp.Service",
-          "callee_function": "fetch",
-          "callee_arity": 1,
-          "file": "lib/controller.ex",
-          "line": 7
-        },
-        {
-          "depth": 2,
-          "caller_module": "MyApp.Service",
-          "caller_function": "fetch",
-          "callee_module": "MyApp.Repo",
-          "callee_function": "get",
-          "callee_arity": 2,
-          "file": "lib/service.ex",
-          "line": 15
-        }
-      ]
-    }
-  ]
-}"#;
-
-    const SINGLE_PATH_TOON: &str = "\
-from_function: index
-from_module: MyApp.Controller
-max_depth: 10
-paths[1]:
-  - steps[2]{callee_arity,callee_function,callee_module,caller_function,caller_module,depth,file,line}:
-    1,fetch,MyApp.Service,index,MyApp.Controller,1,lib/controller.ex,7
-    2,get,MyApp.Repo,fetch,MyApp.Service,2,lib/service.ex,15
-to_function: get
-to_module: MyApp.Repo";
-
-    const EMPTY_TOON: &str = "\
-from_function: index
-from_module: MyApp.Controller
-max_depth: 10
-paths[0]:
-to_function: get
-to_module: MyApp.Repo";
 
     // =========================================================================
     // Fixtures
@@ -151,7 +99,7 @@ to_module: MyApp.Repo";
         test_name: test_format_json,
         fixture: single_path_result,
         fixture_type: PathResult,
-        expected: SINGLE_PATH_JSON,
+        expected: crate::test_utils::load_output_fixture("path", "single.json"),
         format: Json,
     }
 
@@ -159,7 +107,7 @@ to_module: MyApp.Repo";
         test_name: test_format_toon,
         fixture: single_path_result,
         fixture_type: PathResult,
-        expected: SINGLE_PATH_TOON,
+        expected: crate::test_utils::load_output_fixture("path", "single.toon"),
         format: Toon,
     }
 
@@ -167,7 +115,7 @@ to_module: MyApp.Repo";
         test_name: test_format_toon_empty,
         fixture: empty_result,
         fixture_type: PathResult,
-        expected: EMPTY_TOON,
+        expected: crate::test_utils::load_output_fixture("path", "empty.toon"),
         format: Toon,
     }
 }

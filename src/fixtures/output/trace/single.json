@@ -1,0 +1,17 @@
+{
+  "start_module": "MyApp.Controller",
+  "start_function": "index",
+  "max_depth": 5,
+  "steps": [
+    {
+      "depth": 1,
+      "caller_module": "MyApp.Controller",
+      "caller_function": "index",
+      "callee_module": "MyApp.Service",
+      "callee_function": "fetch",
+      "callee_arity": 1,
+      "file": "lib/controller.ex",
+      "line": 7
+    }
+  ]
+}

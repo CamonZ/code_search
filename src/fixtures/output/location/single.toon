@@ -1,0 +1,4 @@
+function_pattern: get_user
+locations[1]{arity,end_line,file,kind,module,name,project,start_line}:
+  1,15,lib/my_app/accounts.ex,def,MyApp.Accounts,get_user,default,10
+module_pattern: MyApp.Accounts

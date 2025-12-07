@@ -1,0 +1,3 @@
+dependents[1]{call_count,module}:
+  3,MyApp.Service
+target_module: MyApp.Repo

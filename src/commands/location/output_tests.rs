@@ -30,33 +30,6 @@ Found 2 location(s):
   [default] MyApp.Users.create_user/1 (def)
        lib/my_app/users.ex:5:12";
 
-    const SINGLE_JSON: &str = r#"{
-  "module_pattern": "MyApp.Accounts",
-  "function_pattern": "get_user",
-  "locations": [
-    {
-      "project": "default",
-      "file": "lib/my_app/accounts.ex",
-      "start_line": 10,
-      "end_line": 15,
-      "module": "MyApp.Accounts",
-      "kind": "def",
-      "name": "get_user",
-      "arity": 1
-    }
-  ]
-}"#;
-
-    const SINGLE_TOON: &str = "\
-function_pattern: get_user
-locations[1]{arity,end_line,file,kind,module,name,project,start_line}:
-  1,15,lib/my_app/accounts.ex,def,MyApp.Accounts,get_user,default,10
-module_pattern: MyApp.Accounts";
-
-    const EMPTY_TOON: &str = "\
-function_pattern: foo
-locations[0]:
-module_pattern: MyApp";
 
     // =========================================================================
     // Fixtures
@@ -148,7 +121,7 @@ module_pattern: MyApp";
         test_name: test_format_json,
         fixture: single_result,
         fixture_type: LocationResult,
-        expected: SINGLE_JSON,
+        expected: crate::test_utils::load_output_fixture("location", "single.json"),
         format: Json,
     }
 
@@ -156,7 +129,7 @@ module_pattern: MyApp";
         test_name: test_format_toon,
         fixture: single_result,
         fixture_type: LocationResult,
-        expected: SINGLE_TOON,
+        expected: crate::test_utils::load_output_fixture("location", "single.toon"),
         format: Toon,
     }
 
@@ -164,7 +137,7 @@ module_pattern: MyApp";
         test_name: test_format_toon_empty,
         fixture: empty_result,
         fixture_type: LocationResult,
-        expected: EMPTY_TOON,
+        expected: crate::test_utils::load_output_fixture("location", "empty.toon"),
         format: Toon,
     }
 }

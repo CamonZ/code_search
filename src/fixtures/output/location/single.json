@@ -1,0 +1,16 @@
+{
+  "module_pattern": "MyApp.Accounts",
+  "function_pattern": "get_user",
+  "locations": [
+    {
+      "project": "default",
+      "file": "lib/my_app/accounts.ex",
+      "start_line": 10,
+      "end_line": 15,
+      "module": "MyApp.Accounts",
+      "kind": "def",
+      "name": "get_user",
+      "arity": 1
+    }
+  ]
+}
