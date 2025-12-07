@@ -43,7 +43,7 @@ impl Execute for DependedByCmd {
         result.dependents = find_dependents(
             &db,
             &self.module,
-            self.project.as_deref(),
+            &self.project,
             self.regex,
             self.limit,
         )?;
@@ -55,7 +55,7 @@ impl Execute for DependedByCmd {
 fn find_dependents(
     db: &cozo::DbInstance,
     module_pattern: &str,
-    project: Option<&str>,
+    project: &str,
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<ModuleDependent>, Box<dyn Error>> {
@@ -65,18 +65,14 @@ fn find_dependents(
         "callee_module == $module_pattern"
     };
 
-    let project_cond = if project.is_some() {
-        ", project == $project"
-    } else {
-        ""
-    };
+    let project_cond = ", project == $project";
 
     // Aggregate calls by caller module, excluding self-references
     // In CozoDB, count(callee_module) counts occurrences grouped by caller_module
     let script = format!(
         r#"
         ?[caller_module, count(callee_module)] :=
-            *calls{{caller_module, callee_module}},
+            *calls{{project, caller_module, callee_module}},
             {module_cond},
             caller_module != callee_module
             {project_cond}
@@ -87,9 +83,7 @@ fn find_dependents(
 
     let mut params = Params::new();
     params.insert("module_pattern".to_string(), DataValue::Str(module_pattern.into()));
-    if let Some(proj) = project {
-        params.insert("project".to_string(), DataValue::Str(proj.into()));
-    }
+    params.insert("project".to_string(), DataValue::Str(project.into()));
 
     let rows = run_query(db, &script, params).map_err(|e| DependedByError::QueryFailed {
         message: e.to_string(),
@@ -190,7 +184,7 @@ mod tests {
     fn test_depended_by_single_module(populated_db: NamedTempFile) {
         let cmd = DependedByCmd {
             module: "MyApp.Repo".to_string(),
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -204,7 +198,7 @@ mod tests {
     fn test_depended_by_counts_calls(populated_db: NamedTempFile) {
         let cmd = DependedByCmd {
             module: "MyApp.Repo".to_string(),
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -220,7 +214,7 @@ mod tests {
     fn test_depended_by_ordered_by_count(populated_db: NamedTempFile) {
         let cmd = DependedByCmd {
             module: "MyApp.Repo".to_string(),
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -234,7 +228,7 @@ mod tests {
     fn test_depended_by_no_match(populated_db: NamedTempFile) {
         let cmd = DependedByCmd {
             module: "NonExistent".to_string(),
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -246,7 +240,7 @@ mod tests {
     fn test_depended_by_excludes_self(populated_db: NamedTempFile) {
         let cmd = DependedByCmd {
             module: "MyApp.Repo".to_string(),
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -259,7 +253,7 @@ mod tests {
         let db_file = NamedTempFile::new().expect("Failed to create temp db file");
         let cmd = DependedByCmd {
             module: "MyApp".to_string(),
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };

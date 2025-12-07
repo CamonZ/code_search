@@ -59,10 +59,10 @@ impl Execute for SearchCmd {
 
         match self.kind {
             SearchKind::Modules => {
-                result.modules = search_modules(&db, &self.pattern, self.project.as_deref(), self.limit, self.regex)?;
+                result.modules = search_modules(&db, &self.pattern, &self.project, self.limit, self.regex)?;
             }
             SearchKind::Functions => {
-                result.functions = search_functions(&db, &self.pattern, self.project.as_deref(), self.limit, self.regex)?;
+                result.functions = search_functions(&db, &self.pattern, &self.project, self.limit, self.regex)?;
             }
         }
 
@@ -73,37 +73,24 @@ impl Execute for SearchCmd {
 fn search_modules(
     db: &cozo::DbInstance,
     pattern: &str,
-    project: Option<&str>,
+    project: &str,
     limit: u32,
     use_regex: bool,
 ) -> Result<Vec<ModuleResult>, Box<dyn Error>> {
     let match_fn = if use_regex { "regex_matches" } else { "str_includes" };
-    let script = if project.is_some() {
-        format!(
-            r#"
-            ?[project, name, source] := *modules{{project, name, source}},
-                project = $project,
-                {match_fn}(name, $pattern)
-            :limit {limit}
-            :order name
-            "#,
-        )
-    } else {
-        format!(
-            r#"
-            ?[project, name, source] := *modules{{project, name, source}},
-                {match_fn}(name, $pattern)
-            :limit {limit}
-            :order name
-            "#,
-        )
-    };
+    let script = format!(
+        r#"
+        ?[project, name, source] := *modules{{project, name, source}},
+            project = $project,
+            {match_fn}(name, $pattern)
+        :limit {limit}
+        :order name
+        "#,
+    );
 
     let mut params = Params::new();
     params.insert("pattern".to_string(), DataValue::Str(pattern.into()));
-    if let Some(proj) = project {
-        params.insert("project".to_string(), DataValue::Str(proj.into()));
-    }
+    params.insert("project".to_string(), DataValue::Str(project.into()));
 
     let rows = run_query(db, &script, params).map_err(|e| SearchError::QueryFailed {
         message: e.to_string(),
@@ -125,37 +112,24 @@ fn search_modules(
 fn search_functions(
     db: &cozo::DbInstance,
     pattern: &str,
-    project: Option<&str>,
+    project: &str,
     limit: u32,
     use_regex: bool,
 ) -> Result<Vec<FunctionResult>, Box<dyn Error>> {
     let match_fn = if use_regex { "regex_matches" } else { "str_includes" };
-    let script = if project.is_some() {
-        format!(
-            r#"
-            ?[project, module, name, arity, return_type] := *functions{{project, module, name, arity, return_type}},
-                project = $project,
-                {match_fn}(name, $pattern)
-            :limit {limit}
-            :order module, name, arity
-            "#,
-        )
-    } else {
-        format!(
-            r#"
-            ?[project, module, name, arity, return_type] := *functions{{project, module, name, arity, return_type}},
-                {match_fn}(name, $pattern)
-            :limit {limit}
-            :order module, name, arity
-            "#,
-        )
-    };
+    let script = format!(
+        r#"
+        ?[project, module, name, arity, return_type] := *functions{{project, module, name, arity, return_type}},
+            project = $project,
+            {match_fn}(name, $pattern)
+        :limit {limit}
+        :order module, name, arity
+        "#,
+    );
 
     let mut params = Params::new();
     params.insert("pattern".to_string(), DataValue::Str(pattern.into()));
-    if let Some(proj) = project {
-        params.insert("project".to_string(), DataValue::Str(proj.into()));
-    }
+    params.insert("project".to_string(), DataValue::Str(project.into()));
 
     let rows = run_query(db, &script, params).map_err(|e| SearchError::QueryFailed {
         message: e.to_string(),
@@ -249,7 +223,7 @@ mod tests {
         let cmd = SearchCmd {
             pattern: "MyApp".to_string(),
             kind: SearchKind::Modules,
-            project: None,
+            project: "test_project".to_string(),
             limit: 100,
             regex: false,
         };
@@ -263,7 +237,7 @@ mod tests {
         let cmd = SearchCmd {
             pattern: "App".to_string(),
             kind: SearchKind::Modules,
-            project: Some("test_project".to_string()),
+            project: "test_project".to_string(),
             limit: 100,
             regex: false,
         };
@@ -277,7 +251,7 @@ mod tests {
         let cmd = SearchCmd {
             pattern: "NonExistent".to_string(),
             kind: SearchKind::Modules,
-            project: None,
+            project: "test_project".to_string(),
             limit: 100,
             regex: false,
         };
@@ -290,7 +264,7 @@ mod tests {
         let cmd = SearchCmd {
             pattern: "user".to_string(),
             kind: SearchKind::Functions,
-            project: None,
+            project: "test_project".to_string(),
             limit: 100,
             regex: false,
         };
@@ -304,7 +278,7 @@ mod tests {
         let cmd = SearchCmd {
             pattern: "get_".to_string(),
             kind: SearchKind::Functions,
-            project: None,
+            project: "test_project".to_string(),
             limit: 100,
             regex: false,
         };
@@ -319,7 +293,7 @@ mod tests {
         let cmd = SearchCmd {
             pattern: "user".to_string(),
             kind: SearchKind::Functions,
-            project: None,
+            project: "test_project".to_string(),
             limit: 1,
             regex: false,
         };
@@ -333,7 +307,7 @@ mod tests {
         let cmd = SearchCmd {
             pattern: "test".to_string(),
             kind: SearchKind::Modules,
-            project: None,
+            project: "test_project".to_string(),
             limit: 100,
             regex: false,
         };
@@ -347,7 +321,7 @@ mod tests {
         let cmd = SearchCmd {
             pattern: "^get_".to_string(), // regex: starts with "get_"
             kind: SearchKind::Functions,
-            project: None,
+            project: "test_project".to_string(),
             limit: 100,
             regex: true,
         };
@@ -361,7 +335,7 @@ mod tests {
         let cmd = SearchCmd {
             pattern: "\\.(Accounts|Users)$".to_string(), // regex: ends with .Accounts or .Users
             kind: SearchKind::Modules,
-            project: None,
+            project: "test_project".to_string(),
             limit: 100,
             regex: true,
         };
@@ -374,7 +348,7 @@ mod tests {
         let cmd = SearchCmd {
             pattern: "^xyz".to_string(), // regex: starts with "xyz"
             kind: SearchKind::Functions,
-            project: None,
+            project: "test_project".to_string(),
             limit: 100,
             regex: true,
         };

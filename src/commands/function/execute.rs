@@ -51,7 +51,7 @@ impl Execute for FunctionCmd {
             &self.module,
             &self.function,
             self.arity,
-            self.project.as_deref(),
+            &self.project,
             self.regex,
             self.limit,
         )?;
@@ -65,7 +65,7 @@ fn find_functions(
     module_pattern: &str,
     function_pattern: &str,
     arity: Option<i64>,
-    project: Option<&str>,
+    project: &str,
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<FunctionSignature>, Box<dyn Error>> {
@@ -87,11 +87,7 @@ fn find_functions(
         ""
     };
 
-    let project_cond = if project.is_some() {
-        ", project == $project"
-    } else {
-        ""
-    };
+    let project_cond = ", project == $project";
 
     let script = format!(
         r#"
@@ -112,9 +108,7 @@ fn find_functions(
     if let Some(a) = arity {
         params.insert("arity".to_string(), DataValue::from(a));
     }
-    if let Some(proj) = project {
-        params.insert("project".to_string(), DataValue::Str(proj.into()));
-    }
+    params.insert("project".to_string(), DataValue::Str(project.into()));
 
     let rows = run_query(&db, &script, params).map_err(|e| FunctionError::QueryFailed {
         message: e.to_string(),
@@ -250,7 +244,7 @@ mod tests {
             module: "MyApp.Accounts".to_string(),
             function: "get_user".to_string(),
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -264,7 +258,7 @@ mod tests {
             module: "MyApp.Accounts".to_string(),
             function: "get_user".to_string(),
             arity: Some(1),
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -281,7 +275,7 @@ mod tests {
             module: "MyApp\\..*".to_string(),
             function: ".*user.*".to_string(),
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: true,
             limit: 100,
         };
@@ -295,7 +289,7 @@ mod tests {
             module: "NonExistent".to_string(),
             function: "foo".to_string(),
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -309,7 +303,7 @@ mod tests {
             module: "MyApp.Accounts".to_string(),
             function: "get_user".to_string(),
             arity: None,
-            project: Some("test_project".to_string()),
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -324,7 +318,7 @@ mod tests {
             module: "MyApp\\..*".to_string(),
             function: ".*".to_string(),
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: true,
             limit: 2,
         };
@@ -339,7 +333,7 @@ mod tests {
             module: "MyApp".to_string(),
             function: "foo".to_string(),
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };

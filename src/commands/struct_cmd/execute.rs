@@ -64,7 +64,7 @@ impl Execute for StructCmd {
         let fields = find_struct_fields(
             &db,
             &self.module,
-            self.project.as_deref(),
+            &self.project,
             self.regex,
             self.limit,
         )?;
@@ -79,7 +79,7 @@ impl Execute for StructCmd {
 fn find_struct_fields(
     db: &cozo::DbInstance,
     module_pattern: &str,
-    project: Option<&str>,
+    project: &str,
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<StructField>, Box<dyn Error>> {
@@ -89,11 +89,7 @@ fn find_struct_fields(
         "module == $module_pattern".to_string()
     };
 
-    let project_cond = if project.is_some() {
-        ", project == $project"
-    } else {
-        ""
-    };
+    let project_cond = ", project == $project";
 
     let script = format!(
         r#"
@@ -108,9 +104,7 @@ fn find_struct_fields(
 
     let mut params = Params::new();
     params.insert("module_pattern".to_string(), DataValue::Str(module_pattern.into()));
-    if let Some(proj) = project {
-        params.insert("project".to_string(), DataValue::Str(proj.into()));
-    }
+    params.insert("project".to_string(), DataValue::Str(project.into()));
 
     let rows = run_query(&db, &script, params).map_err(|e| StructError::QueryFailed {
         message: e.to_string(),
@@ -225,7 +219,7 @@ mod tests {
     fn test_struct_exact_match(populated_db: NamedTempFile) {
         let cmd = StructCmd {
             module: "MyApp.User".to_string(),
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -239,7 +233,7 @@ mod tests {
     fn test_struct_fields_content(populated_db: NamedTempFile) {
         let cmd = StructCmd {
             module: "MyApp.User".to_string(),
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -256,7 +250,7 @@ mod tests {
     fn test_struct_regex_match(populated_db: NamedTempFile) {
         let cmd = StructCmd {
             module: "MyApp\\..*".to_string(),
-            project: None,
+            project: "test_project".to_string(),
             regex: true,
             limit: 100,
         };
@@ -268,7 +262,7 @@ mod tests {
     fn test_struct_no_match(populated_db: NamedTempFile) {
         let cmd = StructCmd {
             module: "NonExistent".to_string(),
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -280,7 +274,7 @@ mod tests {
     fn test_struct_with_project_filter(populated_db: NamedTempFile) {
         let cmd = StructCmd {
             module: "MyApp.User".to_string(),
-            project: Some("test_project".to_string()),
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -293,7 +287,7 @@ mod tests {
     fn test_struct_with_limit(populated_db: NamedTempFile) {
         let cmd = StructCmd {
             module: "MyApp\\..*".to_string(),
-            project: None,
+            project: "test_project".to_string(),
             regex: true,
             limit: 3, // Limit to 3 fields total
         };
@@ -308,7 +302,7 @@ mod tests {
         let db_file = NamedTempFile::new().expect("Failed to create temp db file");
         let cmd = StructCmd {
             module: "MyApp".to_string(),
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };

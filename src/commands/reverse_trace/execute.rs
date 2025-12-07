@@ -55,7 +55,7 @@ impl Execute for ReverseTraceCmd {
             &self.module,
             &self.function,
             self.arity,
-            self.project.as_deref(),
+            &self.project,
             self.regex,
             self.depth,
             self.limit,
@@ -70,7 +70,7 @@ fn reverse_trace_calls(
     module_pattern: &str,
     function_pattern: &str,
     arity: Option<i64>,
-    project: Option<&str>,
+    project: &str,
     use_regex: bool,
     max_depth: u32,
     limit: u32,
@@ -95,11 +95,7 @@ fn reverse_trace_calls(
         ""
     };
 
-    let project_cond = if project.is_some() {
-        ", project == $project"
-    } else {
-        ""
-    };
+    let project_cond = ", project == $project";
 
     // Recursive query to trace call chains backwards
     // Base case: calls TO the target function
@@ -141,9 +137,7 @@ fn reverse_trace_calls(
     if let Some(a) = arity {
         params.insert("arity".to_string(), DataValue::from(a));
     }
-    if let Some(proj) = project {
-        params.insert("project".to_string(), DataValue::Str(proj.into()));
-    }
+    params.insert("project".to_string(), DataValue::Str(project.into()));
 
     let rows = run_query(&db, &script, params).map_err(|e| ReverseTraceError::QueryFailed {
         message: e.to_string(),
@@ -251,7 +245,7 @@ mod tests {
             module: "MyApp.Repo".to_string(),
             function: "get".to_string(),
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             depth: 1,
             limit: 100,
@@ -268,7 +262,7 @@ mod tests {
             module: "MyApp.Repo".to_string(),
             function: "get".to_string(),
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             depth: 3,
             limit: 100,
@@ -285,7 +279,7 @@ mod tests {
             module: "Ecto.Query".to_string(),
             function: "query".to_string(),
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             depth: 5,
             limit: 100,
@@ -301,7 +295,7 @@ mod tests {
             module: "NonExistent".to_string(),
             function: "foo".to_string(),
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             depth: 5,
             limit: 100,
@@ -317,7 +311,7 @@ mod tests {
             module: "MyApp".to_string(),
             function: "foo".to_string(),
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             depth: 5,
             limit: 100,

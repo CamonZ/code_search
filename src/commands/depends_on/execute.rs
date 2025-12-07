@@ -43,7 +43,7 @@ impl Execute for DependsOnCmd {
         result.dependencies = find_dependencies(
             &db,
             &self.module,
-            self.project.as_deref(),
+            &self.project,
             self.regex,
             self.limit,
         )?;
@@ -55,7 +55,7 @@ impl Execute for DependsOnCmd {
 fn find_dependencies(
     db: &cozo::DbInstance,
     module_pattern: &str,
-    project: Option<&str>,
+    project: &str,
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<ModuleDependency>, Box<dyn Error>> {
@@ -65,18 +65,14 @@ fn find_dependencies(
         "caller_module == $module_pattern"
     };
 
-    let project_cond = if project.is_some() {
-        ", project == $project"
-    } else {
-        ""
-    };
+    let project_cond = ", project == $project";
 
     // Aggregate calls by callee module, excluding self-references
     // In CozoDB, count(caller_module) counts occurrences grouped by callee_module
     let script = format!(
         r#"
         ?[callee_module, count(caller_module)] :=
-            *calls{{caller_module, callee_module}},
+            *calls{{project, caller_module, callee_module}},
             {module_cond},
             caller_module != callee_module
             {project_cond}
@@ -87,9 +83,7 @@ fn find_dependencies(
 
     let mut params = Params::new();
     params.insert("module_pattern".to_string(), DataValue::Str(module_pattern.into()));
-    if let Some(proj) = project {
-        params.insert("project".to_string(), DataValue::Str(proj.into()));
-    }
+    params.insert("project".to_string(), DataValue::Str(project.into()));
 
     let rows = run_query(db, &script, params).map_err(|e| DependsOnError::QueryFailed {
         message: e.to_string(),
@@ -190,7 +184,7 @@ mod tests {
     fn test_depends_on_single_module(populated_db: NamedTempFile) {
         let cmd = DependsOnCmd {
             module: "MyApp.Controller".to_string(),
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -204,7 +198,7 @@ mod tests {
     fn test_depends_on_counts_calls(populated_db: NamedTempFile) {
         let cmd = DependsOnCmd {
             module: "MyApp.Service".to_string(),
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -218,7 +212,7 @@ mod tests {
     fn test_depends_on_no_match(populated_db: NamedTempFile) {
         let cmd = DependsOnCmd {
             module: "NonExistent".to_string(),
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -231,7 +225,7 @@ mod tests {
         // Even if a module calls itself, it shouldn't appear in dependencies
         let cmd = DependsOnCmd {
             module: "MyApp.Repo".to_string(),
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -244,7 +238,7 @@ mod tests {
         let db_file = NamedTempFile::new().expect("Failed to create temp db file");
         let cmd = DependsOnCmd {
             module: "MyApp".to_string(),
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };

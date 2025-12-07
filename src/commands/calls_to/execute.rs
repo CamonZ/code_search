@@ -54,7 +54,7 @@ impl Execute for CallsToCmd {
             &self.module,
             self.function.as_deref(),
             self.arity,
-            self.project.as_deref(),
+            &self.project,
             self.regex,
             self.limit,
         )?;
@@ -68,7 +68,7 @@ fn find_calls_to(
     module_pattern: &str,
     function_pattern: Option<&str>,
     arity: Option<i64>,
-    project: Option<&str>,
+    project: &str,
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<CallEdge>, Box<dyn Error>> {
@@ -91,11 +91,7 @@ fn find_calls_to(
         ""
     };
 
-    let project_cond = if project.is_some() {
-        ", project == $project"
-    } else {
-        ""
-    };
+    let project_cond = ", project == $project";
 
     let script = format!(
         r#"
@@ -118,9 +114,7 @@ fn find_calls_to(
     if let Some(a) = arity {
         params.insert("arity".to_string(), DataValue::Num(Num::Int(a)));
     }
-    if let Some(proj) = project {
-        params.insert("project".to_string(), DataValue::Str(proj.into()));
-    }
+    params.insert("project".to_string(), DataValue::Str(project.into()));
 
     let rows = run_query(db, &script, params).map_err(|e| CallsToError::QueryFailed {
         message: e.to_string(),
@@ -265,7 +259,7 @@ mod tests {
             module: "MyApp.Repo".to_string(),
             function: None,
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -279,7 +273,7 @@ mod tests {
             module: "MyApp.Repo".to_string(),
             function: Some("get".to_string()),
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -293,7 +287,7 @@ mod tests {
             module: "MyApp.Repo".to_string(),
             function: Some("get".to_string()),
             arity: Some(2),
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -308,7 +302,7 @@ mod tests {
             module: "MyApp.Repo".to_string(),
             function: Some("get|all".to_string()),
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: true,
             limit: 100,
         };
@@ -322,7 +316,7 @@ mod tests {
             module: "NonExistent".to_string(),
             function: None,
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -336,7 +330,7 @@ mod tests {
             module: "MyApp.Repo".to_string(),
             function: None,
             arity: None,
-            project: Some("test_project".to_string()),
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -351,7 +345,7 @@ mod tests {
             module: "MyApp.Repo".to_string(),
             function: None,
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 2,
         };
@@ -366,7 +360,7 @@ mod tests {
             module: "MyApp.Repo".to_string(),
             function: None,
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -380,7 +374,7 @@ mod tests {
             module: "MyApp.Repo".to_string(),
             function: Some("get".to_string()),
             arity: Some(99),
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };

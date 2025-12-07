@@ -18,9 +18,9 @@ pub struct TraceCmd {
     #[arg(short, long)]
     pub arity: Option<i64>,
 
-    /// Project to search in (default: all projects)
-    #[arg(long)]
-    pub project: Option<String>,
+    /// Project to search in
+    #[arg(long, default_value = "default")]
+    pub project: String,
 
     /// Treat module and function as regular expressions
     #[arg(short, long, default_value_t = false)]
@@ -69,6 +69,47 @@ mod tests {
                 assert_eq!(cmd.module, "MyApp.Accounts");
                 assert_eq!(cmd.function, "get_user");
                 assert_eq!(cmd.depth, 5); // default
+                assert_eq!(cmd.project, "default"); // default project
+            }
+            _ => panic!("Expected Trace command"),
+        }
+    }
+
+    #[rstest]
+    fn test_trace_project_defaults_to_default() {
+        let args = Args::try_parse_from([
+            "code_search",
+            "trace",
+            "--module",
+            "MyApp",
+            "--function",
+            "foo",
+        ])
+        .unwrap();
+        match args.command {
+            crate::commands::Command::Trace(cmd) => {
+                assert_eq!(cmd.project, "default");
+            }
+            _ => panic!("Expected Trace command"),
+        }
+    }
+
+    #[rstest]
+    fn test_trace_project_can_be_overridden() {
+        let args = Args::try_parse_from([
+            "code_search",
+            "trace",
+            "--module",
+            "MyApp",
+            "--function",
+            "foo",
+            "--project",
+            "my_custom_project",
+        ])
+        .unwrap();
+        match args.command {
+            crate::commands::Command::Trace(cmd) => {
+                assert_eq!(cmd.project, "my_custom_project");
             }
             _ => panic!("Expected Trace command"),
         }

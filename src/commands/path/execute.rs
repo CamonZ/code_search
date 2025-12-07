@@ -69,7 +69,7 @@ impl Execute for PathCmd {
             &self.to_module,
             &self.to_function,
             self.to_arity,
-            self.project.as_deref(),
+            &self.project,
             self.depth,
             self.limit,
         )?;
@@ -87,15 +87,11 @@ fn find_paths(
     to_module: &str,
     to_function: &str,
     to_arity: Option<i64>,
-    project: Option<&str>,
+    project: &str,
     max_depth: u32,
     limit: u32,
 ) -> Result<Vec<CallPath>, Box<dyn Error>> {
-    let project_cond = if project.is_some() {
-        ", project == $project"
-    } else {
-        ""
-    };
+    let project_cond = ", project == $project";
 
     let to_arity_cond = if to_arity.is_some() {
         ", callee_arity == $to_arity"
@@ -154,9 +150,7 @@ fn find_paths(
     if let Some(a) = to_arity {
         params.insert("to_arity".to_string(), DataValue::from(a));
     }
-    if let Some(proj) = project {
-        params.insert("project".to_string(), DataValue::Str(proj.into()));
-    }
+    params.insert("project".to_string(), DataValue::Str(project.into()));
 
     let rows = run_query(&db, &script, params).map_err(|e| PathError::QueryFailed {
         message: e.to_string(),
@@ -364,7 +358,7 @@ mod tests {
             to_module: "MyApp.Service".to_string(),
             to_function: "fetch".to_string(),
             to_arity: None,
-            project: None,
+            project: "test_project".to_string(),
             depth: 10,
             limit: 10,
         };
@@ -384,7 +378,7 @@ mod tests {
             to_module: "MyApp.Repo".to_string(),
             to_function: "get".to_string(),
             to_arity: None,
-            project: None,
+            project: "test_project".to_string(),
             depth: 10,
             limit: 10,
         };
@@ -402,7 +396,7 @@ mod tests {
             to_module: "Ecto.Query".to_string(),
             to_function: "query".to_string(),
             to_arity: None,
-            project: None,
+            project: "test_project".to_string(),
             depth: 10,
             limit: 10,
         };
@@ -420,7 +414,7 @@ mod tests {
             to_module: "MyApp.Controller".to_string(),
             to_function: "index".to_string(),
             to_arity: None,
-            project: None,
+            project: "test_project".to_string(),
             depth: 10,
             limit: 10,
         };
@@ -437,7 +431,7 @@ mod tests {
             to_module: "Ecto.Query".to_string(),
             to_function: "query".to_string(),
             to_arity: None,
-            project: None,
+            project: "test_project".to_string(),
             depth: 2, // Not enough to reach Ecto.Query (needs 3)
             limit: 10,
         };
@@ -455,7 +449,7 @@ mod tests {
             to_module: "MyApp".to_string(),
             to_function: "bar".to_string(),
             to_arity: None,
-            project: None,
+            project: "test_project".to_string(),
             depth: 10,
             limit: 10,
         };

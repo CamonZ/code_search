@@ -10,9 +10,9 @@ pub struct DependedByCmd {
     #[arg(short, long)]
     pub module: String,
 
-    /// Project to search in (default: all projects)
-    #[arg(long)]
-    pub project: Option<String>,
+    /// Project to search in
+    #[arg(long, default_value = "default")]
+    pub project: String,
 
     /// Treat module as a regular expression
     #[arg(short, long, default_value_t = false)]

@@ -23,9 +23,9 @@ pub struct SearchCmd {
     #[arg(short, long, value_enum, default_value_t = SearchKind::Modules)]
     pub kind: SearchKind,
 
-    /// Project to search in (default: all projects)
-    #[arg(long)]
-    pub project: Option<String>,
+    /// Project to search in
+    #[arg(long, default_value = "default")]
+    pub project: String,
 
     /// Maximum number of results to return (1-1000)
     #[arg(short, long, default_value_t = 100, value_parser = clap::value_parser!(u32).range(1..=1000))]
@@ -104,7 +104,7 @@ mod tests {
         .unwrap();
         match args.command {
             crate::commands::Command::Search(cmd) => {
-                assert_eq!(cmd.project, Some("my_app".to_string()));
+                assert_eq!(cmd.project, "my_app".to_string());
             }
             _ => panic!("Expected Search command"),
         }

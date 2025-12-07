@@ -10,9 +10,9 @@ pub struct StructCmd {
     #[arg(short, long)]
     pub module: String,
 
-    /// Project to search in (default: all projects)
-    #[arg(long)]
-    pub project: Option<String>,
+    /// Project to search in
+    #[arg(long, default_value = "default")]
+    pub project: String,
 
     /// Treat module as a regular expression
     #[arg(short, long, default_value_t = false)]
@@ -83,7 +83,7 @@ mod tests {
         .unwrap();
         match args.command {
             crate::commands::Command::Struct(cmd) => {
-                assert_eq!(cmd.project, Some("my_app".to_string()));
+                assert_eq!(cmd.project, "my_app".to_string());
             }
             _ => panic!("Expected Struct command"),
         }

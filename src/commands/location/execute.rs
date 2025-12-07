@@ -60,7 +60,7 @@ impl Execute for LocationCmd {
             self.module.as_deref(),
             &self.function,
             self.arity,
-            self.project.as_deref(),
+            &self.project,
             self.regex,
             self.limit,
         )?;
@@ -74,7 +74,7 @@ fn find_locations(
     module_pattern: Option<&str>,
     function_pattern: &str,
     arity: Option<i64>,
-    project: Option<&str>,
+    project: &str,
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<FunctionLocation>, Box<dyn Error>> {
@@ -97,11 +97,7 @@ fn find_locations(
         ""
     };
 
-    let project_cond = if project.is_some() {
-        ", project == $project"
-    } else {
-        ""
-    };
+    let project_cond = ", project == $project";
 
     let script = format!(
         r#"
@@ -124,9 +120,7 @@ fn find_locations(
     if let Some(a) = arity {
         params.insert("arity".to_string(), DataValue::Num(Num::Int(a)));
     }
-    if let Some(proj) = project {
-        params.insert("project".to_string(), DataValue::Str(proj.into()));
-    }
+    params.insert("project".to_string(), DataValue::Str(project.into()));
 
     let rows = run_query(db, &script, params).map_err(|e| LocationError::QueryFailed {
         message: e.to_string(),
@@ -241,7 +235,7 @@ mod tests {
             module: Some("MyApp.Accounts".to_string()),
             function: "get_user".to_string(),
             arity: Some(1),
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -258,7 +252,7 @@ mod tests {
             module: None,
             function: "get_user".to_string(),
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -273,7 +267,7 @@ mod tests {
             module: None,
             function: ".*user.*".to_string(),
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: true,
             limit: 100,
         };
@@ -287,7 +281,7 @@ mod tests {
             module: Some("MyApp.Accounts".to_string()),
             function: "get_user".to_string(),
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -301,7 +295,7 @@ mod tests {
             module: Some("MyApp\\..*".to_string()),
             function: ".*user.*".to_string(),
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: true,
             limit: 100,
         };
@@ -315,7 +309,7 @@ mod tests {
             module: Some("NonExistent".to_string()),
             function: "foo".to_string(),
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -329,7 +323,7 @@ mod tests {
             module: Some("MyApp.Accounts".to_string()),
             function: "get_user".to_string(),
             arity: Some(1),
-            project: Some("test_project".to_string()),
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -344,7 +338,7 @@ mod tests {
             module: Some("MyApp.Accounts".to_string()),
             function: "get_user".to_string(),
             arity: Some(1),
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -359,7 +353,7 @@ mod tests {
             module: Some("MyApp".to_string()),
             function: "foo".to_string(),
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -375,7 +369,7 @@ mod tests {
             module: None,
             function: ".*".to_string(),
             arity: Some(1),
-            project: None,
+            project: "test_project".to_string(),
             regex: true,
             limit: 100,
         };
@@ -391,7 +385,7 @@ mod tests {
             module: None,
             function: "get_user".to_string(),
             arity: None,
-            project: Some("test_project".to_string()),
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -406,7 +400,7 @@ mod tests {
             module: None,
             function: "get_user".to_string(),
             arity: None,
-            project: Some("nonexistent_project".to_string()),
+            project: "nonexistent_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -421,7 +415,7 @@ mod tests {
             module: Some("MyApp.Accounts".to_string()),
             function: ".*user.*".to_string(),
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: true,
             limit: 100,
         };
@@ -435,7 +429,7 @@ mod tests {
             module: None,
             function: "list_users".to_string(),
             arity: Some(0),
-            project: None,
+            project: "test_project".to_string(),
             regex: false,
             limit: 100,
         };
@@ -451,7 +445,7 @@ mod tests {
             module: None,
             function: ".*user.*".to_string(),
             arity: None,
-            project: None,
+            project: "test_project".to_string(),
             regex: true,
             limit: 1,
         };

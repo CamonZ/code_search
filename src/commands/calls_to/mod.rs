@@ -17,9 +17,9 @@ pub struct CallsToCmd {
     #[arg(short, long)]
     pub arity: Option<i64>,
 
-    /// Project to search in (default: all projects)
-    #[arg(long)]
-    pub project: Option<String>,
+    /// Project to search in
+    #[arg(long, default_value = "default")]
+    pub project: String,
 
     /// Treat module and function as regular expressions
     #[arg(short, long, default_value_t = false)]

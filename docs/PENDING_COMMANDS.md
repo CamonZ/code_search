@@ -5,7 +5,6 @@ Commands not yet implemented in the CLI.
 | Command | Description |
 |---------|-------------|
 | `unused` | Find functions that are never called |
-| `modules` | List all modules (optionally filtered by pattern) |
 | `hotspots` | Find functions with most incoming/outgoing calls |
 | `file` | Show all functions defined in a file |
 | `types` | Show detailed type signatures with all clause variants |
