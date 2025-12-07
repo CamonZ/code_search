@@ -3,10 +3,14 @@
 //! Each command is defined in its own module with:
 //! - The command struct with clap attributes for CLI parsing
 
+mod calls_from;
+mod calls_to;
 mod import;
 mod location;
 mod search;
 
+pub use calls_from::CallsFromCmd;
+pub use calls_to::CallsToCmd;
 pub use import::ImportCmd;
 pub use location::LocationCmd;
 pub use search::SearchCmd;
@@ -35,6 +39,12 @@ pub enum Command {
     /// Find where a function is defined (file:line_start:line_end)
     Location(LocationCmd),
 
+    /// Show what a module/function calls (outgoing edges)
+    CallsFrom(CallsFromCmd),
+
+    /// Show what calls a module/function (incoming edges)
+    CallsTo(CallsToCmd),
+
     /// Catch-all for unknown commands
     #[command(external_subcommand)]
     Unknown(Vec<String>),
@@ -53,6 +63,14 @@ impl Command {
                 Ok(result.format(format))
             }
             Command::Location(cmd) => {
+                let result = cmd.execute(db_path)?;
+                Ok(result.format(format))
+            }
+            Command::CallsFrom(cmd) => {
+                let result = cmd.execute(db_path)?;
+                Ok(result.format(format))
+            }
+            Command::CallsTo(cmd) => {
                 let result = cmd.execute(db_path)?;
                 Ok(result.format(format))
             }
