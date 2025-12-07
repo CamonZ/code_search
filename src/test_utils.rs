@@ -58,3 +58,31 @@ pub fn execute_on_empty_db<C: Execute>(cmd: C) -> Result<C::Output, Box<dyn std:
     let db_file = create_temp_db();
     cmd.execute(db_file.path())
 }
+
+// =============================================================================
+// Fixture-based helpers
+// =============================================================================
+
+use crate::fixtures;
+
+/// Create a test database with call graph data.
+///
+/// Use for: trace, reverse_trace, calls_from, calls_to, path, hotspots,
+/// unused, depends_on, depended_by
+pub fn call_graph_db(project: &str) -> NamedTempFile {
+    setup_test_db(fixtures::CALL_GRAPH, project)
+}
+
+/// Create a test database with type signature data.
+///
+/// Use for: search (functions kind), function
+pub fn type_signatures_db(project: &str) -> NamedTempFile {
+    setup_test_db(fixtures::TYPE_SIGNATURES, project)
+}
+
+/// Create a test database with struct definitions.
+///
+/// Use for: struct command
+pub fn structs_db(project: &str) -> NamedTempFile {
+    setup_test_db(fixtures::STRUCTS, project)
+}

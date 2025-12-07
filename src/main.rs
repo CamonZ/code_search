@@ -7,6 +7,8 @@ pub mod output;
 #[macro_use]
 mod test_macros;
 #[cfg(test)]
+pub mod fixtures;
+#[cfg(test)]
 pub mod test_utils;
 use cli::Args;
 

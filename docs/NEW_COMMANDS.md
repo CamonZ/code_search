@@ -103,19 +103,65 @@ impl Execute for <Name>Cmd {
 mod tests {
     use super::*;
     use rstest::{fixture, rstest};
-    use tempfile::NamedTempFile;
 
-    #[fixture]
-    fn db_file() -> NamedTempFile {
-        NamedTempFile::new().expect("Failed to create temp db file")
+    // Use shared fixtures when possible (see src/fixtures/mod.rs)
+    // Available: call_graph, type_signatures, structs
+    crate::shared_fixture! {
+        fixture_name: populated_db,
+        fixture_type: call_graph,  // or type_signatures, structs
+        project: "test_project",
     }
 
-    #[rstest]
-    fn test_execute_success(db_file: NamedTempFile) {
-        let cmd = <Name>Cmd { /* args */ };
-        let result = cmd.execute(db_file.path());
-        assert!(result.is_ok());
+    // =========================================================================
+    // Core functionality tests
+    // =========================================================================
+
+    crate::execute_test! {
+        test_name: test_basic_functionality,
+        fixture: populated_db,
+        cmd: <Name>Cmd {
+            // ... command args
+        },
+        assertions: |result| {
+            // Your assertions here
+        },
     }
+
+    // =========================================================================
+    // No match / empty result tests
+    // =========================================================================
+
+    crate::execute_no_match_test! {
+        test_name: test_no_match,
+        fixture: populated_db,
+        cmd: <Name>Cmd {
+            // ... args that should return empty
+        },
+        empty_field: results,  // field that should be empty
+    }
+
+    // =========================================================================
+    // Error handling tests
+    // =========================================================================
+
+    crate::execute_empty_db_test! {
+        cmd_type: <Name>Cmd,
+        cmd: <Name>Cmd {
+            // ... any valid args
+        },
+    }
+}
+```
+
+**Note:** If your tests need specific data that differs from the shared fixtures, you can still use inline JSON:
+
+```rust
+const TEST_JSON: &str = r#"{ ... }"#;
+
+crate::execute_test_fixture! {
+    fixture_name: custom_db,
+    json: TEST_JSON,
+    project: "test_project",
 }
 ```
 
@@ -205,10 +251,11 @@ cargo run -- <name> --help
   - [ ] Limit validation tests (`cli_limit_tests!`)
   - [ ] Edge case tests (regular tests for `matches!` etc.)
 - [ ] Implemented `Execute` trait in `execute.rs`
-- [ ] Added execution tests in `execute.rs`
-  - [ ] Empty database test
-  - [ ] No match test
-  - [ ] Core functionality tests
+- [ ] Added execution tests in `execute.rs` using macros
+  - [ ] Use shared fixture (`shared_fixture!`) or inline JSON (`execute_test_fixture!`)
+  - [ ] Empty database test (`execute_empty_db_test!`)
+  - [ ] No match test (`execute_no_match_test!`)
+  - [ ] Core functionality tests (`execute_test!`, `execute_count_test!`, etc.)
 - [ ] Created result type with `#[derive(Debug, Default, Serialize)]`
 - [ ] Implemented `Outputable` in `output.rs`
 - [ ] Created `output_tests.rs` with test macros

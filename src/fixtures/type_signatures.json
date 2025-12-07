@@ -1,0 +1,22 @@
+{
+  "structs": {},
+  "function_locations": {},
+  "calls": [],
+  "type_signatures": {
+    "MyApp.Accounts": {
+      "get_user/1": {"arity": 1, "name": "get_user", "clauses": [{"return": "User.t() | nil", "args": ["integer()"]}]},
+      "get_user/2": {"arity": 2, "name": "get_user", "clauses": [{"return": "User.t() | nil", "args": ["integer()", "keyword()"]}]},
+      "list_users/0": {"arity": 0, "name": "list_users", "clauses": [{"return": "[User.t()]", "args": []}]},
+      "create_user/1": {"arity": 1, "name": "create_user", "clauses": [{"return": "{:ok, User.t()} | {:error, Ecto.Changeset.t()}", "args": ["map()"]}]}
+    },
+    "MyApp.Users": {
+      "get_by_email/1": {"arity": 1, "name": "get_by_email", "clauses": [{"return": "User.t() | nil", "args": ["String.t()"]}]},
+      "authenticate/2": {"arity": 2, "name": "authenticate", "clauses": [{"return": "{:ok, User.t()} | {:error, atom()}", "args": ["String.t()", "String.t()"]}]}
+    },
+    "MyApp.Repo": {
+      "get/2": {"arity": 2, "name": "get", "clauses": [{"return": "struct() | nil", "args": ["module()", "integer()"]}]},
+      "all/1": {"arity": 1, "name": "all", "clauses": [{"return": "[struct()]", "args": ["Ecto.Queryable.t()"]}]},
+      "insert/2": {"arity": 2, "name": "insert", "clauses": [{"return": "{:ok, struct()} | {:error, Ecto.Changeset.t()}", "args": ["struct()", "keyword()"]}]}
+    }
+  }
+}

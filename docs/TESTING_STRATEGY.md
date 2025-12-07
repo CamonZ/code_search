@@ -106,26 +106,128 @@ crate::cli_error_test! {
 
 ### Execute Test Macros
 
-#### `execute_test_fixture!`
+Execute tests use macros to reduce boilerplate for database setup and common test patterns.
 
-Generates a fixture that creates a populated test database.
+#### Fixture Macros
+
+**`shared_fixture!`** (Recommended)
+
+Uses pre-defined fixture files from `src/fixtures/`. Prefer this for most tests.
 
 ```rust
-crate::execute_test_fixture! {
+crate::shared_fixture! {
     fixture_name: populated_db,
-    json: r#"{ "calls": [], ... }"#,
+    fixture_type: call_graph,  // or type_signatures, structs
     project: "test_project",
 }
 ```
 
-#### `execute_empty_db_test!`
+Available fixture types:
+- `call_graph` - Function locations and call relationships (trace, calls_from, calls_to, path, hotspots, unused, depends_on, depended_by)
+- `type_signatures` - Function type signatures (search, function)
+- `structs` - Struct definitions with fields (struct command)
 
-Tests that a command fails gracefully on an empty (uninitialized) database.
+**`execute_test_fixture!`**
+
+For inline JSON when tests need specific data not in shared fixtures.
+
+```rust
+const TEST_JSON: &str = r#"{ "calls": [], ... }"#;
+
+crate::execute_test_fixture! {
+    fixture_name: custom_db,
+    json: TEST_JSON,
+    project: "test_project",
+}
+```
+
+#### Test Macros
+
+**`execute_test!`**
+
+Core macro for execute tests with custom assertions.
+
+```rust
+crate::execute_test! {
+    test_name: test_search_finds_modules,
+    fixture: populated_db,
+    cmd: SearchCmd {
+        pattern: "MyApp".to_string(),
+        kind: SearchKind::Modules,
+        project: "test_project".to_string(),
+        limit: 100,
+        regex: false,
+    },
+    assertions: |result| {
+        assert_eq!(result.modules.len(), 2);
+        assert_eq!(result.kind, "modules");
+    },
+}
+```
+
+**`execute_count_test!`**
+
+Verifies result collection has expected count.
+
+```rust
+crate::execute_count_test! {
+    test_name: test_finds_three_functions,
+    fixture: populated_db,
+    cmd: FunctionCmd { ... },
+    field: functions,
+    expected: 3,
+}
+```
+
+**`execute_no_match_test!`**
+
+Verifies command returns empty results for non-matching queries.
+
+```rust
+crate::execute_no_match_test! {
+    test_name: test_no_match,
+    fixture: populated_db,
+    cmd: SearchCmd { pattern: "NonExistent".into(), ... },
+    empty_field: modules,
+}
+```
+
+**`execute_empty_db_test!`**
+
+Verifies command fails gracefully on empty (uninitialized) database.
 
 ```rust
 crate::execute_empty_db_test! {
     cmd_type: SearchCmd,
     cmd: SearchCmd { pattern: "test".into(), ... },
+}
+```
+
+**`execute_limit_test!`**
+
+Verifies limit is respected.
+
+```rust
+crate::execute_limit_test! {
+    test_name: test_respects_limit,
+    fixture: populated_db,
+    cmd: SearchCmd { limit: 1, ... },
+    collection: modules,
+    limit: 1,
+}
+```
+
+**`execute_all_match_test!`**
+
+Verifies all items in a collection match a condition.
+
+```rust
+crate::execute_all_match_test! {
+    test_name: test_all_from_project,
+    fixture: populated_db,
+    cmd: SearchCmd { project: "test_project".into(), ... },
+    collection: modules,
+    condition: |item| item.project == "test_project",
 }
 ```
 
@@ -257,11 +359,13 @@ These are guidelines, not templates to copy blindly. Each command has different 
   - [ ] Each option (`cli_option_test!`)
   - [ ] Limit validation (`cli_limit_tests!`)
 - [ ] Add regular tests for edge cases (enum matching, complex assertions)
-- [ ] In `execute.rs`, add tests for:
-  - [ ] Empty database handling
-  - [ ] No match scenarios
-  - [ ] Core functionality with populated database
-  - [ ] Filter combinations
+- [ ] In `execute.rs`, add tests using macros:
+  - [ ] Use `shared_fixture!` or `execute_test_fixture!` for database setup
+  - [ ] Empty database test (`execute_empty_db_test!`)
+  - [ ] No match test (`execute_no_match_test!`)
+  - [ ] Core functionality tests (`execute_test!`, `execute_count_test!`)
+  - [ ] Limit tests (`execute_limit_test!`)
+  - [ ] Filter tests (`execute_all_match_test!`)
 - [ ] Create `output_tests.rs` with snapshot tests for:
   - [ ] Empty result table formatting
   - [ ] Single/multiple result table formatting

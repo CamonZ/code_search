@@ -210,6 +210,7 @@ macro_rules! cli_error_test {
 /// Generate a fixture that creates a populated test database.
 ///
 /// This creates the standard `populated_db` fixture used by execute tests.
+/// For inline JSON content.
 #[macro_export]
 macro_rules! execute_test_fixture {
     (
@@ -220,6 +221,52 @@ macro_rules! execute_test_fixture {
         #[fixture]
         fn $name() -> tempfile::NamedTempFile {
             crate::test_utils::setup_test_db($json, $project)
+        }
+    };
+}
+
+/// Generate a fixture using a shared fixture file.
+///
+/// Available fixtures: `call_graph`, `type_signatures`, `structs`
+///
+/// # Example
+/// ```ignore
+/// crate::shared_fixture! {
+///     fixture_name: populated_db,
+///     fixture_type: call_graph,
+///     project: "test_project",
+/// }
+/// ```
+#[macro_export]
+macro_rules! shared_fixture {
+    (
+        fixture_name: $name:ident,
+        fixture_type: call_graph,
+        project: $project:literal $(,)?
+    ) => {
+        #[fixture]
+        fn $name() -> tempfile::NamedTempFile {
+            crate::test_utils::call_graph_db($project)
+        }
+    };
+    (
+        fixture_name: $name:ident,
+        fixture_type: type_signatures,
+        project: $project:literal $(,)?
+    ) => {
+        #[fixture]
+        fn $name() -> tempfile::NamedTempFile {
+            crate::test_utils::type_signatures_db($project)
+        }
+    };
+    (
+        fixture_name: $name:ident,
+        fixture_type: structs,
+        project: $project:literal $(,)?
+    ) => {
+        #[fixture]
+        fn $name() -> tempfile::NamedTempFile {
+            crate::test_utils::structs_db($project)
         }
     };
 }
