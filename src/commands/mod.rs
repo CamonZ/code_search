@@ -4,8 +4,10 @@
 //! - The command struct with clap attributes for CLI parsing
 
 mod import;
+mod search;
 
 pub use import::ImportCmd;
+pub use search::SearchCmd;
 
 use clap::Subcommand;
 use std::error::Error;
@@ -25,6 +27,9 @@ pub enum Command {
     /// Import a call graph JSON file into the database
     Import(ImportCmd),
 
+    /// Search for modules or functions by name pattern
+    Search(SearchCmd),
+
     /// Catch-all for unknown commands
     #[command(external_subcommand)]
     Unknown(Vec<String>),
@@ -35,6 +40,10 @@ impl Command {
     pub fn run(self, db_path: &Path, format: OutputFormat) -> Result<String, Box<dyn Error>> {
         match self {
             Command::Import(cmd) => {
+                let result = cmd.execute(db_path)?;
+                Ok(result.format(format))
+            }
+            Command::Search(cmd) => {
                 let result = cmd.execute(db_path)?;
                 Ok(result.format(format))
             }
