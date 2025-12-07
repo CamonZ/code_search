@@ -32,23 +32,6 @@ impl Outputable for FunctionResult {
 
         lines.join("\n")
     }
-
-    fn to_terse(&self) -> String {
-        if self.functions.is_empty() {
-            String::new()
-        } else {
-            self.functions
-                .iter()
-                .map(|f| {
-                    format!(
-                        "{},{},{},{},{},{}",
-                        f.project, f.module, f.name, f.arity, f.args, f.return_type
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join("\n")
-        }
-    }
 }
 
 #[cfg(test)]
@@ -132,20 +115,6 @@ mod tests {
         assert!(output.contains("Found 2 signature(s):"));
         assert!(output.contains("get_user/1"));
         assert!(output.contains("get_user/2"));
-    }
-
-    #[rstest]
-    fn test_to_terse_empty(empty_result: FunctionResult) {
-        assert_eq!(empty_result.to_terse(), "");
-    }
-
-    #[rstest]
-    fn test_to_terse_single(single_result: FunctionResult) {
-        let output = single_result.to_terse();
-        assert_eq!(
-            output,
-            "default,MyApp.Accounts,get_user,1,integer(),User.t() | nil"
-        );
     }
 
     #[rstest]

@@ -35,11 +35,6 @@ impl Outputable for SearchResult {
 
         lines.join("\n")
     }
-
-    fn to_terse(&self) -> String {
-        let count = self.modules.len() + self.functions.len();
-        format!("kind={} pattern={} count={}", self.kind, self.pattern, count)
-    }
 }
 
 #[cfg(test)]
@@ -66,10 +61,6 @@ Search: get_ (functions)
 
 Functions (1):
   [default] MyApp.Accounts.get_user/1 -> User.t()";
-
-    const EMPTY_TERSE_OUTPUT: &str = "kind=modules pattern=test count=0";
-    const MODULES_TERSE_OUTPUT: &str = "kind=modules pattern=MyApp count=2";
-    const FUNCTIONS_TERSE_OUTPUT: &str = "kind=functions pattern=get_ count=1";
 
     #[fixture]
     fn empty_result() -> SearchResult {
@@ -131,21 +122,6 @@ Functions (1):
     #[rstest]
     fn test_to_table_functions(functions_result: SearchResult) {
         assert_eq!(functions_result.to_table(), FUNCTIONS_TABLE_OUTPUT);
-    }
-
-    #[rstest]
-    fn test_to_terse_empty(empty_result: SearchResult) {
-        assert_eq!(empty_result.to_terse(), EMPTY_TERSE_OUTPUT);
-    }
-
-    #[rstest]
-    fn test_to_terse_modules(modules_result: SearchResult) {
-        assert_eq!(modules_result.to_terse(), MODULES_TERSE_OUTPUT);
-    }
-
-    #[rstest]
-    fn test_to_terse_functions(functions_result: SearchResult) {
-        assert_eq!(functions_result.to_terse(), FUNCTIONS_TERSE_OUTPUT);
     }
 
     #[rstest]

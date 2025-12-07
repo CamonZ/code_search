@@ -31,25 +31,6 @@ impl Outputable for CallsFromResult {
 
         lines.join("\n")
     }
-
-    fn to_terse(&self) -> String {
-        if self.calls.is_empty() {
-            String::new()
-        } else {
-            self.calls
-                .iter()
-                .map(|c| {
-                    format!(
-                        "{},{},{},{},{},{},{},{},{}",
-                        c.project, c.caller_module, c.caller_function,
-                        c.callee_module, c.callee_function, c.callee_arity,
-                        c.file, c.line, c.call_type
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join("\n")
-        }
-    }
 }
 
 #[cfg(test)]
@@ -139,20 +120,6 @@ mod tests {
         let output = multiple_result.to_table();
         assert!(output.contains("Calls from: MyApp.Accounts"));
         assert!(output.contains("Found 2 call(s):"));
-    }
-
-    #[rstest]
-    fn test_to_terse_empty(empty_result: CallsFromResult) {
-        assert_eq!(empty_result.to_terse(), "");
-    }
-
-    #[rstest]
-    fn test_to_terse_single(single_result: CallsFromResult) {
-        let output = single_result.to_terse();
-        assert_eq!(
-            output,
-            "default,MyApp.Accounts,get_user,MyApp.Repo,get,2,lib/my_app/accounts.ex,12,remote"
-        );
     }
 
     #[rstest]

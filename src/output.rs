@@ -1,6 +1,6 @@
 //! Output formatting for command results.
 //!
-//! Supports multiple output formats: table (human-readable), JSON, terse, and toon.
+//! Supports multiple output formats: table (human-readable), JSON, and toon.
 
 use clap::ValueEnum;
 use serde::Serialize;
@@ -13,8 +13,6 @@ pub enum OutputFormat {
     Table,
     /// JSON format
     Json,
-    /// Terse single-line format
-    Terse,
     /// Token-efficient toon format
     Toon,
 }
@@ -24,15 +22,11 @@ pub trait Outputable: Serialize {
     /// Format as a human-readable table
     fn to_table(&self) -> String;
 
-    /// Format as terse single-line output
-    fn to_terse(&self) -> String;
-
     /// Format according to the specified output format
     fn format(&self, format: OutputFormat) -> String {
         match format {
             OutputFormat::Table => self.to_table(),
             OutputFormat::Json => serde_json::to_string_pretty(self).unwrap_or_default(),
-            OutputFormat::Terse => self.to_terse(),
             OutputFormat::Toon => {
                 let json_value = serde_json::to_value(self).unwrap_or_default();
                 toon::encode(&json_value, None)

@@ -40,8 +40,8 @@ pub trait Execute {
 
 **Output formatting:**
 - Commands return a result type implementing `Outputable`
-- Four formats available: `Table` (default), `Json`, `Terse`, `Toon`
-- `Outputable` requires `Serialize` + `to_table()` + `to_terse()` methods
+- Three formats available: `Table` (default), `Json`, `Toon`
+- `Outputable` requires `Serialize` + `to_table()` method
 - JSON and Toon formats are derived automatically from `Serialize`
 
 **Dispatch flow:**

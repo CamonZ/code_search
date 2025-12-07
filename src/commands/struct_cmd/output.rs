@@ -43,25 +43,6 @@ impl Outputable for StructResult {
 
         lines.join("\n")
     }
-
-    fn to_terse(&self) -> String {
-        if self.structs.is_empty() {
-            String::new()
-        } else {
-            self.structs
-                .iter()
-                .flat_map(|s| {
-                    s.fields.iter().map(move |f| {
-                        format!(
-                            "{},{},{},{},{},{}",
-                            s.project, s.module, f.name, f.default_value, f.required, f.inferred_type
-                        )
-                    })
-                })
-                .collect::<Vec<_>>()
-                .join("\n")
-        }
-    }
 }
 
 #[cfg(test)]
@@ -156,20 +137,6 @@ mod tests {
         assert!(output.contains("Found 2 struct(s):"));
         assert!(output.contains("MyApp.User"));
         assert!(output.contains("MyApp.Post"));
-    }
-
-    #[rstest]
-    fn test_to_terse_empty(empty_result: StructResult) {
-        assert_eq!(empty_result.to_terse(), "");
-    }
-
-    #[rstest]
-    fn test_to_terse_single(single_result: StructResult) {
-        let output = single_result.to_terse();
-        let lines: Vec<&str> = output.lines().collect();
-        assert_eq!(lines.len(), 2);
-        assert_eq!(lines[0], "default,MyApp.User,id,nil,true,integer()");
-        assert_eq!(lines[1], "default,MyApp.User,name,nil,false,String.t()");
     }
 
     #[rstest]

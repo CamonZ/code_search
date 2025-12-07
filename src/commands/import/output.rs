@@ -38,17 +38,6 @@ impl Outputable for ImportResult {
 
         lines.join("\n")
     }
-
-    fn to_terse(&self) -> String {
-        format!(
-            "modules={} functions={} calls={} structs={} locations={}",
-            self.modules_imported,
-            self.functions_imported,
-            self.calls_imported,
-            self.structs_imported,
-            self.function_locations_imported
-        )
-    }
 }
 
 #[cfg(test)]
@@ -91,10 +80,6 @@ Import Summary:
   Struct fields:           5
   Function locations:     45
   Total:                 210";
-
-    const EMPTY_TERSE_OUTPUT: &str = "modules=0 functions=0 calls=0 structs=0 locations=0";
-
-    const FULL_TERSE_OUTPUT: &str = "modules=10 functions=50 calls=100 structs=5 locations=45";
 
     const FULL_JSON_OUTPUT: &str = r#"{
   "schemas": {
@@ -164,16 +149,6 @@ structs_imported: 5";
     }
 
     #[rstest]
-    fn test_to_terse_empty(empty_result: ImportResult) {
-        assert_eq!(empty_result.to_terse(), EMPTY_TERSE_OUTPUT);
-    }
-
-    #[rstest]
-    fn test_to_terse_with_data(full_result: ImportResult) {
-        assert_eq!(full_result.to_terse(), FULL_TERSE_OUTPUT);
-    }
-
-    #[rstest]
     fn test_format_json(full_result: ImportResult) {
         assert_eq!(full_result.format(OutputFormat::Json), FULL_JSON_OUTPUT);
     }
@@ -186,10 +161,5 @@ structs_imported: 5";
     #[rstest]
     fn test_format_table_delegates_to_to_table(full_result: ImportResult) {
         assert_eq!(full_result.format(OutputFormat::Table), FULL_TABLE_OUTPUT);
-    }
-
-    #[rstest]
-    fn test_format_terse_delegates_to_to_terse(full_result: ImportResult) {
-        assert_eq!(full_result.format(OutputFormat::Terse), FULL_TERSE_OUTPUT);
     }
 }

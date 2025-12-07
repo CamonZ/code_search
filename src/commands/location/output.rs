@@ -23,23 +23,6 @@ impl Outputable for LocationResult {
 
         lines.join("\n")
     }
-
-    fn to_terse(&self) -> String {
-        if self.locations.is_empty() {
-            String::new()
-        } else {
-            self.locations
-                .iter()
-                .map(|l| {
-                    format!(
-                        "{},{},{},{},{},{},{},{}",
-                        l.project, l.file, l.start_line, l.end_line, l.module, l.kind, l.name, l.arity
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join("\n")
-        }
-    }
 }
 
 #[cfg(test)]
@@ -69,12 +52,6 @@ Found 2 location(s):
        lib/my_app/accounts.ex:10:15
   [default] MyApp.Users.create_user/1 (def)
        lib/my_app/users.ex:5:12";
-
-    const EMPTY_TERSE_OUTPUT: &str = "";
-    const SINGLE_TERSE_OUTPUT: &str = "default,lib/my_app/accounts.ex,10,15,MyApp.Accounts,def,get_user,1";
-    const MULTIPLE_TERSE_OUTPUT: &str = "\
-default,lib/my_app/accounts.ex,10,15,MyApp.Accounts,def,get_user,1
-default,lib/my_app/users.ex,5,12,MyApp.Users,def,create_user,1";
 
     #[fixture]
     fn empty_result() -> LocationResult {
@@ -146,21 +123,6 @@ default,lib/my_app/users.ex,5,12,MyApp.Users,def,create_user,1";
     #[rstest]
     fn test_to_table_multiple(multiple_result: LocationResult) {
         assert_eq!(multiple_result.to_table(), MULTIPLE_TABLE_OUTPUT);
-    }
-
-    #[rstest]
-    fn test_to_terse_empty(empty_result: LocationResult) {
-        assert_eq!(empty_result.to_terse(), EMPTY_TERSE_OUTPUT);
-    }
-
-    #[rstest]
-    fn test_to_terse_single(single_result: LocationResult) {
-        assert_eq!(single_result.to_terse(), SINGLE_TERSE_OUTPUT);
-    }
-
-    #[rstest]
-    fn test_to_terse_multiple(multiple_result: LocationResult) {
-        assert_eq!(multiple_result.to_terse(), MULTIPLE_TERSE_OUTPUT);
     }
 
     #[rstest]

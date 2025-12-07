@@ -119,11 +119,6 @@ impl Outputable for <Name>Result {
         // Human-readable table format
         todo!()
     }
-
-    fn to_terse(&self) -> String {
-        // Single-line key=value format
-        todo!()
-    }
 }
 
 #[cfg(test)]
@@ -133,7 +128,6 @@ mod tests {
     use rstest::{fixture, rstest};
 
     const EXPECTED_TABLE_OUTPUT: &str = "...";
-    const EXPECTED_TERSE_OUTPUT: &str = "...";
 
     #[fixture]
     fn result() -> <Name>Result {
@@ -146,14 +140,16 @@ mod tests {
     }
 
     #[rstest]
-    fn test_to_terse(result: <Name>Result) {
-        assert_eq!(result.to_terse(), EXPECTED_TERSE_OUTPUT);
-    }
-
-    #[rstest]
     fn test_format_json(result: <Name>Result) {
         let output = result.format(OutputFormat::Json);
         let _: serde_json::Value = serde_json::from_str(&output).expect("Valid JSON");
+    }
+
+    #[rstest]
+    fn test_format_toon(result: <Name>Result) {
+        let output = result.format(OutputFormat::Toon);
+        // Verify toon format contains expected fields
+        assert!(output.contains("field_name:"));
     }
 }
 ```
