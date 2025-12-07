@@ -7,7 +7,9 @@ mod calls_from;
 mod calls_to;
 mod depended_by;
 mod depends_on;
+mod file;
 mod function;
+mod hotspots;
 mod import;
 mod location;
 mod path;
@@ -15,12 +17,15 @@ mod reverse_trace;
 mod search;
 mod struct_cmd;
 mod trace;
+mod unused;
 
 pub use calls_from::CallsFromCmd;
 pub use calls_to::CallsToCmd;
 pub use depended_by::DependedByCmd;
 pub use depends_on::DependsOnCmd;
+pub use file::FileCmd;
 pub use function::FunctionCmd;
+pub use hotspots::HotspotsCmd;
 pub use import::ImportCmd;
 pub use location::LocationCmd;
 pub use path::PathCmd;
@@ -28,6 +33,7 @@ pub use reverse_trace::ReverseTraceCmd;
 pub use search::SearchCmd;
 pub use struct_cmd::StructCmd;
 pub use trace::TraceCmd;
+pub use unused::UnusedCmd;
 
 use clap::Subcommand;
 use std::error::Error;
@@ -79,6 +85,15 @@ pub enum Command {
 
     /// Show what modules depend on a given module (incoming module dependencies)
     DependedBy(DependedByCmd),
+
+    /// Find functions that are never called
+    Unused(UnusedCmd),
+
+    /// Find functions with the most incoming/outgoing calls
+    Hotspots(HotspotsCmd),
+
+    /// Show all functions defined in a file
+    File(FileCmd),
 
     /// Catch-all for unknown commands
     #[command(external_subcommand)]
@@ -134,6 +149,18 @@ impl Command {
                 Ok(result.format(format))
             }
             Command::DependedBy(cmd) => {
+                let result = cmd.execute(db_path)?;
+                Ok(result.format(format))
+            }
+            Command::Unused(cmd) => {
+                let result = cmd.execute(db_path)?;
+                Ok(result.format(format))
+            }
+            Command::Hotspots(cmd) => {
+                let result = cmd.execute(db_path)?;
+                Ok(result.format(format))
+            }
+            Command::File(cmd) => {
                 let result = cmd.execute(db_path)?;
                 Ok(result.format(format))
             }

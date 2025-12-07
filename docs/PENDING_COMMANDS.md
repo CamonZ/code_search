@@ -4,9 +4,6 @@ Commands not yet implemented in the CLI.
 
 | Command | Description |
 |---------|-------------|
-| `unused` | Find functions that are never called |
-| `hotspots` | Find functions with most incoming/outgoing calls |
-| `file` | Show all functions defined in a file |
 | `types` | Show detailed type signatures with all clause variants |
 | `returns` | Find functions that return a specific type pattern |
 | `accepts` | Find functions that accept a specific type pattern |
