@@ -63,3 +63,96 @@ pub fn try_create_relation(db: &DbInstance, script: &str) -> Result<bool, Box<dy
         }
     }
 }
+
+// DataValue extraction helpers
+
+use cozo::Num;
+
+/// Extract a String from a DataValue, returning None if not a string
+pub fn extract_string(value: &DataValue) -> Option<String> {
+    match value {
+        DataValue::Str(s) => Some(s.to_string()),
+        _ => None,
+    }
+}
+
+/// Extract an i64 from a DataValue, returning the default if not a number
+pub fn extract_i64(value: &DataValue, default: i64) -> i64 {
+    match value {
+        DataValue::Num(Num::Int(i)) => *i,
+        DataValue::Num(Num::Float(f)) => *f as i64,
+        _ => default,
+    }
+}
+
+/// Extract a String from a DataValue, returning the default if not a string
+pub fn extract_string_or(value: &DataValue, default: &str) -> String {
+    match value {
+        DataValue::Str(s) => s.to_string(),
+        _ => default.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cozo::Num;
+    use rstest::rstest;
+
+    #[rstest]
+    fn test_extract_string_from_str() {
+        let value = DataValue::Str("hello".into());
+        assert_eq!(extract_string(&value), Some("hello".to_string()));
+    }
+
+    #[rstest]
+    fn test_extract_string_from_non_str() {
+        let value = DataValue::Num(Num::Int(42));
+        assert_eq!(extract_string(&value), None);
+    }
+
+    #[rstest]
+    fn test_extract_i64_from_int() {
+        let value = DataValue::Num(Num::Int(42));
+        assert_eq!(extract_i64(&value, 0), 42);
+    }
+
+    #[rstest]
+    fn test_extract_i64_from_float() {
+        let value = DataValue::Num(Num::Float(42.7));
+        assert_eq!(extract_i64(&value, 0), 42);
+    }
+
+    #[rstest]
+    fn test_extract_i64_from_non_num() {
+        let value = DataValue::Str("not a number".into());
+        assert_eq!(extract_i64(&value, -1), -1);
+    }
+
+    #[rstest]
+    fn test_extract_string_or_from_str() {
+        let value = DataValue::Str("hello".into());
+        assert_eq!(extract_string_or(&value, "default"), "hello");
+    }
+
+    #[rstest]
+    fn test_extract_string_or_from_non_str() {
+        let value = DataValue::Num(Num::Int(42));
+        assert_eq!(extract_string_or(&value, "default"), "default");
+    }
+
+    #[rstest]
+    fn test_escape_string_basic() {
+        assert_eq!(escape_string("hello"), "hello");
+    }
+
+    #[rstest]
+    fn test_escape_string_with_quotes() {
+        assert_eq!(escape_string(r#"say "hello""#), r#"say \"hello\""#);
+    }
+
+    #[rstest]
+    fn test_escape_string_with_backslash() {
+        assert_eq!(escape_string(r"path\to\file"), r"path\\to\\file");
+    }
+}

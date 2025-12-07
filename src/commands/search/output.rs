@@ -163,4 +163,42 @@ Functions (1):
         assert!(output.contains("pattern: MyApp"));
         assert!(output.contains("kind: modules"));
     }
+
+    #[rstest]
+    fn test_format_toon_module_fields(modules_result: SearchResult) {
+        let output = modules_result.format(OutputFormat::Toon);
+        // Toon renders arrays with header showing count and field names
+        assert!(output.contains("modules[2]{"));
+        assert!(output.contains("name"));
+        assert!(output.contains("project"));
+        assert!(output.contains("source"));
+        // Values contain module data
+        assert!(output.contains("MyApp.Accounts"));
+        assert!(output.contains("MyApp.Users"));
+        assert!(output.contains("default"));
+    }
+
+    #[rstest]
+    fn test_format_toon_function_fields(functions_result: SearchResult) {
+        let output = functions_result.format(OutputFormat::Toon);
+        // Top-level fields
+        assert!(output.contains("pattern: get_"));
+        assert!(output.contains("kind: functions"));
+        // Functions array with header
+        assert!(output.contains("functions[1]{"));
+        // Values contain function data
+        assert!(output.contains("get_user"));
+        assert!(output.contains("MyApp.Accounts"));
+        assert!(output.contains("User.t()"));
+    }
+
+    #[rstest]
+    fn test_format_toon_empty(empty_result: SearchResult) {
+        let output = empty_result.format(OutputFormat::Toon);
+        assert!(output.contains("pattern: test"));
+        assert!(output.contains("kind: modules"));
+        // Empty arrays are rendered as [0]
+        assert!(output.contains("modules[0]"));
+        assert!(output.contains("functions[0]"));
+    }
 }

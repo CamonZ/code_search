@@ -4,9 +4,11 @@
 //! - The command struct with clap attributes for CLI parsing
 
 mod import;
+mod location;
 mod search;
 
 pub use import::ImportCmd;
+pub use location::LocationCmd;
 pub use search::SearchCmd;
 
 use clap::Subcommand;
@@ -30,6 +32,9 @@ pub enum Command {
     /// Search for modules or functions by name pattern
     Search(SearchCmd),
 
+    /// Find where a function is defined (file:line_start:line_end)
+    Location(LocationCmd),
+
     /// Catch-all for unknown commands
     #[command(external_subcommand)]
     Unknown(Vec<String>),
@@ -44,6 +49,10 @@ impl Command {
                 Ok(result.format(format))
             }
             Command::Search(cmd) => {
+                let result = cmd.execute(db_path)?;
+                Ok(result.format(format))
+            }
+            Command::Location(cmd) => {
                 let result = cmd.execute(db_path)?;
                 Ok(result.format(format))
             }

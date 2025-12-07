@@ -1,13 +1,13 @@
 use std::error::Error;
 use std::path::Path;
 
-use cozo::{DataValue, Num};
+use cozo::DataValue;
 use serde::Serialize;
 use thiserror::Error;
 
 use super::{SearchCmd, SearchKind};
 use crate::commands::Execute;
-use crate::db::{open_db, run_query, Params};
+use crate::db::{extract_i64, extract_string, extract_string_or, open_db, run_query, Params};
 
 #[derive(Error, Debug)]
 enum SearchError {
@@ -112,18 +112,9 @@ fn search_modules(
     let mut results = Vec::new();
     for row in rows.rows {
         if row.len() >= 3 {
-            let project = match &row[0] {
-                DataValue::Str(s) => s.to_string(),
-                _ => continue,
-            };
-            let name = match &row[1] {
-                DataValue::Str(s) => s.to_string(),
-                _ => continue,
-            };
-            let source = match &row[2] {
-                DataValue::Str(s) => s.to_string(),
-                _ => "unknown".to_string(),
-            };
+            let Some(project) = extract_string(&row[0]) else { continue };
+            let Some(name) = extract_string(&row[1]) else { continue };
+            let source = extract_string_or(&row[2], "unknown");
             results.push(ModuleResult { project, name, source });
         }
     }
@@ -173,27 +164,11 @@ fn search_functions(
     let mut results = Vec::new();
     for row in rows.rows {
         if row.len() >= 5 {
-            let project = match &row[0] {
-                DataValue::Str(s) => s.to_string(),
-                _ => continue,
-            };
-            let module = match &row[1] {
-                DataValue::Str(s) => s.to_string(),
-                _ => continue,
-            };
-            let name = match &row[2] {
-                DataValue::Str(s) => s.to_string(),
-                _ => continue,
-            };
-            let arity = match &row[3] {
-                DataValue::Num(Num::Int(i)) => *i,
-                DataValue::Num(Num::Float(f)) => *f as i64,
-                _ => 0,
-            };
-            let return_type = match &row[4] {
-                DataValue::Str(s) => s.to_string(),
-                _ => String::new(),
-            };
+            let Some(project) = extract_string(&row[0]) else { continue };
+            let Some(module) = extract_string(&row[1]) else { continue };
+            let Some(name) = extract_string(&row[2]) else { continue };
+            let arity = extract_i64(&row[3], 0);
+            let return_type = extract_string_or(&row[4], "");
             results.push(FunctionResult {
                 project,
                 module,
