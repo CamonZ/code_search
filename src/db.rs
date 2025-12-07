@@ -93,6 +93,14 @@ pub fn extract_string_or(value: &DataValue, default: &str) -> String {
     }
 }
 
+/// Extract a bool from a DataValue, returning the default if not a bool
+pub fn extract_bool(value: &DataValue, default: bool) -> bool {
+    match value {
+        DataValue::Bool(b) => *b,
+        _ => default,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -154,5 +162,17 @@ mod tests {
     #[rstest]
     fn test_escape_string_with_backslash() {
         assert_eq!(escape_string(r"path\to\file"), r"path\\to\\file");
+    }
+
+    #[rstest]
+    fn test_extract_bool_from_bool() {
+        let value = DataValue::Bool(true);
+        assert_eq!(extract_bool(&value, false), true);
+    }
+
+    #[rstest]
+    fn test_extract_bool_from_non_bool() {
+        let value = DataValue::Str("true".into());
+        assert_eq!(extract_bool(&value, false), false);
     }
 }

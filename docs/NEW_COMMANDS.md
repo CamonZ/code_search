@@ -28,7 +28,6 @@ mkdir src/commands/<name>
 mod execute;
 mod output;
 
-use std::path::PathBuf;
 use clap::Args;
 
 #[derive(Args, Debug)]
@@ -36,11 +35,17 @@ pub struct <Name>Cmd {
     /// Description of the argument
     #[arg(short, long)]
     pub some_arg: String,
+
+    /// Maximum number of results to return (1-1000)
+    #[arg(short, long, default_value_t = 100, value_parser = clap::value_parser!(u32).range(1..=1000))]
+    pub limit: u32,
 }
 
 #[cfg(test)]
 mod tests {
-    // CLI parsing tests
+    // CLI parsing tests including limit validation:
+    // - test_<name>_limit_zero_rejected
+    // - test_<name>_limit_exceeds_max_rejected
 }
 ```
 
@@ -213,6 +218,8 @@ cargo run -- <name> --help
 
 - [ ] Created `src/commands/<name>/` directory
 - [ ] Defined command struct with clap attributes in `mod.rs`
+- [ ] Added `--limit` with range validation (1-1000) using `value_parser = clap::value_parser!(u32).range(1..=1000)`
+- [ ] Added limit validation tests (zero rejected, exceeds max rejected)
 - [ ] Implemented `Execute` trait in `execute.rs`
 - [ ] Added execution tests in `execute.rs`
 - [ ] Created result type with `#[derive(Debug, Default, Serialize)]`
@@ -220,4 +227,4 @@ cargo run -- <name> --help
 - [ ] Added output tests with expected string constants in `output.rs`
 - [ ] Registered command in `src/commands/mod.rs`
 - [ ] Added match arm in `Command::run()`
-- [ ] Verified with `cargo build && cargo nextest run`
+- [ ] Verified with `cargo build && cargo test`

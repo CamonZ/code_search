@@ -5,15 +5,19 @@
 
 mod calls_from;
 mod calls_to;
+mod function;
 mod import;
 mod location;
 mod search;
+mod struct_cmd;
 
 pub use calls_from::CallsFromCmd;
 pub use calls_to::CallsToCmd;
+pub use function::FunctionCmd;
 pub use import::ImportCmd;
 pub use location::LocationCmd;
 pub use search::SearchCmd;
+pub use struct_cmd::StructCmd;
 
 use clap::Subcommand;
 use std::error::Error;
@@ -45,6 +49,12 @@ pub enum Command {
     /// Show what calls a module/function (incoming edges)
     CallsTo(CallsToCmd),
 
+    /// Show function signature (args, return type)
+    Function(FunctionCmd),
+
+    /// Show struct fields, defaults, and types
+    Struct(StructCmd),
+
     /// Catch-all for unknown commands
     #[command(external_subcommand)]
     Unknown(Vec<String>),
@@ -71,6 +81,14 @@ impl Command {
                 Ok(result.format(format))
             }
             Command::CallsTo(cmd) => {
+                let result = cmd.execute(db_path)?;
+                Ok(result.format(format))
+            }
+            Command::Function(cmd) => {
+                let result = cmd.execute(db_path)?;
+                Ok(result.format(format))
+            }
+            Command::Struct(cmd) => {
                 let result = cmd.execute(db_path)?;
                 Ok(result.format(format))
             }
