@@ -8,16 +8,22 @@ mod calls_to;
 mod function;
 mod import;
 mod location;
+mod path;
+mod reverse_trace;
 mod search;
 mod struct_cmd;
+mod trace;
 
 pub use calls_from::CallsFromCmd;
 pub use calls_to::CallsToCmd;
 pub use function::FunctionCmd;
 pub use import::ImportCmd;
 pub use location::LocationCmd;
+pub use path::PathCmd;
+pub use reverse_trace::ReverseTraceCmd;
 pub use search::SearchCmd;
 pub use struct_cmd::StructCmd;
+pub use trace::TraceCmd;
 
 use clap::Subcommand;
 use std::error::Error;
@@ -55,6 +61,15 @@ pub enum Command {
     /// Show struct fields, defaults, and types
     Struct(StructCmd),
 
+    /// Trace call chains from a starting function (forward traversal)
+    Trace(TraceCmd),
+
+    /// Trace call chains backwards - who calls the callers of a target
+    ReverseTrace(ReverseTraceCmd),
+
+    /// Find a call path between two functions
+    Path(PathCmd),
+
     /// Catch-all for unknown commands
     #[command(external_subcommand)]
     Unknown(Vec<String>),
@@ -89,6 +104,18 @@ impl Command {
                 Ok(result.format(format))
             }
             Command::Struct(cmd) => {
+                let result = cmd.execute(db_path)?;
+                Ok(result.format(format))
+            }
+            Command::Trace(cmd) => {
+                let result = cmd.execute(db_path)?;
+                Ok(result.format(format))
+            }
+            Command::ReverseTrace(cmd) => {
+                let result = cmd.execute(db_path)?;
+                Ok(result.format(format))
+            }
+            Command::Path(cmd) => {
                 let result = cmd.execute(db_path)?;
                 Ok(result.format(format))
             }
