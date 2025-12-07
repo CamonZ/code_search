@@ -8,9 +8,39 @@ mod import;
 pub use import::ImportCmd;
 
 use clap::Subcommand;
+use std::error::Error;
+use std::path::Path;
+
+use crate::output::{OutputFormat, Outputable};
+
+/// Trait for executing commands with command-specific result types.
+pub trait Execute {
+    type Output: Outputable;
+
+    fn execute(self, db_path: &Path) -> Result<Self::Output, Box<dyn Error>>;
+}
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
     /// Import a call graph JSON file into the database
     Import(ImportCmd),
+
+    /// Catch-all for unknown commands
+    #[command(external_subcommand)]
+    Unknown(Vec<String>),
+}
+
+impl Command {
+    /// Execute the command and return formatted output
+    pub fn run(self, db_path: &Path, format: OutputFormat) -> Result<String, Box<dyn Error>> {
+        match self {
+            Command::Import(cmd) => {
+                let result = cmd.execute(db_path)?;
+                Ok(result.format(format))
+            }
+            Command::Unknown(args) => {
+                Err(format!("Unknown command: {}", args.first().unwrap_or(&String::new())).into())
+            }
+        }
+    }
 }
