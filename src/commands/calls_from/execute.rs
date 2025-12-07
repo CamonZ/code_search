@@ -147,211 +147,147 @@ fn find_calls_from(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commands::import::ImportCmd;
-    use crate::commands::Execute;
     use rstest::{fixture, rstest};
-    use std::io::Write;
-    use tempfile::NamedTempFile;
 
-    fn sample_call_graph_json() -> &'static str {
-        r#"{
-            "structs": {},
-            "function_locations": {
-                "MyApp.Accounts": {
-                    "get_user/1": {
-                        "arity": 1,
-                        "name": "get_user",
-                        "file": "lib/my_app/accounts.ex",
-                        "column": 3,
-                        "kind": "def",
-                        "start_line": 10,
-                        "end_line": 15
-                    },
-                    "list_users/0": {
-                        "arity": 0,
-                        "name": "list_users",
-                        "file": "lib/my_app/accounts.ex",
-                        "column": 3,
-                        "kind": "def",
-                        "start_line": 20,
-                        "end_line": 25
-                    }
-                }
-            },
-            "calls": [
-                {
-                    "caller": {
-                        "function": "get_user",
-                        "line": 12,
-                        "module": "MyApp.Accounts",
-                        "file": "lib/my_app/accounts.ex",
-                        "column": 5
-                    },
-                    "type": "remote",
-                    "callee": {
-                        "arity": 2,
-                        "function": "get",
-                        "module": "MyApp.Repo"
-                    }
-                },
-                {
-                    "caller": {
-                        "function": "list_users",
-                        "line": 22,
-                        "module": "MyApp.Accounts",
-                        "file": "lib/my_app/accounts.ex",
-                        "column": 5
-                    },
-                    "type": "remote",
-                    "callee": {
-                        "arity": 1,
-                        "function": "all",
-                        "module": "MyApp.Repo"
-                    }
-                },
-                {
-                    "caller": {
-                        "function": "create_user",
-                        "line": 30,
-                        "module": "MyApp.Users",
-                        "file": "lib/my_app/users.ex",
-                        "column": 5
-                    },
-                    "type": "remote",
-                    "callee": {
-                        "arity": 2,
-                        "function": "insert",
-                        "module": "MyApp.Repo"
-                    }
-                }
-            ],
-            "type_signatures": {}
-        }"#
+    const TEST_JSON: &str = r#"{
+        "structs": {},
+        "function_locations": {
+            "MyApp.Accounts": {
+                "get_user/1": {"arity": 1, "name": "get_user", "file": "lib/my_app/accounts.ex", "column": 3, "kind": "def", "start_line": 10, "end_line": 15},
+                "list_users/0": {"arity": 0, "name": "list_users", "file": "lib/my_app/accounts.ex", "column": 3, "kind": "def", "start_line": 20, "end_line": 25}
+            }
+        },
+        "calls": [
+            {"caller": {"function": "get_user", "line": 12, "module": "MyApp.Accounts", "file": "lib/my_app/accounts.ex", "column": 5}, "type": "remote", "callee": {"arity": 2, "function": "get", "module": "MyApp.Repo"}},
+            {"caller": {"function": "list_users", "line": 22, "module": "MyApp.Accounts", "file": "lib/my_app/accounts.ex", "column": 5}, "type": "remote", "callee": {"arity": 1, "function": "all", "module": "MyApp.Repo"}},
+            {"caller": {"function": "create_user", "line": 30, "module": "MyApp.Users", "file": "lib/my_app/users.ex", "column": 5}, "type": "remote", "callee": {"arity": 2, "function": "insert", "module": "MyApp.Repo"}}
+        ],
+        "type_signatures": {}
+    }"#;
+
+    crate::execute_test_fixture! {
+        fixture_name: populated_db,
+        json: TEST_JSON,
+        project: "test_project",
     }
 
-    fn create_temp_json_file(content: &str) -> NamedTempFile {
-        let mut file = NamedTempFile::new().expect("Failed to create temp file");
-        file.write_all(content.as_bytes())
-            .expect("Failed to write temp file");
-        file
-    }
+    // =========================================================================
+    // Core functionality tests
+    // =========================================================================
 
-    #[fixture]
-    fn populated_db() -> NamedTempFile {
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let json_file = create_temp_json_file(sample_call_graph_json());
-
-        let import_cmd = ImportCmd {
-            file: json_file.path().to_path_buf(),
-            project: "test_project".to_string(),
-            clear: false,
-        };
-        import_cmd
-            .execute(db_file.path())
-            .expect("Import should succeed");
-
-        db_file
-    }
-
-    #[rstest]
-    fn test_calls_from_module(populated_db: NamedTempFile) {
-        let cmd = CallsFromCmd {
+    crate::execute_count_test! {
+        test_name: test_calls_from_module,
+        fixture: populated_db,
+        cmd: CallsFromCmd {
             module: "MyApp.Accounts".to_string(),
             function: None,
             arity: None,
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("CallsFrom should succeed");
-        assert_eq!(result.calls.len(), 2); // get_user calls Repo.get, list_users calls Repo.all
+        },
+        field: calls,
+        expected: 2,
     }
 
-    #[rstest]
-    fn test_calls_from_function(populated_db: NamedTempFile) {
-        let cmd = CallsFromCmd {
+    crate::execute_test! {
+        test_name: test_calls_from_function,
+        fixture: populated_db,
+        cmd: CallsFromCmd {
             module: "MyApp.Accounts".to_string(),
             function: Some("get_user".to_string()),
             arity: None,
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("CallsFrom should succeed");
-        assert_eq!(result.calls.len(), 1);
-        assert_eq!(result.calls[0].callee_module, "MyApp.Repo");
-        assert_eq!(result.calls[0].callee_function, "get");
+        },
+        assertions: |result| {
+            assert_eq!(result.calls.len(), 1);
+            assert_eq!(result.calls[0].callee_module, "MyApp.Repo");
+            assert_eq!(result.calls[0].callee_function, "get");
+        },
     }
 
-    #[rstest]
-    fn test_calls_from_regex_module(populated_db: NamedTempFile) {
-        let cmd = CallsFromCmd {
+    crate::execute_count_test! {
+        test_name: test_calls_from_regex_module,
+        fixture: populated_db,
+        cmd: CallsFromCmd {
             module: "MyApp\\..*".to_string(),
             function: None,
             arity: None,
             project: "test_project".to_string(),
             regex: true,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("CallsFrom should succeed");
-        assert_eq!(result.calls.len(), 3); // All calls from MyApp.Accounts and MyApp.Users
+        },
+        field: calls,
+        expected: 3,
     }
 
-    #[rstest]
-    fn test_calls_from_no_match(populated_db: NamedTempFile) {
-        let cmd = CallsFromCmd {
+    // =========================================================================
+    // No match / empty result tests
+    // =========================================================================
+
+    crate::execute_no_match_test! {
+        test_name: test_calls_from_no_match,
+        fixture: populated_db,
+        cmd: CallsFromCmd {
             module: "NonExistent".to_string(),
             function: None,
             arity: None,
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("CallsFrom should succeed");
-        assert!(result.calls.is_empty());
+        },
+        empty_field: calls,
     }
 
-    #[rstest]
-    fn test_calls_from_with_project_filter(populated_db: NamedTempFile) {
-        let cmd = CallsFromCmd {
+    // =========================================================================
+    // Filter tests
+    // =========================================================================
+
+    crate::execute_all_match_test! {
+        test_name: test_calls_from_with_project_filter,
+        fixture: populated_db,
+        cmd: CallsFromCmd {
             module: "MyApp.Accounts".to_string(),
             function: None,
             arity: None,
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("CallsFrom should succeed");
-        assert_eq!(result.calls.len(), 2);
-        assert!(result.calls.iter().all(|c| c.project == "test_project"));
+        },
+        collection: calls,
+        condition: |c| c.project == "test_project",
     }
 
-    #[rstest]
-    fn test_calls_from_with_limit(populated_db: NamedTempFile) {
-        let cmd = CallsFromCmd {
+    crate::execute_limit_test! {
+        test_name: test_calls_from_with_limit,
+        fixture: populated_db,
+        cmd: CallsFromCmd {
             module: "MyApp\\..*".to_string(),
             function: None,
             arity: None,
             project: "test_project".to_string(),
             regex: true,
             limit: 1,
-        };
-        let result = cmd.execute(populated_db.path()).expect("CallsFrom should succeed");
-        assert_eq!(result.calls.len(), 1);
+        },
+        collection: calls,
+        limit: 1,
     }
 
-    #[rstest]
-    fn test_calls_from_empty_db() {
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let cmd = CallsFromCmd {
+    // =========================================================================
+    // Error handling tests
+    // =========================================================================
+
+    crate::execute_empty_db_test! {
+        cmd_type: CallsFromCmd,
+        cmd: CallsFromCmd {
             module: "MyApp".to_string(),
             function: None,
             arity: None,
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(db_file.path());
-        assert!(result.is_err());
+        },
     }
 }

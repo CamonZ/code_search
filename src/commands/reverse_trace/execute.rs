@@ -174,74 +174,37 @@ fn reverse_trace_calls(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commands::import::ImportCmd;
-    use crate::commands::Execute;
     use rstest::{fixture, rstest};
-    use std::io::Write;
-    use tempfile::NamedTempFile;
 
-    fn sample_call_graph_json() -> &'static str {
-        r#"{
-            "structs": {},
-            "function_locations": {
-                "MyApp.Controller": {
-                    "index/2": {"arity": 2, "name": "index", "file": "lib/controller.ex", "column": 3, "kind": "def", "start_line": 5, "end_line": 10}
-                },
-                "MyApp.Service": {
-                    "fetch/1": {"arity": 1, "name": "fetch", "file": "lib/service.ex", "column": 3, "kind": "def", "start_line": 10, "end_line": 20}
-                },
-                "MyApp.Repo": {
-                    "get/2": {"arity": 2, "name": "get", "file": "lib/repo.ex", "column": 3, "kind": "def", "start_line": 15, "end_line": 25}
-                }
-            },
-            "calls": [
-                {
-                    "caller": {"module": "MyApp.Controller", "function": "index", "file": "lib/controller.ex", "line": 7, "column": 5},
-                    "type": "remote",
-                    "callee": {"arity": 1, "function": "fetch", "module": "MyApp.Service"}
-                },
-                {
-                    "caller": {"module": "MyApp.Service", "function": "fetch", "file": "lib/service.ex", "line": 15, "column": 5},
-                    "type": "remote",
-                    "callee": {"arity": 2, "function": "get", "module": "MyApp.Repo"}
-                },
-                {
-                    "caller": {"module": "MyApp.Repo", "function": "get", "file": "lib/repo.ex", "line": 20, "column": 5},
-                    "type": "remote",
-                    "callee": {"arity": 1, "function": "query", "module": "Ecto.Query"}
-                }
-            ],
-            "type_signatures": {}
-        }"#
+    const TEST_JSON: &str = r#"{
+        "structs": {},
+        "function_locations": {
+            "MyApp.Controller": {"index/2": {"arity": 2, "name": "index", "file": "lib/controller.ex", "column": 3, "kind": "def", "start_line": 5, "end_line": 10}},
+            "MyApp.Service": {"fetch/1": {"arity": 1, "name": "fetch", "file": "lib/service.ex", "column": 3, "kind": "def", "start_line": 10, "end_line": 20}},
+            "MyApp.Repo": {"get/2": {"arity": 2, "name": "get", "file": "lib/repo.ex", "column": 3, "kind": "def", "start_line": 15, "end_line": 25}}
+        },
+        "calls": [
+            {"caller": {"module": "MyApp.Controller", "function": "index", "file": "lib/controller.ex", "line": 7, "column": 5}, "type": "remote", "callee": {"arity": 1, "function": "fetch", "module": "MyApp.Service"}},
+            {"caller": {"module": "MyApp.Service", "function": "fetch", "file": "lib/service.ex", "line": 15, "column": 5}, "type": "remote", "callee": {"arity": 2, "function": "get", "module": "MyApp.Repo"}},
+            {"caller": {"module": "MyApp.Repo", "function": "get", "file": "lib/repo.ex", "line": 20, "column": 5}, "type": "remote", "callee": {"arity": 1, "function": "query", "module": "Ecto.Query"}}
+        ],
+        "type_signatures": {}
+    }"#;
+
+    crate::execute_test_fixture! {
+        fixture_name: populated_db,
+        json: TEST_JSON,
+        project: "test_project",
     }
 
-    fn create_temp_json_file(content: &str) -> NamedTempFile {
-        let mut file = NamedTempFile::new().expect("Failed to create temp file");
-        file.write_all(content.as_bytes())
-            .expect("Failed to write temp file");
-        file
-    }
+    // =========================================================================
+    // Core functionality tests
+    // =========================================================================
 
-    #[fixture]
-    fn populated_db() -> NamedTempFile {
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let json_file = create_temp_json_file(sample_call_graph_json());
-
-        let import_cmd = ImportCmd {
-            file: json_file.path().to_path_buf(),
-            project: "test_project".to_string(),
-            clear: false,
-        };
-        import_cmd
-            .execute(db_file.path())
-            .expect("Import should succeed");
-
-        db_file
-    }
-
-    #[rstest]
-    fn test_reverse_trace_single_depth(populated_db: NamedTempFile) {
-        let cmd = ReverseTraceCmd {
+    crate::execute_test! {
+        test_name: test_reverse_trace_single_depth,
+        fixture: populated_db,
+        cmd: ReverseTraceCmd {
             module: "MyApp.Repo".to_string(),
             function: "get".to_string(),
             arity: None,
@@ -249,16 +212,18 @@ mod tests {
             regex: false,
             depth: 1,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Reverse trace should succeed");
-        assert_eq!(result.steps.len(), 1);
-        assert_eq!(result.steps[0].caller_module, "MyApp.Service");
-        assert_eq!(result.steps[0].caller_function, "fetch");
+        },
+        assertions: |result| {
+            assert_eq!(result.steps.len(), 1);
+            assert_eq!(result.steps[0].caller_module, "MyApp.Service");
+            assert_eq!(result.steps[0].caller_function, "fetch");
+        },
     }
 
-    #[rstest]
-    fn test_reverse_trace_multiple_depths(populated_db: NamedTempFile) {
-        let cmd = ReverseTraceCmd {
+    crate::execute_count_test! {
+        test_name: test_reverse_trace_multiple_depths,
+        fixture: populated_db,
+        cmd: ReverseTraceCmd {
             module: "MyApp.Repo".to_string(),
             function: "get".to_string(),
             arity: None,
@@ -266,16 +231,15 @@ mod tests {
             regex: false,
             depth: 3,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Reverse trace should succeed");
-        // Should find: Service->Repo (depth 1), Controller->Service (depth 2)
-        assert_eq!(result.steps.len(), 2);
+        },
+        field: steps,
+        expected: 2,
     }
 
-    #[rstest]
-    fn test_reverse_trace_from_leaf(populated_db: NamedTempFile) {
-        // Start from Ecto.Query.query which is called by Repo.get
-        let cmd = ReverseTraceCmd {
+    crate::execute_count_test! {
+        test_name: test_reverse_trace_from_leaf,
+        fixture: populated_db,
+        cmd: ReverseTraceCmd {
             module: "Ecto.Query".to_string(),
             function: "query".to_string(),
             arity: None,
@@ -283,15 +247,19 @@ mod tests {
             regex: false,
             depth: 5,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Reverse trace should succeed");
-        // Should find: Repo->Ecto (depth 1), Service->Repo (depth 2), Controller->Service (depth 3)
-        assert_eq!(result.steps.len(), 3);
+        },
+        field: steps,
+        expected: 3,
     }
 
-    #[rstest]
-    fn test_reverse_trace_no_match(populated_db: NamedTempFile) {
-        let cmd = ReverseTraceCmd {
+    // =========================================================================
+    // No match / empty result tests
+    // =========================================================================
+
+    crate::execute_no_match_test! {
+        test_name: test_reverse_trace_no_match,
+        fixture: populated_db,
+        cmd: ReverseTraceCmd {
             module: "NonExistent".to_string(),
             function: "foo".to_string(),
             arity: None,
@@ -299,15 +267,17 @@ mod tests {
             regex: false,
             depth: 5,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Reverse trace should succeed");
-        assert!(result.steps.is_empty());
+        },
+        empty_field: steps,
     }
 
-    #[rstest]
-    fn test_reverse_trace_empty_db() {
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let cmd = ReverseTraceCmd {
+    // =========================================================================
+    // Error handling tests
+    // =========================================================================
+
+    crate::execute_empty_db_test! {
+        cmd_type: ReverseTraceCmd,
+        cmd: ReverseTraceCmd {
             module: "MyApp".to_string(),
             function: "foo".to_string(),
             arity: None,
@@ -315,8 +285,6 @@ mod tests {
             regex: false,
             depth: 5,
             limit: 100,
-        };
-        let result = cmd.execute(db_file.path());
-        assert!(result.is_err());
+        },
     }
 }

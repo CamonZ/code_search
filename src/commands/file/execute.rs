@@ -136,162 +136,157 @@ fn find_functions_in_file(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commands::import::ImportCmd;
-    use crate::commands::Execute;
     use rstest::{fixture, rstest};
-    use std::io::Write;
-    use tempfile::NamedTempFile;
 
-    fn sample_call_graph_json() -> &'static str {
-        r#"{
-            "structs": {},
-            "function_locations": {
-                "MyApp.Accounts": {
-                    "get_user/1": {"arity": 1, "name": "get_user", "file": "lib/accounts.ex", "column": 3, "kind": "def", "start_line": 10, "end_line": 20},
-                    "list_users/0": {"arity": 0, "name": "list_users", "file": "lib/accounts.ex", "column": 3, "kind": "def", "start_line": 25, "end_line": 30},
-                    "private_helper/1": {"arity": 1, "name": "private_helper", "file": "lib/accounts.ex", "column": 3, "kind": "defp", "start_line": 35, "end_line": 40}
-                },
-                "MyApp.Service": {
-                    "process/1": {"arity": 1, "name": "process", "file": "lib/service.ex", "column": 3, "kind": "def", "start_line": 5, "end_line": 15}
-                },
-                "MyApp.Web": {
-                    "index/2": {"arity": 2, "name": "index", "file": "lib/web/controller.ex", "column": 3, "kind": "def", "start_line": 10, "end_line": 20}
-                }
+    const TEST_JSON: &str = r#"{
+        "structs": {},
+        "function_locations": {
+            "MyApp.Accounts": {
+                "get_user/1": {"arity": 1, "name": "get_user", "file": "lib/accounts.ex", "column": 3, "kind": "def", "start_line": 10, "end_line": 20},
+                "list_users/0": {"arity": 0, "name": "list_users", "file": "lib/accounts.ex", "column": 3, "kind": "def", "start_line": 25, "end_line": 30},
+                "private_helper/1": {"arity": 1, "name": "private_helper", "file": "lib/accounts.ex", "column": 3, "kind": "defp", "start_line": 35, "end_line": 40}
             },
-            "calls": [],
-            "type_signatures": {}
-        }"#
+            "MyApp.Service": {
+                "process/1": {"arity": 1, "name": "process", "file": "lib/service.ex", "column": 3, "kind": "def", "start_line": 5, "end_line": 15}
+            },
+            "MyApp.Web": {
+                "index/2": {"arity": 2, "name": "index", "file": "lib/web/controller.ex", "column": 3, "kind": "def", "start_line": 10, "end_line": 20}
+            }
+        },
+        "calls": [],
+        "type_signatures": {}
+    }"#;
+
+    crate::execute_test_fixture! {
+        fixture_name: populated_db,
+        json: TEST_JSON,
+        project: "test_project",
     }
 
-    fn create_temp_json_file(content: &str) -> NamedTempFile {
-        let mut file = NamedTempFile::new().expect("Failed to create temp file");
-        file.write_all(content.as_bytes())
-            .expect("Failed to write temp file");
-        file
-    }
+    // =========================================================================
+    // Core functionality tests
+    // =========================================================================
 
-    #[fixture]
-    fn populated_db() -> NamedTempFile {
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let json_file = create_temp_json_file(sample_call_graph_json());
-
-        let import_cmd = ImportCmd {
-            file: json_file.path().to_path_buf(),
-            project: "test_project".to_string(),
-            clear: false,
-        };
-        import_cmd
-            .execute(db_file.path())
-            .expect("Import should succeed");
-
-        db_file
-    }
-
-    #[rstest]
-    fn test_file_finds_functions(populated_db: NamedTempFile) {
-        let cmd = FileCmd {
+    crate::execute_test! {
+        test_name: test_file_finds_functions,
+        fixture: populated_db,
+        cmd: FileCmd {
             file: "lib/accounts.ex".to_string(),
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("File should succeed");
-        assert_eq!(result.files.len(), 1);
-        assert_eq!(result.files[0].file, "lib/accounts.ex");
-        assert_eq!(result.files[0].functions.len(), 3);
+        },
+        assertions: |result| {
+            assert_eq!(result.files.len(), 1);
+            assert_eq!(result.files[0].file, "lib/accounts.ex");
+            assert_eq!(result.files[0].functions.len(), 3);
+        },
     }
 
-    #[rstest]
-    fn test_file_substring_match(populated_db: NamedTempFile) {
-        let cmd = FileCmd {
+    crate::execute_test! {
+        test_name: test_file_substring_match,
+        fixture: populated_db,
+        cmd: FileCmd {
             file: "accounts".to_string(),
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("File should succeed");
-        assert_eq!(result.files.len(), 1);
-        assert_eq!(result.files[0].file, "lib/accounts.ex");
+        },
+        assertions: |result| {
+            assert_eq!(result.files.len(), 1);
+            assert_eq!(result.files[0].file, "lib/accounts.ex");
+        },
     }
 
-    #[rstest]
-    fn test_file_regex_match(populated_db: NamedTempFile) {
-        let cmd = FileCmd {
+    crate::execute_count_test! {
+        test_name: test_file_regex_match,
+        fixture: populated_db,
+        cmd: FileCmd {
             file: "^lib/[^/]+\\.ex$".to_string(),
             project: "test_project".to_string(),
             regex: true,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("File should succeed");
-        // Matches lib/accounts.ex and lib/service.ex (but not lib/web/controller.ex which has subdir)
-        assert_eq!(result.files.len(), 2);
+        },
+        field: files,
+        expected: 2,
     }
 
-    #[rstest]
-    fn test_file_multiple_files(populated_db: NamedTempFile) {
-        let cmd = FileCmd {
+    crate::execute_count_test! {
+        test_name: test_file_multiple_files,
+        fixture: populated_db,
+        cmd: FileCmd {
             file: "lib/".to_string(),
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("File should succeed");
-        // All three files start with lib/
-        assert_eq!(result.files.len(), 3);
+        },
+        field: files,
+        expected: 3,
     }
 
-    #[rstest]
-    fn test_file_sorted_by_line(populated_db: NamedTempFile) {
-        let cmd = FileCmd {
+    crate::execute_test! {
+        test_name: test_file_sorted_by_line,
+        fixture: populated_db,
+        cmd: FileCmd {
             file: "lib/accounts.ex".to_string(),
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("File should succeed");
-        let funcs = &result.files[0].functions;
-        // Should be sorted by start_line: get_user(10), list_users(25), private_helper(35)
-        assert_eq!(funcs[0].name, "get_user");
-        assert_eq!(funcs[1].name, "list_users");
-        assert_eq!(funcs[2].name, "private_helper");
+        },
+        assertions: |result| {
+            let funcs = &result.files[0].functions;
+            assert_eq!(funcs[0].name, "get_user");
+            assert_eq!(funcs[1].name, "list_users");
+            assert_eq!(funcs[2].name, "private_helper");
+        },
     }
 
-    #[rstest]
-    fn test_file_no_match(populated_db: NamedTempFile) {
-        let cmd = FileCmd {
+    // =========================================================================
+    // No match / empty result tests
+    // =========================================================================
+
+    crate::execute_no_match_test! {
+        test_name: test_file_no_match,
+        fixture: populated_db,
+        cmd: FileCmd {
             file: "nonexistent.ex".to_string(),
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("File should succeed");
-        assert!(result.files.is_empty());
+        },
+        empty_field: files,
     }
 
-    #[rstest]
-    fn test_file_with_limit(populated_db: NamedTempFile) {
-        let cmd = FileCmd {
+    // =========================================================================
+    // Filter tests
+    // =========================================================================
+
+    crate::execute_test! {
+        test_name: test_file_with_limit,
+        fixture: populated_db,
+        cmd: FileCmd {
             file: "lib/".to_string(),
             project: "test_project".to_string(),
             regex: false,
             limit: 2,
-        };
-        let result = cmd.execute(populated_db.path()).expect("File should succeed");
-        // Limit applies to total function count, not file count
-        let total_funcs: usize = result.files.iter().map(|f| f.functions.len()).sum();
-        assert!(total_funcs <= 2);
+        },
+        assertions: |result| {
+            let total_funcs: usize = result.files.iter().map(|f| f.functions.len()).sum();
+            assert!(total_funcs <= 2);
+        },
     }
 
-    #[rstest]
-    fn test_file_empty_db() {
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let cmd = FileCmd {
+    // =========================================================================
+    // Error handling tests
+    // =========================================================================
+
+    crate::execute_empty_db_test! {
+        cmd_type: FileCmd,
+        cmd: FileCmd {
             file: "lib/accounts.ex".to_string(),
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(db_file.path());
-        assert!(result.is_err());
+        },
     }
 }

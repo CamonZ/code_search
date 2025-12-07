@@ -105,144 +105,111 @@ fn find_dependencies(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commands::import::ImportCmd;
-    use crate::commands::Execute;
     use rstest::{fixture, rstest};
-    use std::io::Write;
-    use tempfile::NamedTempFile;
 
-    fn sample_call_graph_json() -> &'static str {
-        r#"{
-            "structs": {},
-            "function_locations": {
-                "MyApp.Controller": {
-                    "index/2": {"arity": 2, "name": "index", "file": "lib/controller.ex", "column": 3, "kind": "def", "start_line": 5, "end_line": 10}
-                },
-                "MyApp.Service": {
-                    "fetch/1": {"arity": 1, "name": "fetch", "file": "lib/service.ex", "column": 3, "kind": "def", "start_line": 10, "end_line": 20}
-                },
-                "MyApp.Repo": {
-                    "get/2": {"arity": 2, "name": "get", "file": "lib/repo.ex", "column": 3, "kind": "def", "start_line": 15, "end_line": 25}
-                }
-            },
-            "calls": [
-                {
-                    "caller": {"module": "MyApp.Controller", "function": "index", "file": "lib/controller.ex", "line": 7, "column": 5},
-                    "type": "remote",
-                    "callee": {"arity": 1, "function": "fetch", "module": "MyApp.Service"}
-                },
-                {
-                    "caller": {"module": "MyApp.Controller", "function": "index", "file": "lib/controller.ex", "line": 8, "column": 5},
-                    "type": "remote",
-                    "callee": {"arity": 2, "function": "render", "module": "Phoenix.View"}
-                },
-                {
-                    "caller": {"module": "MyApp.Service", "function": "fetch", "file": "lib/service.ex", "line": 15, "column": 5},
-                    "type": "remote",
-                    "callee": {"arity": 2, "function": "get", "module": "MyApp.Repo"}
-                },
-                {
-                    "caller": {"module": "MyApp.Service", "function": "fetch", "file": "lib/service.ex", "line": 16, "column": 5},
-                    "type": "remote",
-                    "callee": {"arity": 2, "function": "get", "module": "MyApp.Repo"}
-                },
-                {
-                    "caller": {"module": "MyApp.Repo", "function": "get", "file": "lib/repo.ex", "line": 20, "column": 5},
-                    "type": "remote",
-                    "callee": {"arity": 1, "function": "query", "module": "Ecto.Query"}
-                }
-            ],
-            "type_signatures": {}
-        }"#
+    const TEST_JSON: &str = r#"{
+        "structs": {},
+        "function_locations": {
+            "MyApp.Controller": {"index/2": {"arity": 2, "name": "index", "file": "lib/controller.ex", "column": 3, "kind": "def", "start_line": 5, "end_line": 10}},
+            "MyApp.Service": {"fetch/1": {"arity": 1, "name": "fetch", "file": "lib/service.ex", "column": 3, "kind": "def", "start_line": 10, "end_line": 20}},
+            "MyApp.Repo": {"get/2": {"arity": 2, "name": "get", "file": "lib/repo.ex", "column": 3, "kind": "def", "start_line": 15, "end_line": 25}}
+        },
+        "calls": [
+            {"caller": {"module": "MyApp.Controller", "function": "index", "file": "lib/controller.ex", "line": 7, "column": 5}, "type": "remote", "callee": {"arity": 1, "function": "fetch", "module": "MyApp.Service"}},
+            {"caller": {"module": "MyApp.Controller", "function": "index", "file": "lib/controller.ex", "line": 8, "column": 5}, "type": "remote", "callee": {"arity": 2, "function": "render", "module": "Phoenix.View"}},
+            {"caller": {"module": "MyApp.Service", "function": "fetch", "file": "lib/service.ex", "line": 15, "column": 5}, "type": "remote", "callee": {"arity": 2, "function": "get", "module": "MyApp.Repo"}},
+            {"caller": {"module": "MyApp.Service", "function": "fetch", "file": "lib/service.ex", "line": 16, "column": 5}, "type": "remote", "callee": {"arity": 2, "function": "get", "module": "MyApp.Repo"}},
+            {"caller": {"module": "MyApp.Repo", "function": "get", "file": "lib/repo.ex", "line": 20, "column": 5}, "type": "remote", "callee": {"arity": 1, "function": "query", "module": "Ecto.Query"}}
+        ],
+        "type_signatures": {}
+    }"#;
+
+    crate::execute_test_fixture! {
+        fixture_name: populated_db,
+        json: TEST_JSON,
+        project: "test_project",
     }
 
-    fn create_temp_json_file(content: &str) -> NamedTempFile {
-        let mut file = NamedTempFile::new().expect("Failed to create temp file");
-        file.write_all(content.as_bytes())
-            .expect("Failed to write temp file");
-        file
-    }
+    // =========================================================================
+    // Core functionality tests
+    // =========================================================================
 
-    #[fixture]
-    fn populated_db() -> NamedTempFile {
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let json_file = create_temp_json_file(sample_call_graph_json());
-
-        let import_cmd = ImportCmd {
-            file: json_file.path().to_path_buf(),
-            project: "test_project".to_string(),
-            clear: false,
-        };
-        import_cmd
-            .execute(db_file.path())
-            .expect("Import should succeed");
-
-        db_file
-    }
-
-    #[rstest]
-    fn test_depends_on_single_module(populated_db: NamedTempFile) {
-        let cmd = DependsOnCmd {
+    crate::execute_test! {
+        test_name: test_depends_on_single_module,
+        fixture: populated_db,
+        cmd: DependsOnCmd {
             module: "MyApp.Controller".to_string(),
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("DependsOn should succeed");
-        assert_eq!(result.dependencies.len(), 2); // Service and Phoenix.View
-        assert!(result.dependencies.iter().any(|d| d.module == "MyApp.Service"));
-        assert!(result.dependencies.iter().any(|d| d.module == "Phoenix.View"));
+        },
+        assertions: |result| {
+            assert_eq!(result.dependencies.len(), 2);
+            assert!(result.dependencies.iter().any(|d| d.module == "MyApp.Service"));
+            assert!(result.dependencies.iter().any(|d| d.module == "Phoenix.View"));
+        },
     }
 
-    #[rstest]
-    fn test_depends_on_counts_calls(populated_db: NamedTempFile) {
-        let cmd = DependsOnCmd {
+    crate::execute_test! {
+        test_name: test_depends_on_counts_calls,
+        fixture: populated_db,
+        cmd: DependsOnCmd {
             module: "MyApp.Service".to_string(),
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("DependsOn should succeed");
-        assert_eq!(result.dependencies.len(), 1); // Only Repo
-        assert_eq!(result.dependencies[0].module, "MyApp.Repo");
-        assert_eq!(result.dependencies[0].call_count, 2); // Two calls to Repo
+        },
+        assertions: |result| {
+            assert_eq!(result.dependencies.len(), 1);
+            assert_eq!(result.dependencies[0].module, "MyApp.Repo");
+            assert_eq!(result.dependencies[0].call_count, 2);
+        },
     }
 
-    #[rstest]
-    fn test_depends_on_no_match(populated_db: NamedTempFile) {
-        let cmd = DependsOnCmd {
+    // =========================================================================
+    // No match / empty result tests
+    // =========================================================================
+
+    crate::execute_no_match_test! {
+        test_name: test_depends_on_no_match,
+        fixture: populated_db,
+        cmd: DependsOnCmd {
             module: "NonExistent".to_string(),
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("DependsOn should succeed");
-        assert!(result.dependencies.is_empty());
+        },
+        empty_field: dependencies,
     }
 
-    #[rstest]
-    fn test_depends_on_excludes_self(populated_db: NamedTempFile) {
-        // Even if a module calls itself, it shouldn't appear in dependencies
-        let cmd = DependsOnCmd {
+    // =========================================================================
+    // Filter tests
+    // =========================================================================
+
+    crate::execute_all_match_test! {
+        test_name: test_depends_on_excludes_self,
+        fixture: populated_db,
+        cmd: DependsOnCmd {
             module: "MyApp.Repo".to_string(),
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("DependsOn should succeed");
-        assert!(!result.dependencies.iter().any(|d| d.module == "MyApp.Repo"));
+        },
+        collection: dependencies,
+        condition: |d| d.module != "MyApp.Repo",
     }
 
-    #[rstest]
-    fn test_depends_on_empty_db() {
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let cmd = DependsOnCmd {
+    // =========================================================================
+    // Error handling tests
+    // =========================================================================
+
+    crate::execute_empty_db_test! {
+        cmd_type: DependsOnCmd,
+        cmd: DependsOnCmd {
             module: "MyApp".to_string(),
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(db_file.path());
-        assert!(result.is_err());
+        },
     }
 }

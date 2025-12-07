@@ -284,74 +284,37 @@ fn dfs_find_paths(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commands::import::ImportCmd;
-    use crate::commands::Execute;
     use rstest::{fixture, rstest};
-    use std::io::Write;
-    use tempfile::NamedTempFile;
 
-    fn sample_call_graph_json() -> &'static str {
-        r#"{
-            "structs": {},
-            "function_locations": {
-                "MyApp.Controller": {
-                    "index/2": {"arity": 2, "name": "index", "file": "lib/controller.ex", "column": 3, "kind": "def", "start_line": 5, "end_line": 10}
-                },
-                "MyApp.Service": {
-                    "fetch/1": {"arity": 1, "name": "fetch", "file": "lib/service.ex", "column": 3, "kind": "def", "start_line": 10, "end_line": 20}
-                },
-                "MyApp.Repo": {
-                    "get/2": {"arity": 2, "name": "get", "file": "lib/repo.ex", "column": 3, "kind": "def", "start_line": 15, "end_line": 25}
-                }
-            },
-            "calls": [
-                {
-                    "caller": {"module": "MyApp.Controller", "function": "index", "file": "lib/controller.ex", "line": 7, "column": 5},
-                    "type": "remote",
-                    "callee": {"arity": 1, "function": "fetch", "module": "MyApp.Service"}
-                },
-                {
-                    "caller": {"module": "MyApp.Service", "function": "fetch", "file": "lib/service.ex", "line": 15, "column": 5},
-                    "type": "remote",
-                    "callee": {"arity": 2, "function": "get", "module": "MyApp.Repo"}
-                },
-                {
-                    "caller": {"module": "MyApp.Repo", "function": "get", "file": "lib/repo.ex", "line": 20, "column": 5},
-                    "type": "remote",
-                    "callee": {"arity": 1, "function": "query", "module": "Ecto.Query"}
-                }
-            ],
-            "type_signatures": {}
-        }"#
+    const TEST_JSON: &str = r#"{
+        "structs": {},
+        "function_locations": {
+            "MyApp.Controller": {"index/2": {"arity": 2, "name": "index", "file": "lib/controller.ex", "column": 3, "kind": "def", "start_line": 5, "end_line": 10}},
+            "MyApp.Service": {"fetch/1": {"arity": 1, "name": "fetch", "file": "lib/service.ex", "column": 3, "kind": "def", "start_line": 10, "end_line": 20}},
+            "MyApp.Repo": {"get/2": {"arity": 2, "name": "get", "file": "lib/repo.ex", "column": 3, "kind": "def", "start_line": 15, "end_line": 25}}
+        },
+        "calls": [
+            {"caller": {"module": "MyApp.Controller", "function": "index", "file": "lib/controller.ex", "line": 7, "column": 5}, "type": "remote", "callee": {"arity": 1, "function": "fetch", "module": "MyApp.Service"}},
+            {"caller": {"module": "MyApp.Service", "function": "fetch", "file": "lib/service.ex", "line": 15, "column": 5}, "type": "remote", "callee": {"arity": 2, "function": "get", "module": "MyApp.Repo"}},
+            {"caller": {"module": "MyApp.Repo", "function": "get", "file": "lib/repo.ex", "line": 20, "column": 5}, "type": "remote", "callee": {"arity": 1, "function": "query", "module": "Ecto.Query"}}
+        ],
+        "type_signatures": {}
+    }"#;
+
+    crate::execute_test_fixture! {
+        fixture_name: populated_db,
+        json: TEST_JSON,
+        project: "test_project",
     }
 
-    fn create_temp_json_file(content: &str) -> NamedTempFile {
-        let mut file = NamedTempFile::new().expect("Failed to create temp file");
-        file.write_all(content.as_bytes())
-            .expect("Failed to write temp file");
-        file
-    }
+    // =========================================================================
+    // Core functionality tests
+    // =========================================================================
 
-    #[fixture]
-    fn populated_db() -> NamedTempFile {
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let json_file = create_temp_json_file(sample_call_graph_json());
-
-        let import_cmd = ImportCmd {
-            file: json_file.path().to_path_buf(),
-            project: "test_project".to_string(),
-            clear: false,
-        };
-        import_cmd
-            .execute(db_file.path())
-            .expect("Import should succeed");
-
-        db_file
-    }
-
-    #[rstest]
-    fn test_path_direct_call(populated_db: NamedTempFile) {
-        let cmd = PathCmd {
+    crate::execute_test! {
+        test_name: test_path_direct_call,
+        fixture: populated_db,
+        cmd: PathCmd {
             from_module: "MyApp.Controller".to_string(),
             from_function: "index".to_string(),
             from_arity: None,
@@ -361,17 +324,19 @@ mod tests {
             project: "test_project".to_string(),
             depth: 10,
             limit: 10,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Path should succeed");
-        assert_eq!(result.paths.len(), 1);
-        assert_eq!(result.paths[0].steps.len(), 1);
-        assert_eq!(result.paths[0].steps[0].caller_module, "MyApp.Controller");
-        assert_eq!(result.paths[0].steps[0].callee_module, "MyApp.Service");
+        },
+        assertions: |result| {
+            assert_eq!(result.paths.len(), 1);
+            assert_eq!(result.paths[0].steps.len(), 1);
+            assert_eq!(result.paths[0].steps[0].caller_module, "MyApp.Controller");
+            assert_eq!(result.paths[0].steps[0].callee_module, "MyApp.Service");
+        },
     }
 
-    #[rstest]
-    fn test_path_two_hops(populated_db: NamedTempFile) {
-        let cmd = PathCmd {
+    crate::execute_test! {
+        test_name: test_path_two_hops,
+        fixture: populated_db,
+        cmd: PathCmd {
             from_module: "MyApp.Controller".to_string(),
             from_function: "index".to_string(),
             from_arity: None,
@@ -381,15 +346,17 @@ mod tests {
             project: "test_project".to_string(),
             depth: 10,
             limit: 10,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Path should succeed");
-        assert_eq!(result.paths.len(), 1);
-        assert_eq!(result.paths[0].steps.len(), 2);
+        },
+        assertions: |result| {
+            assert_eq!(result.paths.len(), 1);
+            assert_eq!(result.paths[0].steps.len(), 2);
+        },
     }
 
-    #[rstest]
-    fn test_path_three_hops(populated_db: NamedTempFile) {
-        let cmd = PathCmd {
+    crate::execute_test! {
+        test_name: test_path_three_hops,
+        fixture: populated_db,
+        cmd: PathCmd {
             from_module: "MyApp.Controller".to_string(),
             from_function: "index".to_string(),
             from_arity: None,
@@ -399,15 +366,21 @@ mod tests {
             project: "test_project".to_string(),
             depth: 10,
             limit: 10,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Path should succeed");
-        assert_eq!(result.paths.len(), 1);
-        assert_eq!(result.paths[0].steps.len(), 3);
+        },
+        assertions: |result| {
+            assert_eq!(result.paths.len(), 1);
+            assert_eq!(result.paths[0].steps.len(), 3);
+        },
     }
 
-    #[rstest]
-    fn test_path_no_path_exists(populated_db: NamedTempFile) {
-        let cmd = PathCmd {
+    // =========================================================================
+    // No match / empty result tests
+    // =========================================================================
+
+    crate::execute_no_match_test! {
+        test_name: test_path_no_path_exists,
+        fixture: populated_db,
+        cmd: PathCmd {
             from_module: "MyApp.Repo".to_string(),
             from_function: "get".to_string(),
             from_arity: None,
@@ -417,14 +390,14 @@ mod tests {
             project: "test_project".to_string(),
             depth: 10,
             limit: 10,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Path should succeed");
-        assert!(result.paths.is_empty());
+        },
+        empty_field: paths,
     }
 
-    #[rstest]
-    fn test_path_depth_limit(populated_db: NamedTempFile) {
-        let cmd = PathCmd {
+    crate::execute_no_match_test! {
+        test_name: test_path_depth_limit,
+        fixture: populated_db,
+        cmd: PathCmd {
             from_module: "MyApp.Controller".to_string(),
             from_function: "index".to_string(),
             from_arity: None,
@@ -432,17 +405,19 @@ mod tests {
             to_function: "query".to_string(),
             to_arity: None,
             project: "test_project".to_string(),
-            depth: 2, // Not enough to reach Ecto.Query (needs 3)
+            depth: 2,
             limit: 10,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Path should succeed");
-        assert!(result.paths.is_empty());
+        },
+        empty_field: paths,
     }
 
-    #[rstest]
-    fn test_path_empty_db() {
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let cmd = PathCmd {
+    // =========================================================================
+    // Error handling tests
+    // =========================================================================
+
+    crate::execute_empty_db_test! {
+        cmd_type: PathCmd,
+        cmd: PathCmd {
             from_module: "MyApp".to_string(),
             from_function: "foo".to_string(),
             from_arity: None,
@@ -452,8 +427,6 @@ mod tests {
             project: "test_project".to_string(),
             depth: 10,
             limit: 10,
-        };
-        let result = cmd.execute(db_file.path());
-        assert!(result.is_err());
+        },
     }
 }

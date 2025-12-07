@@ -181,68 +181,41 @@ fn find_unused_functions(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commands::import::ImportCmd;
-    use crate::commands::Execute;
     use rstest::{fixture, rstest};
-    use std::io::Write;
-    use tempfile::NamedTempFile;
 
-    fn sample_call_graph_json() -> &'static str {
-        r#"{
-            "structs": {},
-            "function_locations": {
-                "MyApp.Accounts": {
-                    "get_user/1": {"arity": 1, "name": "get_user", "file": "lib/accounts.ex", "column": 3, "kind": "def", "start_line": 10, "end_line": 20},
-                    "list_users/0": {"arity": 0, "name": "list_users", "file": "lib/accounts.ex", "column": 3, "kind": "def", "start_line": 25, "end_line": 30},
-                    "unused_private/0": {"arity": 0, "name": "unused_private", "file": "lib/accounts.ex", "column": 3, "kind": "defp", "start_line": 35, "end_line": 40}
-                },
-                "MyApp.Service": {
-                    "process/1": {"arity": 1, "name": "process", "file": "lib/service.ex", "column": 3, "kind": "def", "start_line": 5, "end_line": 15}
-                }
+    const TEST_JSON: &str = r#"{
+        "structs": {},
+        "function_locations": {
+            "MyApp.Accounts": {
+                "get_user/1": {"arity": 1, "name": "get_user", "file": "lib/accounts.ex", "column": 3, "kind": "def", "start_line": 10, "end_line": 20},
+                "list_users/0": {"arity": 0, "name": "list_users", "file": "lib/accounts.ex", "column": 3, "kind": "def", "start_line": 25, "end_line": 30},
+                "unused_private/0": {"arity": 0, "name": "unused_private", "file": "lib/accounts.ex", "column": 3, "kind": "defp", "start_line": 35, "end_line": 40}
             },
-            "calls": [
-                {
-                    "caller": {"module": "MyApp.Web", "function": "index", "file": "lib/web.ex", "line": 10, "column": 5},
-                    "type": "remote",
-                    "callee": {"arity": 1, "function": "get_user", "module": "MyApp.Accounts"}
-                },
-                {
-                    "caller": {"module": "MyApp.Web", "function": "list", "file": "lib/web.ex", "line": 20, "column": 5},
-                    "type": "remote",
-                    "callee": {"arity": 0, "function": "list_users", "module": "MyApp.Accounts"}
-                }
-            ],
-            "type_signatures": {}
-        }"#
+            "MyApp.Service": {
+                "process/1": {"arity": 1, "name": "process", "file": "lib/service.ex", "column": 3, "kind": "def", "start_line": 5, "end_line": 15}
+            }
+        },
+        "calls": [
+            {"caller": {"module": "MyApp.Web", "function": "index", "file": "lib/web.ex", "line": 10, "column": 5}, "type": "remote", "callee": {"arity": 1, "function": "get_user", "module": "MyApp.Accounts"}},
+            {"caller": {"module": "MyApp.Web", "function": "list", "file": "lib/web.ex", "line": 20, "column": 5}, "type": "remote", "callee": {"arity": 0, "function": "list_users", "module": "MyApp.Accounts"}}
+        ],
+        "type_signatures": {}
+    }"#;
+
+    crate::execute_test_fixture! {
+        fixture_name: populated_db,
+        json: TEST_JSON,
+        project: "test_project",
     }
 
-    fn create_temp_json_file(content: &str) -> NamedTempFile {
-        let mut file = NamedTempFile::new().expect("Failed to create temp file");
-        file.write_all(content.as_bytes())
-            .expect("Failed to write temp file");
-        file
-    }
+    // =========================================================================
+    // Core functionality tests
+    // =========================================================================
 
-    #[fixture]
-    fn populated_db() -> NamedTempFile {
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let json_file = create_temp_json_file(sample_call_graph_json());
-
-        let import_cmd = ImportCmd {
-            file: json_file.path().to_path_buf(),
-            project: "test_project".to_string(),
-            clear: false,
-        };
-        import_cmd
-            .execute(db_file.path())
-            .expect("Import should succeed");
-
-        db_file
-    }
-
-    #[rstest]
-    fn test_unused_finds_uncalled_functions(populated_db: NamedTempFile) {
-        let cmd = UnusedCmd {
+    crate::execute_test! {
+        test_name: test_unused_finds_uncalled_functions,
+        fixture: populated_db,
+        cmd: UnusedCmd {
             module: None,
             project: "test_project".to_string(),
             regex: false,
@@ -250,18 +223,19 @@ mod tests {
             public_only: false,
             exclude_generated: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Unused should succeed");
-        // unused_private and process are never called
-        assert_eq!(result.functions.len(), 2);
-        let names: Vec<&str> = result.functions.iter().map(|f| f.name.as_str()).collect();
-        assert!(names.contains(&"unused_private"));
-        assert!(names.contains(&"process"));
+        },
+        assertions: |result| {
+            assert_eq!(result.functions.len(), 2);
+            let names: Vec<&str> = result.functions.iter().map(|f| f.name.as_str()).collect();
+            assert!(names.contains(&"unused_private"));
+            assert!(names.contains(&"process"));
+        },
     }
 
-    #[rstest]
-    fn test_unused_with_module_filter(populated_db: NamedTempFile) {
-        let cmd = UnusedCmd {
+    crate::execute_test! {
+        test_name: test_unused_with_module_filter,
+        fixture: populated_db,
+        cmd: UnusedCmd {
             module: Some("Accounts".to_string()),
             project: "test_project".to_string(),
             regex: false,
@@ -269,16 +243,17 @@ mod tests {
             public_only: false,
             exclude_generated: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Unused should succeed");
-        // Only unused_private from MyApp.Accounts
-        assert_eq!(result.functions.len(), 1);
-        assert_eq!(result.functions[0].name, "unused_private");
+        },
+        assertions: |result| {
+            assert_eq!(result.functions.len(), 1);
+            assert_eq!(result.functions[0].name, "unused_private");
+        },
     }
 
-    #[rstest]
-    fn test_unused_with_regex_filter(populated_db: NamedTempFile) {
-        let cmd = UnusedCmd {
+    crate::execute_test! {
+        test_name: test_unused_with_regex_filter,
+        fixture: populated_db,
+        cmd: UnusedCmd {
             module: Some("^MyApp\\.Service$".to_string()),
             project: "test_project".to_string(),
             regex: true,
@@ -286,31 +261,21 @@ mod tests {
             public_only: false,
             exclude_generated: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Unused should succeed");
-        // Only process from MyApp.Service
-        assert_eq!(result.functions.len(), 1);
-        assert_eq!(result.functions[0].name, "process");
+        },
+        assertions: |result| {
+            assert_eq!(result.functions.len(), 1);
+            assert_eq!(result.functions[0].name, "process");
+        },
     }
 
-    #[rstest]
-    fn test_unused_with_limit(populated_db: NamedTempFile) {
-        let cmd = UnusedCmd {
-            module: None,
-            project: "test_project".to_string(),
-            regex: false,
-            private_only: false,
-            public_only: false,
-            exclude_generated: false,
-            limit: 1,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Unused should succeed");
-        assert_eq!(result.functions.len(), 1);
-    }
+    // =========================================================================
+    // No match / empty result tests
+    // =========================================================================
 
-    #[rstest]
-    fn test_unused_no_match(populated_db: NamedTempFile) {
-        let cmd = UnusedCmd {
+    crate::execute_no_match_test! {
+        test_name: test_unused_no_match,
+        fixture: populated_db,
+        cmd: UnusedCmd {
             module: Some("NonExistent".to_string()),
             project: "test_project".to_string(),
             regex: false,
@@ -318,30 +283,34 @@ mod tests {
             public_only: false,
             exclude_generated: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Unused should succeed");
-        assert!(result.functions.is_empty());
+        },
+        empty_field: functions,
     }
 
-    #[rstest]
-    fn test_unused_empty_db() {
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let cmd = UnusedCmd {
+    // =========================================================================
+    // Filter tests
+    // =========================================================================
+
+    crate::execute_limit_test! {
+        test_name: test_unused_with_limit,
+        fixture: populated_db,
+        cmd: UnusedCmd {
             module: None,
             project: "test_project".to_string(),
             regex: false,
             private_only: false,
             public_only: false,
             exclude_generated: false,
-            limit: 100,
-        };
-        let result = cmd.execute(db_file.path());
-        assert!(result.is_err());
+            limit: 1,
+        },
+        collection: functions,
+        limit: 1,
     }
 
-    #[rstest]
-    fn test_unused_private_only(populated_db: NamedTempFile) {
-        let cmd = UnusedCmd {
+    crate::execute_test! {
+        test_name: test_unused_private_only,
+        fixture: populated_db,
+        cmd: UnusedCmd {
             module: None,
             project: "test_project".to_string(),
             regex: false,
@@ -349,17 +318,18 @@ mod tests {
             public_only: false,
             exclude_generated: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Unused should succeed");
-        // Only unused_private is defp, process is def
-        assert_eq!(result.functions.len(), 1);
-        assert_eq!(result.functions[0].name, "unused_private");
-        assert_eq!(result.functions[0].kind, "defp");
+        },
+        assertions: |result| {
+            assert_eq!(result.functions.len(), 1);
+            assert_eq!(result.functions[0].name, "unused_private");
+            assert_eq!(result.functions[0].kind, "defp");
+        },
     }
 
-    #[rstest]
-    fn test_unused_public_only(populated_db: NamedTempFile) {
-        let cmd = UnusedCmd {
+    crate::execute_test! {
+        test_name: test_unused_public_only,
+        fixture: populated_db,
+        cmd: UnusedCmd {
             module: None,
             project: "test_project".to_string(),
             regex: false,
@@ -367,11 +337,28 @@ mod tests {
             public_only: true,
             exclude_generated: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Unused should succeed");
-        // Only process is def, unused_private is defp
-        assert_eq!(result.functions.len(), 1);
-        assert_eq!(result.functions[0].name, "process");
-        assert_eq!(result.functions[0].kind, "def");
+        },
+        assertions: |result| {
+            assert_eq!(result.functions.len(), 1);
+            assert_eq!(result.functions[0].name, "process");
+            assert_eq!(result.functions[0].kind, "def");
+        },
+    }
+
+    // =========================================================================
+    // Error handling tests
+    // =========================================================================
+
+    crate::execute_empty_db_test! {
+        cmd_type: UnusedCmd,
+        cmd: UnusedCmd {
+            module: None,
+            project: "test_project".to_string(),
+            regex: false,
+            private_only: false,
+            public_only: false,
+            exclude_generated: false,
+            limit: 100,
+        },
     }
 }

@@ -159,171 +159,131 @@ fn find_hotspots(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commands::import::ImportCmd;
-    use crate::commands::Execute;
     use rstest::{fixture, rstest};
-    use std::io::Write;
-    use tempfile::NamedTempFile;
 
-    fn sample_call_graph_json() -> &'static str {
-        r#"{
-            "structs": {},
-            "function_locations": {},
-            "calls": [
-                {
-                    "caller": {"module": "MyApp.Web", "function": "index", "file": "lib/web.ex", "line": 10, "column": 5},
-                    "type": "remote",
-                    "callee": {"arity": 1, "function": "get_user", "module": "MyApp.Accounts"}
-                },
-                {
-                    "caller": {"module": "MyApp.Web", "function": "show", "file": "lib/web.ex", "line": 20, "column": 5},
-                    "type": "remote",
-                    "callee": {"arity": 1, "function": "get_user", "module": "MyApp.Accounts"}
-                },
-                {
-                    "caller": {"module": "MyApp.Web", "function": "edit", "file": "lib/web.ex", "line": 30, "column": 5},
-                    "type": "remote",
-                    "callee": {"arity": 1, "function": "get_user", "module": "MyApp.Accounts"}
-                },
-                {
-                    "caller": {"module": "MyApp.Accounts", "function": "get_user", "file": "lib/accounts.ex", "line": 15, "column": 5},
-                    "type": "remote",
-                    "callee": {"arity": 2, "function": "get", "module": "MyApp.Repo"}
-                },
-                {
-                    "caller": {"module": "MyApp.Service", "function": "process", "file": "lib/service.ex", "line": 10, "column": 5},
-                    "type": "remote",
-                    "callee": {"arity": 1, "function": "log", "module": "Logger"}
-                },
-                {
-                    "caller": {"module": "MyApp.Service", "function": "process", "file": "lib/service.ex", "line": 11, "column": 5},
-                    "type": "remote",
-                    "callee": {"arity": 2, "function": "get", "module": "MyApp.Repo"}
-                },
-                {
-                    "caller": {"module": "MyApp.Service", "function": "process", "file": "lib/service.ex", "line": 12, "column": 5},
-                    "type": "remote",
-                    "callee": {"arity": 1, "function": "notify", "module": "MyApp.Notifier"}
-                }
-            ],
-            "type_signatures": {}
-        }"#
+    const TEST_JSON: &str = r#"{
+        "structs": {},
+        "function_locations": {},
+        "calls": [
+            {"caller": {"module": "MyApp.Web", "function": "index", "file": "lib/web.ex", "line": 10, "column": 5}, "type": "remote", "callee": {"arity": 1, "function": "get_user", "module": "MyApp.Accounts"}},
+            {"caller": {"module": "MyApp.Web", "function": "show", "file": "lib/web.ex", "line": 20, "column": 5}, "type": "remote", "callee": {"arity": 1, "function": "get_user", "module": "MyApp.Accounts"}},
+            {"caller": {"module": "MyApp.Web", "function": "edit", "file": "lib/web.ex", "line": 30, "column": 5}, "type": "remote", "callee": {"arity": 1, "function": "get_user", "module": "MyApp.Accounts"}},
+            {"caller": {"module": "MyApp.Accounts", "function": "get_user", "file": "lib/accounts.ex", "line": 15, "column": 5}, "type": "remote", "callee": {"arity": 2, "function": "get", "module": "MyApp.Repo"}},
+            {"caller": {"module": "MyApp.Service", "function": "process", "file": "lib/service.ex", "line": 10, "column": 5}, "type": "remote", "callee": {"arity": 1, "function": "log", "module": "Logger"}},
+            {"caller": {"module": "MyApp.Service", "function": "process", "file": "lib/service.ex", "line": 11, "column": 5}, "type": "remote", "callee": {"arity": 2, "function": "get", "module": "MyApp.Repo"}},
+            {"caller": {"module": "MyApp.Service", "function": "process", "file": "lib/service.ex", "line": 12, "column": 5}, "type": "remote", "callee": {"arity": 1, "function": "notify", "module": "MyApp.Notifier"}}
+        ],
+        "type_signatures": {}
+    }"#;
+
+    crate::execute_test_fixture! {
+        fixture_name: populated_db,
+        json: TEST_JSON,
+        project: "test_project",
     }
 
-    fn create_temp_json_file(content: &str) -> NamedTempFile {
-        let mut file = NamedTempFile::new().expect("Failed to create temp file");
-        file.write_all(content.as_bytes())
-            .expect("Failed to write temp file");
-        file
-    }
+    // =========================================================================
+    // Core functionality tests
+    // =========================================================================
 
-    #[fixture]
-    fn populated_db() -> NamedTempFile {
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let json_file = create_temp_json_file(sample_call_graph_json());
-
-        let import_cmd = ImportCmd {
-            file: json_file.path().to_path_buf(),
-            project: "test_project".to_string(),
-            clear: false,
-        };
-        import_cmd
-            .execute(db_file.path())
-            .expect("Import should succeed");
-
-        db_file
-    }
-
-    #[rstest]
-    fn test_hotspots_incoming(populated_db: NamedTempFile) {
-        let cmd = HotspotsCmd {
+    crate::execute_test! {
+        test_name: test_hotspots_incoming,
+        fixture: populated_db,
+        cmd: HotspotsCmd {
             kind: HotspotKind::Incoming,
             module: None,
             project: "test_project".to_string(),
             regex: false,
             limit: 20,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Hotspots should succeed");
-        assert_eq!(result.kind, "incoming");
-        // get_user has 3 incoming calls, should be first
-        assert!(!result.hotspots.is_empty());
-        assert_eq!(result.hotspots[0].function, "get_user");
-        assert_eq!(result.hotspots[0].incoming, 3);
+        },
+        assertions: |result| {
+            assert_eq!(result.kind, "incoming");
+            assert!(!result.hotspots.is_empty());
+            assert_eq!(result.hotspots[0].function, "get_user");
+            assert_eq!(result.hotspots[0].incoming, 3);
+        },
     }
 
-    #[rstest]
-    fn test_hotspots_outgoing(populated_db: NamedTempFile) {
-        let cmd = HotspotsCmd {
+    crate::execute_test! {
+        test_name: test_hotspots_outgoing,
+        fixture: populated_db,
+        cmd: HotspotsCmd {
             kind: HotspotKind::Outgoing,
             module: None,
             project: "test_project".to_string(),
             regex: false,
             limit: 20,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Hotspots should succeed");
-        assert_eq!(result.kind, "outgoing");
-        // process has 3 outgoing calls, should be first
-        assert!(!result.hotspots.is_empty());
-        assert_eq!(result.hotspots[0].function, "process");
-        assert_eq!(result.hotspots[0].outgoing, 3);
+        },
+        assertions: |result| {
+            assert_eq!(result.kind, "outgoing");
+            assert!(!result.hotspots.is_empty());
+            assert_eq!(result.hotspots[0].function, "process");
+            assert_eq!(result.hotspots[0].outgoing, 3);
+        },
     }
 
-    #[rstest]
-    fn test_hotspots_total(populated_db: NamedTempFile) {
-        let cmd = HotspotsCmd {
+    crate::execute_test! {
+        test_name: test_hotspots_total,
+        fixture: populated_db,
+        cmd: HotspotsCmd {
             kind: HotspotKind::Total,
             module: None,
             project: "test_project".to_string(),
             regex: false,
             limit: 20,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Hotspots should succeed");
-        assert_eq!(result.kind, "total");
-        // get_user has 3 incoming + 1 outgoing = 4 total
-        // process has 0 incoming + 3 outgoing = 3 total
-        assert!(!result.hotspots.is_empty());
-        assert_eq!(result.hotspots[0].function, "get_user");
-        assert_eq!(result.hotspots[0].total, 4);
+        },
+        assertions: |result| {
+            assert_eq!(result.kind, "total");
+            assert!(!result.hotspots.is_empty());
+            assert_eq!(result.hotspots[0].function, "get_user");
+            assert_eq!(result.hotspots[0].total, 4);
+        },
     }
 
-    #[rstest]
-    fn test_hotspots_with_module_filter(populated_db: NamedTempFile) {
-        let cmd = HotspotsCmd {
+    // =========================================================================
+    // Filter tests
+    // =========================================================================
+
+    crate::execute_all_match_test! {
+        test_name: test_hotspots_with_module_filter,
+        fixture: populated_db,
+        cmd: HotspotsCmd {
             kind: HotspotKind::Incoming,
             module: Some("Accounts".to_string()),
             project: "test_project".to_string(),
             regex: false,
             limit: 20,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Hotspots should succeed");
-        // Only functions in modules containing "Accounts"
-        assert!(result.hotspots.iter().all(|h| h.module.contains("Accounts")));
+        },
+        collection: hotspots,
+        condition: |h| h.module.contains("Accounts"),
     }
 
-    #[rstest]
-    fn test_hotspots_with_limit(populated_db: NamedTempFile) {
-        let cmd = HotspotsCmd {
+    crate::execute_limit_test! {
+        test_name: test_hotspots_with_limit,
+        fixture: populated_db,
+        cmd: HotspotsCmd {
             kind: HotspotKind::Incoming,
             module: None,
             project: "test_project".to_string(),
             regex: false,
             limit: 2,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Hotspots should succeed");
-        assert!(result.hotspots.len() <= 2);
+        },
+        collection: hotspots,
+        limit: 2,
     }
 
-    #[rstest]
-    fn test_hotspots_empty_db() {
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let cmd = HotspotsCmd {
+    // =========================================================================
+    // Error handling tests
+    // =========================================================================
+
+    crate::execute_empty_db_test! {
+        cmd_type: HotspotsCmd,
+        cmd: HotspotsCmd {
             kind: HotspotKind::Incoming,
             module: None,
             project: "test_project".to_string(),
             regex: false,
             limit: 20,
-        };
-        let result = cmd.execute(db_file.path());
-        assert!(result.is_err());
+        },
     }
 }

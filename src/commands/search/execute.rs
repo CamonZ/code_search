@@ -159,200 +159,186 @@ fn search_functions(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commands::import::ImportCmd;
-    use crate::commands::Execute;
     use rstest::{fixture, rstest};
-    use std::io::Write;
-    use tempfile::NamedTempFile;
 
-    fn sample_call_graph_json() -> &'static str {
-        r#"{
-            "structs": {},
-            "function_locations": {},
-            "calls": [],
-            "type_signatures": {
-                "MyApp.Accounts": {
-                    "get_user/1": {
-                        "arity": 1,
-                        "name": "get_user",
-                        "clauses": [{"return": "User.t()", "args": ["integer()"]}]
-                    },
-                    "list_users/0": {
-                        "arity": 0,
-                        "name": "list_users",
-                        "clauses": [{"return": "list(User.t())", "args": []}]
-                    }
-                },
-                "MyApp.Users": {
-                    "create_user/1": {
-                        "arity": 1,
-                        "name": "create_user",
-                        "clauses": [{"return": "User.t()", "args": ["map()"]}]
-                    }
-                }
+    const TEST_JSON: &str = r#"{
+        "structs": {},
+        "function_locations": {},
+        "calls": [],
+        "type_signatures": {
+            "MyApp.Accounts": {
+                "get_user/1": {"arity": 1, "name": "get_user", "clauses": [{"return": "User.t()", "args": ["integer()"]}]},
+                "list_users/0": {"arity": 0, "name": "list_users", "clauses": [{"return": "list(User.t())", "args": []}]}
+            },
+            "MyApp.Users": {
+                "create_user/1": {"arity": 1, "name": "create_user", "clauses": [{"return": "User.t()", "args": ["map()"]}]}
             }
-        }"#
+        }
+    }"#;
+
+    crate::execute_test_fixture! {
+        fixture_name: populated_db,
+        json: TEST_JSON,
+        project: "test_project",
     }
 
-    fn create_temp_json_file(content: &str) -> NamedTempFile {
-        let mut file = NamedTempFile::new().expect("Failed to create temp file");
-        file.write_all(content.as_bytes())
-            .expect("Failed to write temp file");
-        file
-    }
+    // =========================================================================
+    // Core functionality tests
+    // =========================================================================
 
-    #[fixture]
-    fn populated_db() -> NamedTempFile {
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let json_file = create_temp_json_file(sample_call_graph_json());
-
-        let import_cmd = ImportCmd {
-            file: json_file.path().to_path_buf(),
-            project: "test_project".to_string(),
-            clear: false,
-        };
-        import_cmd
-            .execute(db_file.path())
-            .expect("Import should succeed");
-
-        db_file
-    }
-
-    #[rstest]
-    fn test_search_modules_all(populated_db: NamedTempFile) {
-        let cmd = SearchCmd {
+    crate::execute_test! {
+        test_name: test_search_modules_all,
+        fixture: populated_db,
+        cmd: SearchCmd {
             pattern: "MyApp".to_string(),
             kind: SearchKind::Modules,
             project: "test_project".to_string(),
             limit: 100,
             regex: false,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Search should succeed");
-        assert_eq!(result.kind, "modules");
-        assert_eq!(result.modules.len(), 2);
+        },
+        assertions: |result| {
+            assert_eq!(result.kind, "modules");
+            assert_eq!(result.modules.len(), 2);
+        },
     }
 
-    #[rstest]
-    fn test_search_modules_with_project_filter(populated_db: NamedTempFile) {
-        let cmd = SearchCmd {
-            pattern: "App".to_string(),
-            kind: SearchKind::Modules,
-            project: "test_project".to_string(),
-            limit: 100,
-            regex: false,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Search should succeed");
-        assert_eq!(result.modules.len(), 2);
-        assert!(result.modules.iter().all(|m| m.project == "test_project"));
-    }
-
-    #[rstest]
-    fn test_search_modules_no_match(populated_db: NamedTempFile) {
-        let cmd = SearchCmd {
-            pattern: "NonExistent".to_string(),
-            kind: SearchKind::Modules,
-            project: "test_project".to_string(),
-            limit: 100,
-            regex: false,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Search should succeed");
-        assert!(result.modules.is_empty());
-    }
-
-    #[rstest]
-    fn test_search_functions_all(populated_db: NamedTempFile) {
-        let cmd = SearchCmd {
+    crate::execute_test! {
+        test_name: test_search_functions_all,
+        fixture: populated_db,
+        cmd: SearchCmd {
             pattern: "user".to_string(),
             kind: SearchKind::Functions,
             project: "test_project".to_string(),
             limit: 100,
             regex: false,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Search should succeed");
-        assert_eq!(result.kind, "functions");
-        assert_eq!(result.functions.len(), 3); // get_user, list_users, create_user
+        },
+        assertions: |result| {
+            assert_eq!(result.kind, "functions");
+            assert_eq!(result.functions.len(), 3);
+        },
     }
 
-    #[rstest]
-    fn test_search_functions_specific(populated_db: NamedTempFile) {
-        let cmd = SearchCmd {
+    crate::execute_test! {
+        test_name: test_search_functions_specific,
+        fixture: populated_db,
+        cmd: SearchCmd {
             pattern: "get_".to_string(),
             kind: SearchKind::Functions,
             project: "test_project".to_string(),
             limit: 100,
             regex: false,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Search should succeed");
-        assert_eq!(result.functions.len(), 1);
-        assert_eq!(result.functions[0].name, "get_user");
-        assert_eq!(result.functions[0].arity, 1);
+        },
+        assertions: |result| {
+            assert_eq!(result.functions.len(), 1);
+            assert_eq!(result.functions[0].name, "get_user");
+            assert_eq!(result.functions[0].arity, 1);
+        },
     }
 
-    #[rstest]
-    fn test_search_with_limit(populated_db: NamedTempFile) {
-        let cmd = SearchCmd {
+    crate::execute_test! {
+        test_name: test_search_functions_with_regex,
+        fixture: populated_db,
+        cmd: SearchCmd {
+            pattern: "^get_".to_string(),
+            kind: SearchKind::Functions,
+            project: "test_project".to_string(),
+            limit: 100,
+            regex: true,
+        },
+        assertions: |result| {
+            assert_eq!(result.functions.len(), 1);
+            assert_eq!(result.functions[0].name, "get_user");
+        },
+    }
+
+    crate::execute_count_test! {
+        test_name: test_search_modules_with_regex,
+        fixture: populated_db,
+        cmd: SearchCmd {
+            pattern: "\\.(Accounts|Users)$".to_string(),
+            kind: SearchKind::Modules,
+            project: "test_project".to_string(),
+            limit: 100,
+            regex: true,
+        },
+        field: modules,
+        expected: 2,
+    }
+
+    // =========================================================================
+    // No match / empty result tests
+    // =========================================================================
+
+    crate::execute_no_match_test! {
+        test_name: test_search_modules_no_match,
+        fixture: populated_db,
+        cmd: SearchCmd {
+            pattern: "NonExistent".to_string(),
+            kind: SearchKind::Modules,
+            project: "test_project".to_string(),
+            limit: 100,
+            regex: false,
+        },
+        empty_field: modules,
+    }
+
+    crate::execute_no_match_test! {
+        test_name: test_search_regex_no_match,
+        fixture: populated_db,
+        cmd: SearchCmd {
+            pattern: "^xyz".to_string(),
+            kind: SearchKind::Functions,
+            project: "test_project".to_string(),
+            limit: 100,
+            regex: true,
+        },
+        empty_field: functions,
+    }
+
+    // =========================================================================
+    // Filter tests
+    // =========================================================================
+
+    crate::execute_all_match_test! {
+        test_name: test_search_modules_with_project_filter,
+        fixture: populated_db,
+        cmd: SearchCmd {
+            pattern: "App".to_string(),
+            kind: SearchKind::Modules,
+            project: "test_project".to_string(),
+            limit: 100,
+            regex: false,
+        },
+        collection: modules,
+        condition: |m| m.project == "test_project",
+    }
+
+    crate::execute_limit_test! {
+        test_name: test_search_with_limit,
+        fixture: populated_db,
+        cmd: SearchCmd {
             pattern: "user".to_string(),
             kind: SearchKind::Functions,
             project: "test_project".to_string(),
             limit: 1,
             regex: false,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Search should succeed");
-        assert_eq!(result.functions.len(), 1);
+        },
+        collection: functions,
+        limit: 1,
     }
 
-    #[rstest]
-    fn test_search_empty_db() {
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let cmd = SearchCmd {
+    // =========================================================================
+    // Error handling tests
+    // =========================================================================
+
+    crate::execute_empty_db_test! {
+        cmd_type: SearchCmd,
+        cmd: SearchCmd {
             pattern: "test".to_string(),
             kind: SearchKind::Modules,
             project: "test_project".to_string(),
             limit: 100,
             regex: false,
-        };
-        // This will fail because tables don't exist, which is expected
-        let result = cmd.execute(db_file.path());
-        assert!(result.is_err());
-    }
-
-    #[rstest]
-    fn test_search_functions_with_regex(populated_db: NamedTempFile) {
-        let cmd = SearchCmd {
-            pattern: "^get_".to_string(), // regex: starts with "get_"
-            kind: SearchKind::Functions,
-            project: "test_project".to_string(),
-            limit: 100,
-            regex: true,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Search should succeed");
-        assert_eq!(result.functions.len(), 1);
-        assert_eq!(result.functions[0].name, "get_user");
-    }
-
-    #[rstest]
-    fn test_search_modules_with_regex(populated_db: NamedTempFile) {
-        let cmd = SearchCmd {
-            pattern: "\\.(Accounts|Users)$".to_string(), // regex: ends with .Accounts or .Users
-            kind: SearchKind::Modules,
-            project: "test_project".to_string(),
-            limit: 100,
-            regex: true,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Search should succeed");
-        assert_eq!(result.modules.len(), 2);
-    }
-
-    #[rstest]
-    fn test_search_regex_no_match(populated_db: NamedTempFile) {
-        let cmd = SearchCmd {
-            pattern: "^xyz".to_string(), // regex: starts with "xyz"
-            kind: SearchKind::Functions,
-            project: "test_project".to_string(),
-            limit: 100,
-            regex: true,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Search should succeed");
-        assert!(result.functions.is_empty());
+        },
     }
 }

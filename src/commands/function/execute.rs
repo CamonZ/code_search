@@ -141,203 +141,155 @@ fn find_functions(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commands::import::ImportCmd;
-    use crate::commands::Execute;
     use rstest::{fixture, rstest};
-    use std::io::Write;
-    use tempfile::NamedTempFile;
 
-    fn sample_call_graph_json() -> &'static str {
-        r#"{
-            "structs": {},
-            "function_locations": {
-                "MyApp.Accounts": {
-                    "get_user/1": {
-                        "arity": 1,
-                        "name": "get_user",
-                        "file": "lib/my_app/accounts.ex",
-                        "column": 3,
-                        "kind": "def",
-                        "start_line": 10,
-                        "end_line": 15
-                    },
-                    "get_user/2": {
-                        "arity": 2,
-                        "name": "get_user",
-                        "file": "lib/my_app/accounts.ex",
-                        "column": 3,
-                        "kind": "def",
-                        "start_line": 20,
-                        "end_line": 25
-                    }
-                },
-                "MyApp.Users": {
-                    "list_users/0": {
-                        "arity": 0,
-                        "name": "list_users",
-                        "file": "lib/my_app/users.ex",
-                        "column": 3,
-                        "kind": "def",
-                        "start_line": 5,
-                        "end_line": 10
-                    }
-                }
+    const TEST_JSON: &str = r#"{
+        "structs": {},
+        "function_locations": {
+            "MyApp.Accounts": {
+                "get_user/1": {"arity": 1, "name": "get_user", "file": "lib/my_app/accounts.ex", "column": 3, "kind": "def", "start_line": 10, "end_line": 15},
+                "get_user/2": {"arity": 2, "name": "get_user", "file": "lib/my_app/accounts.ex", "column": 3, "kind": "def", "start_line": 20, "end_line": 25}
             },
-            "calls": [],
-            "type_signatures": {
-                "MyApp.Accounts": {
-                    "get_user/1": {
-                        "arity": 1,
-                        "name": "get_user",
-                        "clauses": [
-                            {"return": "User.t() | nil", "args": ["integer()"]}
-                        ]
-                    },
-                    "get_user/2": {
-                        "arity": 2,
-                        "name": "get_user",
-                        "clauses": [
-                            {"return": "User.t() | nil", "args": ["integer()", "keyword()"]}
-                        ]
-                    }
-                },
-                "MyApp.Users": {
-                    "list_users/0": {
-                        "arity": 0,
-                        "name": "list_users",
-                        "clauses": [
-                            {"return": "[User.t()]", "args": []}
-                        ]
-                    }
-                }
+            "MyApp.Users": {
+                "list_users/0": {"arity": 0, "name": "list_users", "file": "lib/my_app/users.ex", "column": 3, "kind": "def", "start_line": 5, "end_line": 10}
             }
-        }"#
+        },
+        "calls": [],
+        "type_signatures": {
+            "MyApp.Accounts": {
+                "get_user/1": {"arity": 1, "name": "get_user", "clauses": [{"return": "User.t() | nil", "args": ["integer()"]}]},
+                "get_user/2": {"arity": 2, "name": "get_user", "clauses": [{"return": "User.t() | nil", "args": ["integer()", "keyword()"]}]}
+            },
+            "MyApp.Users": {
+                "list_users/0": {"arity": 0, "name": "list_users", "clauses": [{"return": "[User.t()]", "args": []}]}
+            }
+        }
+    }"#;
+
+    crate::execute_test_fixture! {
+        fixture_name: populated_db,
+        json: TEST_JSON,
+        project: "test_project",
     }
 
-    fn create_temp_json_file(content: &str) -> NamedTempFile {
-        let mut file = NamedTempFile::new().expect("Failed to create temp file");
-        file.write_all(content.as_bytes())
-            .expect("Failed to write temp file");
-        file
-    }
+    // =========================================================================
+    // Core functionality tests
+    // =========================================================================
 
-    #[fixture]
-    fn populated_db() -> NamedTempFile {
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let json_file = create_temp_json_file(sample_call_graph_json());
-
-        let import_cmd = ImportCmd {
-            file: json_file.path().to_path_buf(),
-            project: "test_project".to_string(),
-            clear: false,
-        };
-        import_cmd
-            .execute(db_file.path())
-            .expect("Import should succeed");
-
-        db_file
-    }
-
-    #[rstest]
-    fn test_function_exact_match(populated_db: NamedTempFile) {
-        let cmd = FunctionCmd {
+    crate::execute_count_test! {
+        test_name: test_function_exact_match,
+        fixture: populated_db,
+        cmd: FunctionCmd {
             module: "MyApp.Accounts".to_string(),
             function: "get_user".to_string(),
             arity: None,
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Function should succeed");
-        assert_eq!(result.functions.len(), 2); // get_user/1 and get_user/2
+        },
+        field: functions,
+        expected: 2,
     }
 
-    #[rstest]
-    fn test_function_with_arity(populated_db: NamedTempFile) {
-        let cmd = FunctionCmd {
+    crate::execute_test! {
+        test_name: test_function_with_arity,
+        fixture: populated_db,
+        cmd: FunctionCmd {
             module: "MyApp.Accounts".to_string(),
             function: "get_user".to_string(),
             arity: Some(1),
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Function should succeed");
-        assert_eq!(result.functions.len(), 1);
-        assert_eq!(result.functions[0].arity, 1);
-        assert_eq!(result.functions[0].args, "integer()");
-        assert_eq!(result.functions[0].return_type, "User.t() | nil");
+        },
+        assertions: |result| {
+            assert_eq!(result.functions.len(), 1);
+            assert_eq!(result.functions[0].arity, 1);
+            assert_eq!(result.functions[0].args, "integer()");
+            assert_eq!(result.functions[0].return_type, "User.t() | nil");
+        },
     }
 
-    #[rstest]
-    fn test_function_regex_match(populated_db: NamedTempFile) {
-        let cmd = FunctionCmd {
+    crate::execute_count_test! {
+        test_name: test_function_regex_match,
+        fixture: populated_db,
+        cmd: FunctionCmd {
             module: "MyApp\\..*".to_string(),
             function: ".*user.*".to_string(),
             arity: None,
             project: "test_project".to_string(),
             regex: true,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Function should succeed");
-        assert_eq!(result.functions.len(), 3); // get_user/1, get_user/2, list_users/0
+        },
+        field: functions,
+        expected: 3,
     }
 
-    #[rstest]
-    fn test_function_no_match(populated_db: NamedTempFile) {
-        let cmd = FunctionCmd {
+    // =========================================================================
+    // No match / empty result tests
+    // =========================================================================
+
+    crate::execute_no_match_test! {
+        test_name: test_function_no_match,
+        fixture: populated_db,
+        cmd: FunctionCmd {
             module: "NonExistent".to_string(),
             function: "foo".to_string(),
             arity: None,
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Function should succeed");
-        assert!(result.functions.is_empty());
+        },
+        empty_field: functions,
     }
 
-    #[rstest]
-    fn test_function_with_project_filter(populated_db: NamedTempFile) {
-        let cmd = FunctionCmd {
+    // =========================================================================
+    // Filter tests
+    // =========================================================================
+
+    crate::execute_all_match_test! {
+        test_name: test_function_with_project_filter,
+        fixture: populated_db,
+        cmd: FunctionCmd {
             module: "MyApp.Accounts".to_string(),
             function: "get_user".to_string(),
             arity: None,
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Function should succeed");
-        assert_eq!(result.functions.len(), 2);
-        assert!(result.functions.iter().all(|f| f.project == "test_project"));
+        },
+        collection: functions,
+        condition: |f| f.project == "test_project",
     }
 
-    #[rstest]
-    fn test_function_with_limit(populated_db: NamedTempFile) {
-        let cmd = FunctionCmd {
+    crate::execute_limit_test! {
+        test_name: test_function_with_limit,
+        fixture: populated_db,
+        cmd: FunctionCmd {
             module: "MyApp\\..*".to_string(),
             function: ".*".to_string(),
             arity: None,
             project: "test_project".to_string(),
             regex: true,
             limit: 2,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Function should succeed");
-        assert_eq!(result.functions.len(), 2); // Limited to 2 even though there are 3
+        },
+        collection: functions,
+        limit: 2,
     }
 
-    #[rstest]
-    fn test_function_empty_db() {
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let cmd = FunctionCmd {
+    // =========================================================================
+    // Error handling tests
+    // =========================================================================
+
+    crate::execute_empty_db_test! {
+        cmd_type: FunctionCmd,
+        cmd: FunctionCmd {
             module: "MyApp".to_string(),
             function: "foo".to_string(),
             arity: None,
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(db_file.path());
-        assert!(result.is_err());
+        },
     }
 }

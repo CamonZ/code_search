@@ -162,151 +162,146 @@ fn group_fields_into_structs(fields: Vec<StructField>) -> Vec<StructDefinition> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commands::import::ImportCmd;
-    use crate::commands::Execute;
     use rstest::{fixture, rstest};
-    use std::io::Write;
-    use tempfile::NamedTempFile;
 
-    fn sample_call_graph_json() -> &'static str {
-        r#"{
-            "structs": {
-                "MyApp.User": {
-                    "fields": [
-                        {"default": "nil", "field": "id", "required": true, "inferred_type": "integer()"},
-                        {"default": "nil", "field": "name", "required": false, "inferred_type": "String.t()"},
-                        {"default": "nil", "field": "email", "required": true, "inferred_type": "String.t()"}
-                    ]
-                },
-                "MyApp.Post": {
-                    "fields": [
-                        {"default": "nil", "field": "title", "required": true, "inferred_type": "String.t()"},
-                        {"default": "nil", "field": "body", "required": false, "inferred_type": "String.t()"}
-                    ]
-                }
+    const TEST_JSON: &str = r#"{
+        "structs": {
+            "MyApp.User": {
+                "fields": [
+                    {"default": "nil", "field": "id", "required": true, "inferred_type": "integer()"},
+                    {"default": "nil", "field": "name", "required": false, "inferred_type": "String.t()"},
+                    {"default": "nil", "field": "email", "required": true, "inferred_type": "String.t()"}
+                ]
             },
-            "function_locations": {},
-            "calls": [],
-            "type_signatures": {}
-        }"#
+            "MyApp.Post": {
+                "fields": [
+                    {"default": "nil", "field": "title", "required": true, "inferred_type": "String.t()"},
+                    {"default": "nil", "field": "body", "required": false, "inferred_type": "String.t()"}
+                ]
+            }
+        },
+        "function_locations": {},
+        "calls": [],
+        "type_signatures": {}
+    }"#;
+
+    crate::execute_test_fixture! {
+        fixture_name: populated_db,
+        json: TEST_JSON,
+        project: "test_project",
     }
 
-    fn create_temp_json_file(content: &str) -> NamedTempFile {
-        let mut file = NamedTempFile::new().expect("Failed to create temp file");
-        file.write_all(content.as_bytes())
-            .expect("Failed to write temp file");
-        file
-    }
+    // =========================================================================
+    // Core functionality tests
+    // =========================================================================
 
-    #[fixture]
-    fn populated_db() -> NamedTempFile {
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let json_file = create_temp_json_file(sample_call_graph_json());
-
-        let import_cmd = ImportCmd {
-            file: json_file.path().to_path_buf(),
-            project: "test_project".to_string(),
-            clear: false,
-        };
-        import_cmd
-            .execute(db_file.path())
-            .expect("Import should succeed");
-
-        db_file
-    }
-
-    #[rstest]
-    fn test_struct_exact_match(populated_db: NamedTempFile) {
-        let cmd = StructCmd {
+    crate::execute_test! {
+        test_name: test_struct_exact_match,
+        fixture: populated_db,
+        cmd: StructCmd {
             module: "MyApp.User".to_string(),
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Struct should succeed");
-        assert_eq!(result.structs.len(), 1);
-        assert_eq!(result.structs[0].module, "MyApp.User");
-        assert_eq!(result.structs[0].fields.len(), 3); // id, name, email
+        },
+        assertions: |result| {
+            assert_eq!(result.structs.len(), 1);
+            assert_eq!(result.structs[0].module, "MyApp.User");
+            assert_eq!(result.structs[0].fields.len(), 3);
+        },
     }
 
-    #[rstest]
-    fn test_struct_fields_content(populated_db: NamedTempFile) {
-        let cmd = StructCmd {
+    crate::execute_test! {
+        test_name: test_struct_fields_content,
+        fixture: populated_db,
+        cmd: StructCmd {
             module: "MyApp.User".to_string(),
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Struct should succeed");
-        let user_struct = &result.structs[0];
-
-        // Find the email field
-        let email_field = user_struct.fields.iter().find(|f| f.name == "email").unwrap();
-        assert!(email_field.required);
-        assert_eq!(email_field.inferred_type, "String.t()");
+        },
+        assertions: |result| {
+            let user_struct = &result.structs[0];
+            let email_field = user_struct.fields.iter().find(|f| f.name == "email").unwrap();
+            assert!(email_field.required);
+            assert_eq!(email_field.inferred_type, "String.t()");
+        },
     }
 
-    #[rstest]
-    fn test_struct_regex_match(populated_db: NamedTempFile) {
-        let cmd = StructCmd {
+    crate::execute_count_test! {
+        test_name: test_struct_regex_match,
+        fixture: populated_db,
+        cmd: StructCmd {
             module: "MyApp\\..*".to_string(),
             project: "test_project".to_string(),
             regex: true,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Struct should succeed");
-        assert_eq!(result.structs.len(), 2); // User and Post
+        },
+        field: structs,
+        expected: 2,
     }
 
-    #[rstest]
-    fn test_struct_no_match(populated_db: NamedTempFile) {
-        let cmd = StructCmd {
+    // =========================================================================
+    // No match / empty result tests
+    // =========================================================================
+
+    crate::execute_no_match_test! {
+        test_name: test_struct_no_match,
+        fixture: populated_db,
+        cmd: StructCmd {
             module: "NonExistent".to_string(),
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Struct should succeed");
-        assert!(result.structs.is_empty());
+        },
+        empty_field: structs,
     }
 
-    #[rstest]
-    fn test_struct_with_project_filter(populated_db: NamedTempFile) {
-        let cmd = StructCmd {
+    // =========================================================================
+    // Filter tests
+    // =========================================================================
+
+    crate::execute_test! {
+        test_name: test_struct_with_project_filter,
+        fixture: populated_db,
+        cmd: StructCmd {
             module: "MyApp.User".to_string(),
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Struct should succeed");
-        assert_eq!(result.structs.len(), 1);
-        assert_eq!(result.structs[0].project, "test_project");
+        },
+        assertions: |result| {
+            assert_eq!(result.structs.len(), 1);
+            assert_eq!(result.structs[0].project, "test_project");
+        },
     }
 
-    #[rstest]
-    fn test_struct_with_limit(populated_db: NamedTempFile) {
-        let cmd = StructCmd {
+    crate::execute_test! {
+        test_name: test_struct_with_limit,
+        fixture: populated_db,
+        cmd: StructCmd {
             module: "MyApp\\..*".to_string(),
             project: "test_project".to_string(),
             regex: true,
-            limit: 3, // Limit to 3 fields total
-        };
-        let result = cmd.execute(populated_db.path()).expect("Struct should succeed");
-        // With limit=3, we get at most 3 fields total across all structs
-        let total_fields: usize = result.structs.iter().map(|s| s.fields.len()).sum();
-        assert!(total_fields <= 3);
+            limit: 3,
+        },
+        assertions: |result| {
+            let total_fields: usize = result.structs.iter().map(|s| s.fields.len()).sum();
+            assert!(total_fields <= 3);
+        },
     }
 
-    #[rstest]
-    fn test_struct_empty_db() {
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let cmd = StructCmd {
+    // =========================================================================
+    // Error handling tests
+    // =========================================================================
+
+    crate::execute_empty_db_test! {
+        cmd_type: StructCmd,
+        cmd: StructCmd {
             module: "MyApp".to_string(),
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(db_file.path());
-        assert!(result.is_err());
+        },
     }
 }

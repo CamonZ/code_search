@@ -158,298 +158,277 @@ fn find_locations(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commands::import::ImportCmd;
-    use crate::commands::Execute;
     use rstest::{fixture, rstest};
-    use std::io::Write;
-    use tempfile::NamedTempFile;
 
-    fn sample_call_graph_json() -> &'static str {
-        r#"{
-            "structs": {},
-            "function_locations": {
-                "MyApp.Accounts": {
-                    "get_user/1": {
-                        "arity": 1,
-                        "name": "get_user",
-                        "file": "lib/my_app/accounts.ex",
-                        "column": 3,
-                        "kind": "def",
-                        "start_line": 10,
-                        "end_line": 15
-                    },
-                    "list_users/0": {
-                        "arity": 0,
-                        "name": "list_users",
-                        "file": "lib/my_app/accounts.ex",
-                        "column": 3,
-                        "kind": "def",
-                        "start_line": 20,
-                        "end_line": 25
-                    }
-                },
-                "MyApp.Users": {
-                    "create_user/1": {
-                        "arity": 1,
-                        "name": "create_user",
-                        "file": "lib/my_app/users.ex",
-                        "column": 3,
-                        "kind": "def",
-                        "start_line": 5,
-                        "end_line": 12
-                    }
-                }
+    const TEST_JSON: &str = r#"{
+        "structs": {},
+        "function_locations": {
+            "MyApp.Accounts": {
+                "get_user/1": {"arity": 1, "name": "get_user", "file": "lib/my_app/accounts.ex", "column": 3, "kind": "def", "start_line": 10, "end_line": 15},
+                "list_users/0": {"arity": 0, "name": "list_users", "file": "lib/my_app/accounts.ex", "column": 3, "kind": "def", "start_line": 20, "end_line": 25}
             },
-            "calls": [],
-            "type_signatures": {}
-        }"#
+            "MyApp.Users": {
+                "create_user/1": {"arity": 1, "name": "create_user", "file": "lib/my_app/users.ex", "column": 3, "kind": "def", "start_line": 5, "end_line": 12}
+            }
+        },
+        "calls": [],
+        "type_signatures": {}
+    }"#;
+
+    crate::execute_test_fixture! {
+        fixture_name: populated_db,
+        json: TEST_JSON,
+        project: "test_project",
     }
 
-    fn create_temp_json_file(content: &str) -> NamedTempFile {
-        let mut file = NamedTempFile::new().expect("Failed to create temp file");
-        file.write_all(content.as_bytes())
-            .expect("Failed to write temp file");
-        file
-    }
+    // =========================================================================
+    // Core functionality tests
+    // =========================================================================
 
-    #[fixture]
-    fn populated_db() -> NamedTempFile {
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let json_file = create_temp_json_file(sample_call_graph_json());
-
-        let import_cmd = ImportCmd {
-            file: json_file.path().to_path_buf(),
-            project: "test_project".to_string(),
-            clear: false,
-        };
-        import_cmd
-            .execute(db_file.path())
-            .expect("Import should succeed");
-
-        db_file
-    }
-
-    #[rstest]
-    fn test_location_exact_match(populated_db: NamedTempFile) {
-        let cmd = LocationCmd {
+    crate::execute_test! {
+        test_name: test_location_exact_match,
+        fixture: populated_db,
+        cmd: LocationCmd {
             module: Some("MyApp.Accounts".to_string()),
             function: "get_user".to_string(),
             arity: Some(1),
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Location should succeed");
-        assert_eq!(result.locations.len(), 1);
-        assert_eq!(result.locations[0].file, "lib/my_app/accounts.ex");
-        assert_eq!(result.locations[0].start_line, 10);
-        assert_eq!(result.locations[0].end_line, 15);
+        },
+        assertions: |result| {
+            assert_eq!(result.locations.len(), 1);
+            assert_eq!(result.locations[0].file, "lib/my_app/accounts.ex");
+            assert_eq!(result.locations[0].start_line, 10);
+            assert_eq!(result.locations[0].end_line, 15);
+        },
     }
 
-    #[rstest]
-    fn test_location_without_module(populated_db: NamedTempFile) {
-        let cmd = LocationCmd {
+    crate::execute_test! {
+        test_name: test_location_without_module,
+        fixture: populated_db,
+        cmd: LocationCmd {
             module: None,
             function: "get_user".to_string(),
             arity: None,
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Location should succeed");
-        assert_eq!(result.locations.len(), 1);
-        assert_eq!(result.locations[0].module, "MyApp.Accounts");
+        },
+        assertions: |result| {
+            assert_eq!(result.locations.len(), 1);
+            assert_eq!(result.locations[0].module, "MyApp.Accounts");
+        },
     }
 
-    #[rstest]
-    fn test_location_without_module_multiple_matches(populated_db: NamedTempFile) {
-        let cmd = LocationCmd {
+    crate::execute_count_test! {
+        test_name: test_location_without_module_multiple_matches,
+        fixture: populated_db,
+        cmd: LocationCmd {
             module: None,
             function: ".*user.*".to_string(),
             arity: None,
             project: "test_project".to_string(),
             regex: true,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Location should succeed");
-        assert_eq!(result.locations.len(), 3); // get_user, list_users, create_user across modules
+        },
+        field: locations,
+        expected: 3,
     }
 
-    #[rstest]
-    fn test_location_without_arity(populated_db: NamedTempFile) {
-        let cmd = LocationCmd {
+    crate::execute_count_test! {
+        test_name: test_location_without_arity,
+        fixture: populated_db,
+        cmd: LocationCmd {
             module: Some("MyApp.Accounts".to_string()),
             function: "get_user".to_string(),
             arity: None,
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Location should succeed");
-        assert_eq!(result.locations.len(), 1);
+        },
+        field: locations,
+        expected: 1,
     }
 
-    #[rstest]
-    fn test_location_with_regex(populated_db: NamedTempFile) {
-        let cmd = LocationCmd {
+    crate::execute_count_test! {
+        test_name: test_location_with_regex,
+        fixture: populated_db,
+        cmd: LocationCmd {
             module: Some("MyApp\\..*".to_string()),
             function: ".*user.*".to_string(),
             arity: None,
             project: "test_project".to_string(),
             regex: true,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Location should succeed");
-        assert_eq!(result.locations.len(), 3); // get_user, list_users, create_user
+        },
+        field: locations,
+        expected: 3,
     }
 
-    #[rstest]
-    fn test_location_no_match(populated_db: NamedTempFile) {
-        let cmd = LocationCmd {
+    crate::execute_test! {
+        test_name: test_location_format,
+        fixture: populated_db,
+        cmd: LocationCmd {
+            module: Some("MyApp.Accounts".to_string()),
+            function: "get_user".to_string(),
+            arity: Some(1),
+            project: "test_project".to_string(),
+            regex: false,
+            limit: 100,
+        },
+        assertions: |result| {
+            assert_eq!(result.locations[0].format_location(), "lib/my_app/accounts.ex:10:15");
+        },
+    }
+
+    // =========================================================================
+    // No match / empty result tests
+    // =========================================================================
+
+    crate::execute_no_match_test! {
+        test_name: test_location_no_match,
+        fixture: populated_db,
+        cmd: LocationCmd {
             module: Some("NonExistent".to_string()),
             function: "foo".to_string(),
             arity: None,
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Location should succeed");
-        assert!(result.locations.is_empty());
+        },
+        empty_field: locations,
     }
 
-    #[rstest]
-    fn test_location_with_project_filter(populated_db: NamedTempFile) {
-        let cmd = LocationCmd {
-            module: Some("MyApp.Accounts".to_string()),
-            function: "get_user".to_string(),
-            arity: Some(1),
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Location should succeed");
-        assert_eq!(result.locations.len(), 1);
-        assert_eq!(result.locations[0].project, "test_project");
-    }
-
-    #[rstest]
-    fn test_location_format(populated_db: NamedTempFile) {
-        let cmd = LocationCmd {
-            module: Some("MyApp.Accounts".to_string()),
-            function: "get_user".to_string(),
-            arity: Some(1),
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Location should succeed");
-        assert_eq!(result.locations[0].format_location(), "lib/my_app/accounts.ex:10:15");
-    }
-
-    #[rstest]
-    fn test_location_empty_db() {
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let cmd = LocationCmd {
-            module: Some("MyApp".to_string()),
-            function: "foo".to_string(),
-            arity: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
-        };
-        // This will fail because tables don't exist
-        let result = cmd.execute(db_file.path());
-        assert!(result.is_err());
-    }
-
-    #[rstest]
-    fn test_location_arity_filter_without_module(populated_db: NamedTempFile) {
-        // Find all functions with arity 1 across all modules
-        let cmd = LocationCmd {
-            module: None,
-            function: ".*".to_string(),
-            arity: Some(1),
-            project: "test_project".to_string(),
-            regex: true,
-            limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Location should succeed");
-        assert_eq!(result.locations.len(), 2); // get_user/1 and create_user/1
-        assert!(result.locations.iter().all(|l| l.arity == 1));
-    }
-
-    #[rstest]
-    fn test_location_project_filter_without_module(populated_db: NamedTempFile) {
-        // Find function by name in specific project, without specifying module
-        let cmd = LocationCmd {
-            module: None,
-            function: "get_user".to_string(),
-            arity: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Location should succeed");
-        assert_eq!(result.locations.len(), 1);
-        assert_eq!(result.locations[0].project, "test_project");
-    }
-
-    #[rstest]
-    fn test_location_nonexistent_project(populated_db: NamedTempFile) {
-        let cmd = LocationCmd {
+    crate::execute_no_match_test! {
+        test_name: test_location_nonexistent_project,
+        fixture: populated_db,
+        cmd: LocationCmd {
             module: None,
             function: "get_user".to_string(),
             arity: None,
             project: "nonexistent_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Location should succeed");
-        assert!(result.locations.is_empty());
+        },
+        empty_field: locations,
     }
 
-    #[rstest]
-    fn test_location_function_regex_with_exact_module(populated_db: NamedTempFile) {
-        // Exact module match with regex function pattern
-        let cmd = LocationCmd {
+    // =========================================================================
+    // Filter tests
+    // =========================================================================
+
+    crate::execute_test! {
+        test_name: test_location_with_project_filter,
+        fixture: populated_db,
+        cmd: LocationCmd {
+            module: Some("MyApp.Accounts".to_string()),
+            function: "get_user".to_string(),
+            arity: Some(1),
+            project: "test_project".to_string(),
+            regex: false,
+            limit: 100,
+        },
+        assertions: |result| {
+            assert_eq!(result.locations.len(), 1);
+            assert_eq!(result.locations[0].project, "test_project");
+        },
+    }
+
+    crate::execute_test! {
+        test_name: test_location_arity_filter_without_module,
+        fixture: populated_db,
+        cmd: LocationCmd {
+            module: None,
+            function: ".*".to_string(),
+            arity: Some(1),
+            project: "test_project".to_string(),
+            regex: true,
+            limit: 100,
+        },
+        assertions: |result| {
+            assert_eq!(result.locations.len(), 2);
+            assert!(result.locations.iter().all(|l| l.arity == 1));
+        },
+    }
+
+    crate::execute_test! {
+        test_name: test_location_project_filter_without_module,
+        fixture: populated_db,
+        cmd: LocationCmd {
+            module: None,
+            function: "get_user".to_string(),
+            arity: None,
+            project: "test_project".to_string(),
+            regex: false,
+            limit: 100,
+        },
+        assertions: |result| {
+            assert_eq!(result.locations.len(), 1);
+            assert_eq!(result.locations[0].project, "test_project");
+        },
+    }
+
+    crate::execute_count_test! {
+        test_name: test_location_function_regex_with_exact_module,
+        fixture: populated_db,
+        cmd: LocationCmd {
             module: Some("MyApp.Accounts".to_string()),
             function: ".*user.*".to_string(),
             arity: None,
             project: "test_project".to_string(),
             regex: true,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Location should succeed");
-        assert_eq!(result.locations.len(), 2); // get_user and list_users in MyApp.Accounts
+        },
+        field: locations,
+        expected: 2,
     }
 
-    #[rstest]
-    fn test_location_arity_zero(populated_db: NamedTempFile) {
-        let cmd = LocationCmd {
+    crate::execute_test! {
+        test_name: test_location_arity_zero,
+        fixture: populated_db,
+        cmd: LocationCmd {
             module: None,
             function: "list_users".to_string(),
             arity: Some(0),
             project: "test_project".to_string(),
             regex: false,
             limit: 100,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Location should succeed");
-        assert_eq!(result.locations.len(), 1);
-        assert_eq!(result.locations[0].arity, 0);
+        },
+        assertions: |result| {
+            assert_eq!(result.locations.len(), 1);
+            assert_eq!(result.locations[0].arity, 0);
+        },
     }
 
-    #[rstest]
-    fn test_location_with_limit(populated_db: NamedTempFile) {
-        // Search for all user-related functions but limit to 1 result
-        let cmd = LocationCmd {
+    crate::execute_limit_test! {
+        test_name: test_location_with_limit,
+        fixture: populated_db,
+        cmd: LocationCmd {
             module: None,
             function: ".*user.*".to_string(),
             arity: None,
             project: "test_project".to_string(),
             regex: true,
             limit: 1,
-        };
-        let result = cmd.execute(populated_db.path()).expect("Location should succeed");
-        assert_eq!(result.locations.len(), 1);
+        },
+        collection: locations,
+        limit: 1,
+    }
+
+    // =========================================================================
+    // Error handling tests
+    // =========================================================================
+
+    crate::execute_empty_db_test! {
+        cmd_type: LocationCmd,
+        cmd: LocationCmd {
+            module: Some("MyApp".to_string()),
+            function: "foo".to_string(),
+            arity: None,
+            project: "test_project".to_string(),
+            regex: false,
+            limit: 100,
+        },
     }
 }

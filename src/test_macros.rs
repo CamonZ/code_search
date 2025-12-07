@@ -217,28 +217,9 @@ macro_rules! execute_test_fixture {
         json: $json:expr,
         project: $project:literal $(,)?
     ) => {
-        fn create_temp_json_file(content: &str) -> tempfile::NamedTempFile {
-            use std::io::Write;
-            let mut file = tempfile::NamedTempFile::new().expect("Failed to create temp file");
-            file.write_all(content.as_bytes()).expect("Failed to write temp file");
-            file
-        }
-
         #[fixture]
         fn $name() -> tempfile::NamedTempFile {
-            use crate::commands::import::ImportCmd;
-            use crate::commands::Execute;
-
-            let db_file = tempfile::NamedTempFile::new().expect("Failed to create temp db file");
-            let json_file = create_temp_json_file($json);
-
-            let import_cmd = ImportCmd {
-                file: json_file.path().to_path_buf(),
-                project: $project.to_string(),
-                clear: false,
-            };
-            import_cmd.execute(db_file.path()).expect("Import should succeed");
-            db_file
+            crate::test_utils::setup_test_db($json, $project)
         }
     };
 }
@@ -252,11 +233,234 @@ macro_rules! execute_empty_db_test {
     ) => {
         #[rstest]
         fn test_empty_db() {
-            use crate::commands::Execute;
-            let db_file = tempfile::NamedTempFile::new().expect("Failed to create temp db file");
-            let cmd: $cmd_type = $cmd;
-            let result = cmd.execute(db_file.path());
+            let result = crate::test_utils::execute_on_empty_db($cmd);
             assert!(result.is_err());
+        }
+    };
+}
+
+/// Generate an execute test with custom assertions.
+///
+/// This is the core macro for execute tests. It handles the boilerplate of
+/// executing a command against a fixture and lets you write custom assertions.
+///
+/// # Example
+/// ```ignore
+/// execute_test! {
+///     test_name: test_search_finds_modules,
+///     fixture: populated_db,
+///     cmd: SearchCmd {
+///         pattern: "MyApp".to_string(),
+///         kind: SearchKind::Modules,
+///         project: "test_project".to_string(),
+///         limit: 100,
+///         regex: false,
+///     },
+///     assertions: |result| {
+///         assert_eq!(result.modules.len(), 2);
+///         assert_eq!(result.kind, "modules");
+///     },
+/// }
+/// ```
+#[macro_export]
+macro_rules! execute_test {
+    (
+        test_name: $test_name:ident,
+        fixture: $fixture:ident,
+        cmd: $cmd:expr,
+        assertions: |$result:ident| $assertions:expr $(,)?
+    ) => {
+        #[rstest]
+        fn $test_name($fixture: tempfile::NamedTempFile) {
+            use crate::commands::Execute;
+            let $result = $cmd.execute($fixture.path()).expect("Execute should succeed");
+            $assertions
+        }
+    };
+}
+
+/// Generate a test that verifies command returns empty results for no match.
+///
+/// # Example
+/// ```ignore
+/// execute_no_match_test! {
+///     test_name: test_search_no_match,
+///     fixture: populated_db,
+///     cmd: SearchCmd { pattern: "NonExistent".into(), ... },
+///     empty_field: modules,
+/// }
+/// ```
+#[macro_export]
+macro_rules! execute_no_match_test {
+    (
+        test_name: $test_name:ident,
+        fixture: $fixture:ident,
+        cmd: $cmd:expr,
+        empty_field: $field:ident $(,)?
+    ) => {
+        #[rstest]
+        fn $test_name($fixture: tempfile::NamedTempFile) {
+            use crate::commands::Execute;
+            let result = $cmd.execute($fixture.path()).expect("Execute should succeed");
+            assert!(result.$field.is_empty(), concat!(stringify!($field), " should be empty"));
+        }
+    };
+}
+
+/// Generate a test that verifies result count.
+///
+/// # Example
+/// ```ignore
+/// execute_count_test! {
+///     test_name: test_search_finds_two,
+///     fixture: populated_db,
+///     cmd: SearchCmd { ... },
+///     field: modules,
+///     expected: 2,
+/// }
+/// ```
+#[macro_export]
+macro_rules! execute_count_test {
+    (
+        test_name: $test_name:ident,
+        fixture: $fixture:ident,
+        cmd: $cmd:expr,
+        field: $field:ident,
+        expected: $expected:expr $(,)?
+    ) => {
+        #[rstest]
+        fn $test_name($fixture: tempfile::NamedTempFile) {
+            use crate::commands::Execute;
+            let result = $cmd.execute($fixture.path()).expect("Execute should succeed");
+            assert_eq!(result.$field.len(), $expected,
+                concat!("Expected ", stringify!($expected), " ", stringify!($field)));
+        }
+    };
+}
+
+/// Generate a test that verifies a field value on the result.
+///
+/// # Example
+/// ```ignore
+/// execute_field_test! {
+///     test_name: test_search_kind,
+///     fixture: populated_db,
+///     cmd: SearchCmd { kind: SearchKind::Modules, ... },
+///     field: kind,
+///     expected: "modules",
+/// }
+/// ```
+#[macro_export]
+macro_rules! execute_field_test {
+    (
+        test_name: $test_name:ident,
+        fixture: $fixture:ident,
+        cmd: $cmd:expr,
+        field: $field:ident,
+        expected: $expected:expr $(,)?
+    ) => {
+        #[rstest]
+        fn $test_name($fixture: tempfile::NamedTempFile) {
+            use crate::commands::Execute;
+            let result = $cmd.execute($fixture.path()).expect("Execute should succeed");
+            assert_eq!(result.$field, $expected,
+                concat!("Field ", stringify!($field), " mismatch"));
+        }
+    };
+}
+
+/// Generate a test that verifies a field on the first result item.
+///
+/// # Example
+/// ```ignore
+/// execute_first_item_test! {
+///     test_name: test_first_function_name,
+///     fixture: populated_db,
+///     cmd: SearchCmd { ... },
+///     collection: functions,
+///     field: name,
+///     expected: "get_user",
+/// }
+/// ```
+#[macro_export]
+macro_rules! execute_first_item_test {
+    (
+        test_name: $test_name:ident,
+        fixture: $fixture:ident,
+        cmd: $cmd:expr,
+        collection: $collection:ident,
+        field: $field:ident,
+        expected: $expected:expr $(,)?
+    ) => {
+        #[rstest]
+        fn $test_name($fixture: tempfile::NamedTempFile) {
+            use crate::commands::Execute;
+            let result = $cmd.execute($fixture.path()).expect("Execute should succeed");
+            assert!(!result.$collection.is_empty(), concat!(stringify!($collection), " should not be empty"));
+            assert_eq!(result.$collection[0].$field, $expected,
+                concat!("First item ", stringify!($field), " mismatch"));
+        }
+    };
+}
+
+/// Generate a test that verifies all items match a condition.
+///
+/// # Example
+/// ```ignore
+/// execute_all_match_test! {
+///     test_name: test_all_from_project,
+///     fixture: populated_db,
+///     cmd: SearchCmd { project: "test_project".into(), ... },
+///     collection: modules,
+///     condition: |item| item.project == "test_project",
+/// }
+/// ```
+#[macro_export]
+macro_rules! execute_all_match_test {
+    (
+        test_name: $test_name:ident,
+        fixture: $fixture:ident,
+        cmd: $cmd:expr,
+        collection: $collection:ident,
+        condition: |$item:ident| $cond:expr $(,)?
+    ) => {
+        #[rstest]
+        fn $test_name($fixture: tempfile::NamedTempFile) {
+            use crate::commands::Execute;
+            let result = $cmd.execute($fixture.path()).expect("Execute should succeed");
+            assert!(result.$collection.iter().all(|$item| $cond),
+                concat!("Not all ", stringify!($collection), " matched condition"));
+        }
+    };
+}
+
+/// Generate a test that verifies limit is respected.
+///
+/// # Example
+/// ```ignore
+/// execute_limit_test! {
+///     test_name: test_respects_limit,
+///     fixture: populated_db,
+///     cmd: SearchCmd { limit: 1, ... },
+///     collection: modules,
+///     limit: 1,
+/// }
+/// ```
+#[macro_export]
+macro_rules! execute_limit_test {
+    (
+        test_name: $test_name:ident,
+        fixture: $fixture:ident,
+        cmd: $cmd:expr,
+        collection: $collection:ident,
+        limit: $limit:expr $(,)?
+    ) => {
+        #[rstest]
+        fn $test_name($fixture: tempfile::NamedTempFile) {
+            use crate::commands::Execute;
+            let result = $cmd.execute($fixture.path()).expect("Execute should succeed");
+            assert!(result.$collection.len() <= $limit,
+                concat!("Expected at most ", stringify!($limit), " ", stringify!($collection)));
         }
     };
 }
