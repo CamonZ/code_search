@@ -376,3 +376,41 @@ pub fn import_function_locations(
         "function_locations",
     )
 }
+
+/// Import a parsed CallGraph into the database.
+///
+/// Creates schemas and imports all data (modules, functions, calls, structs, locations).
+/// This is the core import logic used by both the CLI command and test utilities.
+pub fn import_graph(
+    db: &DbInstance,
+    project: &str,
+    graph: &CallGraph,
+) -> Result<ImportResult, Box<dyn Error>> {
+    let mut result = ImportResult::default();
+
+    result.schemas = create_schema(db)?;
+    result.modules_imported = import_modules(db, project, graph)?;
+    result.functions_imported = import_functions(db, project, graph)?;
+    result.calls_imported = import_calls(db, project, graph)?;
+    result.structs_imported = import_structs(db, project, graph)?;
+    result.function_locations_imported = import_function_locations(db, project, graph)?;
+
+    Ok(result)
+}
+
+/// Import a JSON string directly into the database.
+///
+/// Convenience wrapper for tests that parses JSON and calls `import_graph`.
+#[cfg(test)]
+pub fn import_json_str(
+    db: &DbInstance,
+    content: &str,
+    project: &str,
+) -> Result<ImportResult, Box<dyn Error>> {
+    let graph: CallGraph =
+        serde_json::from_str(content).map_err(|e| ImportError::JsonParseFailed {
+            message: e.to_string(),
+        })?;
+
+    import_graph(db, project, &graph)
+}

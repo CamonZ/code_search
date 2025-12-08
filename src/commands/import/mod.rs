@@ -3,8 +3,6 @@ mod execute;
 mod output;
 mod output_tests;
 
-pub use execute::import_json_str;
-
 use std::path::PathBuf;
 
 use clap::Args;

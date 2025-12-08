@@ -5,18 +5,13 @@ use cozo::DbInstance;
 
 use super::ImportCmd;
 use crate::commands::Execute;
+use crate::queries::import::{clear_project_data, import_graph, ImportError, ImportResult};
 use crate::queries::import_models::CallGraph;
-use crate::queries::import::{
-    clear_project_data, create_schema, import_calls, import_function_locations, import_functions,
-    import_modules, import_structs, ImportError, ImportResult,
-};
 
 impl Execute for ImportCmd {
     type Output = ImportResult;
 
     fn execute(self, db: &DbInstance) -> Result<Self::Output, Box<dyn Error>> {
-        let mut result = ImportResult::default();
-
         // Read and parse call graph
         let content = fs::read_to_string(&self.file).map_err(|e| ImportError::FileReadFailed {
             path: self.file.display().to_string(),
@@ -28,58 +23,18 @@ impl Execute for ImportCmd {
                 message: e.to_string(),
             })?;
 
-        // Step 1: Create schemas
-        result.schemas = create_schema(db)?;
-
-        // Step 2: Clear existing data if requested
+        // Clear existing data if requested
         if self.clear {
             clear_project_data(db, &self.project)?;
-            result.cleared = true;
         }
 
-        // Step 3: Import data
-        import_data_from_graph(db, &self.project, &graph, &mut result)?;
+        // Import data
+        let mut result = import_graph(db, &self.project, &graph)?;
+        result.cleared = self.clear;
 
         Ok(result)
     }
 }
-
-/// Helper to import data from a CallGraph object
-fn import_data_from_graph(
-    db: &DbInstance,
-    project: &str,
-    graph: &CallGraph,
-    result: &mut ImportResult,
-) -> Result<(), Box<dyn Error>> {
-    result.modules_imported = import_modules(db, project, graph)?;
-    result.functions_imported = import_functions(db, project, graph)?;
-    result.calls_imported = import_calls(db, project, graph)?;
-    result.structs_imported = import_structs(db, project, graph)?;
-    result.function_locations_imported = import_function_locations(db, project, graph)?;
-    Ok(())
-}
-
-/// Import a JSON string directly into the database.
-///
-/// This is used primarily for testing to populate an in-memory DB.
-pub fn import_json_str(
-    db: &DbInstance,
-    content: &str,
-    project: &str,
-) -> Result<ImportResult, Box<dyn Error>> {
-    let mut result = ImportResult::default();
-
-    let graph: CallGraph =
-        serde_json::from_str(content).map_err(|e| ImportError::JsonParseFailed {
-            message: e.to_string(),
-        })?;
-
-    result.schemas = create_schema(db)?;
-    import_data_from_graph(db, project, &graph, &mut result)?;
-
-    Ok(result)
-}
-
 
 #[cfg(test)]
 mod tests {

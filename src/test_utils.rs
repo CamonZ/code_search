@@ -7,7 +7,7 @@ use std::io::Write;
 use cozo::DbInstance;
 use tempfile::NamedTempFile;
 
-use crate::commands::import::import_json_str;
+use crate::queries::import::import_json_str;
 use crate::commands::Execute;
 use crate::db::open_mem_db;
 

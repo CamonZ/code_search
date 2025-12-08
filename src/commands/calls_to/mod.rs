@@ -12,7 +12,10 @@ use clap::Args;
 Examples:
   code_search calls-to -m MyApp.Repo                 # All callers of module
   code_search calls-to -m MyApp.Repo -f get          # Callers of specific function
-  code_search calls-to -m MyApp.Repo -f get -a 2     # With specific arity")]
+  code_search calls-to -m MyApp.Repo -f get -a 2     # With specific arity
+
+  # Find all call sites (replaces 'call-sites' command):
+  code_search calls-to -m MyApp.Accounts -f get_user # Shows file/line/column for each call")]
 pub struct CallsToCmd {
     /// Module name (exact match or pattern with --regex)
     #[arg(short, long)]

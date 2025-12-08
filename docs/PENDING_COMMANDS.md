@@ -13,15 +13,22 @@ Commands not yet implemented in the CLI.
 | `message-handlers` | Extract message patterns from handle_call/cast/info |
 | `complexity` | Show complexity metrics for a module |
 | `large-functions` | Find functions with many clauses |
-| `wide-modules` | Find modules with high fan-out |
-| `deep-modules` | Find modules with high fan-in |
 | `cycles` | Find circular dependencies between modules |
 | `clusters` | Group modules by coupling |
 | `boundaries` | Identify boundary modules |
 | `god-modules` | Find modules with too many functions/dependencies |
-| `orphan-functions` | Find private functions never called internally |
 | `dynamic-typed` | Find functions with mostly dynamic() types |
 | `struct-graph` | Show relationships between structs |
 | `struct-modules` | Show which modules create/manipulate each struct |
-| `call-sites` | Show all locations where a function is called |
-| `entry-points` | Find functions called externally but not internally |
+
+## Covered by Existing Commands
+
+These were originally planned but are already supported:
+
+| Original Idea | Use Instead |
+|---------------|-------------|
+| `call-sites` | `calls-to -m Module -f function` — shows all call locations with file/line/column |
+| `orphan-functions` | `unused --private-only` — finds private functions never called |
+| `wide-modules` | `hotspots -k outgoing` — modules/functions with high fan-out |
+| `deep-modules` | `hotspots -k incoming` — modules/functions with high fan-in |
+| `entry-points` | `unused --public-only` (inverted) — public functions with zero internal callers |

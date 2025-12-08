@@ -14,7 +14,13 @@ Examples:
   code_search hotspots                       # Most called functions (incoming)
   code_search hotspots -k outgoing           # Functions that call many others
   code_search hotspots -k total              # Highest total connections
-  code_search hotspots -m MyApp -l 10        # Top 10 in MyApp namespace")]
+  code_search hotspots -m MyApp -l 10        # Top 10 in MyApp namespace
+
+  # Find wide modules (high fan-out):
+  code_search hotspots -k outgoing -l 20     # Top 20 functions calling many others
+
+  # Find deep modules (high fan-in):
+  code_search hotspots -k incoming -l 20     # Top 20 most-called functions")]
 pub struct HotspotsCmd {
     /// Type of hotspots to find
     #[arg(short, long, value_enum, default_value_t = HotspotKind::Incoming)]
