@@ -4,10 +4,12 @@
 
 use std::io::Write;
 
+use cozo::DbInstance;
 use tempfile::NamedTempFile;
 
-use crate::commands::ImportCmd;
+use crate::commands::import::import_json_str;
 use crate::commands::Execute;
+use crate::db::open_mem_db;
 
 /// Create a temporary file containing the given content.
 ///
@@ -19,44 +21,27 @@ pub fn create_temp_json_file(content: &str) -> NamedTempFile {
     file
 }
 
-/// Create a temporary database file.
-pub fn create_temp_db() -> NamedTempFile {
-    NamedTempFile::new().expect("Failed to create temp db file")
-}
-
-/// Import JSON content into a database and return the db file.
+/// Create an in-memory database and import JSON content.
 ///
-/// This is the standard setup for execute tests: create a DB,
-/// import test data, return the DB file for command execution.
-pub fn setup_test_db(json_content: &str, project: &str) -> NamedTempFile {
-    let db_file = create_temp_db();
-    let json_file = create_temp_json_file(json_content);
-
-    let import_cmd = ImportCmd {
-        file: json_file.path().to_path_buf(),
-        project: project.to_string(),
-        clear: false,
-    };
-    import_cmd
-        .execute(db_file.path())
-        .expect("Import should succeed");
-
-    db_file
+/// This is the standard setup for execute tests: create an in-memory DB,
+/// import test data, return the DB instance for command execution.
+pub fn setup_test_db(json_content: &str, project: &str) -> DbInstance {
+    let db = open_mem_db();
+    import_json_str(&db, json_content, project).expect("Import should succeed");
+    db
 }
 
 /// Execute a command against a database and return the result.
-///
-/// Convenience wrapper that handles the path conversion.
-pub fn execute_cmd<C: Execute>(cmd: C, db_file: &NamedTempFile) -> Result<C::Output, Box<dyn std::error::Error>> {
-    cmd.execute(db_file.path())
+pub fn execute_cmd<C: Execute>(cmd: C, db: &DbInstance) -> Result<C::Output, Box<dyn std::error::Error>> {
+    cmd.execute(db)
 }
 
 /// Execute a command against an empty (uninitialized) database.
 ///
 /// Used to verify commands fail gracefully on empty DBs.
 pub fn execute_on_empty_db<C: Execute>(cmd: C) -> Result<C::Output, Box<dyn std::error::Error>> {
-    let db_file = create_temp_db();
-    cmd.execute(db_file.path())
+    let db = open_mem_db();
+    cmd.execute(&db)
 }
 
 // =============================================================================
@@ -69,21 +54,21 @@ use crate::fixtures;
 ///
 /// Use for: trace, reverse_trace, calls_from, calls_to, path, hotspots,
 /// unused, depends_on, depended_by
-pub fn call_graph_db(project: &str) -> NamedTempFile {
+pub fn call_graph_db(project: &str) -> DbInstance {
     setup_test_db(fixtures::CALL_GRAPH, project)
 }
 
 /// Create a test database with type signature data.
 ///
 /// Use for: search (functions kind), function
-pub fn type_signatures_db(project: &str) -> NamedTempFile {
+pub fn type_signatures_db(project: &str) -> DbInstance {
     setup_test_db(fixtures::TYPE_SIGNATURES, project)
 }
 
 /// Create a test database with struct definitions.
 ///
 /// Use for: struct command
-pub fn structs_db(project: &str) -> NamedTempFile {
+pub fn structs_db(project: &str) -> DbInstance {
     setup_test_db(fixtures::STRUCTS, project)
 }
 

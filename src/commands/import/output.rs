@@ -1,41 +1,30 @@
 //! Output formatting for import command results.
 
 use crate::output::Outputable;
-use super::execute::ImportResult;
+use crate::queries::import::ImportResult;
 
 impl Outputable for ImportResult {
     fn to_table(&self) -> String {
-        let mut lines = Vec::new();
-
-        // Schema info
-        if !self.schemas.created.is_empty() {
-            lines.push(format!("Schemas created: {}", self.schemas.created.join(", ")));
-        }
-        if !self.schemas.already_existed.is_empty() {
-            lines.push(format!("Schemas existed:  {}", self.schemas.already_existed.join(", ")));
-        }
-
-        // Clear status
+        let mut output = String::new();
+        
         if self.cleared {
-            lines.push("Cleared existing project data".to_string());
+            output.push_str("Cleared existing project data.\n\n");
         }
 
-        // Import counts
-        lines.push(String::new());
-        lines.push("Import Summary:".to_string());
-        lines.push(format!("  Modules:            {:>6}", self.modules_imported));
-        lines.push(format!("  Functions:          {:>6}", self.functions_imported));
-        lines.push(format!("  Calls:              {:>6}", self.calls_imported));
-        lines.push(format!("  Struct fields:      {:>6}", self.structs_imported));
-        lines.push(format!("  Function locations: {:>6}", self.function_locations_imported));
+        output.push_str("Import Summary:\n");
+        output.push_str(&format!("  Modules: {}\n", self.modules_imported));
+        output.push_str(&format!("  Functions: {}\n", self.functions_imported));
+        output.push_str(&format!("  Calls: {}\n", self.calls_imported));
+        output.push_str(&format!("  Structs: {}\n", self.structs_imported));
+        output.push_str(&format!("  Locations: {}\n", self.function_locations_imported));
 
-        let total = self.modules_imported
-            + self.functions_imported
-            + self.calls_imported
-            + self.structs_imported
-            + self.function_locations_imported;
-        lines.push(format!("  Total:              {:>6}", total));
+        if !self.schemas.created.is_empty() {
+            output.push_str("\nCreated Schemas:\n");
+            for schema in &self.schemas.created {
+                output.push_str(&format!("  - {}\n", schema));
+            }
+        }
 
-        lines.join("\n")
+        output
     }
 }

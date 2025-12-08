@@ -2,7 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::{FileFunctionDef, FileResult, FileWithFunctions};
+    use super::super::execute::FileResult;
+    use crate::queries::file::{FileFunctionDef, FileWithFunctions};
     use rstest::{fixture, rstest};
 
     // =========================================================================

@@ -2,7 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::{FieldInfo, StructDefinition, StructResult};
+    use super::super::execute::StructResult;
+    use crate::queries::structs::{FieldInfo, StructDefinition};
     use rstest::{fixture, rstest};
 
     // =========================================================================

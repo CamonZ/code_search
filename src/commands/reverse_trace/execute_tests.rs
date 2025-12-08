@@ -2,9 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::ReverseTraceResult;
     use super::super::ReverseTraceCmd;
-    use crate::commands::Execute;
     use rstest::{fixture, rstest};
 
     crate::shared_fixture! {

@@ -2,7 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::{ReverseTraceResult, ReverseTraceStep};
+    use super::super::execute::ReverseTraceResult;
+    use crate::queries::reverse_trace::ReverseTraceStep;
     use rstest::{fixture, rstest};
 
     // =========================================================================

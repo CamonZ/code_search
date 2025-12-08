@@ -2,9 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::SearchResult;
     use super::super::{SearchCmd, SearchKind};
-    use crate::commands::Execute;
     use rstest::{fixture, rstest};
 
     crate::shared_fixture! {

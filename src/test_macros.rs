@@ -219,7 +219,7 @@ macro_rules! execute_test_fixture {
         project: $project:literal $(,)?
     ) => {
         #[fixture]
-        fn $name() -> tempfile::NamedTempFile {
+        fn $name() -> cozo::DbInstance {
             crate::test_utils::setup_test_db($json, $project)
         }
     };
@@ -245,7 +245,7 @@ macro_rules! shared_fixture {
         project: $project:literal $(,)?
     ) => {
         #[fixture]
-        fn $name() -> tempfile::NamedTempFile {
+        fn $name() -> cozo::DbInstance {
             crate::test_utils::call_graph_db($project)
         }
     };
@@ -255,7 +255,7 @@ macro_rules! shared_fixture {
         project: $project:literal $(,)?
     ) => {
         #[fixture]
-        fn $name() -> tempfile::NamedTempFile {
+        fn $name() -> cozo::DbInstance {
             crate::test_utils::type_signatures_db($project)
         }
     };
@@ -265,7 +265,7 @@ macro_rules! shared_fixture {
         project: $project:literal $(,)?
     ) => {
         #[fixture]
-        fn $name() -> tempfile::NamedTempFile {
+        fn $name() -> cozo::DbInstance {
             crate::test_utils::structs_db($project)
         }
     };
@@ -318,9 +318,9 @@ macro_rules! execute_test {
         assertions: |$result:ident| $assertions:expr $(,)?
     ) => {
         #[rstest]
-        fn $test_name($fixture: tempfile::NamedTempFile) {
+        fn $test_name($fixture: cozo::DbInstance) {
             use crate::commands::Execute;
-            let $result = $cmd.execute($fixture.path()).expect("Execute should succeed");
+            let $result = $cmd.execute(&$fixture).expect("Execute should succeed");
             $assertions
         }
     };
@@ -346,9 +346,9 @@ macro_rules! execute_no_match_test {
         empty_field: $field:ident $(,)?
     ) => {
         #[rstest]
-        fn $test_name($fixture: tempfile::NamedTempFile) {
+        fn $test_name($fixture: cozo::DbInstance) {
             use crate::commands::Execute;
-            let result = $cmd.execute($fixture.path()).expect("Execute should succeed");
+            let result = $cmd.execute(&$fixture).expect("Execute should succeed");
             assert!(result.$field.is_empty(), concat!(stringify!($field), " should be empty"));
         }
     };
@@ -376,9 +376,9 @@ macro_rules! execute_count_test {
         expected: $expected:expr $(,)?
     ) => {
         #[rstest]
-        fn $test_name($fixture: tempfile::NamedTempFile) {
+        fn $test_name($fixture: cozo::DbInstance) {
             use crate::commands::Execute;
-            let result = $cmd.execute($fixture.path()).expect("Execute should succeed");
+            let result = $cmd.execute(&$fixture).expect("Execute should succeed");
             assert_eq!(result.$field.len(), $expected,
                 concat!("Expected ", stringify!($expected), " ", stringify!($field)));
         }
@@ -407,9 +407,9 @@ macro_rules! execute_field_test {
         expected: $expected:expr $(,)?
     ) => {
         #[rstest]
-        fn $test_name($fixture: tempfile::NamedTempFile) {
+        fn $test_name($fixture: cozo::DbInstance) {
             use crate::commands::Execute;
-            let result = $cmd.execute($fixture.path()).expect("Execute should succeed");
+            let result = $cmd.execute(&$fixture).expect("Execute should succeed");
             assert_eq!(result.$field, $expected,
                 concat!("Field ", stringify!($field), " mismatch"));
         }
@@ -440,9 +440,9 @@ macro_rules! execute_first_item_test {
         expected: $expected:expr $(,)?
     ) => {
         #[rstest]
-        fn $test_name($fixture: tempfile::NamedTempFile) {
+        fn $test_name($fixture: cozo::DbInstance) {
             use crate::commands::Execute;
-            let result = $cmd.execute($fixture.path()).expect("Execute should succeed");
+            let result = $cmd.execute(&$fixture).expect("Execute should succeed");
             assert!(!result.$collection.is_empty(), concat!(stringify!($collection), " should not be empty"));
             assert_eq!(result.$collection[0].$field, $expected,
                 concat!("First item ", stringify!($field), " mismatch"));
@@ -472,9 +472,9 @@ macro_rules! execute_all_match_test {
         condition: |$item:ident| $cond:expr $(,)?
     ) => {
         #[rstest]
-        fn $test_name($fixture: tempfile::NamedTempFile) {
+        fn $test_name($fixture: cozo::DbInstance) {
             use crate::commands::Execute;
-            let result = $cmd.execute($fixture.path()).expect("Execute should succeed");
+            let result = $cmd.execute(&$fixture).expect("Execute should succeed");
             assert!(result.$collection.iter().all(|$item| $cond),
                 concat!("Not all ", stringify!($collection), " matched condition"));
         }
@@ -503,9 +503,9 @@ macro_rules! execute_limit_test {
         limit: $limit:expr $(,)?
     ) => {
         #[rstest]
-        fn $test_name($fixture: tempfile::NamedTempFile) {
+        fn $test_name($fixture: cozo::DbInstance) {
             use crate::commands::Execute;
-            let result = $cmd.execute($fixture.path()).expect("Execute should succeed");
+            let result = $cmd.execute(&$fixture).expect("Execute should succeed");
             assert!(result.$collection.len() <= $limit,
                 concat!("Expected at most ", stringify!($limit), " ", stringify!($collection)));
         }

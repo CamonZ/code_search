@@ -1,47 +1,10 @@
 use std::error::Error;
-use std::path::Path;
 
-use cozo::DataValue;
 use serde::Serialize;
-use thiserror::Error;
 
 use super::StructCmd;
 use crate::commands::Execute;
-use crate::db::{extract_bool, extract_string, extract_string_or, open_db, run_query, Params};
-
-#[derive(Error, Debug)]
-enum StructError {
-    #[error("Struct query failed: {message}")]
-    QueryFailed { message: String },
-}
-
-/// A struct field definition
-#[derive(Debug, Clone, Serialize)]
-pub struct StructField {
-    pub project: String,
-    pub module: String,
-    pub field: String,
-    pub default_value: String,
-    pub required: bool,
-    pub inferred_type: String,
-}
-
-/// A struct with all its fields grouped
-#[derive(Debug, Clone, Serialize)]
-pub struct StructDefinition {
-    pub project: String,
-    pub module: String,
-    pub fields: Vec<FieldInfo>,
-}
-
-/// Field information within a struct
-#[derive(Debug, Clone, Serialize)]
-pub struct FieldInfo {
-    pub name: String,
-    pub default_value: String,
-    pub required: bool,
-    pub inferred_type: String,
-}
+use crate::queries::structs::{find_struct_fields, group_fields_into_structs, StructDefinition};
 
 /// Result of the struct command execution
 #[derive(Debug, Default, Serialize)]
@@ -53,16 +16,14 @@ pub struct StructResult {
 impl Execute for StructCmd {
     type Output = StructResult;
 
-    fn execute(self, db_path: &Path) -> Result<Self::Output, Box<dyn Error>> {
-        let db = open_db(db_path)?;
-
+    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
         let mut result = StructResult {
             module_pattern: self.module.clone(),
             ..Default::default()
         };
 
         let fields = find_struct_fields(
-            &db,
+            db,
             &self.module,
             &self.project,
             self.regex,
@@ -76,85 +37,3 @@ impl Execute for StructCmd {
     }
 }
 
-fn find_struct_fields(
-    db: &cozo::DbInstance,
-    module_pattern: &str,
-    project: &str,
-    use_regex: bool,
-    limit: u32,
-) -> Result<Vec<StructField>, Box<dyn Error>> {
-    let module_cond = if use_regex {
-        "regex_matches(module, $module_pattern)".to_string()
-    } else {
-        "module == $module_pattern".to_string()
-    };
-
-    let project_cond = ", project == $project";
-
-    let script = format!(
-        r#"
-        ?[project, module, field, default_value, required, inferred_type] :=
-            *struct_fields{{project, module, field, default_value, required, inferred_type}},
-            {module_cond}
-            {project_cond}
-        :order module, field
-        :limit {limit}
-        "#,
-    );
-
-    let mut params = Params::new();
-    params.insert("module_pattern".to_string(), DataValue::Str(module_pattern.into()));
-    params.insert("project".to_string(), DataValue::Str(project.into()));
-
-    let rows = run_query(&db, &script, params).map_err(|e| StructError::QueryFailed {
-        message: e.to_string(),
-    })?;
-
-    let mut results = Vec::new();
-    for row in rows.rows {
-        if row.len() >= 6 {
-            let Some(project) = extract_string(&row[0]) else { continue };
-            let Some(module) = extract_string(&row[1]) else { continue };
-            let Some(field) = extract_string(&row[2]) else { continue };
-            let default_value = extract_string_or(&row[3], "");
-            let required = extract_bool(&row[4], false);
-            let inferred_type = extract_string_or(&row[5], "");
-
-            results.push(StructField {
-                project,
-                module,
-                field,
-                default_value,
-                required,
-                inferred_type,
-            });
-        }
-    }
-
-    Ok(results)
-}
-
-fn group_fields_into_structs(fields: Vec<StructField>) -> Vec<StructDefinition> {
-    use std::collections::BTreeMap;
-
-    let mut grouped: BTreeMap<(String, String), Vec<FieldInfo>> = BTreeMap::new();
-
-    for field in fields {
-        let key = (field.project.clone(), field.module.clone());
-        grouped.entry(key).or_default().push(FieldInfo {
-            name: field.field,
-            default_value: field.default_value,
-            required: field.required,
-            inferred_type: field.inferred_type,
-        });
-    }
-
-    grouped
-        .into_iter()
-        .map(|((project, module), fields)| StructDefinition {
-            project,
-            module,
-            fields,
-        })
-        .collect()
-}

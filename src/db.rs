@@ -25,6 +25,14 @@ pub fn open_db(path: &Path) -> Result<DbInstance, Box<dyn Error>> {
     })
 }
 
+/// Create an in-memory database instance.
+///
+/// Used for tests to avoid disk I/O and temp file management.
+#[cfg(test)]
+pub fn open_mem_db() -> DbInstance {
+    DbInstance::new("mem", "", "").expect("Failed to create in-memory DB")
+}
+
 /// Run a mutable query (insert, delete, create, etc.)
 pub fn run_query(
     db: &DbInstance,

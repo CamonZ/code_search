@@ -2,7 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::{UnusedFunction, UnusedResult};
+    use super::super::execute::UnusedResult;
+    use crate::queries::unused::UnusedFunction;
     use rstest::{fixture, rstest};
 
     // =========================================================================

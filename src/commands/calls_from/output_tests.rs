@@ -2,7 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::{CallEdge, CallsFromResult};
+    use super::super::execute::CallsFromResult;
+    use crate::queries::calls_from::CallEdge;
     use rstest::{fixture, rstest};
 
     // =========================================================================

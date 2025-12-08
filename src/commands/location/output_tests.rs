@@ -2,7 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::{FunctionLocation, LocationResult};
+    use super::super::execute::LocationResult;
+    use crate::queries::location::FunctionLocation;
     use rstest::{fixture, rstest};
 
     // =========================================================================

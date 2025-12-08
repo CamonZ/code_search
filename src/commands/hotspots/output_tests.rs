@@ -2,7 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::{Hotspot, HotspotsResult};
+    use super::super::execute::HotspotsResult;
+    use crate::queries::hotspots::Hotspot;
     use rstest::{fixture, rstest};
 
     // =========================================================================

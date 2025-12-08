@@ -4,6 +4,7 @@ mod cli;
 mod commands;
 mod db;
 pub mod output;
+mod queries;
 #[macro_use]
 mod test_macros;
 #[cfg(test)]
@@ -14,7 +15,8 @@ use cli::Args;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let output = args.command.run(&args.db, args.format)?;
+    let db = db::open_db(&args.db)?;
+    let output = args.command.run(&db, args.format)?;
     println!("{}", output);
     Ok(())
 }

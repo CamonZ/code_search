@@ -2,7 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::{FunctionResult, FunctionSignature};
+    use super::super::execute::FunctionResult;
+    use crate::queries::function::FunctionSignature;
     use rstest::{fixture, rstest};
 
     // =========================================================================

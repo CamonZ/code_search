@@ -1,8 +1,9 @@
 mod cli_tests;
 mod execute;
-mod models;
 mod output;
 mod output_tests;
+
+pub use execute::import_json_str;
 
 use std::path::PathBuf;
 

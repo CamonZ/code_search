@@ -2,43 +2,46 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::{ImportResult, SchemaResult};
     use crate::output::OutputFormat;
+    use crate::queries::import::{ImportResult, SchemaResult};
     use rstest::{fixture, rstest};
 
-    const EMPTY_TABLE_OUTPUT: &str = "
+    const EMPTY_TABLE_OUTPUT: &str = "\
 Import Summary:
-  Modules:                 0
-  Functions:               0
-  Calls:                   0
-  Struct fields:           0
-  Function locations:      0
-  Total:                   0";
+  Modules: 0
+  Functions: 0
+  Calls: 0
+  Structs: 0
+  Locations: 0
+";
 
     const FULL_TABLE_OUTPUT: &str = "\
-Schemas created: modules, functions
-Schemas existed:  calls
-Cleared existing project data
+Cleared existing project data.
 
 Import Summary:
-  Modules:                10
-  Functions:              50
-  Calls:                 100
-  Struct fields:           5
-  Function locations:     45
-  Total:                 210";
+  Modules: 10
+  Functions: 50
+  Calls: 100
+  Structs: 5
+  Locations: 45
+
+Created Schemas:
+  - modules
+  - functions
+";
 
     const FULL_TABLE_OUTPUT_NO_CLEAR: &str = "\
-Schemas created: modules, functions
-Schemas existed:  calls
-
 Import Summary:
-  Modules:                10
-  Functions:              50
-  Calls:                 100
-  Struct fields:           5
-  Function locations:     45
-  Total:                 210";
+  Modules: 10
+  Functions: 50
+  Calls: 100
+  Structs: 5
+  Locations: 45
+
+Created Schemas:
+  - modules
+  - functions
+";
 
 
     #[fixture]

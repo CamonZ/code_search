@@ -10,7 +10,7 @@ mod depends_on;
 mod file;
 mod function;
 mod hotspots;
-mod import;
+pub mod import;
 mod location;
 mod path;
 mod reverse_trace;
@@ -37,7 +37,8 @@ pub use unused::UnusedCmd;
 
 use clap::Subcommand;
 use std::error::Error;
-use std::path::Path;
+
+use cozo::DbInstance;
 
 use crate::output::{OutputFormat, Outputable};
 
@@ -45,7 +46,7 @@ use crate::output::{OutputFormat, Outputable};
 pub trait Execute {
     type Output: Outputable;
 
-    fn execute(self, db_path: &Path) -> Result<Self::Output, Box<dyn Error>>;
+    fn execute(self, db: &DbInstance) -> Result<Self::Output, Box<dyn Error>>;
 }
 
 #[derive(Subcommand, Debug)]
@@ -102,66 +103,66 @@ pub enum Command {
 
 impl Command {
     /// Execute the command and return formatted output
-    pub fn run(self, db_path: &Path, format: OutputFormat) -> Result<String, Box<dyn Error>> {
+    pub fn run(self, db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>> {
         match self {
             Command::Import(cmd) => {
-                let result = cmd.execute(db_path)?;
+                let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }
             Command::Search(cmd) => {
-                let result = cmd.execute(db_path)?;
+                let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }
             Command::Location(cmd) => {
-                let result = cmd.execute(db_path)?;
+                let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }
             Command::CallsFrom(cmd) => {
-                let result = cmd.execute(db_path)?;
+                let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }
             Command::CallsTo(cmd) => {
-                let result = cmd.execute(db_path)?;
+                let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }
             Command::Function(cmd) => {
-                let result = cmd.execute(db_path)?;
+                let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }
             Command::Struct(cmd) => {
-                let result = cmd.execute(db_path)?;
+                let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }
             Command::Trace(cmd) => {
-                let result = cmd.execute(db_path)?;
+                let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }
             Command::ReverseTrace(cmd) => {
-                let result = cmd.execute(db_path)?;
+                let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }
             Command::Path(cmd) => {
-                let result = cmd.execute(db_path)?;
+                let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }
             Command::DependsOn(cmd) => {
-                let result = cmd.execute(db_path)?;
+                let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }
             Command::DependedBy(cmd) => {
-                let result = cmd.execute(db_path)?;
+                let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }
             Command::Unused(cmd) => {
-                let result = cmd.execute(db_path)?;
+                let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }
             Command::Hotspots(cmd) => {
-                let result = cmd.execute(db_path)?;
+                let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }
             Command::File(cmd) => {
-                let result = cmd.execute(db_path)?;
+                let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }
             Command::Unknown(args) => {

@@ -2,7 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::{TraceResult, TraceStep};
+    use super::super::execute::TraceResult;
+    use crate::queries::trace::TraceStep;
     use rstest::{fixture, rstest};
 
     // =========================================================================

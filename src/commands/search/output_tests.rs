@@ -2,7 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::{FunctionResult, ModuleResult, SearchResult};
+    use super::super::execute::SearchResult;
+    use crate::queries::search::{FunctionResult, ModuleResult};
     use rstest::{fixture, rstest};
 
     // =========================================================================

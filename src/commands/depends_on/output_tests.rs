@@ -2,7 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::{DependsOnResult, ModuleDependency};
+    use super::super::execute::DependsOnResult;
+    use crate::queries::depends_on::ModuleDependency;
     use rstest::{fixture, rstest};
 
     // =========================================================================

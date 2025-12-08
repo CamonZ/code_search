@@ -60,112 +60,54 @@ pub struct <Name>Cmd {
 
 See [examples/cli_tests.rs.example](./examples/cli_tests.rs.example) for a reference showing the available test patterns. Refer to [TESTING_STRATEGY.md](./TESTING_STRATEGY.md) for details on when to use each macro.
 
-### 4. Implement Execute (`execute.rs`)
+### 4. Implement Query Logic (`src/queries/<name>.rs`)
 
-This file contains the core command logic and its tests.
+Create a new file in `src/queries/` to handle the database interaction. This keeps the Datalog queries separate from the command logic.
 
 ```rust
 use std::error::Error;
-use std::path::Path;
+use cozo::{DataValue, DbInstance};
+use crate::db::{run_query, Params, extract_string};
 
-use serde::Serialize;
-use thiserror::Error;
-
-use super::<Name>Cmd;
-use crate::commands::Execute;
-use crate::db::{open_db, run_query, Params};
-
-#[derive(Error, Debug)]
-enum <Name>Error {
-    #[error("Description: {message}")]
-    SomeError { message: String },
+pub fn <name>_query(
+    db: &DbInstance,
+    arg: &str,
+) -> Result<Vec<String>, Box<dyn Error>> {
+    let script = "?[value] := *relation{value}, value = $arg";
+    let params = Params::from([("arg".to_string(), DataValue::Str(arg.into()))]);
+    
+    let rows = run_query(db, script, params)?;
+    
+    // ... extraction logic ...
+    Ok(vec![])
 }
+```
 
-/// Result of the command execution
-#[derive(Debug, Default, Serialize)]
-pub struct <Name>Result {
-    // Fields for your result
-}
+Don't forget to register the new module in `src/queries/mod.rs`.
 
+### 5. Implement Execute (`execute.rs`)
+
+This file contains the core command logic and its tests. It orchestrates the execution by calling the query function.
+
+See [examples/execute_impl.rs.example](./examples/execute_impl.rs.example) for the full boilerplate including imports, error handling, and test macros.
+
+```rust
 impl Execute for <Name>Cmd {
     type Output = <Name>Result;
 
-    fn execute(self, db_path: &Path) -> Result<Self::Output, Box<dyn Error>> {
-        let db = open_db(db_path)?;
+    fn execute(self, db: &DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+        // Call the query function from src/queries/<name>.rs
+        let results = crate::queries::<name>::<name>_query(db, &self.some_arg)?;
 
-        // Command logic here
-
-        Ok(<Name>Result::default())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rstest::{fixture, rstest};
-
-    // Use shared fixtures when possible (see src/fixtures/mod.rs)
-    // Available: call_graph, type_signatures, structs
-    crate::shared_fixture! {
-        fixture_name: populated_db,
-        fixture_type: call_graph,  // or type_signatures, structs
-        project: "test_project",
-    }
-
-    // =========================================================================
-    // Core functionality tests
-    // =========================================================================
-
-    crate::execute_test! {
-        test_name: test_basic_functionality,
-        fixture: populated_db,
-        cmd: <Name>Cmd {
-            // ... command args
-        },
-        assertions: |result| {
-            // Your assertions here
-        },
-    }
-
-    // =========================================================================
-    // No match / empty result tests
-    // =========================================================================
-
-    crate::execute_no_match_test! {
-        test_name: test_no_match,
-        fixture: populated_db,
-        cmd: <Name>Cmd {
-            // ... args that should return empty
-        },
-        empty_field: results,  // field that should be empty
-    }
-
-    // =========================================================================
-    // Error handling tests
-    // =========================================================================
-
-    crate::execute_empty_db_test! {
-        cmd_type: <Name>Cmd,
-        cmd: <Name>Cmd {
-            // ... any valid args
-        },
+        Ok(<Name>Result {
+            results,
+            ..Default::default()
+        })
     }
 }
 ```
 
-**Note:** If your tests need specific data that differs from the shared fixtures, you can still use inline JSON:
-
-```rust
-const TEST_JSON: &str = r#"{ ... }"#;
-
-crate::execute_test_fixture! {
-    fixture_name: custom_db,
-    json: TEST_JSON,
-    project: "test_project",
-}
-```
-
-### 5. Implement Outputable (`output.rs`)
+### 6. Implement Outputable (`output.rs`)
 
 ```rust
 use crate::output::Outputable;
@@ -179,11 +121,11 @@ impl Outputable for <Name>Result {
 }
 ```
 
-### 6. Add output tests (`output_tests.rs`)
+### 7. Add output tests (`output_tests.rs`)
 
 See [examples/output_tests.rs.example](./examples/output_tests.rs.example) for a reference showing the snapshot testing pattern. The example includes a helper for generating the actual output values to use in your snapshots.
 
-### 7. Register the command (`src/commands/mod.rs`)
+### 8. Register the command (`src/commands/mod.rs`)
 
 Add the module declaration:
 
@@ -213,14 +155,14 @@ Add the match arm in `run()`:
 
 ```rust
 impl Command {
-    pub fn run(self, db_path: &Path, format: OutputFormat) -> Result<String, Box<dyn Error>> {
+    pub fn run(self, db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>> {
         match self {
             Command::Import(cmd) => {
-                let result = cmd.execute(db_path)?;
+                let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }
             Command::<Name>(cmd) => {
-                let result = cmd.execute(db_path)?;
+                let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }
             Command::Unknown(args) => {
@@ -231,7 +173,7 @@ impl Command {
 }
 ```
 
-### 8. Verify
+### 9. Verify
 
 ```bash
 cargo build
@@ -250,6 +192,8 @@ cargo run -- <name> --help
   - [ ] Option tests (`cli_option_test!`)
   - [ ] Limit validation tests (`cli_limit_tests!`)
   - [ ] Edge case tests (regular tests for `matches!` etc.)
+- [ ] Created `src/queries/<name>.rs` and implemented query logic
+- [ ] Registered query module in `src/queries/mod.rs`
 - [ ] Implemented `Execute` trait in `execute.rs`
 - [ ] Added execution tests in `execute.rs` using macros
   - [ ] Use shared fixture (`shared_fixture!`) or inline JSON (`execute_test_fixture!`)

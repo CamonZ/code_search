@@ -1,0 +1,96 @@
+use std::error::Error;
+
+use serde::Serialize;
+use thiserror::Error;
+
+use super::<Name>Cmd;
+use crate::commands::Execute;
+// Import your query function here
+use crate::queries::<name>::<name>_query;
+
+#[derive(Error, Debug)]
+pub enum <Name>Error {
+    #[error("<Name> failed: {message}")]
+    QueryFailed { message: String },
+}
+
+/// Result of the command execution
+#[derive(Debug, Default, Serialize)]
+pub struct <Name>Result {
+    // Fields for your result
+    pub data: Vec<String>,
+}
+
+impl Execute for <Name>Cmd {
+    type Output = <Name>Result;
+
+    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+        // Call the query function from src/queries/<name>.rs
+        // Pass the db instance and any arguments from the command struct
+        let data = <name>_query(db, &self.some_arg)?;
+
+        Ok(<Name>Result {
+            data,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::{fixture, rstest};
+
+    // Use shared fixtures when possible (see src/fixtures/mod.rs)
+    // Available: call_graph, type_signatures, structs
+    crate::shared_fixture! {
+        fixture_name: populated_db,
+        fixture_type: call_graph,  // or type_signatures, structs
+        project: "test_project",
+    }
+
+    // =========================================================================
+    // Core functionality tests
+    // =========================================================================
+
+    crate::execute_test! {
+        test_name: test_basic_functionality,
+        fixture: populated_db,
+        cmd: <Name>Cmd {
+            some_arg: "value".to_string(),
+            project: "test_project".to_string(),
+            limit: 100,
+        },
+        assertions: |result| {
+            // Your assertions here
+            assert!(!result.data.is_empty());
+        },
+    }
+
+    // =========================================================================
+    // No match / empty result tests
+    // =========================================================================
+
+    crate::execute_no_match_test! {
+        test_name: test_no_match,
+        fixture: populated_db,
+        cmd: <Name>Cmd {
+            some_arg: "non_existent".to_string(),
+            project: "test_project".to_string(),
+            limit: 100,
+        },
+        empty_field: data,  // field that should be empty
+    }
+
+    // =========================================================================
+    // Error handling tests
+    // =========================================================================
+
+    crate::execute_empty_db_test! {
+        cmd_type: <Name>Cmd,
+        cmd: <Name>Cmd {
+            some_arg: "value".to_string(),
+            project: "test_project".to_string(),
+            limit: 100,
+        },
+    }
+}

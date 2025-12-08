@@ -4,19 +4,8 @@ mod execute_tests;
 mod output;
 mod output_tests;
 
-use clap::{Args, ValueEnum};
-
-/// What type of hotspots to find
-#[derive(Debug, Clone, Copy, Default, ValueEnum)]
-pub enum HotspotKind {
-    /// Functions with most incoming calls (most called)
-    #[default]
-    Incoming,
-    /// Functions with most outgoing calls (calls many things)
-    Outgoing,
-    /// Functions with highest total (incoming + outgoing)
-    Total,
-}
+use clap::Args;
+pub use crate::queries::hotspots::HotspotKind;
 
 /// Find functions with the most incoming/outgoing calls
 #[derive(Args, Debug)]

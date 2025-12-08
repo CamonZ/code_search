@@ -2,7 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::{CallPath, PathResult, PathStep};
+    use super::super::execute::PathResult;
+    use crate::queries::path::{CallPath, PathStep};
     use rstest::{fixture, rstest};
 
     // =========================================================================
