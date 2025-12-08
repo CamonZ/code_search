@@ -20,7 +20,7 @@ Struct: MyApp.User
 
 Found 1 struct(s):
 
-  [default] MyApp.User
+  MyApp.User
     *id :: integer() \\ nil
     name :: String.t() \\ nil";
 
@@ -29,10 +29,10 @@ Struct: MyApp.*
 
 Found 2 struct(s):
 
-  [default] MyApp.User
+  MyApp.User
     *id :: integer() \\ nil
 
-  [default] MyApp.Post
+  MyApp.Post
     *title :: String.t() \\ nil";
 
 

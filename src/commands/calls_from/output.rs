@@ -21,8 +21,8 @@ impl Outputable for CallsFromResult {
                 let caller = format!("{}.{}", call.caller_module, call.caller_function);
                 let callee = format!("{}.{}/{}", call.callee_module, call.callee_function, call.callee_arity);
                 lines.push(format!(
-                    "  [{}] {} ({}:{}) -> {}",
-                    call.project, caller, call.file, call.line, callee
+                    "  {} ({}:{}) -> {}",
+                    caller, call.file, call.line, callee
                 ));
             }
         } else {

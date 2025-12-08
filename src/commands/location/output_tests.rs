@@ -19,16 +19,16 @@ No locations found.";
 Location: MyApp.Accounts.get_user
 
 Found 1 location(s):
-  [default] MyApp.Accounts.get_user/1 (def)
+  MyApp.Accounts.get_user/1 (def)
        lib/my_app/accounts.ex:10:15";
 
     const MULTIPLE_TABLE: &str = "\
 Location: MyApp.*.user
 
 Found 2 location(s):
-  [default] MyApp.Accounts.get_user/1 (def)
+  MyApp.Accounts.get_user/1 (def)
        lib/my_app/accounts.ex:10:15
-  [default] MyApp.Users.create_user/1 (def)
+  MyApp.Users.create_user/1 (def)
        lib/my_app/users.ex:5:12";
 
 

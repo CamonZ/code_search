@@ -19,14 +19,14 @@ No results found.";
 Search: MyApp (modules)
 
 Modules (2):
-  [default] MyApp.Accounts
-  [default] MyApp.Users";
+  MyApp.Accounts
+  MyApp.Users";
 
     const FUNCTIONS_TABLE: &str = "\
 Search: get_ (functions)
 
 Functions (1):
-  [default] MyApp.Accounts.get_user/1 -> User.t()";
+  MyApp.Accounts.get_user/1 -> User.t()";
 
 
     // =========================================================================

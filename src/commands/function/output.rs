@@ -18,7 +18,7 @@ impl Outputable for FunctionResult {
                     "{}.{}/{}",
                     func.module, func.name, func.arity
                 );
-                lines.push(format!("  [{}] {}", func.project, signature));
+                lines.push(format!("  {}", signature));
                 if !func.args.is_empty() {
                     lines.push(format!("       args: {}", func.args));
                 }

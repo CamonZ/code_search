@@ -19,14 +19,14 @@ No callers found.";
 Calls to: MyApp.Repo.get
 
 Found 1 caller(s):
-  [default] MyApp.Accounts.get_user (lib/my_app/accounts.ex:12) -> MyApp.Repo.get/2";
+  MyApp.Accounts.get_user (lib/my_app/accounts.ex:12) -> MyApp.Repo.get/2";
 
     const MULTIPLE_TABLE: &str = "\
 Calls to: MyApp.Repo
 
 Found 2 caller(s):
-  [default] MyApp.Accounts.get_user (lib/my_app/accounts.ex:12) -> MyApp.Repo.get/2
-  [default] MyApp.Users.update_user (lib/my_app/users.ex:40) -> MyApp.Repo.get/2";
+  MyApp.Accounts.get_user (lib/my_app/accounts.ex:12) -> MyApp.Repo.get/2
+  MyApp.Users.update_user (lib/my_app/users.ex:40) -> MyApp.Repo.get/2";
 
 
     // =========================================================================

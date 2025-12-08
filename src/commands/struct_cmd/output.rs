@@ -14,10 +14,7 @@ impl Outputable for StructResult {
         if !self.structs.is_empty() {
             lines.push(format!("Found {} struct(s):", self.structs.len()));
             for struct_def in &self.structs {
-                lines.push(format!(
-                    "\n  [{}] {}",
-                    struct_def.project, struct_def.module
-                ));
+                lines.push(format!("\n  {}", struct_def.module));
                 for field in &struct_def.fields {
                     let required_marker = if field.required { "*" } else { "" };
                     let type_info = if field.inferred_type.is_empty() {

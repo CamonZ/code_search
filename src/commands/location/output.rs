@@ -14,7 +14,7 @@ impl Outputable for LocationResult {
             lines.push(format!("Found {} location(s):", self.locations.len()));
             for loc in &self.locations {
                 let sig = format!("{}.{}/{}", loc.module, loc.name, loc.arity);
-                lines.push(format!("  [{}] {} ({})", loc.project, sig, loc.kind));
+                lines.push(format!("  {} ({})", sig, loc.kind));
                 lines.push(format!("       {}", loc.format_location()));
             }
         } else {

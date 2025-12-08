@@ -13,7 +13,7 @@ impl Outputable for SearchResult {
         if !self.modules.is_empty() {
             lines.push(format!("Modules ({}):", self.modules.len()));
             for m in &self.modules {
-                lines.push(format!("  [{}] {}", m.project, m.name));
+                lines.push(format!("  {}", m.name));
             }
         }
 
@@ -25,7 +25,7 @@ impl Outputable for SearchResult {
                 } else {
                     format!("{}.{}/{} -> {}", f.module, f.name, f.arity, f.return_type)
                 };
-                lines.push(format!("  [{}] {}", f.project, sig));
+                lines.push(format!("  {}", sig));
             }
         }
 

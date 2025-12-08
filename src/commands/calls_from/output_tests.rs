@@ -19,14 +19,14 @@ No calls found.";
 Calls from: MyApp.Accounts.get_user
 
 Found 1 call(s):
-  [default] MyApp.Accounts.get_user (lib/my_app/accounts.ex:12) -> MyApp.Repo.get/2";
+  MyApp.Accounts.get_user (lib/my_app/accounts.ex:12) -> MyApp.Repo.get/2";
 
     const MULTIPLE_TABLE: &str = "\
 Calls from: MyApp.Accounts
 
 Found 2 call(s):
-  [default] MyApp.Accounts.get_user (lib/my_app/accounts.ex:12) -> MyApp.Repo.get/2
-  [default] MyApp.Accounts.list_users (lib/my_app/accounts.ex:22) -> MyApp.Repo.all/1";
+  MyApp.Accounts.get_user (lib/my_app/accounts.ex:12) -> MyApp.Repo.get/2
+  MyApp.Accounts.list_users (lib/my_app/accounts.ex:22) -> MyApp.Repo.all/1";
 
     // =========================================================================
     // Fixtures

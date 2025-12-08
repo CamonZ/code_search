@@ -19,7 +19,7 @@ No functions found.";
 Function: MyApp.Accounts.get_user
 
 Found 1 signature(s):
-  [default] MyApp.Accounts.get_user/1
+  MyApp.Accounts.get_user/1
        args: integer()
        returns: User.t() | nil";
 
@@ -27,10 +27,10 @@ Found 1 signature(s):
 Function: MyApp.Accounts.get_user
 
 Found 2 signature(s):
-  [default] MyApp.Accounts.get_user/1
+  MyApp.Accounts.get_user/1
        args: integer()
        returns: User.t() | nil
-  [default] MyApp.Accounts.get_user/2
+  MyApp.Accounts.get_user/2
        args: integer(), keyword()
        returns: User.t() | nil";
 
