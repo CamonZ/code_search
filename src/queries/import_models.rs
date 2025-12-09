@@ -12,8 +12,6 @@ pub struct CallGraph {
     pub function_locations: HashMap<String, HashMap<String, FunctionLocation>>,
     pub calls: Vec<Call>,
     #[serde(default)]
-    pub type_signatures: HashMap<String, HashMap<String, FunctionSignature>>,
-    #[serde(default)]
     pub specs: HashMap<String, Vec<Spec>>,
     #[serde(default)]
     pub types: HashMap<String, Vec<TypeDef>>,
@@ -80,20 +78,6 @@ pub struct Callee {
     pub arity: u32,
     /// Argument names (comma-separated in source)
     pub args: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct FunctionSignature {
-    pub arity: u32,
-    pub name: String,
-    pub clauses: Vec<Clause>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Clause {
-    #[serde(rename = "return")]
-    pub return_type: String,
-    pub args: Vec<String>,
 }
 
 /// A @spec or @callback definition.

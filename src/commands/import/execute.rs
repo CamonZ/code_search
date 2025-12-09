@@ -87,16 +87,18 @@ mod tests {
                     }
                 }
             ],
-            "type_signatures": {
-                "MyApp.Accounts": {
-                    "get_user/1": {
+            "specs": {
+                "MyApp.Accounts": [
+                    {
                         "arity": 1,
                         "name": "get_user",
+                        "line": 9,
+                        "kind": "spec",
                         "clauses": [
-                            {"return": "dynamic()", "args": ["integer()"]}
+                            {"full": "@spec get_user(integer()) :: dynamic()", "inputs_string": ["integer()"], "return_string": "dynamic()"}
                         ]
                     }
-                }
+                ]
             }
         }"#
     }
@@ -136,7 +138,7 @@ mod tests {
 
     #[rstest]
     fn test_import_modules(import_result: ImportResult) {
-        assert_eq!(import_result.modules_imported, 1); // MyApp.Accounts
+        assert_eq!(import_result.modules_imported, 2); // MyApp.Accounts + MyApp.User (from structs)
     }
 
     #[rstest]
@@ -182,7 +184,7 @@ mod tests {
             .expect("Second import should succeed");
 
         assert!(result.cleared);
-        assert_eq!(result.modules_imported, 1);
+        assert_eq!(result.modules_imported, 2);
     }
 
     #[rstest]

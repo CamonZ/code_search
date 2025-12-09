@@ -254,9 +254,15 @@ pub fn import_modules(
     project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
-    let rows: Vec<String> = graph
-        .type_signatures
-        .keys()
+    // Collect unique modules from all data sources
+    let mut modules = std::collections::HashSet::new();
+    modules.extend(graph.specs.keys().cloned());
+    modules.extend(graph.function_locations.keys().cloned());
+    modules.extend(graph.structs.keys().cloned());
+    modules.extend(graph.types.keys().cloned());
+
+    let rows: Vec<String> = modules
+        .iter()
         .map(|m| {
             format!(
                 r#"["{}", "{}", "", "unknown"]"#,
@@ -283,26 +289,22 @@ pub fn import_functions(
     let escaped_project = escape_string(project);
     let mut rows = Vec::new();
 
-    for (module, functions) in &graph.type_signatures {
-        for (_func_key, sig) in functions {
-            let return_type = sig
+    // Import functions from specs data
+    for (module, specs) in &graph.specs {
+        for spec in specs {
+            // Use first clause only
+            let (return_type, args) = spec
                 .clauses
                 .first()
-                .map(|c| c.return_type.clone())
-                .unwrap_or_default();
-
-            let args = sig
-                .clauses
-                .first()
-                .map(|c| c.args.join(", "))
+                .map(|c| (c.return_string.clone(), c.inputs_string.join(", ")))
                 .unwrap_or_default();
 
             rows.push(format!(
                 r#"["{}", "{}", "{}", {}, "{}", "{}", "unknown"]"#,
                 escaped_project,
                 escape_string(module),
-                escape_string(&sig.name),
-                sig.arity,
+                escape_string(&spec.name),
+                spec.arity,
                 escape_string(&return_type),
                 escape_string(&args),
             ));
