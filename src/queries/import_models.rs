@@ -69,6 +69,8 @@ pub struct Caller {
     pub file: String,
     pub line: Option<u32>,
     pub column: Option<u32>,
+    /// Function kind: "def", "defp", "defmacro", "defmacrop"
+    pub kind: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -76,6 +78,8 @@ pub struct Callee {
     pub module: String,
     pub function: String,
     pub arity: u32,
+    /// Argument names (comma-separated in source)
+    pub args: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

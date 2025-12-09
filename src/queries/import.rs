@@ -86,7 +86,9 @@ const SCHEMA_CALLS: &str = r#"
     line: Int,
     column: Int
     =>
-    call_type: String default "remote"
+    call_type: String default "remote",
+    caller_kind: String default "",
+    callee_args: String default ""
 }
 "#;
 
@@ -326,8 +328,11 @@ pub fn import_calls(
         .calls
         .iter()
         .map(|call| {
+            let caller_kind = call.caller.kind.as_deref().unwrap_or("");
+            let callee_args = call.callee.args.as_deref().unwrap_or("");
+
             format!(
-                r#"["{}", "{}", "{}", "{}", "{}", {}, "{}", {}, {}, "{}"]"#,
+                r#"["{}", "{}", "{}", "{}", "{}", {}, "{}", {}, {}, "{}", "{}", "{}"]"#,
                 escaped_project,
                 escape_string(&call.caller.module),
                 escape_string(call.caller.function.as_deref().unwrap_or("<module>")),
@@ -337,7 +342,9 @@ pub fn import_calls(
                 escape_string(&call.caller.file),
                 call.caller.line.unwrap_or(0),
                 call.caller.column.unwrap_or(0),
-                escape_string(&call.call_type)
+                escape_string(&call.call_type),
+                escape_string(caller_kind),
+                escape_string(callee_args),
             )
         })
         .collect();
@@ -345,8 +352,8 @@ pub fn import_calls(
     import_rows(
         db,
         rows,
-        "project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line, column, call_type",
-        "calls { project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line, column => call_type }",
+        "project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line, column, call_type, caller_kind, callee_args",
+        "calls { project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line, column => call_type, caller_kind, callee_args }",
         "calls",
     )
 }
