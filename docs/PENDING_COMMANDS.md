@@ -20,6 +20,8 @@ Commands not yet implemented in the CLI.
 | `dynamic-typed` | Find functions with mostly dynamic() types |
 | `struct-graph` | Show relationships between structs |
 | `struct-modules` | Show which modules create/manipulate each struct |
+| `duplicates` | Find functions with identical or near-identical implementations |
+| `duplicate-hotspots` | List modules ranked by number of duplicated functions |
 
 ## Covered by Existing Commands
 
