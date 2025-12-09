@@ -16,3 +16,6 @@ target
 cozo.sqlite
 call_graph.json
 .cozo_repl_history
+extracted_trace.json
+INPUT_FORMAT.md
+docs/tickets
