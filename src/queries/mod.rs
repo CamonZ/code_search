@@ -11,6 +11,7 @@ pub mod location;
 pub mod path;
 pub mod reverse_trace;
 pub mod search;
+pub mod specs;
 pub mod structs;
 pub mod trace;
 pub mod unused;

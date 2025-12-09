@@ -40,5 +40,50 @@
     {"caller": {"module": "MyApp.Service", "function": "process", "file": "lib/my_app/service.ex", "line": 12, "column": 5}, "type": "remote", "callee": {"arity": 1, "function": "notify", "module": "MyApp.Notifier"}},
     {"caller": {"module": "MyApp.Notifier", "function": "notify", "file": "lib/my_app/notifier.ex", "line": 8, "column": 5}, "type": "local", "callee": {"arity": 2, "function": "send_email", "module": "MyApp.Notifier"}}
   ],
-  "type_signatures": {}
+  "specs": {
+    "MyApp.Accounts": [
+      {
+        "name": "get_user",
+        "arity": 1,
+        "kind": "spec",
+        "line": 8,
+        "clauses": [
+          {
+            "full": "@spec get_user(integer()) :: {:ok, User.t()} | {:error, :not_found}",
+            "inputs_string": ["integer()"],
+            "return_string": "{:ok, User.t()} | {:error, :not_found}"
+          }
+        ]
+      },
+      {
+        "name": "list_users",
+        "arity": 0,
+        "kind": "spec",
+        "line": 22,
+        "clauses": [
+          {
+            "full": "@spec list_users() :: [User.t()]",
+            "inputs_string": [],
+            "return_string": "[User.t()]"
+          }
+        ]
+      }
+    ],
+    "MyApp.Repo": [
+      {
+        "name": "get",
+        "arity": 2,
+        "kind": "callback",
+        "line": 8,
+        "clauses": [
+          {
+            "full": "@callback get(module(), term()) :: Ecto.Schema.t() | nil",
+            "inputs_string": ["module()", "term()"],
+            "return_string": "Ecto.Schema.t() | nil"
+          }
+        ]
+      }
+    ]
+  },
+  "types": {}
 }

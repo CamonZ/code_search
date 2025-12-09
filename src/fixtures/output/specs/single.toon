@@ -1,0 +1,5 @@
+function_pattern: get_user
+kind_filter: null
+module_pattern: MyApp.Accounts
+specs[1]{arity,full,inputs_string,kind,line,module,name,project,return_string}:
+  1,"@spec get_user(integer()) :: {:ok, User.t()} | {:error, :not_found}",integer(),spec,8,MyApp.Accounts,get_user,default,"{:ok, User.t()} | {:error, :not_found}"

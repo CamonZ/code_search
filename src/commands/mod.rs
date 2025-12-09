@@ -15,6 +15,7 @@ mod location;
 mod path;
 mod reverse_trace;
 mod search;
+mod specs;
 mod struct_cmd;
 mod trace;
 mod unused;
@@ -31,6 +32,7 @@ pub use location::LocationCmd;
 pub use path::PathCmd;
 pub use reverse_trace::ReverseTraceCmd;
 pub use search::SearchCmd;
+pub use specs::SpecsCmd;
 pub use struct_cmd::StructCmd;
 pub use trace::TraceCmd;
 pub use unused::UnusedCmd;
@@ -68,6 +70,9 @@ pub enum Command {
 
     /// Show function signature (args, return type)
     Function(FunctionCmd),
+
+    /// Show @spec and @callback definitions
+    Specs(SpecsCmd),
 
     /// Show struct fields, defaults, and types
     Struct(StructCmd),
@@ -126,6 +131,10 @@ impl Command {
                 Ok(result.format(format))
             }
             Command::Function(cmd) => {
+                let result = cmd.execute(db)?;
+                Ok(result.format(format))
+            }
+            Command::Specs(cmd) => {
                 let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }
