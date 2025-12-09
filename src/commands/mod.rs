@@ -18,6 +18,7 @@ mod search;
 mod specs;
 mod struct_cmd;
 mod trace;
+mod types;
 mod unused;
 
 pub use calls_from::CallsFromCmd;
@@ -35,6 +36,7 @@ pub use search::SearchCmd;
 pub use specs::SpecsCmd;
 pub use struct_cmd::StructCmd;
 pub use trace::TraceCmd;
+pub use types::TypesCmd;
 pub use unused::UnusedCmd;
 
 use clap::Subcommand;
@@ -79,6 +81,9 @@ pub enum Command {
 
     /// Trace call chains from a starting function (forward traversal)
     Trace(TraceCmd),
+
+    /// Show @type, @typep, and @opaque definitions
+    Types(TypesCmd),
 
     /// Trace call chains backwards - who calls the callers of a target
     ReverseTrace(ReverseTraceCmd),
@@ -143,6 +148,10 @@ impl Command {
                 Ok(result.format(format))
             }
             Command::Trace(cmd) => {
+                let result = cmd.execute(db)?;
+                Ok(result.format(format))
+            }
+            Command::Types(cmd) => {
                 let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }
