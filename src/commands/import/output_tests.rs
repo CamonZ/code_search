@@ -14,6 +14,7 @@ Import Summary:
   Structs: 0
   Locations: 0
   Specs: 0
+  Types: 0
 ";
 
     const FULL_TABLE_OUTPUT: &str = "\
@@ -26,6 +27,7 @@ Import Summary:
   Structs: 5
   Locations: 45
   Specs: 25
+  Types: 12
 
 Created Schemas:
   - modules
@@ -40,6 +42,7 @@ Import Summary:
   Structs: 5
   Locations: 45
   Specs: 25
+  Types: 12
 
 Created Schemas:
   - modules
@@ -66,6 +69,7 @@ Created Schemas:
             structs_imported: 5,
             function_locations_imported: 45,
             specs_imported: 25,
+            types_imported: 12,
         }
     }
 

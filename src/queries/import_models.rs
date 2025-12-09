@@ -15,6 +15,8 @@ pub struct CallGraph {
     pub type_signatures: HashMap<String, HashMap<String, FunctionSignature>>,
     #[serde(default)]
     pub specs: HashMap<String, Vec<Spec>>,
+    #[serde(default)]
+    pub types: HashMap<String, Vec<TypeDef>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -117,4 +119,25 @@ pub struct SpecClause {
     pub full: String,
     pub inputs_string: Vec<String>,
     pub return_string: String,
+}
+
+/// A @type, @typep, or @opaque definition.
+///
+/// Format from extracted_trace.json:
+/// ```json
+/// {
+///   "line": 341,
+///   "name": "socket_ref",
+///   "params": [],
+///   "kind": "type",
+///   "definition": "@type socket_ref() :: {Pid, module(), binary(), binary(), binary()}"
+/// }
+/// ```
+#[derive(Debug, Deserialize)]
+pub struct TypeDef {
+    pub name: String,
+    pub kind: String,
+    pub line: u32,
+    pub params: Vec<String>,
+    pub definition: String,
 }

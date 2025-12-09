@@ -18,6 +18,7 @@ impl Outputable for ImportResult {
         output.push_str(&format!("  Structs: {}\n", self.structs_imported));
         output.push_str(&format!("  Locations: {}\n", self.function_locations_imported));
         output.push_str(&format!("  Specs: {}\n", self.specs_imported));
+        output.push_str(&format!("  Types: {}\n", self.types_imported));
 
         if !self.schemas.created.is_empty() {
             output.push_str("\nCreated Schemas:\n");

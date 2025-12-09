@@ -39,6 +39,7 @@ pub struct ImportResult {
     pub structs_imported: usize,
     pub function_locations_imported: usize,
     pub specs_imported: usize,
+    pub types_imported: usize,
 }
 
 /// Result of schema creation
@@ -137,6 +138,19 @@ const SCHEMA_SPECS: &str = r#"
 }
 "#;
 
+const SCHEMA_TYPES: &str = r#"
+:create types {
+    project: String,
+    module: String,
+    name: String
+    =>
+    kind: String,
+    params: String default "",
+    line: Int,
+    definition: String default ""
+}
+"#;
+
 pub fn create_schema(db: &DbInstance) -> Result<SchemaResult, Box<dyn Error>> {
     let mut result = SchemaResult::default();
 
@@ -147,6 +161,7 @@ pub fn create_schema(db: &DbInstance) -> Result<SchemaResult, Box<dyn Error>> {
         ("struct_fields", SCHEMA_STRUCT_FIELDS),
         ("function_locations", SCHEMA_FUNCTION_LOCATIONS),
         ("specs", SCHEMA_SPECS),
+        ("types", SCHEMA_TYPES),
     ];
 
     for (name, script) in schemas {
@@ -176,6 +191,7 @@ pub fn clear_project_data(db: &DbInstance, project: &str) -> Result<(), Box<dyn 
         ("struct_fields", "project, module, field"),
         ("function_locations", "project, module, name, arity, line"),
         ("specs", "project, module, name, arity"),
+        ("types", "project, module, name"),
     ];
 
     for (table, keys) in tables {
@@ -483,6 +499,40 @@ pub fn import_specs(
     )
 }
 
+pub fn import_types(
+    db: &DbInstance,
+    project: &str,
+    graph: &CallGraph,
+) -> Result<usize, Box<dyn Error>> {
+    let escaped_project = escape_string(project);
+    let mut rows = Vec::new();
+
+    for (module, types) in &graph.types {
+        for type_def in types {
+            let params = type_def.params.join(", ");
+
+            rows.push(format!(
+                r#"["{}", "{}", "{}", "{}", "{}", {}, "{}"]"#,
+                escaped_project,
+                escape_string(module),
+                escape_string(&type_def.name),
+                escape_string(&type_def.kind),
+                escape_string(&params),
+                type_def.line,
+                escape_string(&type_def.definition),
+            ));
+        }
+    }
+
+    import_rows(
+        db,
+        rows,
+        "project, module, name, kind, params, line, definition",
+        "types { project, module, name => kind, params, line, definition }",
+        "types",
+    )
+}
+
 /// Import a parsed CallGraph into the database.
 ///
 /// Creates schemas and imports all data (modules, functions, calls, structs, locations).
@@ -501,6 +551,7 @@ pub fn import_graph(
     result.structs_imported = import_structs(db, project, graph)?;
     result.function_locations_imported = import_function_locations(db, project, graph)?;
     result.specs_imported = import_specs(db, project, graph)?;
+    result.types_imported = import_types(db, project, graph)?;
 
     Ok(result)
 }

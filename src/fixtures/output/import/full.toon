@@ -8,3 +8,4 @@ schemas:
   created[2]: modules,functions
 specs_imported: 25
 structs_imported: 5
+types_imported: 12

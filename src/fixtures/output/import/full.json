@@ -14,5 +14,6 @@
   "calls_imported": 100,
   "structs_imported": 5,
   "function_locations_imported": 45,
-  "specs_imported": 25
+  "specs_imported": 25,
+  "types_imported": 12
 }
