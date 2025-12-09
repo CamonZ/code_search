@@ -105,13 +105,19 @@ const SCHEMA_FUNCTION_LOCATIONS: &str = r#"
     project: String,
     module: String,
     name: String,
-    arity: Int
+    arity: Int,
+    line: Int
     =>
     file: String,
+    source_file_absolute: String default "",
     column: Int,
     kind: String,
     start_line: Int,
-    end_line: Int
+    end_line: Int,
+    pattern: String default "",
+    guard: String default "",
+    source_sha: String default "",
+    ast_sha: String default ""
 }
 "#;
 
@@ -151,7 +157,7 @@ pub fn clear_project_data(db: &DbInstance, project: &str) -> Result<(), Box<dyn 
         ("functions", "project, module, name, arity"),
         ("calls", "project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line, column"),
         ("struct_fields", "project, module, field"),
-        ("function_locations", "project, module, name, arity"),
+        ("function_locations", "project, module, name, arity, line"),
     ];
 
     for (table, keys) in tables {
@@ -343,6 +349,23 @@ pub fn import_structs(
     )
 }
 
+/// Parse function key in format "name/arity:line" into (name, arity, line).
+///
+/// Returns None if the key doesn't match the expected format.
+fn parse_function_key(key: &str) -> Option<(String, u32, u32)> {
+    // Format: "function_name/arity:line"
+    // Example: "keep_values/2:224"
+    let colon_pos = key.rfind(':')?;
+    let line: u32 = key[colon_pos + 1..].parse().ok()?;
+
+    let before_colon = &key[..colon_pos];
+    let slash_pos = before_colon.rfind('/')?;
+    let arity: u32 = before_colon[slash_pos + 1..].parse().ok()?;
+
+    let name = before_colon[..slash_pos].to_string();
+    Some((name, arity, line))
+}
+
 pub fn import_function_locations(
     db: &DbInstance,
     project: &str,
@@ -352,18 +375,36 @@ pub fn import_function_locations(
     let mut rows = Vec::new();
 
     for (module, functions) in &graph.function_locations {
-        for (_func_key, loc) in functions {
+        for (func_key, loc) in functions {
+            // Parse name, arity, line from key (new format: "func/arity:line")
+            let (name, arity, line) = parse_function_key(func_key).unwrap_or_else(|| {
+                // Fallback: use loc.line if key parsing fails
+                (func_key.clone(), 0, loc.line)
+            });
+
+            let source_file_absolute = loc.source_file_absolute.as_deref().unwrap_or("");
+            let pattern = loc.pattern.as_deref().unwrap_or("");
+            let guard = loc.guard.as_deref().unwrap_or("");
+            let source_sha = loc.source_sha.as_deref().unwrap_or("");
+            let ast_sha = loc.ast_sha.as_deref().unwrap_or("");
+
             rows.push(format!(
-                r#"["{}", "{}", "{}", {}, "{}", {}, "{}", {}, {}]"#,
+                r#"["{}", "{}", "{}", {}, {}, "{}", "{}", {}, "{}", {}, {}, "{}", "{}", "{}", "{}"]"#,
                 escaped_project,
                 escape_string(module),
-                escape_string(&loc.name),
-                loc.arity,
+                escape_string(&name),
+                arity,
+                line,
                 escape_string(&loc.file),
+                escape_string(source_file_absolute),
                 loc.column.unwrap_or(0),
                 escape_string(&loc.kind),
                 loc.start_line,
-                loc.end_line
+                loc.end_line,
+                escape_string(pattern),
+                escape_string(guard),
+                escape_string(source_sha),
+                escape_string(ast_sha),
             ));
         }
     }
@@ -371,8 +412,8 @@ pub fn import_function_locations(
     import_rows(
         db,
         rows,
-        "project, module, name, arity, file, column, kind, start_line, end_line",
-        "function_locations { project, module, name, arity => file, column, kind, start_line, end_line }",
+        "project, module, name, arity, line, file, source_file_absolute, column, kind, start_line, end_line, pattern, guard, source_sha, ast_sha",
+        "function_locations { project, module, name, arity, line => file, source_file_absolute, column, kind, start_line, end_line, pattern, guard, source_sha, ast_sha }",
         "function_locations",
     )
 }

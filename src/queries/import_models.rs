@@ -28,15 +28,26 @@ pub struct StructField {
     pub inferred_type: Option<String>,
 }
 
+/// Function location with clause-level detail.
+///
+/// The new format stores each function clause as a separate entry keyed by `function/arity:line`.
+/// Fields `name` and `arity` are parsed from the key during deserialization.
 #[derive(Debug, Deserialize)]
 pub struct FunctionLocation {
-    pub arity: u32,
-    pub name: String,
     pub file: String,
+    #[serde(rename = "source_file")]
+    pub source_file: Option<String>,
+    #[serde(rename = "source_file_absolute")]
+    pub source_file_absolute: Option<String>,
     pub column: Option<u32>,
     pub kind: String,
-    pub end_line: u32,
+    pub line: u32,
     pub start_line: u32,
+    pub end_line: u32,
+    pub pattern: Option<String>,
+    pub guard: Option<String>,
+    pub source_sha: Option<String>,
+    pub ast_sha: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

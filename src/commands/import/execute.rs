@@ -56,14 +56,17 @@ mod tests {
             },
             "function_locations": {
                 "MyApp.Accounts": {
-                    "get_user/1": {
-                        "arity": 1,
-                        "name": "get_user",
+                    "get_user/1:10": {
                         "file": "lib/my_app/accounts.ex",
                         "column": 7,
                         "kind": "def",
+                        "line": 10,
+                        "start_line": 10,
                         "end_line": 15,
-                        "start_line": 10
+                        "pattern": "id",
+                        "guard": null,
+                        "source_sha": "",
+                        "ast_sha": ""
                     }
                 }
             },

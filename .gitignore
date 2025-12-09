@@ -14,8 +14,10 @@ target
 **/mutants.out*/
 
 cozo.sqlite
-call_graph.json
+/call_graph.json
+!src/fixtures/call_graph.json
 .cozo_repl_history
-extracted_trace.json
+/extracted_trace.json
+!src/fixtures/extracted_trace.json
 INPUT_FORMAT.md
 docs/tickets
