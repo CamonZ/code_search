@@ -17,12 +17,15 @@ pub enum LocationError {
 pub struct FunctionLocation {
     pub project: String,
     pub file: String,
+    pub line: i64,
     pub start_line: i64,
     pub end_line: i64,
     pub module: String,
     pub kind: String,
     pub name: String,
     pub arity: i64,
+    pub pattern: String,
+    pub guard: String,
 }
 
 impl FunctionLocation {
@@ -64,13 +67,13 @@ pub fn find_locations(
 
     let script = format!(
         r#"
-        ?[project, file, start_line, end_line, module, kind, name, arity] :=
-            *function_locations{{project, module, name, arity, file, kind, start_line, end_line}},
+        ?[project, file, line, start_line, end_line, module, kind, name, arity, pattern, guard] :=
+            *function_locations{{project, module, name, arity, line, file, kind, start_line, end_line, pattern, guard}},
             {fn_cond}
             {module_cond}
             {arity_cond}
             {project_cond}
-        :order module, name, arity
+        :order module, name, arity, line
         :limit {limit}
         "#,
     );
@@ -91,26 +94,32 @@ pub fn find_locations(
 
     let mut results = Vec::new();
     for row in rows.rows {
-        if row.len() >= 8 {
-            // Order matches query: project, file, start_line, end_line, module, kind, name, arity
+        if row.len() >= 11 {
+            // Order matches query: project, file, line, start_line, end_line, module, kind, name, arity, pattern, guard
             let Some(project) = extract_string(&row[0]) else { continue };
             let Some(file) = extract_string(&row[1]) else { continue };
-            let start_line = extract_i64(&row[2], 0);
-            let end_line = extract_i64(&row[3], 0);
-            let Some(module) = extract_string(&row[4]) else { continue };
-            let kind = extract_string_or(&row[5], "");
-            let Some(name) = extract_string(&row[6]) else { continue };
-            let arity = extract_i64(&row[7], 0);
+            let line = extract_i64(&row[2], 0);
+            let start_line = extract_i64(&row[3], 0);
+            let end_line = extract_i64(&row[4], 0);
+            let Some(module) = extract_string(&row[5]) else { continue };
+            let kind = extract_string_or(&row[6], "");
+            let Some(name) = extract_string(&row[7]) else { continue };
+            let arity = extract_i64(&row[8], 0);
+            let pattern = extract_string_or(&row[9], "");
+            let guard = extract_string_or(&row[10], "");
 
             results.push(FunctionLocation {
                 project,
                 file,
+                line,
                 start_line,
                 end_line,
                 module,
                 kind,
                 name,
                 arity,
+                pattern,
+                guard,
             });
         }
     }

@@ -5,12 +5,15 @@
     {
       "project": "default",
       "file": "lib/my_app/accounts.ex",
+      "line": 10,
       "start_line": 10,
       "end_line": 15,
       "module": "MyApp.Accounts",
       "kind": "def",
       "name": "get_user",
-      "arity": 1
+      "arity": 1,
+      "pattern": "",
+      "guard": ""
     }
   ]
 }

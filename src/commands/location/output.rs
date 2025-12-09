@@ -13,8 +13,21 @@ impl Outputable for LocationResult {
         if !self.locations.is_empty() {
             lines.push(format!("Found {} location(s):", self.locations.len()));
             for loc in &self.locations {
-                let sig = format!("{}.{}/{}", loc.module, loc.name, loc.arity);
-                lines.push(format!("  {} ({})", sig, loc.kind));
+                // Build signature with pattern if available
+                let sig = if loc.pattern.is_empty() {
+                    format!("{}.{}/{}", loc.module, loc.name, loc.arity)
+                } else {
+                    format!("{}.{}({})", loc.module, loc.name, loc.pattern)
+                };
+
+                // Add guard if present
+                let guard_str = if loc.guard.is_empty() {
+                    String::new()
+                } else {
+                    format!(" when {}", loc.guard)
+                };
+
+                lines.push(format!("  {} ({}){}", sig, loc.kind, guard_str));
                 lines.push(format!("       {}", loc.format_location()));
             }
         } else {
