@@ -10,16 +10,22 @@
           "name": "get_user",
           "arity": 1,
           "kind": "def",
+          "line": 10,
           "start_line": 10,
-          "end_line": 20
+          "end_line": 20,
+          "pattern": "",
+          "guard": ""
         },
         {
           "module": "MyApp.Accounts",
           "name": "list_users",
           "arity": 0,
           "kind": "def",
+          "line": 25,
           "start_line": 25,
-          "end_line": 30
+          "end_line": 30,
+          "pattern": "",
+          "guard": ""
         }
       ]
     }

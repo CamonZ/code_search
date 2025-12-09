@@ -1,7 +1,7 @@
 file_pattern: lib/accounts.ex
 files[1]:
   - file: lib/accounts.ex
-    functions[2]{arity,end_line,kind,module,name,start_line}:
-      1,20,def,MyApp.Accounts,get_user,10
-      0,30,def,MyApp.Accounts,list_users,25
+    functions[2]{arity,end_line,guard,kind,line,module,name,pattern,start_line}:
+      1,20,"",def,10,MyApp.Accounts,get_user,"",10
+      0,30,"",def,25,MyApp.Accounts,list_users,"",25
 project: test_project

@@ -14,10 +14,23 @@ impl Outputable for FileResult {
             for file_info in &self.files {
                 lines.push(format!("{}:", file_info.file));
                 for func in &file_info.functions {
-                    let sig = format!("{}.{}/{}", func.module, func.name, func.arity);
+                    // Build signature with pattern if available
+                    let sig = if func.pattern.is_empty() {
+                        format!("{}.{}/{}", func.module, func.name, func.arity)
+                    } else {
+                        format!("{}.{}({})", func.module, func.name, func.pattern)
+                    };
+
+                    // Add guard if present
+                    let guard_str = if func.guard.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" when {}", func.guard)
+                    };
+
                     lines.push(format!(
-                        "  {:>4}-{:<4} [{}] {}",
-                        func.start_line, func.end_line, func.kind, sig
+                        "  {:>4}-{:<4} [{}] {}{}",
+                        func.start_line, func.end_line, func.kind, sig, guard_str
                     ));
                 }
                 lines.push(String::new());
