@@ -8,11 +8,13 @@ use std::collections::HashMap;
 
 #[derive(Debug, Deserialize)]
 pub struct CallGraph {
-    // Objects
     pub structs: HashMap<String, StructDef>,
     pub function_locations: HashMap<String, HashMap<String, FunctionLocation>>,
     pub calls: Vec<Call>,
+    #[serde(default)]
     pub type_signatures: HashMap<String, HashMap<String, FunctionSignature>>,
+    #[serde(default)]
+    pub specs: HashMap<String, Vec<Spec>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -86,4 +88,33 @@ pub struct Clause {
     #[serde(rename = "return")]
     pub return_type: String,
     pub args: Vec<String>,
+}
+
+/// A @spec or @callback definition.
+///
+/// Format from extracted_trace.json:
+/// ```json
+/// {
+///   "arity": 1,
+///   "line": 19,
+///   "name": "function_name",
+///   "kind": "spec",
+///   "clauses": [{ "full": "...", "inputs_string": [...], "return_string": "..." }]
+/// }
+/// ```
+#[derive(Debug, Deserialize)]
+pub struct Spec {
+    pub name: String,
+    pub arity: u32,
+    pub line: u32,
+    pub kind: String,
+    pub clauses: Vec<SpecClause>,
+}
+
+/// A single clause within a spec definition.
+#[derive(Debug, Deserialize)]
+pub struct SpecClause {
+    pub full: String,
+    pub inputs_string: Vec<String>,
+    pub return_string: String,
 }

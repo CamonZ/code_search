@@ -38,6 +38,7 @@ pub struct ImportResult {
     pub calls_imported: usize,
     pub structs_imported: usize,
     pub function_locations_imported: usize,
+    pub specs_imported: usize,
 }
 
 /// Result of schema creation
@@ -121,6 +122,21 @@ const SCHEMA_FUNCTION_LOCATIONS: &str = r#"
 }
 "#;
 
+const SCHEMA_SPECS: &str = r#"
+:create specs {
+    project: String,
+    module: String,
+    name: String,
+    arity: Int
+    =>
+    kind: String,
+    line: Int,
+    inputs_string: String default "",
+    return_string: String default "",
+    full: String default ""
+}
+"#;
+
 pub fn create_schema(db: &DbInstance) -> Result<SchemaResult, Box<dyn Error>> {
     let mut result = SchemaResult::default();
 
@@ -130,6 +146,7 @@ pub fn create_schema(db: &DbInstance) -> Result<SchemaResult, Box<dyn Error>> {
         ("calls", SCHEMA_CALLS),
         ("struct_fields", SCHEMA_STRUCT_FIELDS),
         ("function_locations", SCHEMA_FUNCTION_LOCATIONS),
+        ("specs", SCHEMA_SPECS),
     ];
 
     for (name, script) in schemas {
@@ -158,6 +175,7 @@ pub fn clear_project_data(db: &DbInstance, project: &str) -> Result<(), Box<dyn 
         ("calls", "project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line, column"),
         ("struct_fields", "project, module, field"),
         ("function_locations", "project, module, name, arity, line"),
+        ("specs", "project, module, name, arity"),
     ];
 
     for (table, keys) in tables {
@@ -418,6 +436,53 @@ pub fn import_function_locations(
     )
 }
 
+pub fn import_specs(
+    db: &DbInstance,
+    project: &str,
+    graph: &CallGraph,
+) -> Result<usize, Box<dyn Error>> {
+    let escaped_project = escape_string(project);
+    let mut rows = Vec::new();
+
+    for (module, specs) in &graph.specs {
+        for spec in specs {
+            // Use first clause only (as per ticket recommendation)
+            let (inputs_string, return_string, full) = spec
+                .clauses
+                .first()
+                .map(|c| {
+                    (
+                        c.inputs_string.join(", "),
+                        c.return_string.clone(),
+                        c.full.clone(),
+                    )
+                })
+                .unwrap_or_default();
+
+            rows.push(format!(
+                r#"["{}", "{}", "{}", {}, "{}", {}, "{}", "{}", "{}"]"#,
+                escaped_project,
+                escape_string(module),
+                escape_string(&spec.name),
+                spec.arity,
+                escape_string(&spec.kind),
+                spec.line,
+                escape_string(&inputs_string),
+                escape_string(&return_string),
+                escape_string(&full),
+            ));
+        }
+    }
+
+    import_rows(
+        db,
+        rows,
+        "project, module, name, arity, kind, line, inputs_string, return_string, full",
+        "specs { project, module, name, arity => kind, line, inputs_string, return_string, full }",
+        "specs",
+    )
+}
+
 /// Import a parsed CallGraph into the database.
 ///
 /// Creates schemas and imports all data (modules, functions, calls, structs, locations).
@@ -435,6 +500,7 @@ pub fn import_graph(
     result.calls_imported = import_calls(db, project, graph)?;
     result.structs_imported = import_structs(db, project, graph)?;
     result.function_locations_imported = import_function_locations(db, project, graph)?;
+    result.specs_imported = import_specs(db, project, graph)?;
 
     Ok(result)
 }
