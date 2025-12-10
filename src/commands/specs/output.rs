@@ -18,28 +18,38 @@ impl Outputable for SpecsResult {
         lines.push(header);
         lines.push(String::new());
 
-        if !self.specs.is_empty() {
-            lines.push(format!("Found {} spec(s):", self.specs.len()));
-            for spec in &self.specs {
-                // Show function signature
-                let sig = format!("{}.{}/{}", spec.module, spec.name, spec.arity);
-                lines.push(format!("  {} [{}] line {}", sig, spec.kind, spec.line));
+        if !self.modules.is_empty() {
+            lines.push(format!(
+                "Found {} spec(s) in {} module(s):",
+                self.total_specs,
+                self.modules.len()
+            ));
+            lines.push(String::new());
 
-                // Show the full spec if available, otherwise show inputs/returns
-                if !spec.full.is_empty() {
-                    lines.push(format!("       {}", spec.full));
-                } else if !spec.inputs_string.is_empty() || !spec.return_string.is_empty() {
-                    let inputs = if spec.inputs_string.is_empty() {
-                        "()".to_string()
-                    } else {
-                        format!("({})", spec.inputs_string)
-                    };
-                    let returns = if spec.return_string.is_empty() {
-                        "term()".to_string()
-                    } else {
-                        spec.return_string.clone()
-                    };
-                    lines.push(format!("       {} :: {}", inputs, returns));
+            for module in &self.modules {
+                lines.push(format!("{}:", module.name));
+                for spec in &module.specs {
+                    lines.push(format!(
+                        "  {}/{} [{}] L{}",
+                        spec.name, spec.arity, spec.kind, spec.line
+                    ));
+
+                    // Show the full spec if available, otherwise show inputs/returns
+                    if !spec.full.is_empty() {
+                        lines.push(format!("    {}", spec.full));
+                    } else if !spec.inputs.is_empty() || !spec.returns.is_empty() {
+                        let inputs = if spec.inputs.is_empty() {
+                            "()".to_string()
+                        } else {
+                            format!("({})", spec.inputs)
+                        };
+                        let returns = if spec.returns.is_empty() {
+                            "term()".to_string()
+                        } else {
+                            spec.returns.clone()
+                        };
+                        lines.push(format!("    {} :: {}", inputs, returns));
+                    }
                 }
             }
         } else {

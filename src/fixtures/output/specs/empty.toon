@@ -1,4 +1,3 @@
-function_pattern: null
-kind_filter: null
 module_pattern: NonExistent
-specs[0]:
+modules[0]:
+total_specs: 0

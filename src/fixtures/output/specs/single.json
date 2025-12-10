@@ -1,18 +1,21 @@
 {
   "module_pattern": "MyApp.Accounts",
   "function_pattern": "get_user",
-  "kind_filter": null,
-  "specs": [
+  "total_specs": 1,
+  "modules": [
     {
-      "project": "default",
-      "module": "MyApp.Accounts",
-      "name": "get_user",
-      "arity": 1,
-      "kind": "spec",
-      "line": 8,
-      "inputs_string": "integer()",
-      "return_string": "{:ok, User.t()} | {:error, :not_found}",
-      "full": "@spec get_user(integer()) :: {:ok, User.t()} | {:error, :not_found}"
+      "name": "MyApp.Accounts",
+      "specs": [
+        {
+          "name": "get_user",
+          "arity": 1,
+          "kind": "spec",
+          "line": 8,
+          "inputs": "integer()",
+          "returns": "{:ok, User.t()} | {:error, :not_found}",
+          "full": "@spec get_user(integer()) :: {:ok, User.t()} | {:error, :not_found}"
+        }
+      ]
     }
   ]
 }

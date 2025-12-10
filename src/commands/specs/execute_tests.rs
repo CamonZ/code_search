@@ -27,8 +27,9 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.specs.len(), 2);
-            assert!(result.specs.iter().all(|s| s.module == "MyApp.Accounts"));
+            assert_eq!(result.total_specs, 2);
+            assert_eq!(result.modules.len(), 1);
+            assert_eq!(result.modules[0].name, "MyApp.Accounts");
         },
     }
 
@@ -44,9 +45,10 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.specs.len(), 1);
-            assert_eq!(result.specs[0].name, "get_user");
-            assert_eq!(result.specs[0].arity, 1);
+            assert_eq!(result.total_specs, 1);
+            let spec = &result.modules[0].specs[0];
+            assert_eq!(spec.name, "get_user");
+            assert_eq!(spec.arity, 1);
         },
     }
 
@@ -62,9 +64,10 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.specs.len(), 1);
-            assert_eq!(result.specs[0].kind, "callback");
-            assert_eq!(result.specs[0].module, "MyApp.Repo");
+            assert_eq!(result.total_specs, 1);
+            let spec = &result.modules[0].specs[0];
+            assert_eq!(spec.kind, "callback");
+            assert_eq!(result.modules[0].name, "MyApp.Repo");
         },
     }
 
@@ -80,9 +83,10 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.specs[0].inputs_string, "integer()");
-            assert_eq!(result.specs[0].return_string, "{:ok, User.t()} | {:error, :not_found}");
-            assert!(!result.specs[0].full.is_empty());
+            let spec = &result.modules[0].specs[0];
+            assert_eq!(spec.inputs, "integer()");
+            assert_eq!(spec.returns, "{:ok, User.t()} | {:error, :not_found}");
+            assert!(!spec.full.is_empty());
         },
     }
 
@@ -101,7 +105,7 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        empty_field: specs,
+        empty_field: modules,
     }
 
     // =========================================================================
