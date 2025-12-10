@@ -19,14 +19,21 @@ No calls found.";
 Calls from: MyApp.Accounts.get_user
 
 Found 1 call(s):
-  MyApp.Accounts.get_user (lib/my_app/accounts.ex:12) -> MyApp.Repo.get/2";
+
+MyApp.Accounts (lib/my_app/accounts.ex)
+  get_user/1 (10:15)
+    → MyApp.Repo.get/2 (L12)";
 
     const MULTIPLE_TABLE: &str = "\
 Calls from: MyApp.Accounts
 
 Found 2 call(s):
-  MyApp.Accounts.get_user (lib/my_app/accounts.ex:12) -> MyApp.Repo.get/2
-  MyApp.Accounts.list_users (lib/my_app/accounts.ex:22) -> MyApp.Repo.all/1";
+
+MyApp.Accounts (lib/my_app/accounts.ex)
+  get_user/1 (10:15)
+    → MyApp.Repo.get/2 (L12)
+  list_users/0 (20:25)
+    → MyApp.Repo.all/1 (L22)";
 
     // =========================================================================
     // Fixtures
@@ -34,23 +41,26 @@ Found 2 call(s):
 
     #[fixture]
     fn empty_result() -> CallsFromResult {
-        CallsFromResult {
-            module_pattern: "MyApp.Accounts".to_string(),
-            function_pattern: "get_user".to_string(),
-            calls: vec![],
-        }
+        CallsFromResult::from_edges(
+            "MyApp.Accounts".to_string(),
+            "get_user".to_string(),
+            vec![],
+        )
     }
 
     #[fixture]
     fn single_result() -> CallsFromResult {
-        CallsFromResult {
-            module_pattern: "MyApp.Accounts".to_string(),
-            function_pattern: "get_user".to_string(),
-            calls: vec![CallEdge {
+        CallsFromResult::from_edges(
+            "MyApp.Accounts".to_string(),
+            "get_user".to_string(),
+            vec![CallEdge {
                 project: "default".to_string(),
                 caller_module: "MyApp.Accounts".to_string(),
                 caller_function: "get_user".to_string(),
+                caller_arity: 1,
                 caller_kind: String::new(),
+                caller_start_line: 10,
+                caller_end_line: 15,
                 callee_module: "MyApp.Repo".to_string(),
                 callee_function: "get".to_string(),
                 callee_arity: 2,
@@ -58,20 +68,23 @@ Found 2 call(s):
                 line: 12,
                 call_type: "remote".to_string(),
             }],
-        }
+        )
     }
 
     #[fixture]
     fn multiple_result() -> CallsFromResult {
-        CallsFromResult {
-            module_pattern: "MyApp.Accounts".to_string(),
-            function_pattern: String::new(),
-            calls: vec![
+        CallsFromResult::from_edges(
+            "MyApp.Accounts".to_string(),
+            String::new(),
+            vec![
                 CallEdge {
                     project: "default".to_string(),
                     caller_module: "MyApp.Accounts".to_string(),
                     caller_function: "get_user".to_string(),
+                    caller_arity: 1,
                     caller_kind: String::new(),
+                    caller_start_line: 10,
+                    caller_end_line: 15,
                     callee_module: "MyApp.Repo".to_string(),
                     callee_function: "get".to_string(),
                     callee_arity: 2,
@@ -83,7 +96,10 @@ Found 2 call(s):
                     project: "default".to_string(),
                     caller_module: "MyApp.Accounts".to_string(),
                     caller_function: "list_users".to_string(),
+                    caller_arity: 0,
                     caller_kind: String::new(),
+                    caller_start_line: 20,
+                    caller_end_line: 25,
                     callee_module: "MyApp.Repo".to_string(),
                     callee_function: "all".to_string(),
                     callee_arity: 1,
@@ -92,7 +108,7 @@ Found 2 call(s):
                     call_type: "remote".to_string(),
                 },
             ],
-        }
+        )
     }
 
     // =========================================================================
