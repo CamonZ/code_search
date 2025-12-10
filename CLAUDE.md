@@ -44,6 +44,25 @@ pub trait Execute {
 - `Outputable` requires `Serialize` + `to_table()` method
 - JSON and Toon formats are derived automatically from `Serialize`
 
+**Output format details:**
+
+*Table format* - Human-readable, optimized for terminal display. Hand-crafted in each command's `to_table()` method to show the most relevant information clearly.
+
+*JSON format* - Standard JSON via `serde_json::to_string_pretty()`. Uses the struct's `#[derive(Serialize)]` implementation. Nested structures serialize as nested objects/arrays. Use `#[serde(skip_serializing_if = "...")]` to omit empty collections.
+
+*Toon format* - Token-efficient serialization via the `toon` crate. Automatically derived from the same Serialize implementation as JSON. Key design principles:
+- Designed for LLM consumption (minimal tokens while preserving structure)
+- Arrays show count in brackets: `callers[2]:` means 2 items follow
+- Objects omit braces, use indentation for nesting
+- Inline notation for simple objects: `targets[1]{arity,function,line}: 2,get,15`
+- Empty collections still show: `modules[0]:` indicates empty array
+- Whitespace-sensitive (indentation conveys hierarchy)
+
+When refactoring output, ensure all three formats remain consistent:
+1. The struct hierarchy should make sense for both JSON and toon
+2. Test fixtures exist in `src/fixtures/output/<command>/` for JSON and toon
+3. Output tests verify round-trip consistency between formats
+
 **Dispatch flow:**
 ```
 main.rs → Args::parse() → Command::run(db_path, format) → cmd.execute() → result.format()

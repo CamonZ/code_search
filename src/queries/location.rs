@@ -28,13 +28,6 @@ pub struct FunctionLocation {
     pub guard: String,
 }
 
-impl FunctionLocation {
-    /// Format as file:start_line:end_line
-    pub fn format_location(&self) -> String {
-        format!("{}:{}:{}", self.file, self.start_line, self.end_line)
-    }
-}
-
 pub fn find_locations(
     db: &cozo::DbInstance,
     module_pattern: Option<&str>,

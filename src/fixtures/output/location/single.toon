@@ -1,4 +1,12 @@
 function_pattern: get_user
-locations[1]{arity,end_line,file,guard,kind,line,module,name,pattern,project,start_line}:
-  1,15,lib/my_app/accounts.ex,"",def,10,MyApp.Accounts,get_user,"",default,10
 module_pattern: MyApp.Accounts
+modules[1]:
+  - functions[1]:
+    - arity: 1
+      clauses[1]{end_line,line,start_line}:
+        15,10,10
+      file: lib/my_app/accounts.ex
+      kind: def
+      name: get_user
+    name: MyApp.Accounts
+total_clauses: 1

@@ -10,25 +10,40 @@ impl Outputable for LocationResult {
         lines.push(format!("Location: {}.{}", self.module_pattern, self.function_pattern));
         lines.push(String::new());
 
-        if !self.locations.is_empty() {
-            lines.push(format!("Found {} location(s):", self.locations.len()));
-            for loc in &self.locations {
-                // Build signature with pattern if available
-                let sig = if loc.pattern.is_empty() {
-                    format!("{}.{}/{}", loc.module, loc.name, loc.arity)
-                } else {
-                    format!("{}.{}({})", loc.module, loc.name, loc.pattern)
-                };
+        if !self.modules.is_empty() {
+            let func_count: usize = self.modules.iter().map(|m| m.functions.len()).sum();
+            lines.push(format!(
+                "Found {} clause(s) in {} function(s) across {} module(s):",
+                self.total_clauses,
+                func_count,
+                self.modules.len()
+            ));
+            lines.push(String::new());
 
-                // Add guard if present
-                let guard_str = if loc.guard.is_empty() {
-                    String::new()
-                } else {
-                    format!(" when {}", loc.guard)
-                };
-
-                lines.push(format!("  {} ({}){}", sig, loc.kind, guard_str));
-                lines.push(format!("       {}", loc.format_location()));
+            for module in &self.modules {
+                lines.push(format!("{}:", module.name));
+                for func in &module.functions {
+                    lines.push(format!(
+                        "  {}/{} [{}] ({})",
+                        func.name, func.arity, func.kind, func.file
+                    ));
+                    for clause in &func.clauses {
+                        let pattern_str = if clause.pattern.is_empty() {
+                            String::new()
+                        } else {
+                            format!(" ({})", clause.pattern)
+                        };
+                        let guard_str = if clause.guard.is_empty() {
+                            String::new()
+                        } else {
+                            format!(" when {}", clause.guard)
+                        };
+                        lines.push(format!(
+                            "    L{}:{}{}{}",
+                            clause.start_line, clause.end_line, pattern_str, guard_str
+                        ));
+                    }
+                }
             }
         } else {
             lines.push("No locations found.".to_string());

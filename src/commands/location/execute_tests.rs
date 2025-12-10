@@ -27,10 +27,12 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.locations.len(), 1);
-            assert_eq!(result.locations[0].file, "lib/my_app/accounts.ex");
-            assert_eq!(result.locations[0].start_line, 10);
-            assert_eq!(result.locations[0].end_line, 15);
+            assert_eq!(result.modules.len(), 1);
+            assert_eq!(result.modules[0].functions.len(), 1);
+            let func = &result.modules[0].functions[0];
+            assert_eq!(func.file, "lib/my_app/accounts.ex");
+            assert_eq!(func.clauses[0].start_line, 10);
+            assert_eq!(func.clauses[0].end_line, 15);
         },
     }
 
@@ -47,13 +49,16 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.locations.len(), 2);
-            assert!(result.locations.iter().all(|l| l.module == "MyApp.Accounts"));
+            // 2 functions (get_user/1 and get_user/2) in 1 module
+            assert_eq!(result.total_clauses, 2);
+            assert_eq!(result.modules.len(), 1);
+            assert_eq!(result.modules[0].name, "MyApp.Accounts");
+            assert_eq!(result.modules[0].functions.len(), 2);
         },
     }
 
     // Functions with "user" in name: get_user/1, get_user/2, list_users = 3
-    crate::execute_count_test! {
+    crate::execute_test! {
         test_name: test_location_without_module_multiple_matches,
         fixture: populated_db,
         cmd: LocationCmd {
@@ -64,12 +69,13 @@ mod tests {
             regex: true,
             limit: 100,
         },
-        field: locations,
-        expected: 3,
+        assertions: |result| {
+            assert_eq!(result.total_clauses, 3);
+        },
     }
 
     // get_user has two arities in Accounts
-    crate::execute_count_test! {
+    crate::execute_test! {
         test_name: test_location_without_arity,
         fixture: populated_db,
         cmd: LocationCmd {
@@ -80,11 +86,12 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        field: locations,
-        expected: 2,
+        assertions: |result| {
+            assert_eq!(result.total_clauses, 2);
+        },
     }
 
-    crate::execute_count_test! {
+    crate::execute_test! {
         test_name: test_location_with_regex,
         fixture: populated_db,
         cmd: LocationCmd {
@@ -95,8 +102,9 @@ mod tests {
             regex: true,
             limit: 100,
         },
-        field: locations,
-        expected: 3,
+        assertions: |result| {
+            assert_eq!(result.total_clauses, 3);
+        },
     }
 
     crate::execute_test! {
@@ -111,7 +119,11 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.locations[0].format_location(), "lib/my_app/accounts.ex:10:15");
+            let func = &result.modules[0].functions[0];
+            assert_eq!(
+                format!("{}:{}:{}", func.file, func.clauses[0].start_line, func.clauses[0].end_line),
+                "lib/my_app/accounts.ex:10:15"
+            );
         },
     }
 
@@ -130,7 +142,7 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        empty_field: locations,
+        empty_field: modules,
     }
 
     crate::execute_no_match_test! {
@@ -144,7 +156,7 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        empty_field: locations,
+        empty_field: modules,
     }
 
     // =========================================================================
@@ -163,8 +175,8 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.locations.len(), 1);
-            assert_eq!(result.locations[0].project, "test_project");
+            assert_eq!(result.modules.len(), 1);
+            assert_eq!(result.modules[0].functions.len(), 1);
         },
     }
 
@@ -181,8 +193,14 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.locations.len(), 6);
-            assert!(result.locations.iter().all(|l| l.arity == 1));
+            let total_funcs: usize = result.modules.iter().map(|m| m.functions.len()).sum();
+            assert_eq!(total_funcs, 6);
+            // All functions should have arity 1
+            for module in &result.modules {
+                for func in &module.functions {
+                    assert_eq!(func.arity, 1);
+                }
+            }
         },
     }
 
@@ -198,13 +216,12 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.locations.len(), 2);
-            assert!(result.locations.iter().all(|l| l.project == "test_project"));
+            assert_eq!(result.total_clauses, 2);
         },
     }
 
     // Accounts has get_user/1, get_user/2, list_users matching ".*user.*" = 3
-    crate::execute_count_test! {
+    crate::execute_test! {
         test_name: test_location_function_regex_with_exact_module,
         fixture: populated_db,
         cmd: LocationCmd {
@@ -215,8 +232,9 @@ mod tests {
             regex: true,
             limit: 100,
         },
-        field: locations,
-        expected: 3,
+        assertions: |result| {
+            assert_eq!(result.total_clauses, 3);
+        },
     }
 
     crate::execute_test! {
@@ -231,12 +249,12 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.locations.len(), 1);
-            assert_eq!(result.locations[0].arity, 0);
+            assert_eq!(result.total_clauses, 1);
+            assert_eq!(result.modules[0].functions[0].arity, 0);
         },
     }
 
-    crate::execute_limit_test! {
+    crate::execute_test! {
         test_name: test_location_with_limit,
         fixture: populated_db,
         cmd: LocationCmd {
@@ -247,8 +265,10 @@ mod tests {
             regex: true,
             limit: 1,
         },
-        collection: locations,
-        limit: 1,
+        assertions: |result| {
+            // Limit applies to raw results before grouping
+            assert_eq!(result.total_clauses, 1);
+        },
     }
 
     // =========================================================================
