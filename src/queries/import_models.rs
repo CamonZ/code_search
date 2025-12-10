@@ -36,9 +36,9 @@ pub struct StructField {
 /// Fields `name` and `arity` are parsed from the key during deserialization.
 #[derive(Debug, Deserialize)]
 pub struct FunctionLocation {
-    pub file: String,
-    #[serde(rename = "source_file")]
-    pub source_file: Option<String>,
+    /// Relative file path (accepts either "file" or "source_file" from JSON)
+    #[serde(alias = "source_file")]
+    pub file: Option<String>,
     #[serde(rename = "source_file_absolute")]
     pub source_file_absolute: Option<String>,
     pub column: Option<u32>,

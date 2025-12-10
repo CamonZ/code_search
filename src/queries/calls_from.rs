@@ -18,6 +18,7 @@ pub struct CallEdge {
     pub project: String,
     pub caller_module: String,
     pub caller_function: String,
+    pub caller_kind: String,
     pub callee_module: String,
     pub callee_function: String,
     pub callee_arity: i64,
@@ -56,8 +57,8 @@ pub fn find_calls_from(
 
     let script = format!(
         r#"
-        ?[project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line, call_type] :=
-            *calls{{project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line, call_type}},
+        ?[project, caller_module, caller_function, caller_kind, callee_module, callee_function, callee_arity, file, line, call_type] :=
+            *calls{{project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line, call_type, caller_kind}},
             {module_cond}
             {function_cond}
             {project_cond}
@@ -79,21 +80,23 @@ pub fn find_calls_from(
 
     let mut results = Vec::new();
     for row in rows.rows {
-        if row.len() >= 9 {
+        if row.len() >= 10 {
             let Some(project) = extract_string(&row[0]) else { continue };
             let Some(caller_module) = extract_string(&row[1]) else { continue };
             let Some(caller_function) = extract_string(&row[2]) else { continue };
-            let Some(callee_module) = extract_string(&row[3]) else { continue };
-            let Some(callee_function) = extract_string(&row[4]) else { continue };
-            let callee_arity = extract_i64(&row[5], 0);
-            let Some(file) = extract_string(&row[6]) else { continue };
-            let line = extract_i64(&row[7], 0);
-            let call_type = extract_string_or(&row[8], "remote");
+            let caller_kind = extract_string_or(&row[3], "");
+            let Some(callee_module) = extract_string(&row[4]) else { continue };
+            let Some(callee_function) = extract_string(&row[5]) else { continue };
+            let callee_arity = extract_i64(&row[6], 0);
+            let Some(file) = extract_string(&row[7]) else { continue };
+            let line = extract_i64(&row[8], 0);
+            let call_type = extract_string_or(&row[9], "remote");
 
             results.push(CallEdge {
                 project,
                 caller_module,
                 caller_function,
+                caller_kind,
                 callee_module,
                 callee_function,
                 callee_arity,

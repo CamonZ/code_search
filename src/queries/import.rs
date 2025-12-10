@@ -5,7 +5,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::queries::import_models::CallGraph;
-use crate::db::{escape_string, run_query, run_query_no_params, try_create_relation, Params};
+use crate::db::{escape_string, escape_string_single, run_query, run_query_no_params, try_create_relation, Params};
 
 /// Chunk size for batch database imports
 const IMPORT_CHUNK_SIZE: usize = 500;
@@ -334,7 +334,7 @@ pub fn import_calls(
             let callee_args = call.callee.args.as_deref().unwrap_or("");
 
             format!(
-                r#"["{}", "{}", "{}", "{}", "{}", {}, "{}", {}, {}, "{}", "{}", "{}"]"#,
+                r#"["{}", "{}", "{}", "{}", "{}", {}, "{}", {}, {}, "{}", "{}", '{}']"#,
                 escaped_project,
                 escape_string(&call.caller.module),
                 escape_string(call.caller.function.as_deref().unwrap_or("<module>")),
@@ -346,7 +346,7 @@ pub fn import_calls(
                 call.caller.column.unwrap_or(0),
                 escape_string(&call.call_type),
                 escape_string(caller_kind),
-                escape_string(callee_args),
+                escape_string_single(callee_args),
             )
         })
         .collect();
@@ -372,11 +372,11 @@ pub fn import_structs(
         for field in &def.fields {
             let inferred_type = field.inferred_type.as_deref().unwrap_or("");
             rows.push(format!(
-                r#"["{}", "{}", "{}", "{}", {}, "{}"]"#,
+                r#"["{}", "{}", "{}", '{}', {}, "{}"]"#,
                 escaped_project,
                 escape_string(module),
                 escape_string(&field.field),
-                escape_string(&field.default),
+                escape_string_single(&field.default),
                 field.required,
                 escape_string(inferred_type)
             ));
@@ -432,20 +432,20 @@ pub fn import_function_locations(
             let ast_sha = loc.ast_sha.as_deref().unwrap_or("");
 
             rows.push(format!(
-                r#"["{}", "{}", "{}", {}, {}, "{}", "{}", {}, "{}", {}, {}, "{}", "{}", "{}", "{}"]"#,
+                r#"["{}", "{}", "{}", {}, {}, "{}", "{}", {}, "{}", {}, {}, '{}', '{}', "{}", "{}"]"#,
                 escaped_project,
                 escape_string(module),
                 escape_string(&name),
                 arity,
                 line,
-                escape_string(&loc.file),
+                escape_string(loc.file.as_deref().unwrap_or("")),
                 escape_string(source_file_absolute),
                 loc.column.unwrap_or(0),
                 escape_string(&loc.kind),
                 loc.start_line,
                 loc.end_line,
-                escape_string(pattern),
-                escape_string(guard),
+                escape_string_single(pattern),
+                escape_string_single(guard),
                 escape_string(source_sha),
                 escape_string(ast_sha),
             ));

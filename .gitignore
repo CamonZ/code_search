@@ -21,3 +21,4 @@ cozo.sqlite
 !src/fixtures/extracted_trace.json
 INPUT_FORMAT.md
 docs/tickets
+.claude
