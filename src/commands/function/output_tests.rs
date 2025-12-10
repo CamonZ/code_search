@@ -2,8 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::FunctionResult;
-    use crate::queries::function::FunctionSignature;
+    use super::super::execute::{FuncModule, FuncSig, FunctionResult};
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -18,21 +17,25 @@ No functions found.";
     const SINGLE_TABLE: &str = "\
 Function: MyApp.Accounts.get_user
 
-Found 1 signature(s):
-  MyApp.Accounts.get_user/1
-       args: integer()
-       returns: User.t() | nil";
+Found 1 signature(s) in 1 module(s):
+
+MyApp.Accounts:
+  get_user/1
+    args: integer()
+    returns: User.t() | nil";
 
     const MULTIPLE_TABLE: &str = "\
 Function: MyApp.Accounts.get_user
 
-Found 2 signature(s):
-  MyApp.Accounts.get_user/1
-       args: integer()
-       returns: User.t() | nil
-  MyApp.Accounts.get_user/2
-       args: integer(), keyword()
-       returns: User.t() | nil";
+Found 2 signature(s) in 1 module(s):
+
+MyApp.Accounts:
+  get_user/1
+    args: integer()
+    returns: User.t() | nil
+  get_user/2
+    args: integer(), keyword()
+    returns: User.t() | nil";
 
 
     // =========================================================================
@@ -44,7 +47,8 @@ Found 2 signature(s):
         FunctionResult {
             module_pattern: "MyApp.Accounts".to_string(),
             function_pattern: "get_user".to_string(),
-            functions: vec![],
+            total_functions: 0,
+            modules: vec![],
         }
     }
 
@@ -53,13 +57,15 @@ Found 2 signature(s):
         FunctionResult {
             module_pattern: "MyApp.Accounts".to_string(),
             function_pattern: "get_user".to_string(),
-            functions: vec![FunctionSignature {
-                project: "default".to_string(),
-                module: "MyApp.Accounts".to_string(),
-                name: "get_user".to_string(),
-                arity: 1,
-                args: "integer()".to_string(),
-                return_type: "User.t() | nil".to_string(),
+            total_functions: 1,
+            modules: vec![FuncModule {
+                name: "MyApp.Accounts".to_string(),
+                functions: vec![FuncSig {
+                    name: "get_user".to_string(),
+                    arity: 1,
+                    args: "integer()".to_string(),
+                    return_type: "User.t() | nil".to_string(),
+                }],
             }],
         }
     }
@@ -69,24 +75,24 @@ Found 2 signature(s):
         FunctionResult {
             module_pattern: "MyApp.Accounts".to_string(),
             function_pattern: "get_user".to_string(),
-            functions: vec![
-                FunctionSignature {
-                    project: "default".to_string(),
-                    module: "MyApp.Accounts".to_string(),
-                    name: "get_user".to_string(),
-                    arity: 1,
-                    args: "integer()".to_string(),
-                    return_type: "User.t() | nil".to_string(),
-                },
-                FunctionSignature {
-                    project: "default".to_string(),
-                    module: "MyApp.Accounts".to_string(),
-                    name: "get_user".to_string(),
-                    arity: 2,
-                    args: "integer(), keyword()".to_string(),
-                    return_type: "User.t() | nil".to_string(),
-                },
-            ],
+            total_functions: 2,
+            modules: vec![FuncModule {
+                name: "MyApp.Accounts".to_string(),
+                functions: vec![
+                    FuncSig {
+                        name: "get_user".to_string(),
+                        arity: 1,
+                        args: "integer()".to_string(),
+                        return_type: "User.t() | nil".to_string(),
+                    },
+                    FuncSig {
+                        name: "get_user".to_string(),
+                        arity: 2,
+                        args: "integer(), keyword()".to_string(),
+                        return_type: "User.t() | nil".to_string(),
+                    },
+                ],
+            }],
         }
     }
 

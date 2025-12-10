@@ -11,19 +11,24 @@ impl Outputable for FunctionResult {
         lines.push(header);
         lines.push(String::new());
 
-        if !self.functions.is_empty() {
-            lines.push(format!("Found {} signature(s):", self.functions.len()));
-            for func in &self.functions {
-                let signature = format!(
-                    "{}.{}/{}",
-                    func.module, func.name, func.arity
-                );
-                lines.push(format!("  {}", signature));
-                if !func.args.is_empty() {
-                    lines.push(format!("       args: {}", func.args));
-                }
-                if !func.return_type.is_empty() {
-                    lines.push(format!("       returns: {}", func.return_type));
+        if !self.modules.is_empty() {
+            lines.push(format!(
+                "Found {} signature(s) in {} module(s):",
+                self.total_functions,
+                self.modules.len()
+            ));
+            lines.push(String::new());
+
+            for module in &self.modules {
+                lines.push(format!("{}:", module.name));
+                for func in &module.functions {
+                    lines.push(format!("  {}/{}", func.name, func.arity));
+                    if !func.args.is_empty() {
+                        lines.push(format!("    args: {}", func.args));
+                    }
+                    if !func.return_type.is_empty() {
+                        lines.push(format!("    returns: {}", func.return_type));
+                    }
                 }
             }
         } else {

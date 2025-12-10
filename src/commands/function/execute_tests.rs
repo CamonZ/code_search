@@ -16,7 +16,7 @@ mod tests {
     // =========================================================================
 
     // MyApp.Accounts has 2 get_user functions (arity 1 and 2)
-    crate::execute_count_test! {
+    crate::execute_test! {
         test_name: test_function_exact_match,
         fixture: populated_db,
         cmd: FunctionCmd {
@@ -27,8 +27,11 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        field: functions,
-        expected: 2,
+        assertions: |result| {
+            assert_eq!(result.total_functions, 2);
+            assert_eq!(result.modules.len(), 1);
+            assert_eq!(result.modules[0].functions.len(), 2);
+        },
     }
 
     crate::execute_test! {
@@ -43,15 +46,16 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.functions.len(), 1);
-            assert_eq!(result.functions[0].arity, 1);
-            assert_eq!(result.functions[0].args, "integer()");
-            assert_eq!(result.functions[0].return_type, "User.t() | nil");
+            assert_eq!(result.total_functions, 1);
+            let func = &result.modules[0].functions[0];
+            assert_eq!(func.arity, 1);
+            assert_eq!(func.args, "integer()");
+            assert_eq!(func.return_type, "User.t() | nil");
         },
     }
 
     // Functions containing "user": get_user/1, get_user/2, list_users, create_user = 4
-    crate::execute_count_test! {
+    crate::execute_test! {
         test_name: test_function_regex_match,
         fixture: populated_db,
         cmd: FunctionCmd {
@@ -62,8 +66,9 @@ mod tests {
             regex: true,
             limit: 100,
         },
-        field: functions,
-        expected: 4,
+        assertions: |result| {
+            assert_eq!(result.total_functions, 4);
+        },
     }
 
     // =========================================================================
@@ -81,14 +86,14 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        empty_field: functions,
+        empty_field: modules,
     }
 
     // =========================================================================
     // Filter tests
     // =========================================================================
 
-    crate::execute_all_match_test! {
+    crate::execute_test! {
         test_name: test_function_with_project_filter,
         fixture: populated_db,
         cmd: FunctionCmd {
@@ -99,11 +104,13 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        collection: functions,
-        condition: |f| f.project == "test_project",
+        assertions: |result| {
+            assert_eq!(result.modules.len(), 1);
+            assert_eq!(result.modules[0].name, "MyApp.Accounts");
+        },
     }
 
-    crate::execute_limit_test! {
+    crate::execute_test! {
         test_name: test_function_with_limit,
         fixture: populated_db,
         cmd: FunctionCmd {
@@ -114,8 +121,10 @@ mod tests {
             regex: true,
             limit: 2,
         },
-        collection: functions,
-        limit: 2,
+        assertions: |result| {
+            // Limit applies to raw results before grouping
+            assert_eq!(result.total_functions, 2);
+        },
     }
 
     // =========================================================================
