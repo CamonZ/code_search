@@ -2,8 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::SearchResult;
-    use crate::queries::search::{FunctionResult, ModuleResult};
+    use super::super::execute::{SearchFunc, SearchFuncModule, SearchResult};
+    use crate::queries::search::ModuleResult;
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -25,8 +25,10 @@ Modules (2):
     const FUNCTIONS_TABLE: &str = "\
 Search: get_ (functions)
 
-Functions (1):
-  MyApp.Accounts.get_user/1 -> User.t()";
+Functions (1) in 1 module(s):
+
+MyApp.Accounts:
+  get_user/1 -> User.t()";
 
 
     // =========================================================================
@@ -39,7 +41,8 @@ Functions (1):
             pattern: "test".to_string(),
             kind: "modules".to_string(),
             modules: vec![],
-            functions: vec![],
+            total_functions: None,
+            function_modules: vec![],
         }
     }
 
@@ -60,7 +63,8 @@ Functions (1):
                     source: "unknown".to_string(),
                 },
             ],
-            functions: vec![],
+            total_functions: None,
+            function_modules: vec![],
         }
     }
 
@@ -70,12 +74,14 @@ Functions (1):
             pattern: "get_".to_string(),
             kind: "functions".to_string(),
             modules: vec![],
-            functions: vec![FunctionResult {
-                project: "default".to_string(),
-                module: "MyApp.Accounts".to_string(),
-                name: "get_user".to_string(),
-                arity: 1,
-                return_type: "User.t()".to_string(),
+            total_functions: Some(1),
+            function_modules: vec![SearchFuncModule {
+                name: "MyApp.Accounts".to_string(),
+                functions: vec![SearchFunc {
+                    name: "get_user".to_string(),
+                    arity: 1,
+                    return_type: "User.t()".to_string(),
+                }],
             }],
         }
     }

@@ -1,4 +1,3 @@
-functions[0]:
 kind: modules
 modules[2]{name,project,source}:
   MyApp.Accounts,default,unknown

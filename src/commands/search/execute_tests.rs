@@ -45,7 +45,7 @@ mod tests {
         },
         assertions: |result| {
             assert_eq!(result.kind, "functions");
-            assert_eq!(result.functions.len(), 4);
+            assert_eq!(result.total_functions, Some(4));
         },
     }
 
@@ -61,7 +61,7 @@ mod tests {
             regex: false,
         },
         assertions: |result| {
-            assert_eq!(result.functions.len(), 4);
+            assert_eq!(result.total_functions, Some(4));
         },
     }
 
@@ -76,13 +76,18 @@ mod tests {
             regex: true,
         },
         assertions: |result| {
-            assert_eq!(result.functions.len(), 2);
-            assert!(result.functions.iter().all(|f| f.name == "get_user"));
+            assert_eq!(result.total_functions, Some(2));
+            // All functions should be named get_user
+            for module in &result.function_modules {
+                for f in &module.functions {
+                    assert_eq!(f.name, "get_user");
+                }
+            }
         },
     }
 
     // Modules ending in Accounts or Users
-    crate::execute_count_test! {
+    crate::execute_test! {
         test_name: test_search_modules_with_regex,
         fixture: populated_db,
         cmd: SearchCmd {
@@ -92,8 +97,9 @@ mod tests {
             limit: 100,
             regex: true,
         },
-        field: modules,
-        expected: 2,
+        assertions: |result| {
+            assert_eq!(result.modules.len(), 2);
+        },
     }
 
     // =========================================================================
@@ -123,7 +129,7 @@ mod tests {
             limit: 100,
             regex: true,
         },
-        empty_field: functions,
+        empty_field: function_modules,
     }
 
     // =========================================================================
@@ -144,7 +150,7 @@ mod tests {
         condition: |m| m.project == "test_project",
     }
 
-    crate::execute_limit_test! {
+    crate::execute_test! {
         test_name: test_search_with_limit,
         fixture: populated_db,
         cmd: SearchCmd {
@@ -154,8 +160,10 @@ mod tests {
             limit: 1,
             regex: false,
         },
-        collection: functions,
-        limit: 1,
+        assertions: |result| {
+            // Limit applies to raw results before grouping
+            assert_eq!(result.total_functions, Some(1));
+        },
     }
 
     // =========================================================================
