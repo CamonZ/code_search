@@ -2,8 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::HotspotsResult;
-    use crate::queries::hotspots::Hotspot;
+    use super::super::execute::{HotspotEntry, HotspotModule, HotspotsResult};
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -18,10 +17,10 @@ No hotspots found.";
     const SINGLE_TABLE: &str = "\
 Hotspots (incoming) in project 'test_project'
 
-FUNCTION                                                 IN      OUT    TOTAL
-------------------------------------------------------------------------------
-MyApp.Accounts.get_user                                   3        1        4";
+Found 1 hotspot(s) in 1 module(s):
 
+MyApp.Accounts:
+  get_user (in: 3, out: 1, total: 4)";
 
     // =========================================================================
     // Fixtures
@@ -33,7 +32,8 @@ MyApp.Accounts.get_user                                   3        1        4";
             project: "test_project".to_string(),
             kind: "incoming".to_string(),
             module_filter: None,
-            hotspots: vec![],
+            total_hotspots: 0,
+            modules: vec![],
         }
     }
 
@@ -43,12 +43,15 @@ MyApp.Accounts.get_user                                   3        1        4";
             project: "test_project".to_string(),
             kind: "incoming".to_string(),
             module_filter: None,
-            hotspots: vec![Hotspot {
-                module: "MyApp.Accounts".to_string(),
-                function: "get_user".to_string(),
-                incoming: 3,
-                outgoing: 1,
-                total: 4,
+            total_hotspots: 1,
+            modules: vec![HotspotModule {
+                name: "MyApp.Accounts".to_string(),
+                functions: vec![HotspotEntry {
+                    function: "get_user".to_string(),
+                    incoming: 3,
+                    outgoing: 1,
+                    total: 4,
+                }],
             }],
         }
     }
@@ -59,12 +62,15 @@ MyApp.Accounts.get_user                                   3        1        4";
             project: "test_project".to_string(),
             kind: "outgoing".to_string(),
             module_filter: Some("Service".to_string()),
-            hotspots: vec![Hotspot {
-                module: "MyApp.Service".to_string(),
-                function: "process".to_string(),
-                incoming: 0,
-                outgoing: 5,
-                total: 5,
+            total_hotspots: 1,
+            modules: vec![HotspotModule {
+                name: "MyApp.Service".to_string(),
+                functions: vec![HotspotEntry {
+                    function: "process".to_string(),
+                    incoming: 0,
+                    outgoing: 5,
+                    total: 5,
+                }],
             }],
         }
     }

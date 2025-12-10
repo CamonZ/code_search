@@ -1,5 +1,7 @@
-hotspots[1]{function,incoming,module,outgoing,total}:
-  get_user,3,MyApp.Accounts,1,4
 kind: incoming
-module_filter: null
+modules[1]:
+  - functions[1]{function,incoming,outgoing,total}:
+    get_user,3,1,4
+    name: MyApp.Accounts
 project: test_project
+total_hotspots: 1

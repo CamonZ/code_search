@@ -1,14 +1,18 @@
 {
   "project": "test_project",
   "kind": "incoming",
-  "module_filter": null,
-  "hotspots": [
+  "total_hotspots": 1,
+  "modules": [
     {
-      "module": "MyApp.Accounts",
-      "function": "get_user",
-      "incoming": 3,
-      "outgoing": 1,
-      "total": 4
+      "name": "MyApp.Accounts",
+      "functions": [
+        {
+          "function": "get_user",
+          "incoming": 3,
+          "outgoing": 1,
+          "total": 4
+        }
+      ]
     }
   ]
 }

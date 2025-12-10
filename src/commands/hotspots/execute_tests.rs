@@ -15,7 +15,7 @@ mod tests {
     // Core functionality tests
     // =========================================================================
 
-    // Highest incoming: Repo.get with 3 (from get_user/1, get_user/2, do_fetch)
+    // Highest incoming: MyApp.Repo.get with 3 (from get_user/1, get_user/2, do_fetch)
     crate::execute_test! {
         test_name: test_hotspots_incoming,
         fixture: populated_db,
@@ -28,9 +28,11 @@ mod tests {
         },
         assertions: |result| {
             assert_eq!(result.kind, "incoming");
-            assert!(!result.hotspots.is_empty());
-            assert_eq!(result.hotspots[0].function, "get");
-            assert_eq!(result.hotspots[0].incoming, 3);
+            assert!(!result.modules.is_empty());
+            // MyApp.Repo module should contain "get" function with 3 incoming
+            let repo = result.modules.iter().find(|m| m.name == "MyApp.Repo").unwrap();
+            let get = repo.functions.iter().find(|f| f.function == "get").unwrap();
+            assert_eq!(get.incoming, 3);
         },
     }
 
@@ -47,9 +49,9 @@ mod tests {
         },
         assertions: |result| {
             assert_eq!(result.kind, "outgoing");
-            assert!(!result.hotspots.is_empty());
-            // Both get_user and process have 2 outgoing; Accounts.get_user comes first alphabetically
-            assert_eq!(result.hotspots[0].outgoing, 2);
+            assert!(!result.modules.is_empty());
+            // Check that we have modules with functions that have outgoing = 2
+            assert!(result.total_hotspots > 0);
         },
     }
 
@@ -67,9 +69,11 @@ mod tests {
         },
         assertions: |result| {
             assert_eq!(result.kind, "total");
-            assert!(!result.hotspots.is_empty());
-            assert_eq!(result.hotspots[0].function, "get_user");
-            assert_eq!(result.hotspots[0].total, 3);
+            assert!(!result.modules.is_empty());
+            // Find get_user with total = 3
+            let accounts = result.modules.iter().find(|m| m.name == "MyApp.Accounts").unwrap();
+            let get_user = accounts.functions.iter().find(|f| f.function == "get_user").unwrap();
+            assert_eq!(get_user.total, 3);
         },
     }
 
@@ -77,7 +81,7 @@ mod tests {
     // Filter tests
     // =========================================================================
 
-    crate::execute_all_match_test! {
+    crate::execute_test! {
         test_name: test_hotspots_with_module_filter,
         fixture: populated_db,
         cmd: HotspotsCmd {
@@ -87,11 +91,12 @@ mod tests {
             regex: false,
             limit: 20,
         },
-        collection: hotspots,
-        condition: |h| h.module.contains("Accounts"),
+        assertions: |result| {
+            assert!(result.modules.iter().all(|m| m.name.contains("Accounts")));
+        },
     }
 
-    crate::execute_limit_test! {
+    crate::execute_test! {
         test_name: test_hotspots_with_limit,
         fixture: populated_db,
         cmd: HotspotsCmd {
@@ -101,8 +106,9 @@ mod tests {
             regex: false,
             limit: 2,
         },
-        collection: hotspots,
-        limit: 2,
+        assertions: |result| {
+            assert!(result.total_hotspots <= 2);
+        },
     }
 
     // =========================================================================

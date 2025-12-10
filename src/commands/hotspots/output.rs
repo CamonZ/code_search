@@ -1,7 +1,7 @@
 //! Output formatting for hotspots command results.
 
-use crate::output::Outputable;
 use super::execute::HotspotsResult;
+use crate::output::Outputable;
 
 impl Outputable for HotspotsResult {
     fn to_table(&self) -> String {
@@ -11,23 +11,32 @@ impl Outputable for HotspotsResult {
             Some(pattern) => format!(" (module filter: {})", pattern),
             None => String::new(),
         };
-        lines.push(format!("Hotspots ({}) in project '{}'{}", self.kind, self.project, filter_info));
+        lines.push(format!(
+            "Hotspots ({}) in project '{}'{}",
+            self.kind, self.project, filter_info
+        ));
         lines.push(String::new());
 
-        if !self.hotspots.is_empty() {
-            // Header
-            lines.push(format!("{:<50} {:>8} {:>8} {:>8}", "FUNCTION", "IN", "OUT", "TOTAL"));
-            lines.push("-".repeat(78));
-
-            for hotspot in &self.hotspots {
-                let sig = format!("{}.{}", hotspot.module, hotspot.function);
-                lines.push(format!(
-                    "{:<50} {:>8} {:>8} {:>8}",
-                    sig, hotspot.incoming, hotspot.outgoing, hotspot.total
-                ));
-            }
-        } else {
+        if self.modules.is_empty() {
             lines.push("No hotspots found.".to_string());
+        } else {
+            lines.push(format!(
+                "Found {} hotspot(s) in {} module(s):",
+                self.total_hotspots,
+                self.modules.len()
+            ));
+
+            for module in &self.modules {
+                lines.push(String::new());
+                lines.push(format!("{}:", module.name));
+
+                for entry in &module.functions {
+                    lines.push(format!(
+                        "  {} (in: {}, out: {}, total: {})",
+                        entry.function, entry.incoming, entry.outgoing, entry.total
+                    ));
+                }
+            }
         }
 
         lines.join("\n")

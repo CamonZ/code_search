@@ -1,4 +1,4 @@
-hotspots[0]:
 kind: incoming
-module_filter: null
+modules[0]:
 project: test_project
+total_hotspots: 0
