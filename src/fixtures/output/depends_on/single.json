@@ -10,13 +10,20 @@
           "arity": 1,
           "callers": [
             {
-              "module": "MyApp.Controller",
-              "function": "index",
-              "arity": 1,
-              "kind": "def",
-              "start_line": 5,
-              "end_line": 12,
-              "file": "lib/controller.ex",
+              "caller": {
+                "module": "MyApp.Controller",
+                "name": "index",
+                "arity": 1,
+                "kind": "def",
+                "file": "lib/controller.ex",
+                "start_line": 5,
+                "end_line": 12
+              },
+              "callee": {
+                "module": "MyApp.Service",
+                "name": "process",
+                "arity": 1
+              },
               "line": 7
             }
           ]

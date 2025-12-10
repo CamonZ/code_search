@@ -5,27 +5,15 @@ use serde::Serialize;
 
 use super::DependsOnCmd;
 use crate::commands::Execute;
-use crate::queries::depends_on::{find_dependencies, DependencyCall};
-
-/// A caller function that calls into a dependency
-#[derive(Debug, Clone, Serialize)]
-pub struct DependencyCaller {
-    pub module: String,
-    pub function: String,
-    pub arity: i64,
-    pub kind: String,
-    pub start_line: i64,
-    pub end_line: i64,
-    pub file: String,
-    pub line: i64,
-}
+use crate::queries::depends_on::find_dependencies;
+use crate::types::Call;
 
 /// A function in a dependency module being called
 #[derive(Debug, Clone, Serialize)]
 pub struct DependencyFunction {
     pub name: String,
     pub arity: i64,
-    pub callers: Vec<DependencyCaller>,
+    pub callers: Vec<Call>,
 }
 
 /// A dependency module with the functions being called
@@ -44,8 +32,8 @@ pub struct DependsOnResult {
 }
 
 impl DependsOnResult {
-    /// Build a grouped structure from flat dependency calls
-    pub fn from_calls(source_module: String, calls: Vec<DependencyCall>) -> Self {
+    /// Build a grouped structure from flat calls
+    pub fn from_calls(source_module: String, calls: Vec<Call>) -> Self {
         let total_calls = calls.len();
 
         if calls.is_empty() {
@@ -57,12 +45,12 @@ impl DependsOnResult {
         }
 
         // Group by callee_module -> callee_function -> callers
-        let mut by_module: HashMap<String, HashMap<(String, i64), Vec<&DependencyCall>>> = HashMap::new();
-        for call in &calls {
+        let mut by_module: HashMap<String, HashMap<(String, i64), Vec<Call>>> = HashMap::new();
+        for call in calls {
             by_module
-                .entry(call.callee_module.clone())
+                .entry(call.callee.module.clone())
                 .or_default()
-                .entry((call.callee_function.clone(), call.callee_arity))
+                .entry((call.callee.name.clone(), call.callee.arity))
                 .or_default()
                 .push(call);
         }
@@ -71,24 +59,10 @@ impl DependsOnResult {
         for (module_name, functions_map) in by_module {
             let mut functions: Vec<DependencyFunction> = vec![];
             for ((func_name, arity), callers) in functions_map {
-                let caller_list: Vec<DependencyCaller> = callers
-                    .iter()
-                    .map(|c| DependencyCaller {
-                        module: c.caller_module.clone(),
-                        function: c.caller_function.clone(),
-                        arity: c.caller_arity,
-                        kind: c.caller_kind.clone(),
-                        start_line: c.caller_start_line,
-                        end_line: c.caller_end_line,
-                        file: c.file.clone(),
-                        line: c.line,
-                    })
-                    .collect();
-
                 functions.push(DependencyFunction {
                     name: func_name,
                     arity,
-                    callers: caller_list,
+                    callers,
                 });
             }
 

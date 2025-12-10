@@ -26,13 +26,15 @@ impl Outputable for DependedByResult {
                 } else {
                     format!(" [{}]", caller.kind)
                 };
+                // Extract just the filename from path
+                let filename = caller.file.rsplit('/').next().unwrap_or(&caller.file);
                 lines.push(format!(
-                    "  {}/{} ({}:{}:{}){}:",
-                    caller.function, caller.arity,
-                    caller.file, caller.start_line, caller.end_line, kind_str
+                    "  {}/{}{} ({}:L{}:{}):",
+                    caller.function, caller.arity, kind_str,
+                    filename, caller.start_line, caller.end_line
                 ));
                 for target in &caller.targets {
-                    lines.push(format!("    → {}/{} (L{})", target.function, target.arity, target.line));
+                    lines.push(format!("    → @ L{} {}/{}", target.line, target.function, target.arity));
                 }
             }
         }

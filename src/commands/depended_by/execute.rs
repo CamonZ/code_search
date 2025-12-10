@@ -5,7 +5,8 @@ use serde::Serialize;
 
 use super::DependedByCmd;
 use crate::commands::Execute;
-use crate::queries::depended_by::{find_dependents, DependentCall};
+use crate::queries::depended_by::find_dependents;
+use crate::types::Call;
 
 /// A target function being called in the dependency module
 #[derive(Debug, Clone, Serialize)]
@@ -43,8 +44,8 @@ pub struct DependedByResult {
 }
 
 impl DependedByResult {
-    /// Build a grouped structure from flat dependent calls
-    pub fn from_calls(target_module: String, calls: Vec<DependentCall>) -> Self {
+    /// Build a grouped structure from flat calls
+    pub fn from_calls(target_module: String, calls: Vec<Call>) -> Self {
         let total_calls = calls.len();
 
         if calls.is_empty() {
@@ -56,12 +57,12 @@ impl DependedByResult {
         }
 
         // Group by caller_module -> caller_function -> targets
-        let mut by_module: HashMap<String, HashMap<(String, i64), Vec<&DependentCall>>> = HashMap::new();
+        let mut by_module: HashMap<String, HashMap<(String, i64), Vec<&Call>>> = HashMap::new();
         for call in &calls {
             by_module
-                .entry(call.caller_module.clone())
+                .entry(call.caller.module.clone())
                 .or_default()
-                .entry((call.caller_function.clone(), call.caller_arity))
+                .entry((call.caller.name.clone(), call.caller.arity))
                 .or_default()
                 .push(call);
         }
@@ -74,8 +75,8 @@ impl DependedByResult {
                 let targets: Vec<DependentTarget> = func_calls
                     .iter()
                     .map(|c| DependentTarget {
-                        function: c.callee_function.clone(),
-                        arity: c.callee_arity,
+                        function: c.callee.name.clone(),
+                        arity: c.callee.arity,
                         line: c.line,
                     })
                     .collect();
@@ -83,10 +84,10 @@ impl DependedByResult {
                 callers.push(DependentCaller {
                     function: func_name,
                     arity,
-                    kind: first.caller_kind.clone(),
-                    start_line: first.caller_start_line,
-                    end_line: first.caller_end_line,
-                    file: first.file.clone(),
+                    kind: first.caller.kind.clone().unwrap_or_default(),
+                    start_line: first.caller.start_line.unwrap_or(0),
+                    end_line: first.caller.end_line.unwrap_or(0),
+                    file: first.caller.file.clone().unwrap_or_default(),
                     targets,
                 });
             }

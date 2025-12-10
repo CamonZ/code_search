@@ -3,8 +3,21 @@ module_pattern: MyApp.Repo
 modules[1]:
   - functions[1]:
     - arity: 2
-      callers[1]{arity,call_type,end_line,file,function,kind,line,module,start_line}:
-        1,remote,15,lib/my_app/accounts.ex,get_user,"",12,MyApp.Accounts,10
+      callers[1]:
+        - call_type: remote
+          callee:
+            arity: 2
+            module: MyApp.Repo
+            name: get
+          caller:
+            arity: 1
+            end_line: 15
+            file: lib/my_app/accounts.ex
+            kind: ""
+            module: MyApp.Accounts
+            name: get_user
+            start_line: 10
+          line: 12
       name: get
     name: MyApp.Repo
 total_calls: 1

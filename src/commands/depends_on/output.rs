@@ -22,18 +22,10 @@ impl Outputable for DependsOnResult {
             lines.push(format!("{}:", module.name));
             for func in &module.functions {
                 lines.push(format!("  {}/{}:", func.name, func.arity));
-                for caller in &func.callers {
-                    let kind_str = if caller.kind.is_empty() {
-                        String::new()
-                    } else {
-                        format!(" [{}]", caller.kind)
-                    };
-                    lines.push(format!(
-                        "    ← {}.{}/{} ({}:{}:{} L{}){}",
-                        caller.module, caller.function, caller.arity,
-                        caller.file, caller.start_line, caller.end_line,
-                        caller.line, kind_str
-                    ));
+                for call in &func.callers {
+                    // Use empty context since callers come from different files
+                    let formatted = call.format_incoming(&module.name, "");
+                    lines.push(format!("    {}", formatted));
                 }
             }
         }

@@ -21,8 +21,8 @@ Max depth: 5
 
 Found 1 call(s) in chain:
 
-MyApp.Controller.index/1 (lib/controller.ex:5:12) [def]
-  → MyApp.Service.fetch/1 (L7)";
+MyApp.Controller.index/1 [def] (controller.ex:L5:12)
+  → @ L7 MyApp.Service.fetch/1";
 
     const MULTI_DEPTH_TABLE: &str = "\
 Trace from: MyApp.Controller.index
@@ -30,10 +30,9 @@ Max depth: 5
 
 Found 2 call(s) in chain:
 
-MyApp.Controller.index/1 (lib/controller.ex:5:12) [def]
-  → MyApp.Service.fetch/1 (L7)
-    MyApp.Service.fetch/1 (lib/service.ex:10:20) [def]
-      → MyApp.Repo.get/2 (L15)";
+MyApp.Controller.index/1 [def] (controller.ex:L5:12)
+  → @ L7 MyApp.Service.fetch/1 [def] (service.ex:L10:20)
+    → @ L15 MyApp.Repo.get/2";
 
 
     // =========================================================================

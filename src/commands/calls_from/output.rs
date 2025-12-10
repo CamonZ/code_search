@@ -38,13 +38,8 @@ impl Outputable for CallsFromResult {
                 ));
 
                 for call in &func.calls {
-                    // Format callee - show module only if different from caller
-                    let callee = if call.module == module.name {
-                        format!("{}/{}", call.function, call.arity)
-                    } else {
-                        format!("{}.{}/{}", call.module, call.function, call.arity)
-                    };
-                    lines.push(format!("    → {} (L{})", callee, call.line));
+                    let formatted = call.format_outgoing(&module.name, &module.file);
+                    lines.push(format!("    {}", formatted));
                 }
             }
         }

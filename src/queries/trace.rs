@@ -1,32 +1,15 @@
 use std::error::Error;
 
 use cozo::DataValue;
-use serde::Serialize;
 use thiserror::Error;
 
 use crate::db::{extract_i64, extract_string, extract_string_or, run_query, Params};
+use crate::types::{Call, FunctionRef};
 
 #[derive(Error, Debug)]
 pub enum TraceError {
     #[error("Trace query failed: {message}")]
     QueryFailed { message: String },
-}
-
-/// A single step in the call chain
-#[derive(Debug, Clone, Serialize)]
-pub struct TraceStep {
-    pub depth: i64,
-    pub caller_module: String,
-    pub caller_function: String,
-    pub caller_arity: i64,
-    pub caller_kind: String,
-    pub caller_start_line: i64,
-    pub caller_end_line: i64,
-    pub callee_module: String,
-    pub callee_function: String,
-    pub callee_arity: i64,
-    pub file: String,
-    pub line: i64,
 }
 
 pub fn trace_calls(
@@ -38,7 +21,7 @@ pub fn trace_calls(
     use_regex: bool,
     max_depth: u32,
     limit: u32,
-) -> Result<Vec<TraceStep>, Box<dyn Error>> {
+) -> Result<Vec<Call>, Box<dyn Error>> {
     // Build the starting condition for the recursive query
     let module_cond = if use_regex {
         "regex_matches(caller_module, $module_pattern)"
@@ -62,6 +45,7 @@ pub fn trace_calls(
     // Recursive query to trace call chains, joined with function_locations for caller metadata
     // Base case: direct calls from the starting function
     // Recursive case: calls from functions we've already found
+    // Filter out struct calls (callee_function != '%')
     let script = format!(
         r#"
         # Base case: calls from the starting function, joined with function_locations
@@ -71,6 +55,7 @@ pub fn trace_calls(
             starts_with(caller_function, caller_name),
             call_line >= caller_start_line,
             call_line <= caller_end_line,
+            callee_function != '%',
             {module_cond},
             {function_cond},
             project == $project,
@@ -87,6 +72,7 @@ pub fn trace_calls(
             starts_with(caller_function, prev_callee_function),
             call_line >= caller_start_line,
             call_line <= caller_end_line,
+            callee_function != '%',
             prev_depth < {max_depth},
             depth = prev_depth + 1,
             project == $project
@@ -116,30 +102,36 @@ pub fn trace_calls(
         if row.len() >= 12 {
             let depth = extract_i64(&row[0], 0);
             let Some(caller_module) = extract_string(&row[1]) else { continue };
-            let Some(caller_function) = extract_string(&row[2]) else { continue };
+            let Some(caller_name) = extract_string(&row[2]) else { continue };
             let caller_arity = extract_i64(&row[3], 0);
             let caller_kind = extract_string_or(&row[4], "");
             let caller_start_line = extract_i64(&row[5], 0);
             let caller_end_line = extract_i64(&row[6], 0);
             let Some(callee_module) = extract_string(&row[7]) else { continue };
-            let Some(callee_function) = extract_string(&row[8]) else { continue };
+            let Some(callee_name) = extract_string(&row[8]) else { continue };
             let callee_arity = extract_i64(&row[9], 0);
             let Some(file) = extract_string(&row[10]) else { continue };
             let line = extract_i64(&row[11], 0);
 
-            results.push(TraceStep {
-                depth,
+            let caller = FunctionRef::with_definition(
                 caller_module,
-                caller_function,
+                caller_name,
                 caller_arity,
                 caller_kind,
+                &file,
                 caller_start_line,
                 caller_end_line,
-                callee_module,
-                callee_function,
-                callee_arity,
-                file,
+            );
+
+            // Callee doesn't have definition info from this query
+            let callee = FunctionRef::new(callee_module, callee_name, callee_arity);
+
+            results.push(Call {
+                caller,
+                callee,
                 line,
+                call_type: None,
+                depth: Some(depth),
             });
         }
     }

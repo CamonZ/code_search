@@ -15,9 +15,20 @@
           "end_line": 15,
           "calls": [
             {
-              "module": "MyApp.Repo",
-              "function": "get",
-              "arity": 2,
+              "caller": {
+                "module": "MyApp.Accounts",
+                "name": "get_user",
+                "arity": 1,
+                "kind": "",
+                "file": "lib/my_app/accounts.ex",
+                "start_line": 10,
+                "end_line": 15
+              },
+              "callee": {
+                "module": "MyApp.Repo",
+                "name": "get",
+                "arity": 2
+              },
               "line": 12,
               "call_type": "remote"
             }

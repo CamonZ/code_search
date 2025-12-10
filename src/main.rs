@@ -5,6 +5,7 @@ mod commands;
 mod db;
 pub mod output;
 mod queries;
+pub mod types;
 #[macro_use]
 mod test_macros;
 #[cfg(test)]

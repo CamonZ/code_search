@@ -5,7 +5,8 @@ use serde::Serialize;
 
 use super::TraceCmd;
 use crate::commands::Execute;
-use crate::queries::trace::{trace_calls, TraceStep};
+use crate::queries::trace::trace_calls;
+use crate::types::Call;
 
 /// A call target in the trace tree
 #[derive(Debug, Clone, Serialize)]
@@ -42,16 +43,14 @@ pub struct TraceResult {
 }
 
 impl TraceResult {
-    /// Build a tree structure from flat trace steps
-    pub fn from_steps(
+    /// Build a tree structure from flat calls
+    pub fn from_calls(
         start_module: String,
         start_function: String,
         max_depth: u32,
-        steps: Vec<TraceStep>,
+        calls: Vec<Call>,
     ) -> Self {
-        let total_calls = steps.len();
-
-        if steps.is_empty() {
+        if calls.is_empty() {
             return TraceResult {
                 start_module,
                 start_function,
@@ -61,37 +60,45 @@ impl TraceResult {
             };
         }
 
-        // Group steps by depth, then by caller
-        let mut by_depth: HashMap<i64, Vec<&TraceStep>> = HashMap::new();
-        for step in &steps {
-            by_depth.entry(step.depth).or_default().push(step);
+        // Group calls by depth, then by caller
+        let mut by_depth: HashMap<i64, Vec<&Call>> = HashMap::new();
+        for call in &calls {
+            if let Some(depth) = call.depth {
+                by_depth.entry(depth).or_default().push(call);
+            }
         }
 
         // Build depth 1 nodes (roots)
         let mut roots: Vec<TraceNode> = vec![];
-        if let Some(depth1_steps) = by_depth.get(&1) {
+        if let Some(depth1_calls) = by_depth.get(&1) {
             // Group by caller function
-            let mut caller_map: HashMap<CallerKey, Vec<&TraceStep>> = HashMap::new();
-            for step in depth1_steps {
+            let mut caller_map: HashMap<CallerKey, Vec<&Call>> = HashMap::new();
+            for call in depth1_calls {
                 let key = CallerKey {
-                    module: step.caller_module.clone(),
-                    function: step.caller_function.clone(),
-                    arity: step.caller_arity,
+                    module: call.caller.module.clone(),
+                    function: call.caller.name.clone(),
+                    arity: call.caller.arity,
                 };
-                caller_map.entry(key).or_default().push(step);
+                caller_map.entry(key).or_default().push(call);
             }
 
-            for (key, caller_steps) in caller_map {
-                let first = caller_steps[0];
-                let calls: Vec<TraceCall> = caller_steps
+            for (key, caller_calls) in caller_map {
+                let first = caller_calls[0];
+                let trace_calls: Vec<TraceCall> = caller_calls
                     .iter()
-                    .map(|s| {
-                        let children = build_children(&by_depth, 2, &s.callee_module, &s.callee_function, max_depth);
+                    .map(|c| {
+                        let children = build_children(
+                            &by_depth,
+                            2,
+                            &c.callee.module,
+                            &c.callee.name,
+                            max_depth,
+                        );
                         TraceCall {
-                            module: s.callee_module.clone(),
-                            function: s.callee_function.clone(),
-                            arity: s.callee_arity,
-                            line: s.line,
+                            module: c.callee.module.clone(),
+                            function: c.callee.name.clone(),
+                            arity: c.callee.arity,
+                            line: c.line,
                             children,
                         }
                     })
@@ -101,11 +108,11 @@ impl TraceResult {
                     module: key.module,
                     function: key.function,
                     arity: key.arity,
-                    kind: first.caller_kind.clone(),
-                    start_line: first.caller_start_line,
-                    end_line: first.caller_end_line,
-                    file: first.file.clone(),
-                    calls,
+                    kind: first.caller.kind.clone().unwrap_or_default(),
+                    start_line: first.caller.start_line.unwrap_or(0),
+                    end_line: first.caller.end_line.unwrap_or(0),
+                    file: first.caller.file.clone().unwrap_or_default(),
+                    calls: trace_calls,
                 });
             }
         }
@@ -114,6 +121,9 @@ impl TraceResult {
         roots.sort_by(|a, b| {
             (&a.module, &a.function, a.arity).cmp(&(&b.module, &b.function, b.arity))
         });
+
+        // Count actual calls in the tree
+        let total_calls = roots.iter().map(count_node_calls).sum();
 
         TraceResult {
             start_module,
@@ -125,6 +135,18 @@ impl TraceResult {
     }
 }
 
+/// Count all calls in a node and its descendants
+fn count_node_calls(node: &TraceNode) -> usize {
+    let own_calls = node.calls.len();
+    let child_calls: usize = node
+        .calls
+        .iter()
+        .flat_map(|c| &c.children)
+        .map(count_node_calls)
+        .sum();
+    own_calls + child_calls
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct CallerKey {
     module: String,
@@ -134,7 +156,7 @@ struct CallerKey {
 
 /// Recursively build children nodes for a callee
 fn build_children(
-    by_depth: &HashMap<i64, Vec<&TraceStep>>,
+    by_depth: &HashMap<i64, Vec<&Call>>,
     depth: i64,
     parent_module: &str,
     parent_function: &str,
@@ -144,14 +166,14 @@ fn build_children(
         return vec![];
     }
 
-    let Some(steps) = by_depth.get(&depth) else {
+    let Some(calls) = by_depth.get(&depth) else {
         return vec![];
     };
 
-    // Find steps where the caller matches the parent callee
-    let matching: Vec<_> = steps
+    // Find calls where the caller matches the parent callee
+    let matching: Vec<_> = calls
         .iter()
-        .filter(|s| s.caller_module == parent_module && s.caller_function == parent_function)
+        .filter(|c| c.caller.module == parent_module && c.caller.name == parent_function)
         .collect();
 
     if matching.is_empty() {
@@ -159,28 +181,34 @@ fn build_children(
     }
 
     // Group by caller
-    let mut caller_map: HashMap<CallerKey, Vec<&&TraceStep>> = HashMap::new();
-    for step in &matching {
+    let mut caller_map: HashMap<CallerKey, Vec<&&Call>> = HashMap::new();
+    for call in &matching {
         let key = CallerKey {
-            module: step.caller_module.clone(),
-            function: step.caller_function.clone(),
-            arity: step.caller_arity,
+            module: call.caller.module.clone(),
+            function: call.caller.name.clone(),
+            arity: call.caller.arity,
         };
-        caller_map.entry(key).or_default().push(step);
+        caller_map.entry(key).or_default().push(call);
     }
 
     let mut nodes: Vec<TraceNode> = vec![];
-    for (key, caller_steps) in caller_map {
-        let first = caller_steps[0];
-        let calls: Vec<TraceCall> = caller_steps
+    for (key, caller_calls) in caller_map {
+        let first = caller_calls[0];
+        let trace_calls: Vec<TraceCall> = caller_calls
             .iter()
-            .map(|s| {
-                let children = build_children(by_depth, depth + 1, &s.callee_module, &s.callee_function, max_depth);
+            .map(|c| {
+                let children = build_children(
+                    by_depth,
+                    depth + 1,
+                    &c.callee.module,
+                    &c.callee.name,
+                    max_depth,
+                );
                 TraceCall {
-                    module: s.callee_module.clone(),
-                    function: s.callee_function.clone(),
-                    arity: s.callee_arity,
-                    line: s.line,
+                    module: c.callee.module.clone(),
+                    function: c.callee.name.clone(),
+                    arity: c.callee.arity,
+                    line: c.line,
                     children,
                 }
             })
@@ -190,11 +218,11 @@ fn build_children(
             module: key.module,
             function: key.function,
             arity: key.arity,
-            kind: first.caller_kind.clone(),
-            start_line: first.caller_start_line,
-            end_line: first.caller_end_line,
-            file: first.file.clone(),
-            calls,
+            kind: first.caller.kind.clone().unwrap_or_default(),
+            start_line: first.caller.start_line.unwrap_or(0),
+            end_line: first.caller.end_line.unwrap_or(0),
+            file: first.caller.file.clone().unwrap_or_default(),
+            calls: trace_calls,
         });
     }
 
@@ -209,7 +237,7 @@ impl Execute for TraceCmd {
     type Output = TraceResult;
 
     fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
-        let steps = trace_calls(
+        let calls = trace_calls(
             db,
             &self.module,
             &self.function,
@@ -220,11 +248,11 @@ impl Execute for TraceCmd {
             self.limit,
         )?;
 
-        Ok(TraceResult::from_steps(
+        Ok(TraceResult::from_calls(
             self.module,
             self.function,
             self.depth,
-            steps,
+            calls,
         ))
     }
 }

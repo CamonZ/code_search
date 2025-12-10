@@ -4,8 +4,21 @@ modules[1]:
   - file: lib/my_app/accounts.ex
     functions[1]:
       - arity: 1
-        calls[1]{arity,call_type,function,line,module}:
-          2,remote,get,12,MyApp.Repo
+        calls[1]:
+          - call_type: remote
+            callee:
+              arity: 2
+              module: MyApp.Repo
+              name: get
+            caller:
+              arity: 1
+              end_line: 15
+              file: lib/my_app/accounts.ex
+              kind: ""
+              module: MyApp.Accounts
+              name: get_user
+              start_line: 10
+            line: 12
         end_line: 15
         kind: ""
         name: get_user

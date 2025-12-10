@@ -2,7 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::{DependencyCaller, DependencyFunction, DependencyModule, DependsOnResult};
+    use super::super::execute::{DependencyFunction, DependencyModule, DependsOnResult};
+    use crate::types::{Call, FunctionRef};
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -21,7 +22,7 @@ Found 1 call(s) to 1 module(s):
 
 MyApp.Service:
   process/1:
-    ← MyApp.Controller.index/1 (lib/controller.ex:5:12 L7) [def]";
+    ← @ L7 MyApp.Controller.index/1 [def] (controller.ex:L5:12)";
 
     const MULTIPLE_TABLE: &str = "\
 Dependencies of: MyApp.Controller
@@ -30,10 +31,10 @@ Found 2 call(s) to 2 module(s):
 
 MyApp.Service:
   process/1:
-    ← MyApp.Controller.index/1 (lib/controller.ex:5:12 L7) [def]
+    ← @ L7 MyApp.Controller.index/1 [def] (controller.ex:L5:12)
 Phoenix.View:
   render/2:
-    ← MyApp.Controller.show/1 (lib/controller.ex:15:25 L20) [def]";
+    ← @ L20 MyApp.Controller.show/1 [def] (controller.ex:L15:25)";
 
 
     // =========================================================================
@@ -59,15 +60,20 @@ Phoenix.View:
                 functions: vec![DependencyFunction {
                     name: "process".to_string(),
                     arity: 1,
-                    callers: vec![DependencyCaller {
-                        module: "MyApp.Controller".to_string(),
-                        function: "index".to_string(),
-                        arity: 1,
-                        kind: "def".to_string(),
-                        start_line: 5,
-                        end_line: 12,
-                        file: "lib/controller.ex".to_string(),
+                    callers: vec![Call {
+                        caller: FunctionRef::with_definition(
+                            "MyApp.Controller",
+                            "index",
+                            1,
+                            "def",
+                            "lib/controller.ex",
+                            5,
+                            12,
+                        ),
+                        callee: FunctionRef::new("MyApp.Service", "process", 1),
                         line: 7,
+                        call_type: None,
+                        depth: None,
                     }],
                 }],
             }],
@@ -85,15 +91,20 @@ Phoenix.View:
                     functions: vec![DependencyFunction {
                         name: "process".to_string(),
                         arity: 1,
-                        callers: vec![DependencyCaller {
-                            module: "MyApp.Controller".to_string(),
-                            function: "index".to_string(),
-                            arity: 1,
-                            kind: "def".to_string(),
-                            start_line: 5,
-                            end_line: 12,
-                            file: "lib/controller.ex".to_string(),
+                        callers: vec![Call {
+                            caller: FunctionRef::with_definition(
+                                "MyApp.Controller",
+                                "index",
+                                1,
+                                "def",
+                                "lib/controller.ex",
+                                5,
+                                12,
+                            ),
+                            callee: FunctionRef::new("MyApp.Service", "process", 1),
                             line: 7,
+                            call_type: None,
+                            depth: None,
                         }],
                     }],
                 },
@@ -102,15 +113,20 @@ Phoenix.View:
                     functions: vec![DependencyFunction {
                         name: "render".to_string(),
                         arity: 2,
-                        callers: vec![DependencyCaller {
-                            module: "MyApp.Controller".to_string(),
-                            function: "show".to_string(),
-                            arity: 1,
-                            kind: "def".to_string(),
-                            start_line: 15,
-                            end_line: 25,
-                            file: "lib/controller.ex".to_string(),
+                        callers: vec![Call {
+                            caller: FunctionRef::with_definition(
+                                "MyApp.Controller",
+                                "show",
+                                1,
+                                "def",
+                                "lib/controller.ex",
+                                15,
+                                25,
+                            ),
+                            callee: FunctionRef::new("Phoenix.View", "render", 2),
                             line: 20,
+                            call_type: None,
+                            depth: None,
                         }],
                     }],
                 },

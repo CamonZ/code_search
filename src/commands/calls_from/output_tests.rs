@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::execute::CallsFromResult;
-    use crate::queries::calls_from::CallEdge;
+    use crate::types::{Call, FunctionRef};
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -22,7 +22,7 @@ Found 1 call(s):
 
 MyApp.Accounts (lib/my_app/accounts.ex)
   get_user/1 (10:15)
-    → MyApp.Repo.get/2 (L12)";
+    → @ L12 MyApp.Repo.get/2";
 
     const MULTIPLE_TABLE: &str = "\
 Calls from: MyApp.Accounts
@@ -31,9 +31,9 @@ Found 2 call(s):
 
 MyApp.Accounts (lib/my_app/accounts.ex)
   get_user/1 (10:15)
-    → MyApp.Repo.get/2 (L12)
+    → @ L12 MyApp.Repo.get/2
   list_users/0 (20:25)
-    → MyApp.Repo.all/1 (L22)";
+    → @ L22 MyApp.Repo.all/1";
 
     // =========================================================================
     // Fixtures
@@ -41,7 +41,7 @@ MyApp.Accounts (lib/my_app/accounts.ex)
 
     #[fixture]
     fn empty_result() -> CallsFromResult {
-        CallsFromResult::from_edges(
+        CallsFromResult::from_calls(
             "MyApp.Accounts".to_string(),
             "get_user".to_string(),
             vec![],
@@ -50,62 +50,62 @@ MyApp.Accounts (lib/my_app/accounts.ex)
 
     #[fixture]
     fn single_result() -> CallsFromResult {
-        CallsFromResult::from_edges(
+        CallsFromResult::from_calls(
             "MyApp.Accounts".to_string(),
             "get_user".to_string(),
-            vec![CallEdge {
-                project: "default".to_string(),
-                caller_module: "MyApp.Accounts".to_string(),
-                caller_function: "get_user".to_string(),
-                caller_arity: 1,
-                caller_kind: String::new(),
-                caller_start_line: 10,
-                caller_end_line: 15,
-                callee_module: "MyApp.Repo".to_string(),
-                callee_function: "get".to_string(),
-                callee_arity: 2,
-                file: "lib/my_app/accounts.ex".to_string(),
+            vec![Call {
+                caller: FunctionRef::with_definition(
+                    "MyApp.Accounts",
+                    "get_user",
+                    1,
+                    "",
+                    "lib/my_app/accounts.ex",
+                    10,
+                    15,
+                ),
+                callee: FunctionRef::new("MyApp.Repo", "get", 2),
                 line: 12,
-                call_type: "remote".to_string(),
+                call_type: Some("remote".to_string()),
+                depth: None,
             }],
         )
     }
 
     #[fixture]
     fn multiple_result() -> CallsFromResult {
-        CallsFromResult::from_edges(
+        CallsFromResult::from_calls(
             "MyApp.Accounts".to_string(),
             String::new(),
             vec![
-                CallEdge {
-                    project: "default".to_string(),
-                    caller_module: "MyApp.Accounts".to_string(),
-                    caller_function: "get_user".to_string(),
-                    caller_arity: 1,
-                    caller_kind: String::new(),
-                    caller_start_line: 10,
-                    caller_end_line: 15,
-                    callee_module: "MyApp.Repo".to_string(),
-                    callee_function: "get".to_string(),
-                    callee_arity: 2,
-                    file: "lib/my_app/accounts.ex".to_string(),
+                Call {
+                    caller: FunctionRef::with_definition(
+                        "MyApp.Accounts",
+                        "get_user",
+                        1,
+                        "",
+                        "lib/my_app/accounts.ex",
+                        10,
+                        15,
+                    ),
+                    callee: FunctionRef::new("MyApp.Repo", "get", 2),
                     line: 12,
-                    call_type: "remote".to_string(),
+                    call_type: Some("remote".to_string()),
+                    depth: None,
                 },
-                CallEdge {
-                    project: "default".to_string(),
-                    caller_module: "MyApp.Accounts".to_string(),
-                    caller_function: "list_users".to_string(),
-                    caller_arity: 0,
-                    caller_kind: String::new(),
-                    caller_start_line: 20,
-                    caller_end_line: 25,
-                    callee_module: "MyApp.Repo".to_string(),
-                    callee_function: "all".to_string(),
-                    callee_arity: 1,
-                    file: "lib/my_app/accounts.ex".to_string(),
+                Call {
+                    caller: FunctionRef::with_definition(
+                        "MyApp.Accounts",
+                        "list_users",
+                        0,
+                        "",
+                        "lib/my_app/accounts.ex",
+                        20,
+                        25,
+                    ),
+                    callee: FunctionRef::new("MyApp.Repo", "all", 1),
                     line: 22,
-                    call_type: "remote".to_string(),
+                    call_type: Some("remote".to_string()),
+                    depth: None,
                 },
             ],
         )

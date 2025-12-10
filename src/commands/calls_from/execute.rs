@@ -5,17 +5,8 @@ use serde::Serialize;
 
 use super::CallsFromCmd;
 use crate::commands::Execute;
-use crate::queries::calls_from::{find_calls_from, CallEdge};
-
-/// A single outgoing call from a function
-#[derive(Debug, Clone, Serialize)]
-pub struct CallTarget {
-    pub module: String,
-    pub function: String,
-    pub arity: i64,
-    pub line: i64,
-    pub call_type: String,
-}
+use crate::queries::calls_from::find_calls_from;
+use crate::types::Call;
 
 /// A caller function with all its outgoing calls
 #[derive(Debug, Clone, Serialize)]
@@ -25,7 +16,7 @@ pub struct CallerFunction {
     pub kind: String,
     pub start_line: i64,
     pub end_line: i64,
-    pub calls: Vec<CallTarget>,
+    pub calls: Vec<Call>,
 }
 
 /// A module with all its caller functions
@@ -46,33 +37,27 @@ pub struct CallsFromResult {
 }
 
 impl CallsFromResult {
-    /// Build grouped result from flat call edges
-    pub fn from_edges(module_pattern: String, function_pattern: String, edges: Vec<CallEdge>) -> Self {
-        let total_calls = edges.len();
+    /// Build grouped result from flat calls
+    pub fn from_calls(module_pattern: String, function_pattern: String, calls: Vec<Call>) -> Self {
+        let total_calls = calls.len();
 
         // Group by module -> function -> calls
         // Using BTreeMap for consistent ordering
-        let mut by_module: BTreeMap<String, (String, BTreeMap<CallerFunctionKey, Vec<CallTarget>>)> = BTreeMap::new();
+        let mut by_module: BTreeMap<String, (String, BTreeMap<CallerFunctionKey, Vec<Call>>)> =
+            BTreeMap::new();
 
-        for edge in edges {
+        for call in calls {
+            let file = call.caller.file.clone().unwrap_or_default();
             let module_entry = by_module
-                .entry(edge.caller_module.clone())
-                .or_insert_with(|| (edge.file.clone(), BTreeMap::new()));
+                .entry(call.caller.module.clone())
+                .or_insert_with(|| (file, BTreeMap::new()));
 
             let fn_key = CallerFunctionKey {
-                name: edge.caller_function.clone(),
-                arity: edge.caller_arity,
-                kind: edge.caller_kind.clone(),
-                start_line: edge.caller_start_line,
-                end_line: edge.caller_end_line,
-            };
-
-            let call = CallTarget {
-                module: edge.callee_module,
-                function: edge.callee_function,
-                arity: edge.callee_arity,
-                line: edge.line,
-                call_type: edge.call_type,
+                name: call.caller.name.clone(),
+                arity: call.caller.arity,
+                kind: call.caller.kind.clone().unwrap_or_default(),
+                start_line: call.caller.start_line.unwrap_or(0),
+                end_line: call.caller.end_line.unwrap_or(0),
             };
 
             module_entry.1.entry(fn_key).or_default().push(call);
@@ -87,9 +72,14 @@ impl CallsFromResult {
                     .map(|(key, mut calls)| {
                         // Deduplicate calls, keeping first occurrence by line
                         calls.sort_by_key(|c| c.line);
-                        let mut seen: std::collections::HashSet<(String, String, i64)> = std::collections::HashSet::new();
+                        let mut seen: std::collections::HashSet<(String, String, i64)> =
+                            std::collections::HashSet::new();
                         calls.retain(|c| {
-                            seen.insert((c.module.clone(), c.function.clone(), c.arity))
+                            seen.insert((
+                                c.callee.module.clone(),
+                                c.callee.name.clone(),
+                                c.callee.arity,
+                            ))
                         });
 
                         CallerFunction {
@@ -134,7 +124,7 @@ impl Execute for CallsFromCmd {
     type Output = CallsFromResult;
 
     fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
-        let edges = find_calls_from(
+        let calls = find_calls_from(
             db,
             &self.module,
             self.function.as_deref(),
@@ -144,10 +134,10 @@ impl Execute for CallsFromCmd {
             self.limit,
         )?;
 
-        Ok(CallsFromResult::from_edges(
+        Ok(CallsFromResult::from_calls(
             self.module,
             self.function.unwrap_or_default(),
-            edges,
+            calls,
         ))
     }
 }

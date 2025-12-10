@@ -29,22 +29,10 @@ impl Outputable for CallsToResult {
             for func in &module.functions {
                 lines.push(format!("  {}/{}", func.name, func.arity));
 
-                for caller in &func.callers {
-                    let kind_str = if caller.kind.is_empty() {
-                        String::new()
-                    } else {
-                        format!(" [{}]", caller.kind)
-                    };
-                    // Show caller module only if different from callee module
-                    let caller_name = if caller.module == module.name {
-                        format!("{}/{}", caller.function, caller.arity)
-                    } else {
-                        format!("{}.{}/{}", caller.module, caller.function, caller.arity)
-                    };
-                    lines.push(format!(
-                        "    ← {}{} ({}:{}:{}) (L{})",
-                        caller_name, kind_str, caller.file, caller.start_line, caller.end_line, caller.line
-                    ));
+                for call in &func.callers {
+                    // Use empty context file since callers come from different files
+                    let formatted = call.format_incoming(&module.name, "");
+                    lines.push(format!("    {}", formatted));
                 }
             }
         }

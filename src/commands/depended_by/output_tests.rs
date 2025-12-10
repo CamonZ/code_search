@@ -20,8 +20,8 @@ Modules that depend on: MyApp.Repo
 Found 1 call(s) from 1 module(s):
 
 MyApp.Service:
-  fetch/1 (lib/service.ex:10:20) [def]:
-    → get/2 (L15)";
+  fetch/1 [def] (service.ex:L10:20):
+    → @ L15 get/2";
 
     const MULTIPLE_TABLE: &str = "\
 Modules that depend on: MyApp.Repo
@@ -29,11 +29,11 @@ Modules that depend on: MyApp.Repo
 Found 2 call(s) from 2 module(s):
 
 MyApp.Controller:
-  show/1 (lib/controller.ex:15:25) [def]:
-    → get/2 (L20)
+  show/1 [def] (controller.ex:L15:25):
+    → @ L20 get/2
 MyApp.Service:
-  fetch/1 (lib/service.ex:10:20) [def]:
-    → get/2 (L15)";
+  fetch/1 [def] (service.ex:L10:20):
+    → @ L15 get/2";
 
 
     // =========================================================================
