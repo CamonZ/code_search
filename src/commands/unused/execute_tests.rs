@@ -30,10 +30,12 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.functions.len(), 6);
-            let names: Vec<&str> = result.functions.iter().map(|f| f.name.as_str()).collect();
-            assert!(names.contains(&"validate_email"));
-            assert!(names.contains(&"insert"));
+            assert_eq!(result.total_unused, 6);
+            let all_funcs: Vec<&str> = result.modules.iter()
+                .flat_map(|m| m.functions.iter().map(|f| f.name.as_str()))
+                .collect();
+            assert!(all_funcs.contains(&"validate_email"));
+            assert!(all_funcs.contains(&"insert"));
         },
     }
 
@@ -51,7 +53,7 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.functions.len(), 2);
+            assert_eq!(result.total_unused, 2);
         },
     }
 
@@ -69,7 +71,7 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.functions.len(), 3);
+            assert_eq!(result.total_unused, 3);
         },
     }
 
@@ -89,14 +91,14 @@ mod tests {
             exclude_generated: false,
             limit: 100,
         },
-        empty_field: functions,
+        empty_field: modules,
     }
 
     // =========================================================================
     // Filter tests
     // =========================================================================
 
-    crate::execute_limit_test! {
+    crate::execute_test! {
         test_name: test_unused_with_limit,
         fixture: populated_db,
         cmd: UnusedCmd {
@@ -108,8 +110,10 @@ mod tests {
             exclude_generated: false,
             limit: 1,
         },
-        collection: functions,
-        limit: 1,
+        assertions: |result| {
+            // Limit applies to raw results before grouping
+            assert_eq!(result.total_unused, 1);
+        },
     }
 
     // validate_email is the only private (defp) uncalled function
@@ -126,9 +130,9 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.functions.len(), 1);
-            assert_eq!(result.functions[0].name, "validate_email");
-            assert_eq!(result.functions[0].kind, "defp");
+            assert_eq!(result.total_unused, 1);
+            assert_eq!(result.modules[0].functions[0].name, "validate_email");
+            assert_eq!(result.modules[0].functions[0].kind, "defp");
         },
     }
 
@@ -146,8 +150,12 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.functions.len(), 5);
-            assert!(result.functions.iter().all(|f| f.kind == "def"));
+            assert_eq!(result.total_unused, 5);
+            for module in &result.modules {
+                for func in &module.functions {
+                    assert_eq!(func.kind, "def");
+                }
+            }
         },
     }
 

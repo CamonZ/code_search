@@ -1,17 +1,21 @@
 {
   "project": "test_project",
-  "module_filter": null,
   "private_only": false,
   "public_only": false,
   "exclude_generated": false,
-  "functions": [
+  "total_unused": 1,
+  "modules": [
     {
-      "module": "MyApp.Accounts",
-      "name": "unused_helper",
-      "arity": 0,
-      "kind": "defp",
+      "name": "MyApp.Accounts",
       "file": "lib/accounts.ex",
-      "line": 35
+      "functions": [
+        {
+          "name": "unused_helper",
+          "arity": 0,
+          "kind": "defp",
+          "line": 35
+        }
+      ]
     }
   ]
 }

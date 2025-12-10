@@ -2,8 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::UnusedResult;
-    use crate::queries::unused::UnusedFunction;
+    use super::super::execute::{UnusedFunc, UnusedModule, UnusedResult};
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -18,16 +17,18 @@ No unused functions found.";
     const SINGLE_TABLE: &str = "\
 Unused functions in project 'test_project'
 
-Found 1 unused function(s):
-  [defp] MyApp.Accounts.unused_helper/0
-       lib/accounts.ex:35";
+Found 1 unused function(s) in 1 module(s):
+
+MyApp.Accounts (lib/accounts.ex):
+  unused_helper/0 [defp] L35";
 
     const FILTERED_TABLE: &str = "\
 Unused functions in project 'test_project' (module: Accounts)
 
-Found 1 unused function(s):
-  [defp] MyApp.Accounts.unused_helper/0
-       lib/accounts.ex:35";
+Found 1 unused function(s) in 1 module(s):
+
+MyApp.Accounts (lib/accounts.ex):
+  unused_helper/0 [defp] L35";
 
 
     // =========================================================================
@@ -42,7 +43,8 @@ Found 1 unused function(s):
             private_only: false,
             public_only: false,
             exclude_generated: false,
-            functions: vec![],
+            total_unused: 0,
+            modules: vec![],
         }
     }
 
@@ -54,13 +56,16 @@ Found 1 unused function(s):
             private_only: false,
             public_only: false,
             exclude_generated: false,
-            functions: vec![UnusedFunction {
-                module: "MyApp.Accounts".to_string(),
-                name: "unused_helper".to_string(),
-                arity: 0,
-                kind: "defp".to_string(),
+            total_unused: 1,
+            modules: vec![UnusedModule {
+                name: "MyApp.Accounts".to_string(),
                 file: "lib/accounts.ex".to_string(),
-                line: 35,
+                functions: vec![UnusedFunc {
+                    name: "unused_helper".to_string(),
+                    arity: 0,
+                    kind: "defp".to_string(),
+                    line: 35,
+                }],
             }],
         }
     }
@@ -73,13 +78,16 @@ Found 1 unused function(s):
             private_only: false,
             public_only: false,
             exclude_generated: false,
-            functions: vec![UnusedFunction {
-                module: "MyApp.Accounts".to_string(),
-                name: "unused_helper".to_string(),
-                arity: 0,
-                kind: "defp".to_string(),
+            total_unused: 1,
+            modules: vec![UnusedModule {
+                name: "MyApp.Accounts".to_string(),
                 file: "lib/accounts.ex".to_string(),
-                line: 35,
+                functions: vec![UnusedFunc {
+                    name: "unused_helper".to_string(),
+                    arity: 0,
+                    kind: "defp".to_string(),
+                    line: 35,
+                }],
             }],
         }
     }

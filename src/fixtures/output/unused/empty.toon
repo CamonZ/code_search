@@ -1,6 +1,6 @@
 exclude_generated: false
-functions[0]:
-module_filter: null
+modules[0]:
 private_only: false
 project: test_project
 public_only: false
+total_unused: 0

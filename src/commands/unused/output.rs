@@ -30,12 +30,22 @@ impl Outputable for UnusedResult {
         lines.push(format!("Unused functions in project '{}'{}", self.project, filter_info));
         lines.push(String::new());
 
-        if !self.functions.is_empty() {
-            lines.push(format!("Found {} unused function(s):", self.functions.len()));
-            for func in &self.functions {
-                let sig = format!("{}.{}/{}", func.module, func.name, func.arity);
-                lines.push(format!("  [{}] {}", func.kind, sig));
-                lines.push(format!("       {}:{}", func.file, func.line));
+        if !self.modules.is_empty() {
+            lines.push(format!(
+                "Found {} unused function(s) in {} module(s):",
+                self.total_unused,
+                self.modules.len()
+            ));
+            lines.push(String::new());
+
+            for module in &self.modules {
+                lines.push(format!("{} ({}):", module.name, module.file));
+                for func in &module.functions {
+                    lines.push(format!(
+                        "  {}/{} [{}] L{}",
+                        func.name, func.arity, func.kind, func.line
+                    ));
+                }
             }
         } else {
             lines.push("No unused functions found.".to_string());

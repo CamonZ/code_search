@@ -1,7 +1,10 @@
 exclude_generated: false
-functions[1]{arity,file,kind,line,module,name}:
-  0,lib/accounts.ex,defp,35,MyApp.Accounts,unused_helper
-module_filter: null
+modules[1]:
+  - file: lib/accounts.ex
+    functions[1]{arity,kind,line,name}:
+      0,defp,35,unused_helper
+    name: MyApp.Accounts
 private_only: false
 project: test_project
 public_only: false
+total_unused: 1
