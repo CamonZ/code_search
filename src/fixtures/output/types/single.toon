@@ -1,5 +1,7 @@
-kind_filter: null
 module_pattern: MyApp.Accounts
+modules[1]:
+  - name: MyApp.Accounts
+    types[1]{definition,kind,line,name}:
+      "@type user() :: %{id: integer(), name: String.t()}",type,5,user
 name_filter: user
-types[1]{definition,kind,line,module,name,params,project}:
-  "@type user() :: %{id: integer(), name: String.t()}",type,5,MyApp.Accounts,user,"",default
+total_types: 1

@@ -1,16 +1,18 @@
 {
   "module_pattern": "MyApp.Accounts",
   "name_filter": "user",
-  "kind_filter": null,
-  "types": [
+  "total_types": 1,
+  "modules": [
     {
-      "project": "default",
-      "module": "MyApp.Accounts",
-      "name": "user",
-      "kind": "type",
-      "params": "",
-      "line": 5,
-      "definition": "@type user() :: %{id: integer(), name: String.t()}"
+      "name": "MyApp.Accounts",
+      "types": [
+        {
+          "name": "user",
+          "kind": "type",
+          "line": 5,
+          "definition": "@type user() :: %{id: integer(), name: String.t()}"
+        }
+      ]
     }
   ]
 }

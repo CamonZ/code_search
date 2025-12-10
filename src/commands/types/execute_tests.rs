@@ -27,8 +27,10 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.types.len(), 2);
-            assert!(result.types.iter().all(|t| t.module == "MyApp.Accounts"));
+            assert_eq!(result.total_types, 2);
+            assert_eq!(result.modules.len(), 1);
+            assert_eq!(result.modules[0].name, "MyApp.Accounts");
+            assert_eq!(result.modules[0].types.len(), 2);
         },
     }
 
@@ -44,8 +46,8 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.types.len(), 1);
-            assert_eq!(result.types[0].name, "user_id");
+            assert_eq!(result.total_types, 1);
+            assert_eq!(result.modules[0].types[0].name, "user_id");
         },
     }
 
@@ -61,8 +63,8 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.types.len(), 1);
-            assert_eq!(result.types[0].kind, "opaque");
+            assert_eq!(result.total_types, 1);
+            assert_eq!(result.modules[0].types[0].kind, "opaque");
         },
     }
 
@@ -78,7 +80,7 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert!(!result.types[0].definition.is_empty());
+            assert!(!result.modules[0].types[0].definition.is_empty());
         },
     }
 
@@ -97,7 +99,7 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        empty_field: types,
+        empty_field: modules,
     }
 
     // =========================================================================

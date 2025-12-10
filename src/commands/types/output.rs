@@ -18,25 +18,37 @@ impl Outputable for TypesResult {
         lines.push(header);
         lines.push(String::new());
 
-        if !self.types.is_empty() {
-            lines.push(format!("Found {} type(s):", self.types.len()));
-            for type_def in &self.types {
-                // Show type signature with params
-                let params_str = if type_def.params.is_empty() {
-                    String::new()
-                } else {
-                    format!("({})", type_def.params)
-                };
-                let sig = format!("{}.{}{}", type_def.module, type_def.name, params_str);
-                lines.push(format!("  {} [{}] line {}", sig, type_def.kind, type_def.line));
+        if self.modules.is_empty() {
+            lines.push("No types found.".to_string());
+        } else {
+            lines.push(format!(
+                "Found {} type(s) in {} module(s):",
+                self.total_types,
+                self.modules.len()
+            ));
 
-                // Show the definition if available
-                if !type_def.definition.is_empty() {
-                    lines.push(format!("       {}", type_def.definition));
+            for module in &self.modules {
+                lines.push(String::new());
+                lines.push(format!("{}:", module.name));
+
+                for type_entry in &module.types {
+                    // Show type signature with params
+                    let params_str = if type_entry.params.is_empty() {
+                        String::new()
+                    } else {
+                        format!("({})", type_entry.params)
+                    };
+                    lines.push(format!(
+                        "  {}{} [{}] L{}",
+                        type_entry.name, params_str, type_entry.kind, type_entry.line
+                    ));
+
+                    // Show the definition if available
+                    if !type_entry.definition.is_empty() {
+                        lines.push(format!("    {}", type_entry.definition));
+                    }
                 }
             }
-        } else {
-            lines.push("No types found.".to_string());
         }
 
         lines.join("\n")
