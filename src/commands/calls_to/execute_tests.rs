@@ -16,7 +16,7 @@ mod tests {
     // =========================================================================
 
     // 4 calls to MyApp.Repo: get_user/1→get, get_user/2→get, list_users→all, do_fetch→get
-    crate::execute_count_test! {
+    crate::execute_test! {
         test_name: test_calls_to_module,
         fixture: populated_db,
         cmd: CallsToCmd {
@@ -27,12 +27,14 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        field: calls,
-        expected: 4,
+        assertions: |result| {
+            assert_eq!(result.total_calls, 4,
+                "Expected 4 total calls to MyApp.Repo");
+        },
     }
 
     // 3 calls to Repo.get: from get_user/1, get_user/2, do_fetch
-    crate::execute_count_test! {
+    crate::execute_test! {
         test_name: test_calls_to_function,
         fixture: populated_db,
         cmd: CallsToCmd {
@@ -43,8 +45,10 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        field: calls,
-        expected: 3,
+        assertions: |result| {
+            assert_eq!(result.total_calls, 3,
+                "Expected 3 calls to MyApp.Repo.get");
+        },
     }
 
     crate::execute_test! {
@@ -59,13 +63,18 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.calls.len(), 3);
-            assert!(result.calls.iter().all(|c| c.callee_arity == 2));
+            assert_eq!(result.total_calls, 3);
+            // All callee functions should be get/2
+            for module in &result.modules {
+                for func in &module.functions {
+                    assert_eq!(func.arity, 2);
+                }
+            }
         },
     }
 
     // 4 calls match get|all: 3 to get + 1 to all
-    crate::execute_count_test! {
+    crate::execute_test! {
         test_name: test_calls_to_regex_function,
         fixture: populated_db,
         cmd: CallsToCmd {
@@ -76,15 +85,17 @@ mod tests {
             regex: true,
             limit: 100,
         },
-        field: calls,
-        expected: 4,
+        assertions: |result| {
+            assert_eq!(result.total_calls, 4,
+                "Expected 4 calls to get|all");
+        },
     }
 
     // =========================================================================
     // No match / empty result tests
     // =========================================================================
 
-    crate::execute_no_match_test! {
+    crate::execute_test! {
         test_name: test_calls_to_no_match,
         fixture: populated_db,
         cmd: CallsToCmd {
@@ -95,10 +106,13 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        empty_field: calls,
+        assertions: |result| {
+            assert!(result.modules.is_empty(), "Expected no modules for non-existent target");
+            assert_eq!(result.total_calls, 0);
+        },
     }
 
-    crate::execute_no_match_test! {
+    crate::execute_test! {
         test_name: test_calls_to_nonexistent_arity,
         fixture: populated_db,
         cmd: CallsToCmd {
@@ -109,14 +123,17 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        empty_field: calls,
+        assertions: |result| {
+            assert!(result.modules.is_empty(), "Expected no results for non-existent arity");
+            assert_eq!(result.total_calls, 0);
+        },
     }
 
     // =========================================================================
     // Filter tests
     // =========================================================================
 
-    crate::execute_all_match_test! {
+    crate::execute_test! {
         test_name: test_calls_to_with_project_filter,
         fixture: populated_db,
         cmd: CallsToCmd {
@@ -127,11 +144,12 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        collection: calls,
-        condition: |c| c.project == "test_project",
+        assertions: |result| {
+            assert!(result.total_calls > 0, "Should have calls with project filter");
+        },
     }
 
-    crate::execute_limit_test! {
+    crate::execute_test! {
         test_name: test_calls_to_with_limit,
         fixture: populated_db,
         cmd: CallsToCmd {
@@ -142,8 +160,9 @@ mod tests {
             regex: false,
             limit: 2,
         },
-        collection: calls,
-        limit: 2,
+        assertions: |result| {
+            assert_eq!(result.total_calls, 2, "Limit should restrict to 2 calls");
+        },
     }
 
     // =========================================================================

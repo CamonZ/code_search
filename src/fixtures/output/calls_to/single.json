@@ -1,18 +1,29 @@
 {
   "module_pattern": "MyApp.Repo",
   "function_pattern": "get",
-  "calls": [
+  "total_calls": 1,
+  "modules": [
     {
-      "project": "default",
-      "caller_module": "MyApp.Accounts",
-      "caller_function": "get_user",
-      "caller_kind": "",
-      "callee_module": "MyApp.Repo",
-      "callee_function": "get",
-      "callee_arity": 2,
-      "file": "lib/my_app/accounts.ex",
-      "line": 12,
-      "call_type": "remote"
+      "name": "MyApp.Repo",
+      "functions": [
+        {
+          "name": "get",
+          "arity": 2,
+          "callers": [
+            {
+              "module": "MyApp.Accounts",
+              "function": "get_user",
+              "arity": 1,
+              "kind": "",
+              "start_line": 10,
+              "end_line": 15,
+              "file": "lib/my_app/accounts.ex",
+              "line": 12,
+              "call_type": "remote"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

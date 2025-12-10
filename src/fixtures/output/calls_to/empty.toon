@@ -1,3 +1,4 @@
-calls[0]:
 function_pattern: get
 module_pattern: MyApp.Repo
+modules[0]:
+total_calls: 0
