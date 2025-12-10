@@ -2,8 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::TraceResult;
-    use crate::queries::trace::TraceStep;
+    use super::super::execute::{TraceCall, TraceNode, TraceResult};
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -21,15 +20,20 @@ Trace from: MyApp.Controller.index
 Max depth: 5
 
 Found 1 call(s) in chain:
-  [1] MyApp.Controller.index (lib/controller.ex:7) -> MyApp.Service.fetch/1";
+
+MyApp.Controller.index/1 (lib/controller.ex:5:12) [def]
+  → MyApp.Service.fetch/1 (L7)";
 
     const MULTI_DEPTH_TABLE: &str = "\
 Trace from: MyApp.Controller.index
 Max depth: 5
 
 Found 2 call(s) in chain:
-  [1] MyApp.Controller.index (lib/controller.ex:7) -> MyApp.Service.fetch/1
-    [2] MyApp.Service.fetch (lib/service.ex:15) -> MyApp.Repo.get/2";
+
+MyApp.Controller.index/1 (lib/controller.ex:5:12) [def]
+  → MyApp.Service.fetch/1 (L7)
+    MyApp.Service.fetch/1 (lib/service.ex:10:20) [def]
+      → MyApp.Repo.get/2 (L15)";
 
 
     // =========================================================================
@@ -42,7 +46,8 @@ Found 2 call(s) in chain:
             start_module: "MyApp.Controller".to_string(),
             start_function: "index".to_string(),
             max_depth: 5,
-            steps: vec![],
+            total_calls: 0,
+            roots: vec![],
         }
     }
 
@@ -52,15 +57,22 @@ Found 2 call(s) in chain:
             start_module: "MyApp.Controller".to_string(),
             start_function: "index".to_string(),
             max_depth: 5,
-            steps: vec![TraceStep {
-                depth: 1,
-                caller_module: "MyApp.Controller".to_string(),
-                caller_function: "index".to_string(),
-                callee_module: "MyApp.Service".to_string(),
-                callee_function: "fetch".to_string(),
-                callee_arity: 1,
+            total_calls: 1,
+            roots: vec![TraceNode {
+                module: "MyApp.Controller".to_string(),
+                function: "index".to_string(),
+                arity: 1,
+                kind: "def".to_string(),
+                start_line: 5,
+                end_line: 12,
                 file: "lib/controller.ex".to_string(),
-                line: 7,
+                calls: vec![TraceCall {
+                    module: "MyApp.Service".to_string(),
+                    function: "fetch".to_string(),
+                    arity: 1,
+                    line: 7,
+                    children: vec![],
+                }],
             }],
         }
     }
@@ -71,28 +83,38 @@ Found 2 call(s) in chain:
             start_module: "MyApp.Controller".to_string(),
             start_function: "index".to_string(),
             max_depth: 5,
-            steps: vec![
-                TraceStep {
-                    depth: 1,
-                    caller_module: "MyApp.Controller".to_string(),
-                    caller_function: "index".to_string(),
-                    callee_module: "MyApp.Service".to_string(),
-                    callee_function: "fetch".to_string(),
-                    callee_arity: 1,
-                    file: "lib/controller.ex".to_string(),
+            total_calls: 2,
+            roots: vec![TraceNode {
+                module: "MyApp.Controller".to_string(),
+                function: "index".to_string(),
+                arity: 1,
+                kind: "def".to_string(),
+                start_line: 5,
+                end_line: 12,
+                file: "lib/controller.ex".to_string(),
+                calls: vec![TraceCall {
+                    module: "MyApp.Service".to_string(),
+                    function: "fetch".to_string(),
+                    arity: 1,
                     line: 7,
-                },
-                TraceStep {
-                    depth: 2,
-                    caller_module: "MyApp.Service".to_string(),
-                    caller_function: "fetch".to_string(),
-                    callee_module: "MyApp.Repo".to_string(),
-                    callee_function: "get".to_string(),
-                    callee_arity: 2,
-                    file: "lib/service.ex".to_string(),
-                    line: 15,
-                },
-            ],
+                    children: vec![TraceNode {
+                        module: "MyApp.Service".to_string(),
+                        function: "fetch".to_string(),
+                        arity: 1,
+                        kind: "def".to_string(),
+                        start_line: 10,
+                        end_line: 20,
+                        file: "lib/service.ex".to_string(),
+                        calls: vec![TraceCall {
+                            module: "MyApp.Repo".to_string(),
+                            function: "get".to_string(),
+                            arity: 2,
+                            line: 15,
+                            children: vec![],
+                        }],
+                    }],
+                }],
+            }],
         }
     }
 

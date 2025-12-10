@@ -26,9 +26,9 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.dependencies.len(), 2);
-            assert!(result.dependencies.iter().any(|d| d.module == "MyApp.Accounts"));
-            assert!(result.dependencies.iter().any(|d| d.module == "MyApp.Service"));
+            assert_eq!(result.modules.len(), 2);
+            assert!(result.modules.iter().any(|m| m.name == "MyApp.Accounts"));
+            assert!(result.modules.iter().any(|m| m.name == "MyApp.Service"));
         },
     }
 
@@ -44,9 +44,9 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.dependencies.len(), 2);
-            assert!(result.dependencies.iter().any(|d| d.module == "MyApp.Repo"));
-            assert!(result.dependencies.iter().any(|d| d.module == "MyApp.Notifier"));
+            assert_eq!(result.modules.len(), 2);
+            assert!(result.modules.iter().any(|m| m.name == "MyApp.Repo"));
+            assert!(result.modules.iter().any(|m| m.name == "MyApp.Notifier"));
         },
     }
 
@@ -63,7 +63,7 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        empty_field: dependencies,
+        empty_field: modules,
     }
 
     // =========================================================================
@@ -79,8 +79,8 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        collection: dependencies,
-        condition: |d| d.module != "MyApp.Repo",
+        collection: modules,
+        condition: |m| m.name != "MyApp.Repo",
     }
 
     // =========================================================================

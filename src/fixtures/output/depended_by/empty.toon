@@ -1,2 +1,3 @@
-dependents[0]:
+modules[0]:
 target_module: MyApp.Repo
+total_calls: 0

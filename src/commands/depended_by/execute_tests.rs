@@ -26,9 +26,9 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.dependents.len(), 2);
-            assert!(result.dependents.iter().any(|d| d.module == "MyApp.Accounts"));
-            assert!(result.dependents.iter().any(|d| d.module == "MyApp.Service"));
+            assert_eq!(result.modules.len(), 2);
+            assert!(result.modules.iter().any(|m| m.name == "MyApp.Accounts"));
+            assert!(result.modules.iter().any(|m| m.name == "MyApp.Service"));
         },
     }
 
@@ -42,26 +42,13 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            let accounts = result.dependents.iter().find(|d| d.module == "MyApp.Accounts").unwrap();
-            let service = result.dependents.iter().find(|d| d.module == "MyApp.Service").unwrap();
-            assert_eq!(accounts.call_count, 3);
-            assert_eq!(service.call_count, 1);
-        },
-    }
-
-    // Ordered by count descending: Accounts (3) before Service (1)
-    crate::execute_test! {
-        test_name: test_depended_by_ordered_by_count,
-        fixture: populated_db,
-        cmd: DependedByCmd {
-            module: "MyApp.Repo".to_string(),
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
-        },
-        assertions: |result| {
-            assert_eq!(result.dependents[0].module, "MyApp.Accounts");
-            assert_eq!(result.dependents[1].module, "MyApp.Service");
+            // Accounts has 3 callers, Service has 1
+            let accounts = result.modules.iter().find(|m| m.name == "MyApp.Accounts").unwrap();
+            let service = result.modules.iter().find(|m| m.name == "MyApp.Service").unwrap();
+            let accounts_calls: usize = accounts.callers.iter().map(|c| c.targets.len()).sum();
+            let service_calls: usize = service.callers.iter().map(|c| c.targets.len()).sum();
+            assert_eq!(accounts_calls, 3);
+            assert_eq!(service_calls, 1);
         },
     }
 
@@ -78,7 +65,7 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        empty_field: dependents,
+        empty_field: modules,
     }
 
     // =========================================================================
@@ -94,8 +81,8 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        collection: dependents,
-        condition: |d| d.module != "MyApp.Repo",
+        collection: modules,
+        condition: |m| m.name != "MyApp.Repo",
     }
 
     // =========================================================================

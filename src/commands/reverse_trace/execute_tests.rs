@@ -29,13 +29,16 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.steps.len(), 3);
-            assert!(result.steps.iter().all(|s| s.callee_function == "get"));
+            assert_eq!(result.total_callers, 3);
+            // All roots should be calling "get"
+            assert!(result.roots.iter().all(|r| {
+                r.targets.iter().all(|t| t.function == "get")
+            }));
         },
     }
 
     // Depth 2 adds: Controller.show -> get_user, Service.fetch -> do_fetch
-    crate::execute_count_test! {
+    crate::execute_test! {
         test_name: test_reverse_trace_multiple_depths,
         fixture: populated_db,
         cmd: ReverseTraceCmd {
@@ -47,12 +50,13 @@ mod tests {
             depth: 2,
             limit: 100,
         },
-        field: steps,
-        expected: 5,
+        assertions: |result| {
+            assert_eq!(result.total_callers, 5);
+        },
     }
 
     // Trace back from Notifier.send_email (leaf): notify->send_email, process->notify, create->process
-    crate::execute_count_test! {
+    crate::execute_test! {
         test_name: test_reverse_trace_from_leaf,
         fixture: populated_db,
         cmd: ReverseTraceCmd {
@@ -64,8 +68,9 @@ mod tests {
             depth: 5,
             limit: 100,
         },
-        field: steps,
-        expected: 3,
+        assertions: |result| {
+            assert_eq!(result.total_callers, 3);
+        },
     }
 
     // =========================================================================
@@ -84,7 +89,7 @@ mod tests {
             depth: 5,
             limit: 100,
         },
-        empty_field: steps,
+        empty_field: roots,
     }
 
     // =========================================================================

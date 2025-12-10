@@ -2,16 +2,24 @@
   "start_module": "MyApp.Controller",
   "start_function": "index",
   "max_depth": 5,
-  "steps": [
+  "total_calls": 1,
+  "roots": [
     {
-      "depth": 1,
-      "caller_module": "MyApp.Controller",
-      "caller_function": "index",
-      "callee_module": "MyApp.Service",
-      "callee_function": "fetch",
-      "callee_arity": 1,
+      "module": "MyApp.Controller",
+      "function": "index",
+      "arity": 1,
+      "kind": "def",
+      "start_line": 5,
+      "end_line": 12,
       "file": "lib/controller.ex",
-      "line": 7
+      "calls": [
+        {
+          "module": "MyApp.Service",
+          "function": "fetch",
+          "arity": 1,
+          "line": 7
+        }
+      ]
     }
   ]
 }

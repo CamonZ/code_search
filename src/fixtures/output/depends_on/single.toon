@@ -1,3 +1,9 @@
-dependencies[1]{call_count,module}:
-  5,MyApp.Service
+modules[1]:
+  - functions[1]:
+    - arity: 1
+      callers[1]{arity,end_line,file,function,kind,line,module,start_line}:
+        1,12,lib/controller.ex,index,def,7,MyApp.Controller,5
+      name: process
+    name: MyApp.Service
 source_module: MyApp.Controller
+total_calls: 1

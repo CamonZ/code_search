@@ -1,3 +1,13 @@
-dependents[1]{call_count,module}:
-  3,MyApp.Service
+modules[1]:
+  - callers[1]:
+    - arity: 1
+      end_line: 20
+      file: lib/service.ex
+      function: fetch
+      kind: def
+      start_line: 10
+      targets[1]{arity,function,line}:
+        2,get,15
+    name: MyApp.Service
 target_module: MyApp.Repo
+total_calls: 1

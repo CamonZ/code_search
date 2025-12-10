@@ -4,7 +4,7 @@ use cozo::DataValue;
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::db::{extract_i64, extract_string, run_query, Params};
+use crate::db::{extract_i64, extract_string, extract_string_or, run_query, Params};
 
 #[derive(Error, Debug)]
 pub enum TraceError {
@@ -18,6 +18,10 @@ pub struct TraceStep {
     pub depth: i64,
     pub caller_module: String,
     pub caller_function: String,
+    pub caller_arity: i64,
+    pub caller_kind: String,
+    pub caller_start_line: i64,
+    pub caller_end_line: i64,
     pub callee_module: String,
     pub callee_function: String,
     pub callee_arity: i64,
@@ -42,50 +46,55 @@ pub fn trace_calls(
         "caller_module == $module_pattern"
     };
 
+    // Match against caller_name (from function_locations) since caller_function has arity suffix
     let function_cond = if use_regex {
-        "regex_matches(caller_function, $function_pattern)"
+        "regex_matches(caller_name, $function_pattern)"
     } else {
-        "caller_function == $function_pattern"
+        "caller_name == $function_pattern"
     };
 
     let arity_cond = if arity.is_some() {
-        ", callee_arity == $arity"
+        "callee_arity == $arity"
     } else {
-        ""
+        "true"  // No-op condition when arity not specified
     };
 
-    let project_cond = ", project == $project";
-
-    // Recursive query to trace call chains
+    // Recursive query to trace call chains, joined with function_locations for caller metadata
     // Base case: direct calls from the starting function
     // Recursive case: calls from functions we've already found
     let script = format!(
         r#"
-        # Base case: calls from the starting function
-        trace[depth, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line] :=
-            *calls{{project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line}},
+        # Base case: calls from the starting function, joined with function_locations
+        trace[depth, caller_module, caller_name, caller_arity, caller_kind, caller_start_line, caller_end_line, callee_module, callee_function, callee_arity, file, call_line] :=
+            *calls{{project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line: call_line}},
+            *function_locations{{project, module: caller_module, name: caller_name, arity: caller_arity, kind: caller_kind, start_line: caller_start_line, end_line: caller_end_line}},
+            starts_with(caller_function, caller_name),
+            call_line >= caller_start_line,
+            call_line <= caller_end_line,
             {module_cond},
-            {function_cond}
-            {arity_cond}
-            {project_cond},
+            {function_cond},
+            project == $project,
+            {arity_cond},
             depth = 1
 
         # Recursive case: calls from callees we've found
-        # Note: caller_function has arity suffix (e.g., "foo/2") but callee_function doesn't (e.g., "foo")
-        # So we use starts_with to match caller_function starting with prev_callee_function
-        trace[depth, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line] :=
-            trace[prev_depth, _, _, prev_callee_module, prev_callee_function, _, _, _],
-            *calls{{project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line}},
+        trace[depth, caller_module, caller_name, caller_arity, caller_kind, caller_start_line, caller_end_line, callee_module, callee_function, callee_arity, file, call_line] :=
+            trace[prev_depth, _, _, _, _, _, _, prev_callee_module, prev_callee_function, _, _, _],
+            *calls{{project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line: call_line}},
+            *function_locations{{project, module: caller_module, name: caller_name, arity: caller_arity, kind: caller_kind, start_line: caller_start_line, end_line: caller_end_line}},
             caller_module == prev_callee_module,
+            starts_with(caller_function, caller_name),
             starts_with(caller_function, prev_callee_function),
+            call_line >= caller_start_line,
+            call_line <= caller_end_line,
             prev_depth < {max_depth},
-            depth = prev_depth + 1
-            {project_cond}
+            depth = prev_depth + 1,
+            project == $project
 
-        ?[depth, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line] :=
-            trace[depth, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line]
+        ?[depth, caller_module, caller_name, caller_arity, caller_kind, caller_start_line, caller_end_line, callee_module, callee_function, callee_arity, file, call_line] :=
+            trace[depth, caller_module, caller_name, caller_arity, caller_kind, caller_start_line, caller_end_line, callee_module, callee_function, callee_arity, file, call_line]
 
-        :order depth, caller_module, caller_function, callee_module, callee_function
+        :order depth, caller_module, caller_name, caller_arity, call_line, callee_module, callee_function, callee_arity
         :limit {limit}
         "#,
     );
@@ -104,20 +113,28 @@ pub fn trace_calls(
 
     let mut results = Vec::new();
     for row in rows.rows {
-        if row.len() >= 8 {
+        if row.len() >= 12 {
             let depth = extract_i64(&row[0], 0);
             let Some(caller_module) = extract_string(&row[1]) else { continue };
             let Some(caller_function) = extract_string(&row[2]) else { continue };
-            let Some(callee_module) = extract_string(&row[3]) else { continue };
-            let Some(callee_function) = extract_string(&row[4]) else { continue };
-            let callee_arity = extract_i64(&row[5], 0);
-            let Some(file) = extract_string(&row[6]) else { continue };
-            let line = extract_i64(&row[7], 0);
+            let caller_arity = extract_i64(&row[3], 0);
+            let caller_kind = extract_string_or(&row[4], "");
+            let caller_start_line = extract_i64(&row[5], 0);
+            let caller_end_line = extract_i64(&row[6], 0);
+            let Some(callee_module) = extract_string(&row[7]) else { continue };
+            let Some(callee_function) = extract_string(&row[8]) else { continue };
+            let callee_arity = extract_i64(&row[9], 0);
+            let Some(file) = extract_string(&row[10]) else { continue };
+            let line = extract_i64(&row[11], 0);
 
             results.push(TraceStep {
                 depth,
                 caller_module,
                 caller_function,
+                caller_arity,
+                caller_kind,
+                caller_start_line,
+                caller_end_line,
                 callee_module,
                 callee_function,
                 callee_arity,

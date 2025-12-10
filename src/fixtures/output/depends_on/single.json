@@ -1,9 +1,27 @@
 {
   "source_module": "MyApp.Controller",
-  "dependencies": [
+  "total_calls": 1,
+  "modules": [
     {
-      "module": "MyApp.Service",
-      "call_count": 5
+      "name": "MyApp.Service",
+      "functions": [
+        {
+          "name": "process",
+          "arity": 1,
+          "callers": [
+            {
+              "module": "MyApp.Controller",
+              "function": "index",
+              "arity": 1,
+              "kind": "def",
+              "start_line": 5,
+              "end_line": 12,
+              "file": "lib/controller.ex",
+              "line": 7
+            }
+          ]
+        }
+      ]
     }
   ]
 }

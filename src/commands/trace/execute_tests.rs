@@ -29,14 +29,15 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.steps.len(), 1);
-            assert_eq!(result.steps[0].callee_module, "MyApp.Accounts");
-            assert_eq!(result.steps[0].callee_function, "list_users");
+            assert_eq!(result.total_calls, 1);
+            assert_eq!(result.roots.len(), 1);
+            assert_eq!(result.roots[0].calls[0].module, "MyApp.Accounts");
+            assert_eq!(result.roots[0].calls[0].function, "list_users");
         },
     }
 
     // Controller.index -> list_users -> all (2 steps with depth 2)
-    crate::execute_count_test! {
+    crate::execute_test! {
         test_name: test_trace_multiple_depths,
         fixture: populated_db,
         cmd: TraceCmd {
@@ -48,8 +49,9 @@ mod tests {
             depth: 3,
             limit: 100,
         },
-        field: steps,
-        expected: 2,
+        assertions: |result| {
+            assert_eq!(result.total_calls, 2);
+        },
     }
 
     crate::execute_test! {
@@ -65,8 +67,8 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.steps.len(), 2);
-            assert!(result.steps.iter().all(|s| s.depth <= 2));
+            assert_eq!(result.total_calls, 2);
+            assert!(result.max_depth <= 2);
         },
     }
 
@@ -86,7 +88,7 @@ mod tests {
             depth: 5,
             limit: 100,
         },
-        empty_field: steps,
+        empty_field: roots,
     }
 
     // =========================================================================

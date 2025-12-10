@@ -1,9 +1,26 @@
 {
   "target_module": "MyApp.Repo",
-  "dependents": [
+  "total_calls": 1,
+  "modules": [
     {
-      "module": "MyApp.Service",
-      "call_count": 3
+      "name": "MyApp.Service",
+      "callers": [
+        {
+          "function": "fetch",
+          "arity": 1,
+          "kind": "def",
+          "start_line": 10,
+          "end_line": 20,
+          "file": "lib/service.ex",
+          "targets": [
+            {
+              "function": "get",
+              "arity": 2,
+              "line": 15
+            }
+          ]
+        }
+      ]
     }
   ]
 }

@@ -1,5 +1,14 @@
 max_depth: 5
+roots[1]:
+  - arity: 1
+    calls[1]{arity,function,line,module}:
+      1,fetch,7,MyApp.Service
+    end_line: 12
+    file: lib/controller.ex
+    function: index
+    kind: def
+    module: MyApp.Controller
+    start_line: 5
 start_function: index
 start_module: MyApp.Controller
-steps[1]{callee_arity,callee_function,callee_module,caller_function,caller_module,depth,file,line}:
-  1,fetch,MyApp.Service,index,MyApp.Controller,1,lib/controller.ex,7
+total_calls: 1

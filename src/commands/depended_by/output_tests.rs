@@ -2,8 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::DependedByResult;
-    use crate::queries::depended_by::ModuleDependent;
+    use super::super::execute::{DependedByResult, DependentCaller, DependentModule, DependentTarget};
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -18,15 +17,23 @@ No dependents found.";
     const SINGLE_TABLE: &str = "\
 Modules that depend on: MyApp.Repo
 
-Found 1 module(s):
-  MyApp.Service (3 calls)";
+Found 1 call(s) from 1 module(s):
+
+MyApp.Service:
+  fetch/1 (lib/service.ex:10:20) [def]:
+    → get/2 (L15)";
 
     const MULTIPLE_TABLE: &str = "\
 Modules that depend on: MyApp.Repo
 
-Found 2 module(s):
-  MyApp.Service (5 calls)
-  MyApp.Controller (2 calls)";
+Found 2 call(s) from 2 module(s):
+
+MyApp.Controller:
+  show/1 (lib/controller.ex:15:25) [def]:
+    → get/2 (L20)
+MyApp.Service:
+  fetch/1 (lib/service.ex:10:20) [def]:
+    → get/2 (L15)";
 
 
     // =========================================================================
@@ -37,7 +44,8 @@ Found 2 module(s):
     fn empty_result() -> DependedByResult {
         DependedByResult {
             target_module: "MyApp.Repo".to_string(),
-            dependents: vec![],
+            total_calls: 0,
+            modules: vec![],
         }
     }
 
@@ -45,9 +53,22 @@ Found 2 module(s):
     fn single_result() -> DependedByResult {
         DependedByResult {
             target_module: "MyApp.Repo".to_string(),
-            dependents: vec![ModuleDependent {
-                module: "MyApp.Service".to_string(),
-                call_count: 3,
+            total_calls: 1,
+            modules: vec![DependentModule {
+                name: "MyApp.Service".to_string(),
+                callers: vec![DependentCaller {
+                    function: "fetch".to_string(),
+                    arity: 1,
+                    kind: "def".to_string(),
+                    start_line: 10,
+                    end_line: 20,
+                    file: "lib/service.ex".to_string(),
+                    targets: vec![DependentTarget {
+                        function: "get".to_string(),
+                        arity: 2,
+                        line: 15,
+                    }],
+                }],
             }],
         }
     }
@@ -56,14 +77,39 @@ Found 2 module(s):
     fn multiple_result() -> DependedByResult {
         DependedByResult {
             target_module: "MyApp.Repo".to_string(),
-            dependents: vec![
-                ModuleDependent {
-                    module: "MyApp.Service".to_string(),
-                    call_count: 5,
+            total_calls: 2,
+            modules: vec![
+                DependentModule {
+                    name: "MyApp.Controller".to_string(),
+                    callers: vec![DependentCaller {
+                        function: "show".to_string(),
+                        arity: 1,
+                        kind: "def".to_string(),
+                        start_line: 15,
+                        end_line: 25,
+                        file: "lib/controller.ex".to_string(),
+                        targets: vec![DependentTarget {
+                            function: "get".to_string(),
+                            arity: 2,
+                            line: 20,
+                        }],
+                    }],
                 },
-                ModuleDependent {
-                    module: "MyApp.Controller".to_string(),
-                    call_count: 2,
+                DependentModule {
+                    name: "MyApp.Service".to_string(),
+                    callers: vec![DependentCaller {
+                        function: "fetch".to_string(),
+                        arity: 1,
+                        kind: "def".to_string(),
+                        start_line: 10,
+                        end_line: 20,
+                        file: "lib/service.ex".to_string(),
+                        targets: vec![DependentTarget {
+                            function: "get".to_string(),
+                            arity: 2,
+                            line: 15,
+                        }],
+                    }],
                 },
             ],
         }
