@@ -27,11 +27,11 @@ mod tests {
             limit: 20,
         },
         assertions: |result| {
-            assert_eq!(result.kind, "incoming");
-            assert!(!result.modules.is_empty());
+            assert_eq!(result.kind_filter, Some("incoming".to_string()));
+            assert!(!result.items.is_empty());
             // MyApp.Repo module should contain "get" function with 3 incoming
-            let repo = result.modules.iter().find(|m| m.name == "MyApp.Repo").unwrap();
-            let get = repo.functions.iter().find(|f| f.function == "get").unwrap();
+            let repo = result.items.iter().find(|m| m.name == "MyApp.Repo").unwrap();
+            let get = repo.entries.iter().find(|f| f.function == "get").unwrap();
             assert_eq!(get.incoming, 3);
         },
     }
@@ -48,10 +48,10 @@ mod tests {
             limit: 20,
         },
         assertions: |result| {
-            assert_eq!(result.kind, "outgoing");
-            assert!(!result.modules.is_empty());
+            assert_eq!(result.kind_filter, Some("outgoing".to_string()));
+            assert!(!result.items.is_empty());
             // Check that we have modules with functions that have outgoing = 2
-            assert!(result.total_hotspots > 0);
+            assert!(result.total_items > 0);
         },
     }
 
@@ -68,11 +68,11 @@ mod tests {
             limit: 20,
         },
         assertions: |result| {
-            assert_eq!(result.kind, "total");
-            assert!(!result.modules.is_empty());
+            assert_eq!(result.kind_filter, Some("total".to_string()));
+            assert!(!result.items.is_empty());
             // Find get_user with total = 3
-            let accounts = result.modules.iter().find(|m| m.name == "MyApp.Accounts").unwrap();
-            let get_user = accounts.functions.iter().find(|f| f.function == "get_user").unwrap();
+            let accounts = result.items.iter().find(|m| m.name == "MyApp.Accounts").unwrap();
+            let get_user = accounts.entries.iter().find(|f| f.function == "get_user").unwrap();
             assert_eq!(get_user.total, 3);
         },
     }
@@ -92,7 +92,7 @@ mod tests {
             limit: 20,
         },
         assertions: |result| {
-            assert!(result.modules.iter().all(|m| m.name.contains("Accounts")));
+            assert!(result.items.iter().all(|m| m.name.contains("Accounts")));
         },
     }
 
@@ -107,7 +107,7 @@ mod tests {
             limit: 2,
         },
         assertions: |result| {
-            assert!(result.total_hotspots <= 2);
+            assert!(result.total_items <= 2);
         },
     }
 

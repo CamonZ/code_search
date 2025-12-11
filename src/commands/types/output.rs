@@ -1,9 +1,10 @@
 //! Output formatting for types command results.
 
-use super::execute::TypesResult;
+use super::execute::TypeEntry;
 use crate::output::Outputable;
+use crate::types::ModuleCollectionResult;
 
-impl Outputable for TypesResult {
+impl Outputable for ModuleCollectionResult<TypeEntry> {
     fn to_table(&self) -> String {
         let mut lines = Vec::new();
 
@@ -18,20 +19,20 @@ impl Outputable for TypesResult {
         lines.push(header);
         lines.push(String::new());
 
-        if self.modules.is_empty() {
+        if self.items.is_empty() {
             lines.push("No types found.".to_string());
         } else {
             lines.push(format!(
                 "Found {} type(s) in {} module(s):",
-                self.total_types,
-                self.modules.len()
+                self.total_items,
+                self.items.len()
             ));
 
-            for module in &self.modules {
+            for module in &self.items {
                 lines.push(String::new());
                 lines.push(format!("{}:", module.name));
 
-                for type_entry in &module.types {
+                for type_entry in &module.entries {
                     // Show type signature with params
                     let params_str = if type_entry.params.is_empty() {
                         String::new()

@@ -1,10 +1,10 @@
 {
-  "source_module": "MyApp.Controller",
-  "total_calls": 1,
-  "modules": [
+  "module_pattern": "MyApp.Controller",
+  "total_items": 1,
+  "items": [
     {
       "name": "MyApp.Service",
-      "functions": [
+      "entries": [
         {
           "name": "process",
           "arity": 1,

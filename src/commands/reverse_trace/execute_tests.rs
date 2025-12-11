@@ -29,11 +29,9 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_callers, 3);
-            // All roots should be calling "get"
-            assert!(result.roots.iter().all(|r| {
-                r.targets.iter().all(|t| t.function == "get")
-            }));
+            assert_eq!(result.total_items, 3);
+            // All entries at depth 1 are direct callers of the target
+            assert!(result.entries.iter().all(|e| e.depth == 1));
         },
     }
 
@@ -51,7 +49,7 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_callers, 5);
+            assert_eq!(result.total_items, 5);
         },
     }
 
@@ -69,7 +67,7 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_callers, 3);
+            assert_eq!(result.total_items, 3);
         },
     }
 
@@ -89,7 +87,7 @@ mod tests {
             depth: 5,
             limit: 100,
         },
-        empty_field: roots,
+        empty_field: entries,
     }
 
     // =========================================================================

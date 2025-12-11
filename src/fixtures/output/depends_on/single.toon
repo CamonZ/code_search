@@ -1,5 +1,5 @@
-modules[1]:
-  - functions[1]:
+items[1]:
+  - entries[1]:
     - arity: 1
       callers[1]:
         - callee:
@@ -17,5 +17,5 @@ modules[1]:
           line: 7
       name: process
     name: MyApp.Service
-source_module: MyApp.Controller
-total_calls: 1
+module_pattern: MyApp.Controller
+total_items: 1

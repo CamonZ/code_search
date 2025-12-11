@@ -1,32 +1,33 @@
 //! Output formatting for calls-to command results.
 
 use crate::output::Outputable;
-use super::execute::CallsToResult;
+use crate::types::ModuleGroupResult;
+use super::execute::CalleeFunction;
 
-impl Outputable for CallsToResult {
+impl Outputable for ModuleGroupResult<CalleeFunction> {
     fn to_table(&self) -> String {
         let mut lines = Vec::new();
 
-        let header = if self.function_pattern.is_empty() {
+        let header = if self.function_pattern.is_none() || self.function_pattern.as_ref().unwrap().is_empty() {
             format!("Calls to: {}", self.module_pattern)
         } else {
-            format!("Calls to: {}.{}", self.module_pattern, self.function_pattern)
+            format!("Calls to: {}.{}", self.module_pattern, self.function_pattern.as_ref().unwrap())
         };
         lines.push(header);
         lines.push(String::new());
 
-        if self.modules.is_empty() {
+        if self.items.is_empty() {
             lines.push("No callers found.".to_string());
             return lines.join("\n");
         }
 
-        lines.push(format!("Found {} caller(s):", self.total_calls));
+        lines.push(format!("Found {} caller(s):", self.total_items));
         lines.push(String::new());
 
-        for module in &self.modules {
+        for module in &self.items {
             lines.push(module.name.clone());
 
-            for func in &module.functions {
+            for func in &module.entries {
                 lines.push(format!("  {}/{}", func.name, func.arity));
 
                 for call in &func.callers {

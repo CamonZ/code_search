@@ -27,10 +27,10 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_types, 2);
-            assert_eq!(result.modules.len(), 1);
-            assert_eq!(result.modules[0].name, "MyApp.Accounts");
-            assert_eq!(result.modules[0].types.len(), 2);
+            assert_eq!(result.total_items, 2);
+            assert_eq!(result.items.len(), 1);
+            assert_eq!(result.items[0].name, "MyApp.Accounts");
+            assert_eq!(result.items[0].entries.len(), 2);
         },
     }
 
@@ -46,8 +46,8 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_types, 1);
-            assert_eq!(result.modules[0].types[0].name, "user_id");
+            assert_eq!(result.total_items, 1);
+            assert_eq!(result.items[0].entries[0].name, "user_id");
         },
     }
 
@@ -63,8 +63,8 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_types, 1);
-            assert_eq!(result.modules[0].types[0].kind, "opaque");
+            assert_eq!(result.total_items, 1);
+            assert_eq!(result.items[0].entries[0].kind, "opaque");
         },
     }
 
@@ -80,7 +80,7 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert!(!result.modules[0].types[0].definition.is_empty());
+            assert!(!result.items[0].entries[0].definition.is_empty());
         },
     }
 
@@ -99,7 +99,7 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        empty_field: modules,
+        empty_field: items,
     }
 
     // =========================================================================

@@ -6,6 +6,7 @@ use serde::Serialize;
 use super::SpecsCmd;
 use crate::commands::Execute;
 use crate::queries::specs::{find_specs, SpecDef};
+use crate::types::{ModuleCollectionResult, ModuleGroup};
 
 /// A single spec definition
 #[derive(Debug, Clone, Serialize)]
@@ -22,26 +23,7 @@ pub struct SpecEntry {
     pub full: String,
 }
 
-/// A module containing specs
-#[derive(Debug, Clone, Serialize)]
-pub struct SpecModule {
-    pub name: String,
-    pub specs: Vec<SpecEntry>,
-}
-
-/// Result of the specs command execution
-#[derive(Debug, Default, Serialize)]
-pub struct SpecsResult {
-    pub module_pattern: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub function_pattern: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub kind_filter: Option<String>,
-    pub total_specs: usize,
-    pub modules: Vec<SpecModule>,
-}
-
-impl SpecsResult {
+impl ModuleCollectionResult<SpecEntry> {
     /// Build grouped result from flat SpecDef list
     fn from_specs(
         module_pattern: String,
@@ -49,7 +31,7 @@ impl SpecsResult {
         kind_filter: Option<String>,
         specs: Vec<SpecDef>,
     ) -> Self {
-        let total_specs = specs.len();
+        let total_items = specs.len();
 
         // Group by module (BTreeMap for consistent ordering)
         let mut module_map: BTreeMap<String, Vec<SpecEntry>> = BTreeMap::new();
@@ -68,23 +50,28 @@ impl SpecsResult {
             module_map.entry(spec.module).or_default().push(entry);
         }
 
-        let modules: Vec<SpecModule> = module_map
+        let items: Vec<ModuleGroup<SpecEntry>> = module_map
             .into_iter()
-            .map(|(name, specs)| SpecModule { name, specs })
+            .map(|(name, entries)| ModuleGroup {
+                name,
+                file: String::new(),
+                entries,
+            })
             .collect();
 
-        SpecsResult {
+        ModuleCollectionResult {
             module_pattern,
             function_pattern,
             kind_filter,
-            total_specs,
-            modules,
+            name_filter: None,
+            total_items,
+            items,
         }
     }
 }
 
 impl Execute for SpecsCmd {
-    type Output = SpecsResult;
+    type Output = ModuleCollectionResult<SpecEntry>;
 
     fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
         let specs = find_specs(
@@ -97,7 +84,7 @@ impl Execute for SpecsCmd {
             self.limit,
         )?;
 
-        Ok(SpecsResult::from_specs(
+        Ok(<ModuleCollectionResult<SpecEntry>>::from_specs(
             self.module,
             self.function,
             self.kind,

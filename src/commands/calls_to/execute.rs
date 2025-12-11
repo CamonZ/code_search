@@ -6,7 +6,7 @@ use serde::Serialize;
 use super::CallsToCmd;
 use crate::commands::Execute;
 use crate::queries::calls_to::find_calls_to;
-use crate::types::Call;
+use crate::types::{Call, ModuleGroupResult, ModuleGroup};
 
 /// A callee function (target) with all its callers
 #[derive(Debug, Clone, Serialize)]
@@ -16,26 +16,10 @@ pub struct CalleeFunction {
     pub callers: Vec<Call>,
 }
 
-/// A module containing callee functions
-#[derive(Debug, Clone, Serialize)]
-pub struct CalleeModule {
-    pub name: String,
-    pub functions: Vec<CalleeFunction>,
-}
-
-/// Result of the calls-to command execution
-#[derive(Debug, Default, Serialize)]
-pub struct CallsToResult {
-    pub module_pattern: String,
-    pub function_pattern: String,
-    pub total_calls: usize,
-    pub modules: Vec<CalleeModule>,
-}
-
-impl CallsToResult {
+impl ModuleGroupResult<CalleeFunction> {
     /// Build grouped result from flat calls
     pub fn from_calls(module_pattern: String, function_pattern: String, calls: Vec<Call>) -> Self {
-        let total_calls = calls.len();
+        let total_items = calls.len();
 
         // Group by callee module -> callee function -> callers
         let mut by_module: BTreeMap<String, BTreeMap<CalleeFunctionKey, Vec<Call>>> =
@@ -56,10 +40,10 @@ impl CallsToResult {
         }
 
         // Convert to Vec structure
-        let modules: Vec<CalleeModule> = by_module
+        let items: Vec<ModuleGroup<CalleeFunction>> = by_module
             .into_iter()
             .map(|(module_name, functions_map)| {
-                let functions: Vec<CalleeFunction> = functions_map
+                let entries: Vec<CalleeFunction> = functions_map
                     .into_iter()
                     .map(|(key, mut callers)| {
                         // Deduplicate callers, keeping first occurrence by line
@@ -89,18 +73,19 @@ impl CallsToResult {
                     })
                     .collect();
 
-                CalleeModule {
+                ModuleGroup {
                     name: module_name,
-                    functions,
+                    file: String::new(),
+                    entries,
                 }
             })
             .collect();
 
-        CallsToResult {
+        ModuleGroupResult {
             module_pattern,
-            function_pattern,
-            total_calls,
-            modules,
+            function_pattern: Some(function_pattern),
+            total_items,
+            items,
         }
     }
 }
@@ -113,7 +98,7 @@ struct CalleeFunctionKey {
 }
 
 impl Execute for CallsToCmd {
-    type Output = CallsToResult;
+    type Output = ModuleGroupResult<CalleeFunction>;
 
     fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
         let calls = find_calls_to(
@@ -126,7 +111,7 @@ impl Execute for CallsToCmd {
             self.limit,
         )?;
 
-        Ok(CallsToResult::from_calls(
+        Ok(<ModuleGroupResult<CalleeFunction>>::from_calls(
             self.module,
             self.function.unwrap_or_default(),
             calls,

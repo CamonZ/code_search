@@ -2,7 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::{SpecEntry, SpecModule, SpecsResult};
+    use super::super::execute::SpecEntry;
+    use crate::types::{ModuleCollectionResult, ModuleGroup};
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -39,26 +40,29 @@ MyApp.Accounts:
     // =========================================================================
 
     #[fixture]
-    fn empty_result() -> SpecsResult {
-        SpecsResult {
+    fn empty_result() -> ModuleCollectionResult<SpecEntry> {
+        ModuleCollectionResult {
             module_pattern: "NonExistent".to_string(),
             function_pattern: None,
             kind_filter: None,
-            total_specs: 0,
-            modules: vec![],
+            name_filter: None,
+            total_items: 0,
+            items: vec![],
         }
     }
 
     #[fixture]
-    fn single_result() -> SpecsResult {
-        SpecsResult {
+    fn single_result() -> ModuleCollectionResult<SpecEntry> {
+        ModuleCollectionResult {
             module_pattern: "MyApp.Accounts".to_string(),
             function_pattern: Some("get_user".to_string()),
             kind_filter: None,
-            total_specs: 1,
-            modules: vec![SpecModule {
+            name_filter: None,
+            total_items: 1,
+            items: vec![ModuleGroup {
                 name: "MyApp.Accounts".to_string(),
-                specs: vec![SpecEntry {
+                file: String::new(),
+                entries: vec![SpecEntry {
                     name: "get_user".to_string(),
                     arity: 1,
                     kind: "spec".to_string(),
@@ -72,15 +76,17 @@ MyApp.Accounts:
     }
 
     #[fixture]
-    fn multiple_result() -> SpecsResult {
-        SpecsResult {
+    fn multiple_result() -> ModuleCollectionResult<SpecEntry> {
+        ModuleCollectionResult {
             module_pattern: "MyApp.Accounts".to_string(),
             function_pattern: None,
             kind_filter: None,
-            total_specs: 2,
-            modules: vec![SpecModule {
+            name_filter: None,
+            total_items: 2,
+            items: vec![ModuleGroup {
                 name: "MyApp.Accounts".to_string(),
-                specs: vec![
+                file: String::new(),
+                entries: vec![
                     SpecEntry {
                         name: "get_user".to_string(),
                         arity: 1,
@@ -111,28 +117,28 @@ MyApp.Accounts:
     crate::output_table_test! {
         test_name: test_to_table_empty,
         fixture: empty_result,
-        fixture_type: SpecsResult,
+        fixture_type: ModuleCollectionResult<SpecEntry>,
         expected: EMPTY_TABLE,
     }
 
     crate::output_table_test! {
         test_name: test_to_table_single,
         fixture: single_result,
-        fixture_type: SpecsResult,
+        fixture_type: ModuleCollectionResult<SpecEntry>,
         expected: SINGLE_TABLE,
     }
 
     crate::output_table_test! {
         test_name: test_to_table_multiple,
         fixture: multiple_result,
-        fixture_type: SpecsResult,
+        fixture_type: ModuleCollectionResult<SpecEntry>,
         expected: MULTIPLE_TABLE,
     }
 
     crate::output_table_test! {
         test_name: test_format_json,
         fixture: single_result,
-        fixture_type: SpecsResult,
+        fixture_type: ModuleCollectionResult<SpecEntry>,
         expected: crate::test_utils::load_output_fixture("specs", "single.json"),
         format: Json,
     }
@@ -140,7 +146,7 @@ MyApp.Accounts:
     crate::output_table_test! {
         test_name: test_format_toon,
         fixture: single_result,
-        fixture_type: SpecsResult,
+        fixture_type: ModuleCollectionResult<SpecEntry>,
         expected: crate::test_utils::load_output_fixture("specs", "single.toon"),
         format: Toon,
     }
@@ -148,7 +154,7 @@ MyApp.Accounts:
     crate::output_table_test! {
         test_name: test_format_toon_empty,
         fixture: empty_result,
-        fixture_type: SpecsResult,
+        fixture_type: ModuleCollectionResult<SpecEntry>,
         expected: crate::test_utils::load_output_fixture("specs", "empty.toon"),
         format: Toon,
     }

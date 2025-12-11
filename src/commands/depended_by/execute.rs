@@ -6,7 +6,7 @@ use serde::Serialize;
 use super::DependedByCmd;
 use crate::commands::Execute;
 use crate::queries::depended_by::find_dependents;
-use crate::types::Call;
+use crate::types::{Call, ModuleGroupResult, ModuleGroup};
 
 /// A target function being called in the dependency module
 #[derive(Debug, Clone, Serialize)]
@@ -28,31 +28,17 @@ pub struct DependentCaller {
     pub targets: Vec<DependentTarget>,
 }
 
-/// A dependent module with caller functions
-#[derive(Debug, Clone, Serialize)]
-pub struct DependentModule {
-    pub name: String,
-    pub callers: Vec<DependentCaller>,
-}
-
-/// Result of the depended-by command execution
-#[derive(Debug, Default, Serialize)]
-pub struct DependedByResult {
-    pub target_module: String,
-    pub total_calls: usize,
-    pub modules: Vec<DependentModule>,
-}
-
-impl DependedByResult {
+impl ModuleGroupResult<DependentCaller> {
     /// Build a grouped structure from flat calls
     pub fn from_calls(target_module: String, calls: Vec<Call>) -> Self {
-        let total_calls = calls.len();
+        let total_items = calls.len();
 
         if calls.is_empty() {
-            return DependedByResult {
-                target_module,
-                total_calls: 0,
-                modules: vec![],
+            return ModuleGroupResult {
+                module_pattern: target_module,
+                function_pattern: None,
+                total_items: 0,
+                items: vec![],
             };
         }
 
@@ -67,9 +53,9 @@ impl DependedByResult {
                 .push(call);
         }
 
-        let mut modules: Vec<DependentModule> = vec![];
+        let mut items: Vec<ModuleGroup<DependentCaller>> = vec![];
         for (module_name, callers_map) in by_module {
-            let mut callers: Vec<DependentCaller> = vec![];
+            let mut entries: Vec<DependentCaller> = vec![];
             for ((func_name, arity), func_calls) in callers_map {
                 let first = func_calls[0];
                 let targets: Vec<DependentTarget> = func_calls
@@ -81,7 +67,7 @@ impl DependedByResult {
                     })
                     .collect();
 
-                callers.push(DependentCaller {
+                entries.push(DependentCaller {
                     function: func_name,
                     arity,
                     kind: first.caller.kind.clone().unwrap_or_default(),
@@ -93,27 +79,29 @@ impl DependedByResult {
             }
 
             // Sort callers by function, arity
-            callers.sort_by(|a, b| (&a.function, a.arity).cmp(&(&b.function, b.arity)));
+            entries.sort_by(|a, b| (&a.function, a.arity).cmp(&(&b.function, b.arity)));
 
-            modules.push(DependentModule {
+            items.push(ModuleGroup {
                 name: module_name,
-                callers,
+                file: String::new(),
+                entries,
             });
         }
 
         // Sort modules by name
-        modules.sort_by(|a, b| a.name.cmp(&b.name));
+        items.sort_by(|a, b| a.name.cmp(&b.name));
 
-        DependedByResult {
-            target_module,
-            total_calls,
-            modules,
+        ModuleGroupResult {
+            module_pattern: target_module,
+            function_pattern: None,
+            total_items,
+            items,
         }
     }
 }
 
 impl Execute for DependedByCmd {
-    type Output = DependedByResult;
+    type Output = ModuleGroupResult<DependentCaller>;
 
     fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
         let calls = find_dependents(
@@ -124,6 +112,6 @@ impl Execute for DependedByCmd {
             self.limit,
         )?;
 
-        Ok(DependedByResult::from_calls(self.module, calls))
+        Ok(<ModuleGroupResult<DependentCaller>>::from_calls(self.module, calls))
     }
 }

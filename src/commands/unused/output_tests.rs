@@ -2,7 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::{UnusedFunc, UnusedModule, UnusedResult};
+    use super::super::execute::UnusedFunc;
+    use crate::types::{ModuleCollectionResult, ModuleGroup};
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -10,12 +11,12 @@ mod tests {
     // =========================================================================
 
     const EMPTY_TABLE: &str = "\
-Unused functions in project 'test_project'
+Unused functions
 
 No unused functions found.";
 
     const SINGLE_TABLE: &str = "\
-Unused functions in project 'test_project'
+Unused functions
 
 Found 1 unused function(s) in 1 module(s):
 
@@ -23,7 +24,7 @@ MyApp.Accounts (lib/accounts.ex):
   unused_helper/0 [defp] L35";
 
     const FILTERED_TABLE: &str = "\
-Unused functions in project 'test_project' (module: Accounts)
+Unused functions (module: Accounts)
 
 Found 1 unused function(s) in 1 module(s):
 
@@ -36,31 +37,29 @@ MyApp.Accounts (lib/accounts.ex):
     // =========================================================================
 
     #[fixture]
-    fn empty_result() -> UnusedResult {
-        UnusedResult {
-            project: "test_project".to_string(),
-            module_filter: None,
-            private_only: false,
-            public_only: false,
-            exclude_generated: false,
-            total_unused: 0,
-            modules: vec![],
+    fn empty_result() -> ModuleCollectionResult<UnusedFunc> {
+        ModuleCollectionResult {
+            module_pattern: "*".to_string(),
+            function_pattern: None,
+            kind_filter: None,
+            name_filter: None,
+            total_items: 0,
+            items: vec![],
         }
     }
 
     #[fixture]
-    fn single_result() -> UnusedResult {
-        UnusedResult {
-            project: "test_project".to_string(),
-            module_filter: None,
-            private_only: false,
-            public_only: false,
-            exclude_generated: false,
-            total_unused: 1,
-            modules: vec![UnusedModule {
+    fn single_result() -> ModuleCollectionResult<UnusedFunc> {
+        ModuleCollectionResult {
+            module_pattern: "*".to_string(),
+            function_pattern: None,
+            kind_filter: None,
+            name_filter: None,
+            total_items: 1,
+            items: vec![ModuleGroup {
                 name: "MyApp.Accounts".to_string(),
                 file: "lib/accounts.ex".to_string(),
-                functions: vec![UnusedFunc {
+                entries: vec![UnusedFunc {
                     name: "unused_helper".to_string(),
                     arity: 0,
                     kind: "defp".to_string(),
@@ -71,18 +70,17 @@ MyApp.Accounts (lib/accounts.ex):
     }
 
     #[fixture]
-    fn filtered_result() -> UnusedResult {
-        UnusedResult {
-            project: "test_project".to_string(),
-            module_filter: Some("Accounts".to_string()),
-            private_only: false,
-            public_only: false,
-            exclude_generated: false,
-            total_unused: 1,
-            modules: vec![UnusedModule {
+    fn filtered_result() -> ModuleCollectionResult<UnusedFunc> {
+        ModuleCollectionResult {
+            module_pattern: "Accounts".to_string(),
+            function_pattern: None,
+            kind_filter: None,
+            name_filter: None,
+            total_items: 1,
+            items: vec![ModuleGroup {
                 name: "MyApp.Accounts".to_string(),
                 file: "lib/accounts.ex".to_string(),
-                functions: vec![UnusedFunc {
+                entries: vec![UnusedFunc {
                     name: "unused_helper".to_string(),
                     arity: 0,
                     kind: "defp".to_string(),
@@ -99,28 +97,28 @@ MyApp.Accounts (lib/accounts.ex):
     crate::output_table_test! {
         test_name: test_to_table_empty,
         fixture: empty_result,
-        fixture_type: UnusedResult,
+        fixture_type: ModuleCollectionResult<UnusedFunc>,
         expected: EMPTY_TABLE,
     }
 
     crate::output_table_test! {
         test_name: test_to_table_single,
         fixture: single_result,
-        fixture_type: UnusedResult,
+        fixture_type: ModuleCollectionResult<UnusedFunc>,
         expected: SINGLE_TABLE,
     }
 
     crate::output_table_test! {
         test_name: test_to_table_filtered,
         fixture: filtered_result,
-        fixture_type: UnusedResult,
+        fixture_type: ModuleCollectionResult<UnusedFunc>,
         expected: FILTERED_TABLE,
     }
 
     crate::output_table_test! {
         test_name: test_format_json,
         fixture: single_result,
-        fixture_type: UnusedResult,
+        fixture_type: ModuleCollectionResult<UnusedFunc>,
         expected: crate::test_utils::load_output_fixture("unused", "single.json"),
         format: Json,
     }
@@ -128,7 +126,7 @@ MyApp.Accounts (lib/accounts.ex):
     crate::output_table_test! {
         test_name: test_format_toon,
         fixture: single_result,
-        fixture_type: UnusedResult,
+        fixture_type: ModuleCollectionResult<UnusedFunc>,
         expected: crate::test_utils::load_output_fixture("unused", "single.toon"),
         format: Toon,
     }
@@ -136,7 +134,7 @@ MyApp.Accounts (lib/accounts.ex):
     crate::output_table_test! {
         test_name: test_format_toon_empty,
         fixture: empty_result,
-        fixture_type: UnusedResult,
+        fixture_type: ModuleCollectionResult<UnusedFunc>,
         expected: crate::test_utils::load_output_fixture("unused", "empty.toon"),
         format: Toon,
     }

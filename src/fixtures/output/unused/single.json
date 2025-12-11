@@ -1,14 +1,11 @@
 {
-  "project": "test_project",
-  "private_only": false,
-  "public_only": false,
-  "exclude_generated": false,
-  "total_unused": 1,
-  "modules": [
+  "module_pattern": "*",
+  "total_items": 1,
+  "items": [
     {
       "name": "MyApp.Accounts",
       "file": "lib/accounts.ex",
-      "functions": [
+      "entries": [
         {
           "name": "unused_helper",
           "arity": 0,

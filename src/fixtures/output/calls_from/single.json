@@ -1,12 +1,12 @@
 {
   "module_pattern": "MyApp.Accounts",
   "function_pattern": "get_user",
-  "total_calls": 1,
-  "modules": [
+  "total_items": 1,
+  "items": [
     {
       "name": "MyApp.Accounts",
       "file": "lib/my_app/accounts.ex",
-      "functions": [
+      "entries": [
         {
           "name": "get_user",
           "arity": 1,

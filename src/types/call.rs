@@ -2,7 +2,8 @@
 
 use serde::Serialize;
 
-/// A function reference with optional definition location.
+/// A function reference with optional definition location and type information.
+/// Queries populate only the fields they need - optional fields are skipped during serialization.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
 pub struct FunctionRef {
     pub module: String,
@@ -16,6 +17,10 @@ pub struct FunctionRef {
     pub start_line: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end_line: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub args: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub return_type: Option<String>,
 }
 
 impl FunctionRef {
@@ -29,6 +34,8 @@ impl FunctionRef {
             file: None,
             start_line: None,
             end_line: None,
+            args: None,
+            return_type: None,
         }
     }
 
@@ -50,6 +57,33 @@ impl FunctionRef {
             file: Some(file.into()),
             start_line: Some(start_line),
             end_line: Some(end_line),
+            args: None,
+            return_type: None,
+        }
+    }
+
+    /// Create a function reference with type information.
+    pub fn with_types(
+        module: impl Into<String>,
+        name: impl Into<String>,
+        arity: i64,
+        kind: impl Into<String>,
+        file: impl Into<String>,
+        start_line: i64,
+        end_line: i64,
+        args: impl Into<String>,
+        return_type: impl Into<String>,
+    ) -> Self {
+        Self {
+            module: module.into(),
+            name: name.into(),
+            arity,
+            kind: Some(kind.into()),
+            file: Some(file.into()),
+            start_line: Some(start_line),
+            end_line: Some(end_line),
+            args: Some(args.into()),
+            return_type: Some(return_type.into()),
         }
     }
 

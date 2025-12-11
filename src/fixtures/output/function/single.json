@@ -1,11 +1,11 @@
 {
   "module_pattern": "MyApp.Accounts",
   "function_pattern": "get_user",
-  "total_functions": 1,
-  "modules": [
+  "total_items": 1,
+  "items": [
     {
       "name": "MyApp.Accounts",
-      "functions": [
+      "entries": [
         {
           "name": "get_user",
           "arity": 1,

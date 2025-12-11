@@ -28,9 +28,9 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_functions, 2);
-            assert_eq!(result.modules.len(), 1);
-            assert_eq!(result.modules[0].functions.len(), 2);
+            assert_eq!(result.total_items, 2);
+            assert_eq!(result.items.len(), 1);
+            assert_eq!(result.items[0].entries.len(), 2);
         },
     }
 
@@ -46,8 +46,8 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_functions, 1);
-            let func = &result.modules[0].functions[0];
+            assert_eq!(result.total_items, 1);
+            let func = &result.items[0].entries[0];
             assert_eq!(func.arity, 1);
             assert_eq!(func.args, "integer()");
             assert_eq!(func.return_type, "User.t() | nil");
@@ -67,7 +67,7 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_functions, 4);
+            assert_eq!(result.total_items, 4);
         },
     }
 
@@ -86,7 +86,7 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        empty_field: modules,
+        empty_field: items,
     }
 
     // =========================================================================
@@ -105,8 +105,8 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.modules.len(), 1);
-            assert_eq!(result.modules[0].name, "MyApp.Accounts");
+            assert_eq!(result.items.len(), 1);
+            assert_eq!(result.items[0].name, "MyApp.Accounts");
         },
     }
 
@@ -123,7 +123,7 @@ mod tests {
         },
         assertions: |result| {
             // Limit applies to raw results before grouping
-            assert_eq!(result.total_functions, 2);
+            assert_eq!(result.total_items, 2);
         },
     }
 

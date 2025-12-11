@@ -6,7 +6,7 @@ use serde::Serialize;
 use super::CallsFromCmd;
 use crate::commands::Execute;
 use crate::queries::calls_from::find_calls_from;
-use crate::types::Call;
+use crate::types::{Call, ModuleGroupResult, ModuleGroup};
 
 /// A caller function with all its outgoing calls
 #[derive(Debug, Clone, Serialize)]
@@ -19,27 +19,10 @@ pub struct CallerFunction {
     pub calls: Vec<Call>,
 }
 
-/// A module with all its caller functions
-#[derive(Debug, Clone, Serialize)]
-pub struct CallerModule {
-    pub name: String,
-    pub file: String,
-    pub functions: Vec<CallerFunction>,
-}
-
-/// Result of the calls-from command execution
-#[derive(Debug, Default, Serialize)]
-pub struct CallsFromResult {
-    pub module_pattern: String,
-    pub function_pattern: String,
-    pub total_calls: usize,
-    pub modules: Vec<CallerModule>,
-}
-
-impl CallsFromResult {
+impl ModuleGroupResult<CallerFunction> {
     /// Build grouped result from flat calls
     pub fn from_calls(module_pattern: String, function_pattern: String, calls: Vec<Call>) -> Self {
-        let total_calls = calls.len();
+        let total_items = calls.len();
 
         // Group by module -> function -> calls
         // Using BTreeMap for consistent ordering
@@ -64,10 +47,10 @@ impl CallsFromResult {
         }
 
         // Convert to Vec structure
-        let modules: Vec<CallerModule> = by_module
+        let items: Vec<ModuleGroup<CallerFunction>> = by_module
             .into_iter()
             .map(|(module_name, (file, functions_map))| {
-                let functions: Vec<CallerFunction> = functions_map
+                let entries: Vec<CallerFunction> = functions_map
                     .into_iter()
                     .map(|(key, mut calls)| {
                         // Deduplicate calls, keeping first occurrence by line
@@ -93,19 +76,19 @@ impl CallsFromResult {
                     })
                     .collect();
 
-                CallerModule {
+                ModuleGroup {
                     name: module_name,
                     file,
-                    functions,
+                    entries,
                 }
             })
             .collect();
 
-        CallsFromResult {
+        ModuleGroupResult {
             module_pattern,
-            function_pattern,
-            total_calls,
-            modules,
+            function_pattern: Some(function_pattern),
+            total_items,
+            items,
         }
     }
 }
@@ -121,7 +104,7 @@ struct CallerFunctionKey {
 }
 
 impl Execute for CallsFromCmd {
-    type Output = CallsFromResult;
+    type Output = ModuleGroupResult<CallerFunction>;
 
     fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
         let calls = find_calls_from(
@@ -134,7 +117,7 @@ impl Execute for CallsFromCmd {
             self.limit,
         )?;
 
-        Ok(CallsFromResult::from_calls(
+        Ok(<ModuleGroupResult<CallerFunction>>::from_calls(
             self.module,
             self.function.unwrap_or_default(),
             calls,

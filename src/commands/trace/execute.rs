@@ -1,66 +1,42 @@
 use std::collections::HashMap;
 use std::error::Error;
 
-use serde::Serialize;
-
 use super::TraceCmd;
 use crate::commands::Execute;
 use crate::queries::trace::trace_calls;
-use crate::types::Call;
-
-/// A call target in the trace tree
-#[derive(Debug, Clone, Serialize)]
-pub struct TraceCall {
-    pub module: String,
-    pub function: String,
-    pub arity: i64,
-    pub line: i64,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub children: Vec<TraceNode>,
-}
-
-/// A node in the trace tree (a caller function)
-#[derive(Debug, Clone, Serialize)]
-pub struct TraceNode {
-    pub module: String,
-    pub function: String,
-    pub arity: i64,
-    pub kind: String,
-    pub start_line: i64,
-    pub end_line: i64,
-    pub file: String,
-    pub calls: Vec<TraceCall>,
-}
-
-/// Result of the trace command execution
-#[derive(Debug, Default, Serialize)]
-pub struct TraceResult {
-    pub start_module: String,
-    pub start_function: String,
-    pub max_depth: u32,
-    pub total_calls: usize,
-    pub roots: Vec<TraceNode>,
-}
+use crate::types::{Call, TraceDirection, TraceEntry, TraceResult};
 
 impl TraceResult {
-    /// Build a tree structure from flat calls
+    /// Build a flattened trace from Call objects
     pub fn from_calls(
         start_module: String,
         start_function: String,
         max_depth: u32,
         calls: Vec<Call>,
     ) -> Self {
+        let mut entries = Vec::new();
+        let mut entry_index_map: HashMap<(String, String, i64, i64), usize> = HashMap::new();
+
+        // Add the starting function as the root entry at depth 0
+        entries.push(TraceEntry {
+            module: start_module.clone(),
+            function: start_function.clone(),
+            arity: 0, // Will be updated from first call if available
+            kind: String::new(),
+            start_line: 0,
+            end_line: 0,
+            file: String::new(),
+            depth: 0,
+            line: 0,
+            parent_index: None,
+        });
+        entry_index_map.insert((start_module.clone(), start_function.clone(), 0, 0), 0);
+
         if calls.is_empty() {
-            return TraceResult {
-                start_module,
-                start_function,
-                max_depth,
-                total_calls: 0,
-                roots: vec![],
-            };
+            return Self::empty(start_module, start_function, max_depth, TraceDirection::Forward);
         }
 
-        // Group calls by depth, then by caller
+        // Group calls by depth
         let mut by_depth: HashMap<i64, Vec<&Call>> = HashMap::new();
         for call in &calls {
             if let Some(depth) = call.depth {
@@ -68,169 +44,95 @@ impl TraceResult {
             }
         }
 
-        // Build depth 1 nodes (roots)
-        let mut roots: Vec<TraceNode> = vec![];
+        // Process depth 1 (direct callees from start function)
         if let Some(depth1_calls) = by_depth.get(&1) {
-            // Group by caller function
-            let mut caller_map: HashMap<CallerKey, Vec<&Call>> = HashMap::new();
+            let mut processed = std::collections::HashSet::new();
+
             for call in depth1_calls {
-                let key = CallerKey {
-                    module: call.caller.module.clone(),
-                    function: call.caller.name.clone(),
-                    arity: call.caller.arity,
-                };
-                caller_map.entry(key).or_default().push(call);
-            }
-
-            for (key, caller_calls) in caller_map {
-                let first = caller_calls[0];
-                let trace_calls: Vec<TraceCall> = caller_calls
-                    .iter()
-                    .map(|c| {
-                        let children = build_children(
-                            &by_depth,
-                            2,
-                            &c.callee.module,
-                            &c.callee.name,
-                            max_depth,
-                        );
-                        TraceCall {
-                            module: c.callee.module.clone(),
-                            function: c.callee.name.clone(),
-                            arity: c.callee.arity,
-                            line: c.line,
-                            children,
-                        }
-                    })
-                    .collect();
-
-                roots.push(TraceNode {
-                    module: key.module,
-                    function: key.function,
-                    arity: key.arity,
-                    kind: first.caller.kind.clone().unwrap_or_default(),
-                    start_line: first.caller.start_line.unwrap_or(0),
-                    end_line: first.caller.end_line.unwrap_or(0),
-                    file: first.caller.file.clone().unwrap_or_default(),
-                    calls: trace_calls,
-                });
-            }
-        }
-
-        // Sort roots by module, function, arity
-        roots.sort_by(|a, b| {
-            (&a.module, &a.function, a.arity).cmp(&(&b.module, &b.function, b.arity))
-        });
-
-        // Count actual calls in the tree
-        let total_calls = roots.iter().map(count_node_calls).sum();
-
-        TraceResult {
-            start_module,
-            start_function,
-            max_depth,
-            total_calls,
-            roots,
-        }
-    }
-}
-
-/// Count all calls in a node and its descendants
-fn count_node_calls(node: &TraceNode) -> usize {
-    let own_calls = node.calls.len();
-    let child_calls: usize = node
-        .calls
-        .iter()
-        .flat_map(|c| &c.children)
-        .map(count_node_calls)
-        .sum();
-    own_calls + child_calls
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct CallerKey {
-    module: String,
-    function: String,
-    arity: i64,
-}
-
-/// Recursively build children nodes for a callee
-fn build_children(
-    by_depth: &HashMap<i64, Vec<&Call>>,
-    depth: i64,
-    parent_module: &str,
-    parent_function: &str,
-    max_depth: u32,
-) -> Vec<TraceNode> {
-    if depth > max_depth as i64 {
-        return vec![];
-    }
-
-    let Some(calls) = by_depth.get(&depth) else {
-        return vec![];
-    };
-
-    // Find calls where the caller matches the parent callee
-    let matching: Vec<_> = calls
-        .iter()
-        .filter(|c| c.caller.module == parent_module && c.caller.name == parent_function)
-        .collect();
-
-    if matching.is_empty() {
-        return vec![];
-    }
-
-    // Group by caller
-    let mut caller_map: HashMap<CallerKey, Vec<&&Call>> = HashMap::new();
-    for call in &matching {
-        let key = CallerKey {
-            module: call.caller.module.clone(),
-            function: call.caller.name.clone(),
-            arity: call.caller.arity,
-        };
-        caller_map.entry(key).or_default().push(call);
-    }
-
-    let mut nodes: Vec<TraceNode> = vec![];
-    for (key, caller_calls) in caller_map {
-        let first = caller_calls[0];
-        let trace_calls: Vec<TraceCall> = caller_calls
-            .iter()
-            .map(|c| {
-                let children = build_children(
-                    by_depth,
-                    depth + 1,
-                    &c.callee.module,
-                    &c.callee.name,
-                    max_depth,
+                let callee_key = (
+                    call.callee.module.clone(),
+                    call.callee.name.clone(),
+                    call.callee.arity,
+                    1i64,
                 );
-                TraceCall {
-                    module: c.callee.module.clone(),
-                    function: c.callee.name.clone(),
-                    arity: c.callee.arity,
-                    line: c.line,
-                    children,
+
+                // Add callee as child entry if not already added
+                if !processed.contains(&callee_key) {
+                    let entry_idx = entries.len();
+                    entries.push(TraceEntry {
+                        module: call.callee.module.clone(),
+                        function: call.callee.name.clone(),
+                        arity: call.callee.arity,
+                        kind: call.callee.kind.clone().unwrap_or_default(),
+                        start_line: call.callee.start_line.unwrap_or(0),
+                        end_line: call.callee.end_line.unwrap_or(0),
+                        file: call.callee.file.clone().unwrap_or_default(),
+                        depth: 1,
+                        line: call.line,
+                        parent_index: Some(0), // Parent is the starting function at index 0
+                    });
+                    entry_index_map.insert(callee_key.clone(), entry_idx);
+                    processed.insert(callee_key);
                 }
-            })
-            .collect();
+            }
+        }
 
-        nodes.push(TraceNode {
-            module: key.module,
-            function: key.function,
-            arity: key.arity,
-            kind: first.caller.kind.clone().unwrap_or_default(),
-            start_line: first.caller.start_line.unwrap_or(0),
-            end_line: first.caller.end_line.unwrap_or(0),
-            file: first.caller.file.clone().unwrap_or_default(),
-            calls: trace_calls,
-        });
+        // Process deeper levels
+        for depth in 2..=max_depth as i64 {
+            if let Some(depth_calls) = by_depth.get(&depth) {
+                let mut processed = std::collections::HashSet::new();
+
+                for call in depth_calls {
+                    let callee_key = (
+                        call.callee.module.clone(),
+                        call.callee.name.clone(),
+                        call.callee.arity,
+                        depth,
+                    );
+
+                    // Find parent index (the caller at previous depth)
+                    let caller_key = (
+                        call.caller.module.clone(),
+                        call.caller.name.clone(),
+                        call.caller.arity,
+                        depth - 1,
+                    );
+
+                    // Find the parent entry
+                    let parent_index = entry_index_map.get(&caller_key).copied();
+
+                    if !processed.contains(&callee_key) && parent_index.is_some() {
+                        let entry_idx = entries.len();
+                        entries.push(TraceEntry {
+                            module: call.callee.module.clone(),
+                            function: call.callee.name.clone(),
+                            arity: call.callee.arity,
+                            kind: call.callee.kind.clone().unwrap_or_default(),
+                            start_line: call.callee.start_line.unwrap_or(0),
+                            end_line: call.callee.end_line.unwrap_or(0),
+                            file: call.callee.file.clone().unwrap_or_default(),
+                            depth,
+                            line: call.line,
+                            parent_index,
+                        });
+                        entry_index_map.insert(callee_key.clone(), entry_idx);
+                        processed.insert(callee_key);
+                    }
+                }
+            }
+        }
+
+        let total_items = entries.len() - 1; // Exclude the root entry from count
+
+        Self {
+            module: start_module,
+            function: start_function,
+            max_depth,
+            direction: TraceDirection::Forward,
+            total_items,
+            entries,
+        }
     }
-
-    nodes.sort_by(|a, b| {
-        (&a.module, &a.function, a.arity).cmp(&(&b.module, &b.function, b.arity))
-    });
-
-    nodes
 }
 
 impl Execute for TraceCmd {
@@ -254,5 +156,17 @@ impl Execute for TraceCmd {
             self.depth,
             calls,
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_empty_trace() {
+        let result = TraceResult::from_calls("TestModule".to_string(), "test_func".to_string(), 5, vec![]);
+        assert_eq!(result.total_items, 0);
+        assert_eq!(result.entries.len(), 0);
     }
 }

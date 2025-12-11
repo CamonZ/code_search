@@ -1,4 +1,4 @@
-kind: incoming
-modules[0]:
-project: test_project
-total_hotspots: 0
+items[0]:
+kind_filter: total
+module_pattern: *
+total_items: 0

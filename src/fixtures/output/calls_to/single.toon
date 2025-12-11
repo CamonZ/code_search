@@ -1,7 +1,6 @@
 function_pattern: get
-module_pattern: MyApp.Repo
-modules[1]:
-  - functions[1]:
+items[1]:
+  - entries[1]:
     - arity: 2
       callers[1]:
         - call_type: remote
@@ -20,4 +19,5 @@ modules[1]:
           line: 12
       name: get
     name: MyApp.Repo
-total_calls: 1
+module_pattern: MyApp.Repo
+total_items: 1

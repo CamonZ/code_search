@@ -1,4 +1,4 @@
 function_pattern: get
+items[0]:
 module_pattern: MyApp.Repo
-modules[0]:
-total_calls: 0
+total_items: 0

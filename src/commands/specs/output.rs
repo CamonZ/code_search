@@ -1,9 +1,10 @@
 //! Output formatting for specs command results.
 
-use super::execute::SpecsResult;
+use super::execute::SpecEntry;
 use crate::output::Outputable;
+use crate::types::ModuleCollectionResult;
 
-impl Outputable for SpecsResult {
+impl Outputable for ModuleCollectionResult<SpecEntry> {
     fn to_table(&self) -> String {
         let mut lines = Vec::new();
 
@@ -18,17 +19,17 @@ impl Outputable for SpecsResult {
         lines.push(header);
         lines.push(String::new());
 
-        if !self.modules.is_empty() {
+        if !self.items.is_empty() {
             lines.push(format!(
                 "Found {} spec(s) in {} module(s):",
-                self.total_specs,
-                self.modules.len()
+                self.total_items,
+                self.items.len()
             ));
             lines.push(String::new());
 
-            for module in &self.modules {
+            for module in &self.items {
                 lines.push(format!("{}:", module.name));
-                for spec in &module.specs {
+                for spec in &module.entries {
                     lines.push(format!(
                         "  {}/{} [{}] L{}",
                         spec.name, spec.arity, spec.kind, spec.line

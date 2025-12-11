@@ -26,9 +26,9 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.modules.len(), 2);
-            assert!(result.modules.iter().any(|m| m.name == "MyApp.Accounts"));
-            assert!(result.modules.iter().any(|m| m.name == "MyApp.Service"));
+            assert_eq!(result.items.len(), 2);
+            assert!(result.items.iter().any(|m| m.name == "MyApp.Accounts"));
+            assert!(result.items.iter().any(|m| m.name == "MyApp.Service"));
         },
     }
 
@@ -44,9 +44,9 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.modules.len(), 2);
-            assert!(result.modules.iter().any(|m| m.name == "MyApp.Repo"));
-            assert!(result.modules.iter().any(|m| m.name == "MyApp.Notifier"));
+            assert_eq!(result.items.len(), 2);
+            assert!(result.items.iter().any(|m| m.name == "MyApp.Repo"));
+            assert!(result.items.iter().any(|m| m.name == "MyApp.Notifier"));
         },
     }
 
@@ -63,7 +63,7 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        empty_field: modules,
+        empty_field: items,
     }
 
     // =========================================================================
@@ -79,7 +79,7 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        collection: modules,
+        collection: items,
         condition: |m| m.name != "MyApp.Repo",
     }
 

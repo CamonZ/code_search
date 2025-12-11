@@ -1,7 +1,7 @@
-kind: incoming
-modules[1]:
-  - functions[1]{function,incoming,outgoing,total}:
+items[1]:
+  - entries[1]{function,incoming,outgoing,total}:
     get_user,3,1,4
     name: MyApp.Accounts
-project: test_project
-total_hotspots: 1
+kind_filter: total
+module_pattern: *
+total_items: 1

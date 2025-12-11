@@ -1,10 +1,7 @@
-exclude_generated: false
-modules[1]:
-  - file: lib/accounts.ex
-    functions[1]{arity,kind,line,name}:
-      0,defp,35,unused_helper
+items[1]:
+  - entries[1]{arity,kind,line,name}:
+    0,defp,35,unused_helper
+    file: lib/accounts.ex
     name: MyApp.Accounts
-private_only: false
-project: test_project
-public_only: false
-total_unused: 1
+module_pattern: *
+total_items: 1

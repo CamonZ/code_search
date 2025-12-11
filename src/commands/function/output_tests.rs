@@ -2,7 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::{FuncModule, FuncSig, FunctionResult};
+    use super::super::execute::FuncSig;
+    use crate::types::{ModuleGroupResult, ModuleGroup};
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -43,24 +44,25 @@ MyApp.Accounts:
     // =========================================================================
 
     #[fixture]
-    fn empty_result() -> FunctionResult {
-        FunctionResult {
+    fn empty_result() -> ModuleGroupResult<FuncSig> {
+        ModuleGroupResult {
             module_pattern: "MyApp.Accounts".to_string(),
-            function_pattern: "get_user".to_string(),
-            total_functions: 0,
-            modules: vec![],
+            function_pattern: Some("get_user".to_string()),
+            total_items: 0,
+            items: vec![],
         }
     }
 
     #[fixture]
-    fn single_result() -> FunctionResult {
-        FunctionResult {
+    fn single_result() -> ModuleGroupResult<FuncSig> {
+        ModuleGroupResult {
             module_pattern: "MyApp.Accounts".to_string(),
-            function_pattern: "get_user".to_string(),
-            total_functions: 1,
-            modules: vec![FuncModule {
+            function_pattern: Some("get_user".to_string()),
+            total_items: 1,
+            items: vec![ModuleGroup {
                 name: "MyApp.Accounts".to_string(),
-                functions: vec![FuncSig {
+                file: String::new(),
+                entries: vec![FuncSig {
                     name: "get_user".to_string(),
                     arity: 1,
                     args: "integer()".to_string(),
@@ -71,14 +73,15 @@ MyApp.Accounts:
     }
 
     #[fixture]
-    fn multiple_result() -> FunctionResult {
-        FunctionResult {
+    fn multiple_result() -> ModuleGroupResult<FuncSig> {
+        ModuleGroupResult {
             module_pattern: "MyApp.Accounts".to_string(),
-            function_pattern: "get_user".to_string(),
-            total_functions: 2,
-            modules: vec![FuncModule {
+            function_pattern: Some("get_user".to_string()),
+            total_items: 2,
+            items: vec![ModuleGroup {
                 name: "MyApp.Accounts".to_string(),
-                functions: vec![
+                file: String::new(),
+                entries: vec![
                     FuncSig {
                         name: "get_user".to_string(),
                         arity: 1,
@@ -103,28 +106,28 @@ MyApp.Accounts:
     crate::output_table_test! {
         test_name: test_to_table_empty,
         fixture: empty_result,
-        fixture_type: FunctionResult,
+        fixture_type: ModuleGroupResult<FuncSig>,
         expected: EMPTY_TABLE,
     }
 
     crate::output_table_test! {
         test_name: test_to_table_single,
         fixture: single_result,
-        fixture_type: FunctionResult,
+        fixture_type: ModuleGroupResult<FuncSig>,
         expected: SINGLE_TABLE,
     }
 
     crate::output_table_test! {
         test_name: test_to_table_multiple,
         fixture: multiple_result,
-        fixture_type: FunctionResult,
+        fixture_type: ModuleGroupResult<FuncSig>,
         expected: MULTIPLE_TABLE,
     }
 
     crate::output_table_test! {
         test_name: test_format_json,
         fixture: single_result,
-        fixture_type: FunctionResult,
+        fixture_type: ModuleGroupResult<FuncSig>,
         expected: crate::test_utils::load_output_fixture("function", "single.json"),
         format: Json,
     }
@@ -132,7 +135,7 @@ MyApp.Accounts:
     crate::output_table_test! {
         test_name: test_format_toon,
         fixture: single_result,
-        fixture_type: FunctionResult,
+        fixture_type: ModuleGroupResult<FuncSig>,
         expected: crate::test_utils::load_output_fixture("function", "single.toon"),
         format: Toon,
     }
@@ -140,7 +143,7 @@ MyApp.Accounts:
     crate::output_table_test! {
         test_name: test_format_toon_empty,
         fixture: empty_result,
-        fixture_type: FunctionResult,
+        fixture_type: ModuleGroupResult<FuncSig>,
         expected: crate::test_utils::load_output_fixture("function", "empty.toon"),
         format: Toon,
     }

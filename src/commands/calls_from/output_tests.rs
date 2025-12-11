@@ -2,8 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::CallsFromResult;
-    use crate::types::{Call, FunctionRef};
+    use super::super::execute::CallerFunction;
+    use crate::types::{Call, FunctionRef, ModuleGroupResult};
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -40,8 +40,8 @@ MyApp.Accounts (lib/my_app/accounts.ex)
     // =========================================================================
 
     #[fixture]
-    fn empty_result() -> CallsFromResult {
-        CallsFromResult::from_calls(
+    fn empty_result() -> ModuleGroupResult<CallerFunction> {
+        <ModuleGroupResult<CallerFunction>>::from_calls(
             "MyApp.Accounts".to_string(),
             "get_user".to_string(),
             vec![],
@@ -49,8 +49,8 @@ MyApp.Accounts (lib/my_app/accounts.ex)
     }
 
     #[fixture]
-    fn single_result() -> CallsFromResult {
-        CallsFromResult::from_calls(
+    fn single_result() -> ModuleGroupResult<CallerFunction> {
+        <ModuleGroupResult<CallerFunction>>::from_calls(
             "MyApp.Accounts".to_string(),
             "get_user".to_string(),
             vec![Call {
@@ -72,8 +72,8 @@ MyApp.Accounts (lib/my_app/accounts.ex)
     }
 
     #[fixture]
-    fn multiple_result() -> CallsFromResult {
-        CallsFromResult::from_calls(
+    fn multiple_result() -> ModuleGroupResult<CallerFunction> {
+        <ModuleGroupResult<CallerFunction>>::from_calls(
             "MyApp.Accounts".to_string(),
             String::new(),
             vec![
@@ -118,28 +118,28 @@ MyApp.Accounts (lib/my_app/accounts.ex)
     crate::output_table_test! {
         test_name: test_to_table_empty,
         fixture: empty_result,
-        fixture_type: CallsFromResult,
+        fixture_type: ModuleGroupResult<CallerFunction>,
         expected: EMPTY_TABLE,
     }
 
     crate::output_table_test! {
         test_name: test_to_table_single,
         fixture: single_result,
-        fixture_type: CallsFromResult,
+        fixture_type: ModuleGroupResult<CallerFunction>,
         expected: SINGLE_TABLE,
     }
 
     crate::output_table_test! {
         test_name: test_to_table_multiple,
         fixture: multiple_result,
-        fixture_type: CallsFromResult,
+        fixture_type: ModuleGroupResult<CallerFunction>,
         expected: MULTIPLE_TABLE,
     }
 
     crate::output_table_test! {
         test_name: test_format_json,
         fixture: single_result,
-        fixture_type: CallsFromResult,
+        fixture_type: ModuleGroupResult<CallerFunction>,
         expected: crate::test_utils::load_output_fixture("calls_from", "single.json"),
         format: Json,
     }
@@ -147,7 +147,7 @@ MyApp.Accounts (lib/my_app/accounts.ex)
     crate::output_table_test! {
         test_name: test_format_toon,
         fixture: single_result,
-        fixture_type: CallsFromResult,
+        fixture_type: ModuleGroupResult<CallerFunction>,
         expected: crate::test_utils::load_output_fixture("calls_from", "single.toon"),
         format: Toon,
     }
@@ -155,7 +155,7 @@ MyApp.Accounts (lib/my_app/accounts.ex)
     crate::output_table_test! {
         test_name: test_format_toon_empty,
         fixture: empty_result,
-        fixture_type: CallsFromResult,
+        fixture_type: ModuleGroupResult<CallerFunction>,
         expected: crate::test_utils::load_output_fixture("calls_from", "empty.toon"),
         format: Toon,
     }

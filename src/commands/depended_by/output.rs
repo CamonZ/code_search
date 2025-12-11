@@ -1,26 +1,27 @@
 //! Output formatting for depended-by command results.
 
 use crate::output::Outputable;
-use super::execute::DependedByResult;
+use crate::types::ModuleGroupResult;
+use super::execute::DependentCaller;
 
-impl Outputable for DependedByResult {
+impl Outputable for ModuleGroupResult<DependentCaller> {
     fn to_table(&self) -> String {
         let mut lines = Vec::new();
 
-        lines.push(format!("Modules that depend on: {}", self.target_module));
+        lines.push(format!("Modules that depend on: {}", self.module_pattern));
         lines.push(String::new());
 
-        if self.modules.is_empty() {
+        if self.items.is_empty() {
             lines.push("No dependents found.".to_string());
             return lines.join("\n");
         }
 
-        lines.push(format!("Found {} call(s) from {} module(s):", self.total_calls, self.modules.len()));
+        lines.push(format!("Found {} call(s) from {} module(s):", self.total_items, self.items.len()));
         lines.push(String::new());
 
-        for module in &self.modules {
+        for module in &self.items {
             lines.push(format!("{}:", module.name));
-            for caller in &module.callers {
+            for caller in &module.entries {
                 let kind_str = if caller.kind.is_empty() {
                     String::new()
                 } else {

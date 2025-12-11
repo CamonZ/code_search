@@ -6,6 +6,7 @@ use serde::Serialize;
 use super::UnusedCmd;
 use crate::commands::Execute;
 use crate::queries::unused::{find_unused_functions, UnusedFunction};
+use crate::types::{ModuleCollectionResult, ModuleGroup};
 
 /// An unused function within a module
 #[derive(Debug, Clone, Serialize)]
@@ -16,38 +17,13 @@ pub struct UnusedFunc {
     pub line: i64,
 }
 
-/// A module containing unused functions
-#[derive(Debug, Clone, Serialize)]
-pub struct UnusedModule {
-    pub name: String,
-    pub file: String,
-    pub functions: Vec<UnusedFunc>,
-}
-
-/// Result of the unused command execution
-#[derive(Debug, Default, Serialize)]
-pub struct UnusedResult {
-    pub project: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub module_filter: Option<String>,
-    pub private_only: bool,
-    pub public_only: bool,
-    pub exclude_generated: bool,
-    pub total_unused: usize,
-    pub modules: Vec<UnusedModule>,
-}
-
-impl UnusedResult {
+impl ModuleCollectionResult<UnusedFunc> {
     /// Build grouped result from flat UnusedFunction list
     fn from_functions(
-        project: String,
-        module_filter: Option<String>,
-        private_only: bool,
-        public_only: bool,
-        exclude_generated: bool,
+        module_pattern: String,
         functions: Vec<UnusedFunction>,
     ) -> Self {
-        let total_unused = functions.len();
+        let total_items = functions.len();
 
         // Group by module (BTreeMap for consistent ordering)
         let mut module_map: BTreeMap<String, (String, Vec<UnusedFunc>)> = BTreeMap::new();
@@ -67,29 +43,24 @@ impl UnusedResult {
                 .push(unused_func);
         }
 
-        let modules: Vec<UnusedModule> = module_map
+        let items: Vec<ModuleGroup<UnusedFunc>> = module_map
             .into_iter()
-            .map(|(name, (file, functions))| UnusedModule {
-                name,
-                file,
-                functions,
-            })
+            .map(|(name, (file, entries))| ModuleGroup { name, file, entries })
             .collect();
 
-        UnusedResult {
-            project,
-            module_filter,
-            private_only,
-            public_only,
-            exclude_generated,
-            total_unused,
-            modules,
+        ModuleCollectionResult {
+            module_pattern,
+            function_pattern: None,
+            kind_filter: None,
+            name_filter: None,
+            total_items,
+            items,
         }
     }
 }
 
 impl Execute for UnusedCmd {
-    type Output = UnusedResult;
+    type Output = ModuleCollectionResult<UnusedFunc>;
 
     fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
         let functions = find_unused_functions(
@@ -103,12 +74,8 @@ impl Execute for UnusedCmd {
             self.limit,
         )?;
 
-        Ok(UnusedResult::from_functions(
-            self.project,
-            self.module,
-            self.private_only,
-            self.public_only,
-            self.exclude_generated,
+        Ok(<ModuleCollectionResult<UnusedFunc>>::from_functions(
+            self.module.unwrap_or_else(|| "*".to_string()),
             functions,
         ))
     }

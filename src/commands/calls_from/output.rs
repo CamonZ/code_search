@@ -1,32 +1,33 @@
 //! Output formatting for calls-from command results.
 
 use crate::output::Outputable;
-use super::execute::CallsFromResult;
+use crate::types::ModuleGroupResult;
+use super::execute::CallerFunction;
 
-impl Outputable for CallsFromResult {
+impl Outputable for ModuleGroupResult<CallerFunction> {
     fn to_table(&self) -> String {
         let mut lines = Vec::new();
 
-        let header = if self.function_pattern.is_empty() {
+        let header = if self.function_pattern.is_none() || self.function_pattern.as_ref().unwrap().is_empty() {
             format!("Calls from: {}", self.module_pattern)
         } else {
-            format!("Calls from: {}.{}", self.module_pattern, self.function_pattern)
+            format!("Calls from: {}.{}", self.module_pattern, self.function_pattern.as_ref().unwrap())
         };
         lines.push(header);
         lines.push(String::new());
 
-        if self.modules.is_empty() {
+        if self.items.is_empty() {
             lines.push("No calls found.".to_string());
             return lines.join("\n");
         }
 
-        lines.push(format!("Found {} call(s):", self.total_calls));
+        lines.push(format!("Found {} call(s):", self.total_items));
         lines.push(String::new());
 
-        for module in &self.modules {
+        for module in &self.items {
             lines.push(format!("{} ({})", module.name, module.file));
 
-            for func in &module.functions {
+            for func in &module.entries {
                 let kind_str = if func.kind.is_empty() {
                     String::new()
                 } else {

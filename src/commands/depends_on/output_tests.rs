@@ -2,8 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::{DependencyFunction, DependencyModule, DependsOnResult};
-    use crate::types::{Call, FunctionRef};
+    use super::super::execute::DependencyFunction;
+    use crate::types::{Call, FunctionRef, ModuleGroupResult, ModuleGroup};
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -42,22 +42,25 @@ Phoenix.View:
     // =========================================================================
 
     #[fixture]
-    fn empty_result() -> DependsOnResult {
-        DependsOnResult {
-            source_module: "MyApp.Controller".to_string(),
-            total_calls: 0,
-            modules: vec![],
+    fn empty_result() -> ModuleGroupResult<DependencyFunction> {
+        ModuleGroupResult {
+            module_pattern: "MyApp.Controller".to_string(),
+            function_pattern: None,
+            total_items: 0,
+            items: vec![],
         }
     }
 
     #[fixture]
-    fn single_result() -> DependsOnResult {
-        DependsOnResult {
-            source_module: "MyApp.Controller".to_string(),
-            total_calls: 1,
-            modules: vec![DependencyModule {
+    fn single_result() -> ModuleGroupResult<DependencyFunction> {
+        ModuleGroupResult {
+            module_pattern: "MyApp.Controller".to_string(),
+            function_pattern: None,
+            total_items: 1,
+            items: vec![ModuleGroup {
                 name: "MyApp.Service".to_string(),
-                functions: vec![DependencyFunction {
+                file: String::new(),
+                entries: vec![DependencyFunction {
                     name: "process".to_string(),
                     arity: 1,
                     callers: vec![Call {
@@ -81,14 +84,16 @@ Phoenix.View:
     }
 
     #[fixture]
-    fn multiple_result() -> DependsOnResult {
-        DependsOnResult {
-            source_module: "MyApp.Controller".to_string(),
-            total_calls: 2,
-            modules: vec![
-                DependencyModule {
+    fn multiple_result() -> ModuleGroupResult<DependencyFunction> {
+        ModuleGroupResult {
+            module_pattern: "MyApp.Controller".to_string(),
+            function_pattern: None,
+            total_items: 2,
+            items: vec![
+                ModuleGroup {
                     name: "MyApp.Service".to_string(),
-                    functions: vec![DependencyFunction {
+                    file: String::new(),
+                    entries: vec![DependencyFunction {
                         name: "process".to_string(),
                         arity: 1,
                         callers: vec![Call {
@@ -108,9 +113,10 @@ Phoenix.View:
                         }],
                     }],
                 },
-                DependencyModule {
+                ModuleGroup {
                     name: "Phoenix.View".to_string(),
-                    functions: vec![DependencyFunction {
+                    file: String::new(),
+                    entries: vec![DependencyFunction {
                         name: "render".to_string(),
                         arity: 2,
                         callers: vec![Call {
@@ -141,28 +147,28 @@ Phoenix.View:
     crate::output_table_test! {
         test_name: test_to_table_empty,
         fixture: empty_result,
-        fixture_type: DependsOnResult,
+        fixture_type: ModuleGroupResult<DependencyFunction>,
         expected: EMPTY_TABLE,
     }
 
     crate::output_table_test! {
         test_name: test_to_table_single,
         fixture: single_result,
-        fixture_type: DependsOnResult,
+        fixture_type: ModuleGroupResult<DependencyFunction>,
         expected: SINGLE_TABLE,
     }
 
     crate::output_table_test! {
         test_name: test_to_table_multiple,
         fixture: multiple_result,
-        fixture_type: DependsOnResult,
+        fixture_type: ModuleGroupResult<DependencyFunction>,
         expected: MULTIPLE_TABLE,
     }
 
     crate::output_table_test! {
         test_name: test_format_json,
         fixture: single_result,
-        fixture_type: DependsOnResult,
+        fixture_type: ModuleGroupResult<DependencyFunction>,
         expected: crate::test_utils::load_output_fixture("depends_on", "single.json"),
         format: Json,
     }
@@ -170,7 +176,7 @@ Phoenix.View:
     crate::output_table_test! {
         test_name: test_format_toon,
         fixture: single_result,
-        fixture_type: DependsOnResult,
+        fixture_type: ModuleGroupResult<DependencyFunction>,
         expected: crate::test_utils::load_output_fixture("depends_on", "single.toon"),
         format: Toon,
     }
@@ -178,7 +184,7 @@ Phoenix.View:
     crate::output_table_test! {
         test_name: test_format_toon_empty,
         fixture: empty_result,
-        fixture_type: DependsOnResult,
+        fixture_type: ModuleGroupResult<DependencyFunction>,
         expected: crate::test_utils::load_output_fixture("depends_on", "empty.toon"),
         format: Toon,
     }

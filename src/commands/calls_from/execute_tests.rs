@@ -28,7 +28,7 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_calls, 3,
+            assert_eq!(result.total_items, 3,
                 "Expected 3 total calls from MyApp.Accounts");
         },
     }
@@ -46,10 +46,10 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_calls, 2);
+            assert_eq!(result.total_items, 2);
             // Check that all calls target MyApp.Repo.get
-            for module in &result.modules {
-                for func in &module.functions {
+            for module in &result.items {
+                for func in &module.entries {
                     for call in &func.calls {
                         assert_eq!(call.callee.module, "MyApp.Repo");
                         assert_eq!(call.callee.name, "get");
@@ -72,7 +72,7 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_calls, 11,
+            assert_eq!(result.total_items, 11,
                 "Expected 11 total calls from MyApp.* modules");
         },
     }
@@ -93,8 +93,8 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert!(result.modules.is_empty(), "Expected no modules for non-existent module");
-            assert_eq!(result.total_calls, 0);
+            assert!(result.items.is_empty(), "Expected no modules for non-existent module");
+            assert_eq!(result.total_items, 0);
         },
     }
 
@@ -115,7 +115,7 @@ mod tests {
         },
         assertions: |result| {
             // All results should be for the test_project (verified implicitly by getting results)
-            assert!(result.total_calls > 0, "Should have calls with project filter");
+            assert!(result.total_items > 0, "Should have calls with project filter");
         },
     }
 
@@ -131,7 +131,7 @@ mod tests {
             limit: 1,
         },
         assertions: |result| {
-            assert_eq!(result.total_calls, 1, "Limit should restrict to 1 call");
+            assert_eq!(result.total_items, 1, "Limit should restrict to 1 call");
         },
     }
 

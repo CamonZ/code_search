@@ -1,46 +1,33 @@
 //! Output formatting for unused command results.
 
 use crate::output::Outputable;
-use super::execute::UnusedResult;
+use crate::types::ModuleCollectionResult;
+use super::execute::UnusedFunc;
 
-impl Outputable for UnusedResult {
+impl Outputable for ModuleCollectionResult<UnusedFunc> {
     fn to_table(&self) -> String {
         let mut lines = Vec::new();
 
-        let mut filters = Vec::new();
-        if let Some(pattern) = &self.module_filter {
-            filters.push(format!("module: {}", pattern));
-        }
-        if self.private_only {
-            filters.push("private only".to_string());
-        }
-        if self.public_only {
-            filters.push("public only".to_string());
-        }
-        if self.exclude_generated {
-            filters.push("excluding generated".to_string());
-        }
-
-        let filter_info = if filters.is_empty() {
-            String::new()
+        let filter_info = if self.module_pattern != "*" {
+            format!(" (module: {})", self.module_pattern)
         } else {
-            format!(" ({})", filters.join(", "))
+            String::new()
         };
 
-        lines.push(format!("Unused functions in project '{}'{}", self.project, filter_info));
+        lines.push(format!("Unused functions{}", filter_info));
         lines.push(String::new());
 
-        if !self.modules.is_empty() {
+        if !self.items.is_empty() {
             lines.push(format!(
                 "Found {} unused function(s) in {} module(s):",
-                self.total_unused,
-                self.modules.len()
+                self.total_items,
+                self.items.len()
             ));
             lines.push(String::new());
 
-            for module in &self.modules {
+            for module in &self.items {
                 lines.push(format!("{} ({}):", module.name, module.file));
-                for func in &module.functions {
+                for func in &module.entries {
                     lines.push(format!(
                         "  {}/{} [{}] L{}",
                         func.name, func.arity, func.kind, func.line

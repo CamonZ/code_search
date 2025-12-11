@@ -1,7 +1,7 @@
 function_pattern: get_user
-module_pattern: MyApp.Accounts
-modules[1]:
-  - functions[1]{args,arity,name,return_type}:
+items[1]:
+  - entries[1]{args,arity,name,return_type}:
     integer(),1,get_user,User.t() | nil
     name: MyApp.Accounts
-total_functions: 1
+module_pattern: MyApp.Accounts
+total_items: 1

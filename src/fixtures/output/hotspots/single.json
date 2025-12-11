@@ -1,11 +1,11 @@
 {
-  "project": "test_project",
-  "kind": "incoming",
-  "total_hotspots": 1,
-  "modules": [
+  "module_pattern": "*",
+  "kind_filter": "total",
+  "total_items": 1,
+  "items": [
     {
       "name": "MyApp.Accounts",
-      "functions": [
+      "entries": [
         {
           "function": "get_user",
           "incoming": 3,

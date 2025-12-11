@@ -1,11 +1,11 @@
 {
   "module_pattern": "MyApp.Accounts",
   "name_filter": "user",
-  "total_types": 1,
-  "modules": [
+  "total_items": 1,
+  "items": [
     {
       "name": "MyApp.Accounts",
-      "types": [
+      "entries": [
         {
           "name": "user",
           "kind": "type",

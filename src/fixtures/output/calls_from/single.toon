@@ -1,27 +1,27 @@
 function_pattern: get_user
-module_pattern: MyApp.Accounts
-modules[1]:
-  - file: lib/my_app/accounts.ex
-    functions[1]:
-      - arity: 1
-        calls[1]:
-          - call_type: remote
-            callee:
-              arity: 2
-              module: MyApp.Repo
-              name: get
-            caller:
-              arity: 1
-              end_line: 15
-              file: lib/my_app/accounts.ex
-              kind: ""
-              module: MyApp.Accounts
-              name: get_user
-              start_line: 10
-            line: 12
-        end_line: 15
-        kind: ""
-        name: get_user
-        start_line: 10
+items[1]:
+  - entries[1]:
+    - arity: 1
+      calls[1]:
+        - call_type: remote
+          callee:
+            arity: 2
+            module: MyApp.Repo
+            name: get
+          caller:
+            arity: 1
+            end_line: 15
+            file: lib/my_app/accounts.ex
+            kind: ""
+            module: MyApp.Accounts
+            name: get_user
+            start_line: 10
+          line: 12
+      end_line: 15
+      kind: ""
+      name: get_user
+      start_line: 10
+    file: lib/my_app/accounts.ex
     name: MyApp.Accounts
-total_calls: 1
+module_pattern: MyApp.Accounts
+total_items: 1

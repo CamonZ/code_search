@@ -2,7 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::{DependedByResult, DependentCaller, DependentModule, DependentTarget};
+    use super::super::execute::{DependentCaller, DependentTarget};
+    use crate::types::{ModuleGroupResult, ModuleGroup};
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -41,22 +42,25 @@ MyApp.Service:
     // =========================================================================
 
     #[fixture]
-    fn empty_result() -> DependedByResult {
-        DependedByResult {
-            target_module: "MyApp.Repo".to_string(),
-            total_calls: 0,
-            modules: vec![],
+    fn empty_result() -> ModuleGroupResult<DependentCaller> {
+        ModuleGroupResult {
+            module_pattern: "MyApp.Repo".to_string(),
+            function_pattern: None,
+            total_items: 0,
+            items: vec![],
         }
     }
 
     #[fixture]
-    fn single_result() -> DependedByResult {
-        DependedByResult {
-            target_module: "MyApp.Repo".to_string(),
-            total_calls: 1,
-            modules: vec![DependentModule {
+    fn single_result() -> ModuleGroupResult<DependentCaller> {
+        ModuleGroupResult {
+            module_pattern: "MyApp.Repo".to_string(),
+            function_pattern: None,
+            total_items: 1,
+            items: vec![ModuleGroup {
                 name: "MyApp.Service".to_string(),
-                callers: vec![DependentCaller {
+                file: String::new(),
+                entries: vec![DependentCaller {
                     function: "fetch".to_string(),
                     arity: 1,
                     kind: "def".to_string(),
@@ -74,14 +78,16 @@ MyApp.Service:
     }
 
     #[fixture]
-    fn multiple_result() -> DependedByResult {
-        DependedByResult {
-            target_module: "MyApp.Repo".to_string(),
-            total_calls: 2,
-            modules: vec![
-                DependentModule {
+    fn multiple_result() -> ModuleGroupResult<DependentCaller> {
+        ModuleGroupResult {
+            module_pattern: "MyApp.Repo".to_string(),
+            function_pattern: None,
+            total_items: 2,
+            items: vec![
+                ModuleGroup {
                     name: "MyApp.Controller".to_string(),
-                    callers: vec![DependentCaller {
+                    file: String::new(),
+                    entries: vec![DependentCaller {
                         function: "show".to_string(),
                         arity: 1,
                         kind: "def".to_string(),
@@ -95,9 +101,10 @@ MyApp.Service:
                         }],
                     }],
                 },
-                DependentModule {
+                ModuleGroup {
                     name: "MyApp.Service".to_string(),
-                    callers: vec![DependentCaller {
+                    file: String::new(),
+                    entries: vec![DependentCaller {
                         function: "fetch".to_string(),
                         arity: 1,
                         kind: "def".to_string(),
@@ -122,28 +129,28 @@ MyApp.Service:
     crate::output_table_test! {
         test_name: test_to_table_empty,
         fixture: empty_result,
-        fixture_type: DependedByResult,
+        fixture_type: ModuleGroupResult<DependentCaller>,
         expected: EMPTY_TABLE,
     }
 
     crate::output_table_test! {
         test_name: test_to_table_single,
         fixture: single_result,
-        fixture_type: DependedByResult,
+        fixture_type: ModuleGroupResult<DependentCaller>,
         expected: SINGLE_TABLE,
     }
 
     crate::output_table_test! {
         test_name: test_to_table_multiple,
         fixture: multiple_result,
-        fixture_type: DependedByResult,
+        fixture_type: ModuleGroupResult<DependentCaller>,
         expected: MULTIPLE_TABLE,
     }
 
     crate::output_table_test! {
         test_name: test_format_json,
         fixture: single_result,
-        fixture_type: DependedByResult,
+        fixture_type: ModuleGroupResult<DependentCaller>,
         expected: crate::test_utils::load_output_fixture("depended_by", "single.json"),
         format: Json,
     }
@@ -151,7 +158,7 @@ MyApp.Service:
     crate::output_table_test! {
         test_name: test_format_toon,
         fixture: single_result,
-        fixture_type: DependedByResult,
+        fixture_type: ModuleGroupResult<DependentCaller>,
         expected: crate::test_utils::load_output_fixture("depended_by", "single.toon"),
         format: Toon,
     }
@@ -159,7 +166,7 @@ MyApp.Service:
     crate::output_table_test! {
         test_name: test_format_toon_empty,
         fixture: empty_result,
-        fixture_type: DependedByResult,
+        fixture_type: ModuleGroupResult<DependentCaller>,
         expected: crate::test_utils::load_output_fixture("depended_by", "empty.toon"),
         format: Toon,
     }

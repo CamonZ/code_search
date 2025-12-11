@@ -6,6 +6,7 @@ use serde::Serialize;
 use super::TypesCmd;
 use crate::commands::Execute;
 use crate::queries::types::{find_types, TypeInfo};
+use crate::types::{ModuleCollectionResult, ModuleGroup};
 
 /// A single type definition
 #[derive(Debug, Clone, Serialize)]
@@ -19,26 +20,7 @@ pub struct TypeEntry {
     pub definition: String,
 }
 
-/// A module containing type definitions
-#[derive(Debug, Clone, Serialize)]
-pub struct TypeModule {
-    pub name: String,
-    pub types: Vec<TypeEntry>,
-}
-
-/// Result of the types command execution
-#[derive(Debug, Default, Serialize)]
-pub struct TypesResult {
-    pub module_pattern: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name_filter: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub kind_filter: Option<String>,
-    pub total_types: usize,
-    pub modules: Vec<TypeModule>,
-}
-
-impl TypesResult {
+impl ModuleCollectionResult<TypeEntry> {
     /// Build grouped result from flat TypeInfo list
     fn from_types(
         module_pattern: String,
@@ -46,7 +28,7 @@ impl TypesResult {
         kind_filter: Option<String>,
         types: Vec<TypeInfo>,
     ) -> Self {
-        let total_types = types.len();
+        let total_items = types.len();
 
         // Group by module (BTreeMap for consistent ordering)
         let mut module_map: BTreeMap<String, Vec<TypeEntry>> = BTreeMap::new();
@@ -63,23 +45,28 @@ impl TypesResult {
             module_map.entry(type_info.module).or_default().push(entry);
         }
 
-        let modules: Vec<TypeModule> = module_map
+        let items: Vec<ModuleGroup<TypeEntry>> = module_map
             .into_iter()
-            .map(|(name, types)| TypeModule { name, types })
+            .map(|(name, entries)| ModuleGroup {
+                name,
+                file: String::new(),
+                entries,
+            })
             .collect();
 
-        TypesResult {
+        ModuleCollectionResult {
             module_pattern,
+            function_pattern: None,
             name_filter,
             kind_filter,
-            total_types,
-            modules,
+            total_items,
+            items,
         }
     }
 }
 
 impl Execute for TypesCmd {
-    type Output = TypesResult;
+    type Output = ModuleCollectionResult<TypeEntry>;
 
     fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
         let types = find_types(
@@ -92,7 +79,7 @@ impl Execute for TypesCmd {
             self.limit,
         )?;
 
-        Ok(TypesResult::from_types(
+        Ok(ModuleCollectionResult::from_types(
             self.module,
             self.name,
             self.kind,

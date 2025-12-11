@@ -2,7 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::{TypeEntry, TypeModule, TypesResult};
+    use super::super::execute::TypeEntry;
+    use crate::types::{ModuleCollectionResult, ModuleGroup};
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -39,26 +40,29 @@ MyApp.Accounts:
     // =========================================================================
 
     #[fixture]
-    fn empty_result() -> TypesResult {
-        TypesResult {
+    fn empty_result() -> ModuleCollectionResult<TypeEntry> {
+        ModuleCollectionResult {
             module_pattern: "NonExistent".to_string(),
+            function_pattern: None,
             name_filter: None,
             kind_filter: None,
-            total_types: 0,
-            modules: vec![],
+            total_items: 0,
+            items: vec![],
         }
     }
 
     #[fixture]
-    fn single_result() -> TypesResult {
-        TypesResult {
+    fn single_result() -> ModuleCollectionResult<TypeEntry> {
+        ModuleCollectionResult {
             module_pattern: "MyApp.Accounts".to_string(),
+            function_pattern: None,
             name_filter: Some("user".to_string()),
             kind_filter: None,
-            total_types: 1,
-            modules: vec![TypeModule {
+            total_items: 1,
+            items: vec![ModuleGroup {
                 name: "MyApp.Accounts".to_string(),
-                types: vec![TypeEntry {
+                file: String::new(),
+                entries: vec![TypeEntry {
                     name: "user".to_string(),
                     kind: "type".to_string(),
                     params: String::new(),
@@ -70,15 +74,17 @@ MyApp.Accounts:
     }
 
     #[fixture]
-    fn multiple_result() -> TypesResult {
-        TypesResult {
+    fn multiple_result() -> ModuleCollectionResult<TypeEntry> {
+        ModuleCollectionResult {
             module_pattern: "MyApp.Accounts".to_string(),
+            function_pattern: None,
             name_filter: None,
             kind_filter: None,
-            total_types: 2,
-            modules: vec![TypeModule {
+            total_items: 2,
+            items: vec![ModuleGroup {
                 name: "MyApp.Accounts".to_string(),
-                types: vec![
+                file: String::new(),
+                entries: vec![
                     TypeEntry {
                         name: "user".to_string(),
                         kind: "type".to_string(),
@@ -105,28 +111,28 @@ MyApp.Accounts:
     crate::output_table_test! {
         test_name: test_to_table_empty,
         fixture: empty_result,
-        fixture_type: TypesResult,
+        fixture_type: ModuleCollectionResult<TypeEntry>,
         expected: EMPTY_TABLE,
     }
 
     crate::output_table_test! {
         test_name: test_to_table_single,
         fixture: single_result,
-        fixture_type: TypesResult,
+        fixture_type: ModuleCollectionResult<TypeEntry>,
         expected: SINGLE_TABLE,
     }
 
     crate::output_table_test! {
         test_name: test_to_table_multiple,
         fixture: multiple_result,
-        fixture_type: TypesResult,
+        fixture_type: ModuleCollectionResult<TypeEntry>,
         expected: MULTIPLE_TABLE,
     }
 
     crate::output_table_test! {
         test_name: test_format_json,
         fixture: single_result,
-        fixture_type: TypesResult,
+        fixture_type: ModuleCollectionResult<TypeEntry>,
         expected: crate::test_utils::load_output_fixture("types", "single.json"),
         format: Json,
     }
@@ -134,7 +140,7 @@ MyApp.Accounts:
     crate::output_table_test! {
         test_name: test_format_toon,
         fixture: single_result,
-        fixture_type: TypesResult,
+        fixture_type: ModuleCollectionResult<TypeEntry>,
         expected: crate::test_utils::load_output_fixture("types", "single.toon"),
         format: Toon,
     }
@@ -142,7 +148,7 @@ MyApp.Accounts:
     crate::output_table_test! {
         test_name: test_format_toon_empty,
         fixture: empty_result,
-        fixture_type: TypesResult,
+        fixture_type: ModuleCollectionResult<TypeEntry>,
         expected: crate::test_utils::load_output_fixture("types", "empty.toon"),
         format: Toon,
     }

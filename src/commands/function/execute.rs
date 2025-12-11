@@ -6,6 +6,7 @@ use serde::Serialize;
 use super::FunctionCmd;
 use crate::commands::Execute;
 use crate::queries::function::{find_functions, FunctionSignature};
+use crate::types::{ModuleGroupResult, ModuleGroup};
 
 /// A function signature within a module
 #[derive(Debug, Clone, Serialize)]
@@ -18,30 +19,14 @@ pub struct FuncSig {
     pub return_type: String,
 }
 
-/// A module containing function signatures
-#[derive(Debug, Clone, Serialize)]
-pub struct FuncModule {
-    pub name: String,
-    pub functions: Vec<FuncSig>,
-}
-
-/// Result of the function command execution
-#[derive(Debug, Default, Serialize)]
-pub struct FunctionResult {
-    pub module_pattern: String,
-    pub function_pattern: String,
-    pub total_functions: usize,
-    pub modules: Vec<FuncModule>,
-}
-
-impl FunctionResult {
+impl ModuleGroupResult<FuncSig> {
     /// Build grouped result from flat FunctionSignature list
     fn from_signatures(
         module_pattern: String,
         function_pattern: String,
         signatures: Vec<FunctionSignature>,
     ) -> Self {
-        let total_functions = signatures.len();
+        let total_items = signatures.len();
 
         // Group by module (BTreeMap for consistent ordering)
         let mut module_map: BTreeMap<String, Vec<FuncSig>> = BTreeMap::new();
@@ -57,22 +42,26 @@ impl FunctionResult {
             module_map.entry(sig.module).or_default().push(func_sig);
         }
 
-        let modules: Vec<FuncModule> = module_map
+        let items: Vec<ModuleGroup<FuncSig>> = module_map
             .into_iter()
-            .map(|(name, functions)| FuncModule { name, functions })
+            .map(|(name, entries)| ModuleGroup {
+                name,
+                file: String::new(),
+                entries,
+            })
             .collect();
 
-        FunctionResult {
+        ModuleGroupResult {
             module_pattern,
-            function_pattern,
-            total_functions,
-            modules,
+            function_pattern: Some(function_pattern),
+            total_items,
+            items,
         }
     }
 }
 
 impl Execute for FunctionCmd {
-    type Output = FunctionResult;
+    type Output = ModuleGroupResult<FuncSig>;
 
     fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
         let signatures = find_functions(
@@ -85,7 +74,7 @@ impl Execute for FunctionCmd {
             self.limit,
         )?;
 
-        Ok(FunctionResult::from_signatures(
+        Ok(<ModuleGroupResult<FuncSig>>::from_signatures(
             self.module,
             self.function,
             signatures,

@@ -1,4 +1,4 @@
 function_pattern: get_user
+items[0]:
 module_pattern: MyApp.Accounts
-modules[0]:
-total_calls: 0
+total_items: 0

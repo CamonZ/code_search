@@ -6,6 +6,7 @@ use serde::Serialize;
 use super::HotspotsCmd;
 use crate::commands::Execute;
 use crate::queries::hotspots::{find_hotspots, Hotspot, HotspotKind};
+use crate::types::{ModuleCollectionResult, ModuleGroup};
 
 /// A single hotspot entry (function within a module)
 #[derive(Debug, Clone, Serialize)]
@@ -16,33 +17,14 @@ pub struct HotspotEntry {
     pub total: i64,
 }
 
-/// A module containing hotspot functions
-#[derive(Debug, Clone, Serialize)]
-pub struct HotspotModule {
-    pub name: String,
-    pub functions: Vec<HotspotEntry>,
-}
-
-/// Result of the hotspots command execution
-#[derive(Debug, Default, Serialize)]
-pub struct HotspotsResult {
-    pub project: String,
-    pub kind: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub module_filter: Option<String>,
-    pub total_hotspots: usize,
-    pub modules: Vec<HotspotModule>,
-}
-
-impl HotspotsResult {
+impl ModuleCollectionResult<HotspotEntry> {
     /// Build grouped result from flat Hotspot list
     fn from_hotspots(
-        project: String,
-        kind: String,
-        module_filter: Option<String>,
+        module_pattern: String,
+        kind_filter: String,
         hotspots: Vec<Hotspot>,
     ) -> Self {
-        let total_hotspots = hotspots.len();
+        let total_items = hotspots.len();
 
         // Group by module (BTreeMap for consistent ordering)
         let mut module_map: BTreeMap<String, Vec<HotspotEntry>> = BTreeMap::new();
@@ -58,23 +40,28 @@ impl HotspotsResult {
             module_map.entry(hotspot.module).or_default().push(entry);
         }
 
-        let modules: Vec<HotspotModule> = module_map
+        let items: Vec<ModuleGroup<HotspotEntry>> = module_map
             .into_iter()
-            .map(|(name, functions)| HotspotModule { name, functions })
+            .map(|(name, entries)| ModuleGroup {
+                name,
+                file: String::new(),
+                entries,
+            })
             .collect();
 
-        HotspotsResult {
-            project,
-            kind,
-            module_filter,
-            total_hotspots,
-            modules,
+        ModuleCollectionResult {
+            module_pattern,
+            function_pattern: None,
+            kind_filter: Some(kind_filter),
+            name_filter: None,
+            total_items,
+            items,
         }
     }
 }
 
 impl Execute for HotspotsCmd {
-    type Output = HotspotsResult;
+    type Output = ModuleCollectionResult<HotspotEntry>;
 
     fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
         let kind_str = match self.kind {
@@ -92,10 +79,9 @@ impl Execute for HotspotsCmd {
             self.limit,
         )?;
 
-        Ok(HotspotsResult::from_hotspots(
-            self.project,
+        Ok(<ModuleCollectionResult<HotspotEntry>>::from_hotspots(
+            self.module.unwrap_or_else(|| "*".to_string()),
             kind_str,
-            self.module,
             hotspots,
         ))
     }

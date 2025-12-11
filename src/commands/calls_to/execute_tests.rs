@@ -28,7 +28,7 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_calls, 4,
+            assert_eq!(result.total_items, 4,
                 "Expected 4 total calls to MyApp.Repo");
         },
     }
@@ -46,7 +46,7 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_calls, 3,
+            assert_eq!(result.total_items, 3,
                 "Expected 3 calls to MyApp.Repo.get");
         },
     }
@@ -63,10 +63,10 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_calls, 3);
+            assert_eq!(result.total_items, 3);
             // All callee functions should be get/2
-            for module in &result.modules {
-                for func in &module.functions {
+            for module in &result.items {
+                for func in &module.entries {
                     assert_eq!(func.arity, 2);
                 }
             }
@@ -86,7 +86,7 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_calls, 4,
+            assert_eq!(result.total_items, 4,
                 "Expected 4 calls to get|all");
         },
     }
@@ -107,8 +107,8 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert!(result.modules.is_empty(), "Expected no modules for non-existent target");
-            assert_eq!(result.total_calls, 0);
+            assert!(result.items.is_empty(), "Expected no modules for non-existent target");
+            assert_eq!(result.total_items, 0);
         },
     }
 
@@ -124,8 +124,8 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert!(result.modules.is_empty(), "Expected no results for non-existent arity");
-            assert_eq!(result.total_calls, 0);
+            assert!(result.items.is_empty(), "Expected no results for non-existent arity");
+            assert_eq!(result.total_items, 0);
         },
     }
 
@@ -145,7 +145,7 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert!(result.total_calls > 0, "Should have calls with project filter");
+            assert!(result.total_items > 0, "Should have calls with project filter");
         },
     }
 
@@ -161,7 +161,7 @@ mod tests {
             limit: 2,
         },
         assertions: |result| {
-            assert_eq!(result.total_calls, 2, "Limit should restrict to 2 calls");
+            assert_eq!(result.total_items, 2, "Limit should restrict to 2 calls");
         },
     }
 

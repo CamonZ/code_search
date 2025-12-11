@@ -29,10 +29,13 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_calls, 1);
-            assert_eq!(result.roots.len(), 1);
-            assert_eq!(result.roots[0].calls[0].module, "MyApp.Accounts");
-            assert_eq!(result.roots[0].calls[0].function, "list_users");
+            assert_eq!(result.total_items, 1);
+            assert_eq!(result.entries.len(), 2); // Root + 1 callee
+            // Entry at index 0 is the root (Controller.index)
+            assert_eq!(result.entries[0].module, "MyApp.Controller");
+            // Entry at index 1 is the callee (Accounts.list_users)
+            assert_eq!(result.entries[1].module, "MyApp.Accounts");
+            assert_eq!(result.entries[1].function, "list_users");
         },
     }
 
@@ -50,7 +53,7 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_calls, 2);
+            assert_eq!(result.total_items, 2);
         },
     }
 
@@ -67,7 +70,7 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_calls, 2);
+            assert_eq!(result.total_items, 2);
             assert!(result.max_depth <= 2);
         },
     }
@@ -88,7 +91,7 @@ mod tests {
             depth: 5,
             limit: 100,
         },
-        empty_field: roots,
+        empty_field: entries,
     }
 
     // =========================================================================

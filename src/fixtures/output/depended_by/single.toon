@@ -1,5 +1,5 @@
-modules[1]:
-  - callers[1]:
+items[1]:
+  - entries[1]:
     - arity: 1
       end_line: 20
       file: lib/service.ex
@@ -9,5 +9,5 @@ modules[1]:
       targets[1]{arity,function,line}:
         2,get,15
     name: MyApp.Service
-target_module: MyApp.Repo
-total_calls: 1
+module_pattern: MyApp.Repo
+total_items: 1

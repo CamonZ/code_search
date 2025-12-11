@@ -30,9 +30,9 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_unused, 6);
-            let all_funcs: Vec<&str> = result.modules.iter()
-                .flat_map(|m| m.functions.iter().map(|f| f.name.as_str()))
+            assert_eq!(result.total_items, 6);
+            let all_funcs: Vec<&str> = result.items.iter()
+                .flat_map(|m| m.entries.iter().map(|f| f.name.as_str()))
                 .collect();
             assert!(all_funcs.contains(&"validate_email"));
             assert!(all_funcs.contains(&"insert"));
@@ -53,7 +53,7 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_unused, 2);
+            assert_eq!(result.total_items, 2);
         },
     }
 
@@ -71,7 +71,7 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_unused, 3);
+            assert_eq!(result.total_items, 3);
         },
     }
 
@@ -91,7 +91,7 @@ mod tests {
             exclude_generated: false,
             limit: 100,
         },
-        empty_field: modules,
+        empty_field: items,
     }
 
     // =========================================================================
@@ -112,7 +112,7 @@ mod tests {
         },
         assertions: |result| {
             // Limit applies to raw results before grouping
-            assert_eq!(result.total_unused, 1);
+            assert_eq!(result.total_items, 1);
         },
     }
 
@@ -130,9 +130,9 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_unused, 1);
-            assert_eq!(result.modules[0].functions[0].name, "validate_email");
-            assert_eq!(result.modules[0].functions[0].kind, "defp");
+            assert_eq!(result.total_items, 1);
+            assert_eq!(result.items[0].entries[0].name, "validate_email");
+            assert_eq!(result.items[0].entries[0].kind, "defp");
         },
     }
 
@@ -150,9 +150,9 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_unused, 5);
-            for module in &result.modules {
-                for func in &module.functions {
+            assert_eq!(result.total_items, 5);
+            for module in &result.items {
+                for func in &module.entries {
                     assert_eq!(func.kind, "def");
                 }
             }

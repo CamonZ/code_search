@@ -27,9 +27,9 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_specs, 2);
-            assert_eq!(result.modules.len(), 1);
-            assert_eq!(result.modules[0].name, "MyApp.Accounts");
+            assert_eq!(result.total_items, 2);
+            assert_eq!(result.items.len(), 1);
+            assert_eq!(result.items[0].name, "MyApp.Accounts");
         },
     }
 
@@ -45,8 +45,8 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_specs, 1);
-            let spec = &result.modules[0].specs[0];
+            assert_eq!(result.total_items, 1);
+            let spec = &result.items[0].entries[0];
             assert_eq!(spec.name, "get_user");
             assert_eq!(spec.arity, 1);
         },
@@ -64,10 +64,10 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.total_specs, 1);
-            let spec = &result.modules[0].specs[0];
+            assert_eq!(result.total_items, 1);
+            let spec = &result.items[0].entries[0];
             assert_eq!(spec.kind, "callback");
-            assert_eq!(result.modules[0].name, "MyApp.Repo");
+            assert_eq!(result.items[0].name, "MyApp.Repo");
         },
     }
 
@@ -83,7 +83,7 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            let spec = &result.modules[0].specs[0];
+            let spec = &result.items[0].entries[0];
             assert_eq!(spec.inputs, "integer()");
             assert_eq!(spec.returns, "{:ok, User.t()} | {:error, :not_found}");
             assert!(!spec.full.is_empty());
@@ -105,7 +105,7 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        empty_field: modules,
+        empty_field: items,
     }
 
     // =========================================================================

@@ -26,9 +26,9 @@ mod tests {
             limit: 100,
         },
         assertions: |result| {
-            assert_eq!(result.modules.len(), 2);
-            assert!(result.modules.iter().any(|m| m.name == "MyApp.Accounts"));
-            assert!(result.modules.iter().any(|m| m.name == "MyApp.Service"));
+            assert_eq!(result.items.len(), 2);
+            assert!(result.items.iter().any(|m| m.name == "MyApp.Accounts"));
+            assert!(result.items.iter().any(|m| m.name == "MyApp.Service"));
         },
     }
 
@@ -43,10 +43,10 @@ mod tests {
         },
         assertions: |result| {
             // Accounts has 3 callers, Service has 1
-            let accounts = result.modules.iter().find(|m| m.name == "MyApp.Accounts").unwrap();
-            let service = result.modules.iter().find(|m| m.name == "MyApp.Service").unwrap();
-            let accounts_calls: usize = accounts.callers.iter().map(|c| c.targets.len()).sum();
-            let service_calls: usize = service.callers.iter().map(|c| c.targets.len()).sum();
+            let accounts = result.items.iter().find(|m| m.name == "MyApp.Accounts").unwrap();
+            let service = result.items.iter().find(|m| m.name == "MyApp.Service").unwrap();
+            let accounts_calls: usize = accounts.entries.iter().map(|c| c.targets.len()).sum();
+            let service_calls: usize = service.entries.iter().map(|c| c.targets.len()).sum();
             assert_eq!(accounts_calls, 3);
             assert_eq!(service_calls, 1);
         },
@@ -65,7 +65,7 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        empty_field: modules,
+        empty_field: items,
     }
 
     // =========================================================================
@@ -81,7 +81,7 @@ mod tests {
             regex: false,
             limit: 100,
         },
-        collection: modules,
+        collection: items,
         condition: |m| m.name != "MyApp.Repo",
     }
 
