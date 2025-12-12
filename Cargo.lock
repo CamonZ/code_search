@@ -360,7 +360,6 @@ dependencies = [
  "clap",
  "cozo",
  "enum_dispatch",
- "rayon",
  "rstest",
  "serde",
  "serde_json",
