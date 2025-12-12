@@ -246,18 +246,30 @@ Both use `ModuleGroup<E>` as the grouping container with fields: `name`, `file`,
 
 ### 2. Use Deduplication Utilities
 
-The codebase provides two reusable deduplication strategies in `crate::dedup`:
+The codebase provides reusable deduplication strategies in `crate::dedup`:
 
-**Strategy A: deduplicate_retain()** - For post-sort deduplication
+**sort_and_deduplicate()** - Combined sort + deduplicate (most common)
+```rust
+use crate::dedup::sort_and_deduplicate;
+
+sort_and_deduplicate(
+    &mut calls,
+    |c| c.line,  // Sort key
+    |c| (c.callee.module.clone(), c.callee.name.clone(), c.callee.arity),  // Dedup key
+);
+```
+Use when: You need to sort by one key and deduplicate by another (e.g., sort by line, keep first call to each function)
+
+**deduplicate_retain()** - For post-sort deduplication
 ```rust
 calls.sort_by_key(|c| c.line);
 crate::dedup::deduplicate_retain(&mut calls, |c| {
     (c.callee.module.clone(), c.callee.name.clone(), c.callee.arity)
 });
 ```
-Use when: Items are sorted and you want to keep first occurrence
+Use when: Items are already sorted and you want to remove duplicates while preserving order
 
-**Strategy B: DeduplicationFilter** - For prevention during collection
+**DeduplicationFilter** - For prevention during collection
 ```rust
 let mut filter = crate::dedup::DeduplicationFilter::new();
 if filter.should_process(key) {
@@ -271,7 +283,49 @@ Use when: Building results incrementally and preventing duplicates before adding
 - Consistent deduplication approach codebase-wide
 - Clear intent via strategy choice
 
-### 3. Implement TableFormatter Trait
+### 3. Use Module Grouping Utilities
+
+The codebase provides helpers in `crate::utils` for grouping results by module:
+
+**group_by_module()** - Simple grouping without file tracking
+```rust
+use crate::utils::group_by_module;
+
+let groups = group_by_module(items, |item| {
+    (item.module.clone(), entry_from_item(item))
+});
+```
+Use when: File information is not needed (file defaults to empty string)
+
+**group_by_module_with_file()** - Grouping with file tracking
+```rust
+use crate::utils::group_by_module_with_file;
+
+let groups = group_by_module_with_file(items, |item| {
+    (item.module.clone(), entry_from_item(item), item.file.clone())
+});
+```
+Use when: You need to track which file each module group belongs to
+
+**convert_to_module_groups()** - For two-level nested maps
+```rust
+use crate::utils::convert_to_module_groups;
+
+// When you have: BTreeMap<module, BTreeMap<function_key, Vec<Call>>>
+let groups = convert_to_module_groups(
+    by_module,
+    |key, calls| build_entry(key, calls),           // Entry builder
+    |_module, functions| extract_file(functions),   // File strategy
+);
+```
+Use when: You've grouped by module and then by function, and need to flatten to `Vec<ModuleGroup<E>>`
+
+**Benefits:**
+- Automatic BTreeMap ordering (consistent output)
+- Single source of truth for grouping logic
+- Clear separation of entry building and file extraction
+
+### 4. Implement TableFormatter Trait
 
 Instead of implementing `Outputable` with 40+ lines of layout boilerplate, implement the `TableFormatter` trait in `output.rs`:
 
@@ -311,7 +365,7 @@ The default `Outputable` implementation will handle all layout logic. The trait 
 - Automatic consistency in table formatting
 - JSON and Toon formats work automatically via `#[derive(Serialize)]`
 
-### 4. Document File Field Decisions
+### 5. Document File Field Decisions
 
 The `ModuleGroup.file` field should be populated when the module's entries are associated with a specific file location. Document your decision:
 
@@ -334,12 +388,91 @@ ModuleGroup {
 }
 ```
 
+### Complete Example: calls_from Command
+
+Here's how the `calls_from` command combines these patterns:
+
+```rust
+// execute.rs
+use crate::dedup::sort_and_deduplicate;
+use crate::utils::convert_to_module_groups;
+use crate::types::{Call, ModuleGroupResult};
+
+impl ModuleGroupResult<CallerFunction> {
+    pub fn from_calls(module_pattern: String, function_pattern: String, calls: Vec<Call>) -> Self {
+        let total_items = calls.len();
+
+        // Step 1: Group by module -> function -> calls using BTreeMap
+        let mut by_module: BTreeMap<String, BTreeMap<CallerFunctionKey, Vec<Call>>> = BTreeMap::new();
+        for call in calls {
+            let fn_key = CallerFunctionKey { /* ... */ };
+            by_module
+                .entry(call.caller.module.clone())
+                .or_default()
+                .entry(fn_key)
+                .or_default()
+                .push(call);
+        }
+
+        // Step 2: Convert to ModuleGroups with deduplication
+        let items = convert_to_module_groups(
+            by_module,
+            |key, mut calls| {
+                // Deduplicate calls within each function
+                sort_and_deduplicate(
+                    &mut calls,
+                    |c| c.line,
+                    |c| (c.callee.module.clone(), c.callee.name.clone(), c.callee.arity),
+                );
+                CallerFunction { name: key.name, arity: key.arity, calls, /* ... */ }
+            },
+            // File strategy: extract from first call
+            |_module, functions_map| {
+                functions_map.values().next()
+                    .and_then(|calls| calls.first())
+                    .and_then(|call| call.caller.file.clone())
+                    .unwrap_or_default()
+            },
+        );
+
+        ModuleGroupResult { module_pattern, function_pattern: Some(function_pattern), total_items, items }
+    }
+}
+```
+
+```rust
+// output.rs
+impl TableFormatter for ModuleGroupResult<CallerFunction> {
+    type Entry = CallerFunction;
+
+    fn format_header(&self) -> String {
+        format!("Calls from: {}.{}", self.module_pattern, self.function_pattern.as_deref().unwrap_or(""))
+    }
+    fn format_empty_message(&self) -> String { "No calls found.".to_string() }
+    fn format_summary(&self, total: usize, _: usize) -> String { format!("Found {} call(s):", total) }
+    fn format_module_header(&self, name: &str, file: &str) -> String { format!("{} ({})", name, file) }
+    fn format_entry(&self, func: &CallerFunction, _: &str, _: &str) -> String {
+        format!("{}/{} ({}:{})", func.name, func.arity, func.start_line, func.end_line)
+    }
+    fn format_entry_details(&self, func: &CallerFunction, module: &str, file: &str) -> Vec<String> {
+        func.calls.iter().map(|c| c.format_outgoing(module, file)).collect()
+    }
+}
+```
+
 ### Implementation Checklist for Module-Grouped Commands
 
 - [ ] Use `ModuleGroupResult<E>` or `ModuleCollectionResult<E>` for result type
 - [ ] Use `ModuleGroup<E>` for the grouping container
+- [ ] Use `crate::utils::*` helpers for module grouping:
+  - [ ] `group_by_module()` for simple cases
+  - [ ] `group_by_module_with_file()` when file tracking is needed
+  - [ ] `convert_to_module_groups()` for two-level nested maps
+- [ ] Use `crate::dedup::*` utilities for deduplication (if needed):
+  - [ ] `sort_and_deduplicate()` for combined sort + dedup
+  - [ ] `deduplicate_retain()` for post-sort dedup
+  - [ ] `DeduplicationFilter` for incremental collection
 - [ ] Implement `TableFormatter` trait in `output.rs` (NOT `Outputable`)
-- [ ] Use `crate::dedup::*` utilities for deduplication (if needed)
 - [ ] Document `file` field population decision with inline comments
 - [ ] Test `to_table()` output against expected string constants
 - [ ] Verify all tests pass (`cargo test`)

@@ -5,8 +5,10 @@ use serde::Serialize;
 
 use super::CallsToCmd;
 use crate::commands::Execute;
+use crate::dedup::sort_and_deduplicate;
 use crate::queries::calls_to::find_calls_to;
-use crate::types::{Call, ModuleGroupResult, ModuleGroup};
+use crate::types::{Call, ModuleGroupResult};
+use crate::utils::convert_to_module_groups;
 
 /// A callee function (target) with all its callers
 #[derive(Debug, Clone, Serialize)]
@@ -39,48 +41,28 @@ impl ModuleGroupResult<CalleeFunction> {
                 .push(call);
         }
 
-        // Convert to Vec structure
-        let items: Vec<ModuleGroup<CalleeFunction>> = by_module
-            .into_iter()
-            .map(|(module_name, functions_map)| {
-                let entries: Vec<CalleeFunction> = functions_map
-                    .into_iter()
-                    .map(|(key, mut callers)| {
-                        // Deduplicate callers, keeping first occurrence by line
-                        callers.sort_by_key(|c| {
-                            (
-                                c.caller.module.clone(),
-                                c.caller.name.clone(),
-                                c.caller.arity,
-                                c.line,
-                            )
-                        });
-                        crate::dedup::deduplicate_retain(&mut callers, |c| {
-                            (
-                                c.caller.module.clone(),
-                                c.caller.name.clone(),
-                                c.caller.arity,
-                            )
-                        });
+        // Convert to ModuleGroup structure
+        let items = convert_to_module_groups(
+            by_module,
+            |key, mut callers| {
+                // Deduplicate callers, keeping first occurrence by line
+                sort_and_deduplicate(
+                    &mut callers,
+                    |c| (c.caller.module.clone(), c.caller.name.clone(), c.caller.arity, c.line),
+                    |c| (c.caller.module.clone(), c.caller.name.clone(), c.caller.arity),
+                );
 
-                        CalleeFunction {
-                            name: key.name,
-                            arity: key.arity,
-                            callers,
-                        }
-                    })
-                    .collect();
-
-                ModuleGroup {
-                    name: module_name,
-                    // File is intentionally empty because callees are the grouping key,
-                    // and a module can be defined across multiple files. The calls themselves
-                    // carry file information where needed.
-                    file: String::new(),
-                    entries,
+                CalleeFunction {
+                    name: key.name,
+                    arity: key.arity,
+                    callers,
                 }
-            })
-            .collect();
+            },
+            // File is intentionally empty because callees are the grouping key,
+            // and a module can be defined across multiple files. The calls themselves
+            // carry file information where needed.
+            |_module, _map| String::new(),
+        );
 
         ModuleGroupResult {
             module_pattern,

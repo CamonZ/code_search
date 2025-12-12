@@ -5,8 +5,10 @@ use serde::Serialize;
 
 use super::CallsFromCmd;
 use crate::commands::Execute;
+use crate::dedup::sort_and_deduplicate;
 use crate::queries::calls_from::find_calls_from;
-use crate::types::{Call, ModuleGroupResult, ModuleGroup};
+use crate::types::{Call, ModuleGroupResult};
+use crate::utils::convert_to_module_groups;
 
 /// A caller function with all its outgoing calls
 #[derive(Debug, Clone, Serialize)]
@@ -26,15 +28,9 @@ impl ModuleGroupResult<CallerFunction> {
 
         // Group by module -> function -> calls
         // Using BTreeMap for consistent ordering
-        let mut by_module: BTreeMap<String, (String, BTreeMap<CallerFunctionKey, Vec<Call>>)> =
-            BTreeMap::new();
+        let mut by_module: BTreeMap<String, BTreeMap<CallerFunctionKey, Vec<Call>>> = BTreeMap::new();
 
         for call in calls {
-            let file = call.caller.file.clone().unwrap_or_default();
-            let module_entry = by_module
-                .entry(call.caller.module.clone())
-                .or_insert_with(|| (file, BTreeMap::new()));
-
             let fn_key = CallerFunctionKey {
                 name: call.caller.name.clone(),
                 arity: call.caller.arity,
@@ -43,44 +39,44 @@ impl ModuleGroupResult<CallerFunction> {
                 end_line: call.caller.end_line.unwrap_or(0),
             };
 
-            module_entry.1.entry(fn_key).or_default().push(call);
+            by_module
+                .entry(call.caller.module.clone())
+                .or_default()
+                .entry(fn_key)
+                .or_default()
+                .push(call);
         }
 
-        // Convert to Vec structure
-        let items: Vec<ModuleGroup<CallerFunction>> = by_module
-            .into_iter()
-            .map(|(module_name, (file, functions_map))| {
-                let entries: Vec<CallerFunction> = functions_map
-                    .into_iter()
-                    .map(|(key, mut calls)| {
-                        // Deduplicate calls, keeping first occurrence by line
-                        calls.sort_by_key(|c| c.line);
-                        crate::dedup::deduplicate_retain(&mut calls, |c| {
-                            (
-                                c.callee.module.clone(),
-                                c.callee.name.clone(),
-                                c.callee.arity,
-                            )
-                        });
+        // Convert to ModuleGroup structure
+        let items = convert_to_module_groups(
+            by_module,
+            |key, mut calls| {
+                // Deduplicate calls, keeping first occurrence by line
+                sort_and_deduplicate(
+                    &mut calls,
+                    |c| c.line,
+                    |c| (c.callee.module.clone(), c.callee.name.clone(), c.callee.arity),
+                );
 
-                        CallerFunction {
-                            name: key.name,
-                            arity: key.arity,
-                            kind: key.kind,
-                            start_line: key.start_line,
-                            end_line: key.end_line,
-                            calls,
-                        }
-                    })
-                    .collect();
-
-                ModuleGroup {
-                    name: module_name,
-                    file,
-                    entries,
+                CallerFunction {
+                    name: key.name,
+                    arity: key.arity,
+                    kind: key.kind,
+                    start_line: key.start_line,
+                    end_line: key.end_line,
+                    calls,
                 }
-            })
-            .collect();
+            },
+            // File tracking strategy: extract from first call in first function
+            |_module, functions_map| {
+                functions_map
+                    .values()
+                    .next()
+                    .and_then(|calls| calls.first())
+                    .and_then(|call| call.caller.file.clone())
+                    .unwrap_or_default()
+            },
+        );
 
         ModuleGroupResult {
             module_pattern,

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::error::Error;
 
 use serde::Serialize;
@@ -6,7 +6,8 @@ use serde::Serialize;
 use super::DependsOnCmd;
 use crate::commands::Execute;
 use crate::queries::depends_on::find_dependencies;
-use crate::types::{Call, ModuleGroupResult, ModuleGroup};
+use crate::types::{Call, ModuleGroupResult};
+use crate::utils::convert_to_module_groups;
 
 /// A function in a dependency module being called
 #[derive(Debug, Clone, Serialize)]
@@ -31,7 +32,8 @@ impl ModuleGroupResult<DependencyFunction> {
         }
 
         // Group by callee_module -> callee_function -> callers
-        let mut by_module: HashMap<String, HashMap<(String, i64), Vec<Call>>> = HashMap::new();
+        // Using BTreeMap for automatic sorting
+        let mut by_module: BTreeMap<String, BTreeMap<(String, i64), Vec<Call>>> = BTreeMap::new();
         for call in calls {
             by_module
                 .entry(call.callee.module.clone())
@@ -41,32 +43,19 @@ impl ModuleGroupResult<DependencyFunction> {
                 .push(call);
         }
 
-        let mut items: Vec<ModuleGroup<DependencyFunction>> = vec![];
-        for (module_name, functions_map) in by_module {
-            let mut entries: Vec<DependencyFunction> = vec![];
-            for ((func_name, arity), callers) in functions_map {
-                entries.push(DependencyFunction {
-                    name: func_name,
-                    arity,
-                    callers,
-                });
-            }
-
-            // Sort functions by name, arity
-            entries.sort_by(|a, b| (&a.name, a.arity).cmp(&(&b.name, b.arity)));
-
-            items.push(ModuleGroup {
-                name: module_name,
-                // File is intentionally empty because dependencies are the grouping key,
-                // and a module can depend on functions defined across multiple files.
-                // The dependency targets themselves carry file information where needed.
-                file: String::new(),
-                entries,
-            });
-        }
-
-        // Sort modules by name
-        items.sort_by(|a, b| a.name.cmp(&b.name));
+        // Convert to ModuleGroup structure
+        let items = convert_to_module_groups(
+            by_module,
+            |(func_name, arity), callers| DependencyFunction {
+                name: func_name,
+                arity,
+                callers,
+            },
+            // File is intentionally empty because dependencies are the grouping key,
+            // and a module can depend on functions defined across multiple files.
+            // The dependency targets themselves carry file information where needed.
+            |_module, _map| String::new(),
+        );
 
         ModuleGroupResult {
             module_pattern: source_module,

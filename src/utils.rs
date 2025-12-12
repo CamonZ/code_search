@@ -1,7 +1,7 @@
 //! Utility functions for code search operations.
 
 use std::collections::BTreeMap;
-use crate::types::ModuleGroup;
+use crate::types::{ModuleGroup, Call};
 
 /// Builds SQL WHERE clause conditions for query patterns (exact or regex matching)
 ///
@@ -199,6 +199,63 @@ where
     module_map
         .into_iter()
         .map(|(name, (file, entries))| ModuleGroup { name, file, entries })
+        .collect()
+}
+
+/// Converts a two-level nested map into Vec<ModuleGroup<E>>.
+///
+/// Handles the common pattern of grouping calls by module and function,
+/// then converting the nested structure into a flat Vec of ModuleGroups.
+///
+/// # Arguments
+/// * `by_module` - A BTreeMap of modules to (function_key → calls) maps
+/// * `entry_builder` - Closure that converts (function_key, calls) to an entry
+/// * `file_strategy` - Closure that determines the file path for a module group
+///
+/// # Returns
+/// A vector of ModuleGroup structs, one per module in sorted order
+///
+/// # Example
+/// ```ignore
+/// let mut by_module: BTreeMap<String, BTreeMap<(String, i64), Vec<Call>>> = /* ... */;
+/// let groups = convert_to_module_groups(
+///     by_module,
+///     |(name, arity), calls| {
+///         CallEntry {
+///             function_name: name,
+///             arity,
+///             count: calls.len(),
+///         }
+///     },
+///     |_module, _map| String::new()  // No file tracking
+/// );
+/// ```
+pub fn convert_to_module_groups<FK, E, F, FileF>(
+    by_module: BTreeMap<String, BTreeMap<FK, Vec<Call>>>,
+    entry_builder: F,
+    file_strategy: FileF,
+) -> Vec<ModuleGroup<E>>
+where
+    FK: Ord,
+    F: Fn(FK, Vec<Call>) -> E,
+    FileF: Fn(&str, &BTreeMap<FK, Vec<Call>>) -> String,
+{
+    by_module
+        .into_iter()
+        .map(|(module_name, functions_map)| {
+            let file = file_strategy(&module_name, &functions_map);
+
+            let entries: Vec<E> = functions_map
+                .into_iter()
+                .map(|(key, calls)| entry_builder(key, calls))
+                .collect();
+
+            ModuleGroup {
+                name: module_name,
+                file,
+                entries,
+            }
+        })
         .collect()
 }
 

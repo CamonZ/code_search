@@ -33,6 +33,43 @@ where
     items.retain(|item| seen.insert(key_fn(item)));
 }
 
+/// Combined sort and deduplicate operation.
+///
+/// Sorts a collection by one key, then deduplicates using a different key.
+/// Preserves the first occurrence of each duplicate.
+///
+/// Use this when you need to:
+/// 1. Sort items by one criteria (e.g., line number)
+/// 2. Remove duplicates based on different criteria (e.g., callee name)
+///
+/// # Arguments
+/// * `items` - Mutable vector of items to sort and deduplicate
+/// * `sort_key_fn` - Function that extracts the sort key
+/// * `dedup_key_fn` - Function that extracts the deduplication key
+///
+/// # Example
+/// ```ignore
+/// let mut calls = vec![...];
+/// sort_and_deduplicate(&mut calls,
+///     |c| c.line,  // Sort by line number
+///     |c| (c.callee.module.clone(), c.callee.name.clone(), c.callee.arity)  // Dedup by callee
+/// );
+/// ```
+pub fn sort_and_deduplicate<T, SK, DK, S, D>(
+    items: &mut Vec<T>,
+    sort_key: SK,
+    dedup_key: DK,
+)
+where
+    SK: FnMut(&T) -> S,
+    S: Ord,
+    DK: Fn(&T) -> D,
+    D: Eq + Hash + Clone,
+{
+    items.sort_by_key(sort_key);
+    deduplicate_retain(items, dedup_key);
+}
+
 /// Strategy B: HashSet prevention pattern - check before adding
 ///
 /// Use this when collecting items and you want to prevent duplicates from being added

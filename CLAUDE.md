@@ -21,7 +21,10 @@ This is a Rust CLI tool for querying call graph data stored in a CozoDB SQLite d
 - `src/commands/mod.rs` - `Command` enum, `Execute` trait, dispatch via `run()` method
 - `src/commands/<name>/` - Individual command modules (directory structure)
 - `src/db.rs` - Database connection and query utilities
-- `src/output.rs` - `OutputFormat` enum, `Outputable` trait for formatting results
+- `src/output.rs` - `OutputFormat` enum, `Outputable` and `TableFormatter` traits
+- `src/dedup.rs` - Deduplication utilities (`sort_and_deduplicate`, `DeduplicationFilter`)
+- `src/utils.rs` - Module grouping helpers (`group_by_module`, `convert_to_module_groups`)
+- `src/types/` - Shared types (`ModuleGroupResult`, `ModuleGroup`, `Call`, etc.)
 
 **Command module structure:**
 Each command is a directory module with these files:
@@ -34,7 +37,7 @@ Each command is a directory module with these files:
 ```rust
 pub trait Execute {
     type Output: Outputable;
-    fn execute(self, db_path: &Path) -> Result<Self::Output, Box<dyn Error>>;
+    fn execute(self, db: &DbInstance) -> Result<Self::Output, Box<dyn Error>>;
 }
 ```
 
