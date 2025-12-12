@@ -27,7 +27,7 @@ use std::hash::Hash;
 pub fn deduplicate_retain<T, F, K>(items: &mut Vec<T>, key_fn: F)
 where
     F: Fn(&T) -> K,
-    K: Eq + Hash + Clone,
+    K: Eq + Hash,
 {
     let mut seen: HashSet<K> = HashSet::new();
     items.retain(|item| seen.insert(key_fn(item)));
@@ -64,7 +64,7 @@ where
     SK: FnMut(&T) -> S,
     S: Ord,
     DK: Fn(&T) -> D,
-    D: Eq + Hash + Clone,
+    D: Eq + Hash,
 {
     items.sort_by_key(sort_key);
     deduplicate_retain(items, dedup_key);
@@ -102,6 +102,13 @@ impl<K: Eq + Hash> DeduplicationFilter<K> {
     /// Returns true if the key is new and was successfully inserted, false if it was already present.
     pub fn should_process(&mut self, key: K) -> bool {
         self.processed.insert(key)
+    }
+
+    /// Check if a key has been seen without inserting it
+    ///
+    /// Use this when you want to check membership without taking ownership.
+    pub fn contains(&self, key: &K) -> bool {
+        self.processed.contains(key)
     }
 }
 

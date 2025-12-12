@@ -36,85 +36,94 @@ impl TraceResult {
             return Self::empty(start_module, start_function, max_depth, TraceDirection::Forward);
         }
 
-        // Group calls by depth
-        let mut by_depth: HashMap<i64, Vec<&Call>> = HashMap::new();
-        for call in &calls {
+        // Group calls by depth, consuming the Vec to take ownership
+        let mut by_depth: HashMap<i64, Vec<Call>> = HashMap::new();
+        for call in calls {
             if let Some(depth) = call.depth {
                 by_depth.entry(depth).or_default().push(call);
             }
         }
 
         // Process depth 1 (direct callees from start function)
-        if let Some(depth1_calls) = by_depth.get(&1) {
-            let mut filter = crate::dedup::DeduplicationFilter::new();
+        if let Some(depth1_calls) = by_depth.remove(&1) {
+            // Track seen entries by index into entries vec (avoids storing strings)
+            let mut seen_at_depth: std::collections::HashSet<usize> = std::collections::HashSet::new();
 
             for call in depth1_calls {
-                let callee_key = (
-                    call.callee.module.clone(),
-                    call.callee.name.clone(),
-                    call.callee.arity,
-                    1i64,
-                );
+                // Check if we already have this callee at this depth
+                let existing = entries.iter().position(|e| {
+                    e.depth == 1
+                        && e.module == call.callee.module
+                        && e.function == call.callee.name
+                        && e.arity == call.callee.arity
+                });
 
-                // Add callee as child entry if not already added
-                if filter.should_process(callee_key.clone()) {
-                    let entry_idx = entries.len();
-                    entries.push(TraceEntry {
-                        module: call.callee.module.clone(),
-                        function: call.callee.name.clone(),
-                        arity: call.callee.arity,
-                        kind: call.callee.kind.clone().unwrap_or_default(),
-                        start_line: call.callee.start_line.unwrap_or(0),
-                        end_line: call.callee.end_line.unwrap_or(0),
-                        file: call.callee.file.clone().unwrap_or_default(),
-                        depth: 1,
-                        line: call.line,
-                        parent_index: Some(0), // Parent is the starting function at index 0
-                    });
-                    entry_index_map.insert(callee_key, entry_idx);
+                if existing.is_none() || seen_at_depth.insert(existing.unwrap_or(usize::MAX)) {
+                    if existing.is_none() {
+                        let entry_idx = entries.len();
+                        // Move strings from call into entry, clone once for map key
+                        let module = call.callee.module;
+                        let function = call.callee.name;
+                        let arity = call.callee.arity;
+                        entry_index_map.insert((module.clone(), function.clone(), arity, 1i64), entry_idx);
+                        entries.push(TraceEntry {
+                            module,
+                            function,
+                            arity,
+                            kind: call.callee.kind.unwrap_or_default(),
+                            start_line: call.callee.start_line.unwrap_or(0),
+                            end_line: call.callee.end_line.unwrap_or(0),
+                            file: call.callee.file.unwrap_or_default(),
+                            depth: 1,
+                            line: call.line,
+                            parent_index: Some(0),
+                        });
+                    }
                 }
             }
         }
 
         // Process deeper levels
         for depth in 2..=max_depth as i64 {
-            if let Some(depth_calls) = by_depth.get(&depth) {
-                let mut filter = crate::dedup::DeduplicationFilter::new();
-
+            if let Some(depth_calls) = by_depth.remove(&depth) {
                 for call in depth_calls {
-                    let callee_key = (
-                        call.callee.module.clone(),
-                        call.callee.name.clone(),
-                        call.callee.arity,
-                        depth,
-                    );
+                    // Check if we already have this callee at this depth
+                    let existing = entries.iter().position(|e| {
+                        e.depth == depth
+                            && e.module == call.callee.module
+                            && e.function == call.callee.name
+                            && e.arity == call.callee.arity
+                    });
 
-                    // Find parent index (the caller at previous depth)
-                    let caller_key = (
-                        call.caller.module.clone(),
-                        call.caller.name.clone(),
-                        call.caller.arity,
-                        depth - 1,
-                    );
-
-                    // Find the parent entry
-                    let parent_index = entry_index_map.get(&caller_key).copied();
-
-                    if filter.should_process(callee_key.clone()) && parent_index.is_some() {
-                        let entry_idx = entries.len();
-                        entries.push(TraceEntry {
-                            module: call.callee.module.clone(),
-                            function: call.callee.name.clone(),
-                            arity: call.callee.arity,
-                            kind: call.callee.kind.clone().unwrap_or_default(),
-                            start_line: call.callee.start_line.unwrap_or(0),
-                            end_line: call.callee.end_line.unwrap_or(0),
-                            file: call.callee.file.clone().unwrap_or_default(),
-                            depth,
-                            line: call.line,
-                            parent_index,
+                    if existing.is_none() {
+                        // Find parent index using references (no cloning)
+                        let parent_index = entries.iter().position(|e| {
+                            e.depth == depth - 1
+                                && e.module == call.caller.module
+                                && e.function == call.caller.name
+                                && e.arity == call.caller.arity
                         });
-                        entry_index_map.insert(callee_key, entry_idx);
+
+                        if parent_index.is_some() {
+                            let entry_idx = entries.len();
+                            // Move strings from call into entry, clone once for map key
+                            let module = call.callee.module;
+                            let function = call.callee.name;
+                            let arity = call.callee.arity;
+                            entry_index_map.insert((module.clone(), function.clone(), arity, depth), entry_idx);
+                            entries.push(TraceEntry {
+                                module,
+                                function,
+                                arity,
+                                kind: call.callee.kind.unwrap_or_default(),
+                                start_line: call.callee.start_line.unwrap_or(0),
+                                end_line: call.callee.end_line.unwrap_or(0),
+                                file: call.callee.file.unwrap_or_default(),
+                                depth,
+                                line: call.line,
+                                parent_index,
+                            });
+                        }
                     }
                 }
             }
