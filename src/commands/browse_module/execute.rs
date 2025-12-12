@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use super::{BrowseModuleCmd, DefinitionKind};
 use crate::commands::Execute;
-use crate::queries::file::find_functions_in_file;
+use crate::queries::file::find_functions_in_module;
 use crate::queries::specs::find_specs;
 use crate::queries::types::find_types;
 use crate::queries::structs::{find_struct_fields, group_fields_into_structs, FieldInfo};
@@ -130,7 +130,7 @@ impl Execute for BrowseModuleCmd {
 
         // Query functions (from function_locations table for file + line info)
         if should_query_functions {
-            let funcs = find_functions_in_file(
+            let funcs = find_functions_in_module(
                 db,
                 &self.module_or_file,
                 &self.project,
@@ -138,30 +138,28 @@ impl Execute for BrowseModuleCmd {
                 self.limit,
             )?;
 
-            for file_with_funcs in funcs {
-                for func in file_with_funcs.functions {
-                    // Filter by name if specified
-                    if let Some(ref name_filter) = self.name {
-                        if !func.name.contains(name_filter) {
-                            continue;
-                        }
+            for func in funcs {
+                // Filter by name if specified
+                if let Some(ref name_filter) = self.name {
+                    if !func.name.contains(name_filter) {
+                        continue;
                     }
-
-                    definitions.push(Definition::Function {
-                        module: func.module,
-                        file: file_with_funcs.file.clone(),
-                        name: func.name,
-                        arity: func.arity,
-                        line: func.line,
-                        start_line: func.start_line,
-                        end_line: func.end_line,
-                        kind: func.kind,
-                        args: String::new(), // Not in function_locations
-                        return_type: String::new(), // Not in function_locations
-                        pattern: func.pattern,
-                        guard: func.guard,
-                    });
                 }
+
+                definitions.push(Definition::Function {
+                    module: func.module,
+                    file: func.file,
+                    name: func.name,
+                    arity: func.arity,
+                    line: func.line,
+                    start_line: func.start_line,
+                    end_line: func.end_line,
+                    kind: func.kind,
+                    args: String::new(), // Not in function_locations
+                    return_type: String::new(), // Not in function_locations
+                    pattern: func.pattern,
+                    guard: func.guard,
+                });
             }
         }
 

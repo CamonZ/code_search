@@ -63,6 +63,7 @@ lib/service.ex:
                         end_line: 20,
                         pattern: String::new(),
                         guard: String::new(),
+                        file: "lib/accounts.ex".to_string(),
                     },
                     FileFunctionDef {
                         module: "MyApp.Accounts".to_string(),
@@ -74,6 +75,7 @@ lib/service.ex:
                         end_line: 30,
                         pattern: String::new(),
                         guard: String::new(),
+                        file: "lib/accounts.ex".to_string(),
                     },
                 ],
             }],
@@ -98,6 +100,7 @@ lib/service.ex:
                         end_line: 20,
                         pattern: String::new(),
                         guard: String::new(),
+                        file: "lib/accounts.ex".to_string(),
                     }],
                 },
                 FileWithFunctions {
@@ -112,6 +115,7 @@ lib/service.ex:
                         end_line: 15,
                         pattern: String::new(),
                         guard: String::new(),
+                        file: "lib/service.ex".to_string(),
                     }],
                 },
             ],
