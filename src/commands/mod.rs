@@ -3,6 +3,7 @@
 //! Each command is defined in its own module with:
 //! - The command struct with clap attributes for CLI parsing
 
+mod browse_module;
 mod calls_from;
 mod calls_to;
 mod depended_by;
@@ -21,6 +22,7 @@ mod trace;
 mod types;
 mod unused;
 
+pub use browse_module::BrowseModuleCmd;
 pub use calls_from::CallsFromCmd;
 pub use calls_to::CallsToCmd;
 pub use depended_by::DependedByCmd;
@@ -57,6 +59,9 @@ pub trait Execute {
 pub enum Command {
     /// Import a call graph JSON file into the database
     Import(ImportCmd),
+
+    /// Browse all definitions in a module or file
+    BrowseModule(BrowseModuleCmd),
 
     /// Search for modules or functions by name pattern
     Search(SearchCmd),
@@ -116,6 +121,10 @@ impl Command {
     pub fn run(self, db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>> {
         match self {
             Command::Import(cmd) => {
+                let result = cmd.execute(db)?;
+                Ok(result.format(format))
+            }
+            Command::BrowseModule(cmd) => {
                 let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }
