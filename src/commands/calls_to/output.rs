@@ -1,43 +1,41 @@
 //! Output formatting for calls-to command results.
 
-use crate::output::Outputable;
+use crate::output::TableFormatter;
 use crate::types::ModuleGroupResult;
 use super::execute::CalleeFunction;
 
-impl Outputable for ModuleGroupResult<CalleeFunction> {
-    fn to_table(&self) -> String {
-        let mut lines = Vec::new();
+impl TableFormatter for ModuleGroupResult<CalleeFunction> {
+    type Entry = CalleeFunction;
 
-        let header = if self.function_pattern.is_none() || self.function_pattern.as_ref().unwrap().is_empty() {
+    fn format_header(&self) -> String {
+        if self.function_pattern.is_none() || self.function_pattern.as_ref().unwrap().is_empty() {
             format!("Calls to: {}", self.module_pattern)
         } else {
             format!("Calls to: {}.{}", self.module_pattern, self.function_pattern.as_ref().unwrap())
-        };
-        lines.push(header);
-        lines.push(String::new());
-
-        if self.items.is_empty() {
-            lines.push("No callers found.".to_string());
-            return lines.join("\n");
         }
+    }
 
-        lines.push(format!("Found {} caller(s):", self.total_items));
-        lines.push(String::new());
+    fn format_empty_message(&self) -> String {
+        "No callers found.".to_string()
+    }
 
-        for module in &self.items {
-            lines.push(module.name.clone());
+    fn format_summary(&self, total: usize, _module_count: usize) -> String {
+        format!("Found {} caller(s):", total)
+    }
 
-            for func in &module.entries {
-                lines.push(format!("  {}/{}", func.name, func.arity));
+    fn format_module_header(&self, module_name: &str, _module_file: &str) -> String {
+        module_name.to_string()
+    }
 
-                for call in &func.callers {
-                    // Use empty context file since callers come from different files
-                    let formatted = call.format_incoming(&module.name, "");
-                    lines.push(format!("    {}", formatted));
-                }
-            }
-        }
+    fn format_entry(&self, func: &CalleeFunction, _module: &str, _file: &str) -> String {
+        format!("{}/{}", func.name, func.arity)
+    }
 
-        lines.join("\n")
+    fn format_entry_details(&self, func: &CalleeFunction, module: &str, _file: &str) -> Vec<String> {
+        // Use empty context file since callers come from different files
+        func.callers
+            .iter()
+            .map(|call| call.format_incoming(module, ""))
+            .collect()
     }
 }

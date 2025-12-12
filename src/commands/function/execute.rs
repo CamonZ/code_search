@@ -46,6 +46,9 @@ impl ModuleGroupResult<FuncSig> {
             .into_iter()
             .map(|(name, entries)| ModuleGroup {
                 name,
+                // File is intentionally empty for functions because the function command
+                // queries the functions table which doesn't track file locations.
+                // File locations are available in function_locations table if needed.
                 file: String::new(),
                 entries,
             })

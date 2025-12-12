@@ -209,3 +209,124 @@ cargo run -- <name> --help
 - [ ] Registered command in `src/commands/mod.rs`
 - [ ] Added match arm in `Command::run()`
 - [ ] Verified with `cargo build && cargo test`
+
+---
+
+## Adding Module-Grouped Commands
+
+When building a command that groups results by module (e.g., showing functions per module, dependencies per module), follow these architectural patterns to reduce boilerplate and maintain consistency.
+
+### 1. Use Generic Result Types
+
+Instead of defining a custom result type per command, use shared containers:
+
+- **`ModuleGroupResult<E>`** - For simple two-parameter results (module pattern + optional function pattern)
+- **`ModuleCollectionResult<E>`** - For results with additional filter metadata (kind_filter, name_filter, etc.)
+
+Both use `ModuleGroup<E>` as the grouping container with fields: `name`, `file`, `entries`.
+
+**Benefits:**
+- Single source of truth for module-grouped result structure
+- Automatic JSON/Toon serialization consistency
+- No more custom result type boilerplate
+
+### 2. Use Deduplication Utilities
+
+The codebase provides two reusable deduplication strategies in `crate::dedup`:
+
+**Strategy A: deduplicate_retain()** - For post-sort deduplication
+```rust
+calls.sort_by_key(|c| c.line);
+crate::dedup::deduplicate_retain(&mut calls, |c| {
+    (c.callee.module.clone(), c.callee.name.clone(), c.callee.arity)
+});
+```
+Use when: Items are sorted and you want to keep first occurrence
+
+**Strategy B: DeduplicationFilter** - For prevention during collection
+```rust
+let mut filter = crate::dedup::DeduplicationFilter::new();
+if filter.should_process(key) {
+    // Add entry to result
+}
+```
+Use when: Building results incrementally and preventing duplicates before adding
+
+**Benefits:**
+- No more HashSet boilerplate scattered across commands
+- Consistent deduplication approach codebase-wide
+- Clear intent via strategy choice
+
+### 3. Implement TableFormatter Trait
+
+Instead of implementing `Outputable` with 40+ lines of layout boilerplate, implement the `TableFormatter` trait in `output.rs`:
+
+```rust
+impl TableFormatter for ModuleGroupResult<YourEntry> {
+    type Entry = YourEntry;
+
+    // Required methods
+    fn format_header(&self) -> String { /* e.g., "Function: module.pattern" */ }
+    fn format_empty_message(&self) -> String { /* e.g., "No functions found." */ }
+    fn format_summary(&self, total: usize, module_count: usize) -> String {
+        format!("Found {} result(s) in {} module(s):", total, module_count)
+    }
+    fn format_module_header(&self, module_name: &str, module_file: &str) -> String {
+        format!("{}:", module_name)  // Simple format, or include file if available
+    }
+    fn format_entry(&self, entry: &Self::Entry, module: &str, file: &str) -> String {
+        // Format a single entry
+    }
+
+    // Optional: provide additional details
+    fn format_entry_details(&self, entry: &Self::Entry, module: &str, file: &str) -> Vec<String> {
+        vec![]  // Return empty for simple entries, override for complex ones
+    }
+
+    // Optional: customize spacing
+    fn blank_after_summary(&self) -> bool { true }     // Blank line after summary?
+    fn blank_before_module(&self) -> bool { false }    // Blank line before each module?
+}
+```
+
+The default `Outputable` implementation will handle all layout logic. The trait default methods let you customize spacing as needed.
+
+**Benefits:**
+- Default implementation handles all boilerplate layout (~40 lines per command)
+- Eliminates ~320 lines of duplicated code across module-grouped commands
+- Automatic consistency in table formatting
+- JSON and Toon formats work automatically via `#[derive(Serialize)]`
+
+### 4. Document File Field Decisions
+
+The `ModuleGroup.file` field should be populated when the module's entries are associated with a specific file location. Document your decision:
+
+**Populate file when:**
+- Entries originate from a specific file (e.g., calls from a function in a specific file)
+- File information is available in the query and semantically meaningful
+
+**Leave file empty when:**
+- Targets/dependents are the grouping key (a module can be defined across multiple files)
+- File location is not meaningful for the command (e.g., specs, types)
+- Add a comment explaining:
+
+```rust
+ModuleGroup {
+    name,
+    // File is intentionally empty because callees are the grouping key,
+    // and a module can be defined across multiple files.
+    file: String::new(),
+    entries,
+}
+```
+
+### Implementation Checklist for Module-Grouped Commands
+
+- [ ] Use `ModuleGroupResult<E>` or `ModuleCollectionResult<E>` for result type
+- [ ] Use `ModuleGroup<E>` for the grouping container
+- [ ] Implement `TableFormatter` trait in `output.rs` (NOT `Outputable`)
+- [ ] Use `crate::dedup::*` utilities for deduplication (if needed)
+- [ ] Document `file` field population decision with inline comments
+- [ ] Test `to_table()` output against expected string constants
+- [ ] Verify all tests pass (`cargo test`)
+- [ ] JSON/Toon formats automatically work via `#[derive(Serialize)]`

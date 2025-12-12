@@ -49,6 +49,8 @@ impl ModuleCollectionResult<TypeEntry> {
             .into_iter()
             .map(|(name, entries)| ModuleGroup {
                 name,
+                // File is intentionally empty for types because the call graph data model
+                // does not track file locations for @type definitions (only for functions).
                 file: String::new(),
                 entries,
             })

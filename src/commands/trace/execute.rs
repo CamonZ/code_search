@@ -46,7 +46,7 @@ impl TraceResult {
 
         // Process depth 1 (direct callees from start function)
         if let Some(depth1_calls) = by_depth.get(&1) {
-            let mut processed = std::collections::HashSet::new();
+            let mut filter = crate::dedup::DeduplicationFilter::new();
 
             for call in depth1_calls {
                 let callee_key = (
@@ -57,7 +57,7 @@ impl TraceResult {
                 );
 
                 // Add callee as child entry if not already added
-                if !processed.contains(&callee_key) {
+                if filter.should_process(callee_key.clone()) {
                     let entry_idx = entries.len();
                     entries.push(TraceEntry {
                         module: call.callee.module.clone(),
@@ -71,8 +71,7 @@ impl TraceResult {
                         line: call.line,
                         parent_index: Some(0), // Parent is the starting function at index 0
                     });
-                    entry_index_map.insert(callee_key.clone(), entry_idx);
-                    processed.insert(callee_key);
+                    entry_index_map.insert(callee_key, entry_idx);
                 }
             }
         }
@@ -80,7 +79,7 @@ impl TraceResult {
         // Process deeper levels
         for depth in 2..=max_depth as i64 {
             if let Some(depth_calls) = by_depth.get(&depth) {
-                let mut processed = std::collections::HashSet::new();
+                let mut filter = crate::dedup::DeduplicationFilter::new();
 
                 for call in depth_calls {
                     let callee_key = (
@@ -101,7 +100,7 @@ impl TraceResult {
                     // Find the parent entry
                     let parent_index = entry_index_map.get(&caller_key).copied();
 
-                    if !processed.contains(&callee_key) && parent_index.is_some() {
+                    if filter.should_process(callee_key.clone()) && parent_index.is_some() {
                         let entry_idx = entries.len();
                         entries.push(TraceEntry {
                             module: call.callee.module.clone(),
@@ -115,8 +114,7 @@ impl TraceResult {
                             line: call.line,
                             parent_index,
                         });
-                        entry_index_map.insert(callee_key.clone(), entry_idx);
-                        processed.insert(callee_key);
+                        entry_index_map.insert(callee_key, entry_idx);
                     }
                 }
             }

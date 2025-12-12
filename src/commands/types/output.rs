@@ -1,14 +1,13 @@
 //! Output formatting for types command results.
 
 use super::execute::TypeEntry;
-use crate::output::Outputable;
+use crate::output::TableFormatter;
 use crate::types::ModuleCollectionResult;
 
-impl Outputable for ModuleCollectionResult<TypeEntry> {
-    fn to_table(&self) -> String {
-        let mut lines = Vec::new();
+impl TableFormatter for ModuleCollectionResult<TypeEntry> {
+    type Entry = TypeEntry;
 
-        // Build header
+    fn format_header(&self) -> String {
         let mut header = format!("Types: {}", self.module_pattern);
         if let Some(ref name) = self.name_filter {
             header.push_str(&format!(".{}", name));
@@ -16,42 +15,46 @@ impl Outputable for ModuleCollectionResult<TypeEntry> {
         if let Some(ref kind) = self.kind_filter {
             header.push_str(&format!(" (kind: {})", kind));
         }
-        lines.push(header);
-        lines.push(String::new());
+        header
+    }
 
-        if self.items.is_empty() {
-            lines.push("No types found.".to_string());
+    fn format_empty_message(&self) -> String {
+        "No types found.".to_string()
+    }
+
+    fn format_summary(&self, total: usize, module_count: usize) -> String {
+        format!("Found {} type(s) in {} module(s):", total, module_count)
+    }
+
+    fn format_module_header(&self, module_name: &str, _module_file: &str) -> String {
+        format!("{}:", module_name)
+    }
+
+    fn format_entry(&self, type_entry: &TypeEntry, _module: &str, _file: &str) -> String {
+        let params_str = if type_entry.params.is_empty() {
+            String::new()
         } else {
-            lines.push(format!(
-                "Found {} type(s) in {} module(s):",
-                self.total_items,
-                self.items.len()
-            ));
+            format!("({})", type_entry.params)
+        };
+        format!(
+            "{}{} [{}] L{}",
+            type_entry.name, params_str, type_entry.kind, type_entry.line
+        )
+    }
 
-            for module in &self.items {
-                lines.push(String::new());
-                lines.push(format!("{}:", module.name));
-
-                for type_entry in &module.entries {
-                    // Show type signature with params
-                    let params_str = if type_entry.params.is_empty() {
-                        String::new()
-                    } else {
-                        format!("({})", type_entry.params)
-                    };
-                    lines.push(format!(
-                        "  {}{} [{}] L{}",
-                        type_entry.name, params_str, type_entry.kind, type_entry.line
-                    ));
-
-                    // Show the definition if available
-                    if !type_entry.definition.is_empty() {
-                        lines.push(format!("    {}", type_entry.definition));
-                    }
-                }
-            }
+    fn format_entry_details(&self, type_entry: &TypeEntry, _module: &str, _file: &str) -> Vec<String> {
+        if !type_entry.definition.is_empty() {
+            vec![type_entry.definition.clone()]
+        } else {
+            Vec::new()
         }
+    }
 
-        lines.join("\n")
+    fn blank_before_module(&self) -> bool {
+        true
+    }
+
+    fn blank_after_summary(&self) -> bool {
+        false
     }
 }

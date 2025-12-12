@@ -29,7 +29,7 @@ impl TraceResult {
 
         // Process depth 1 (direct callers of target function)
         if let Some(depth1_steps) = by_depth.get(&1) {
-            let mut processed = std::collections::HashSet::new();
+            let mut filter = crate::dedup::DeduplicationFilter::new();
 
             for step in depth1_steps {
                 let caller_key = (
@@ -40,7 +40,7 @@ impl TraceResult {
                 );
 
                 // Add caller as root entry if not already added
-                if !processed.contains(&caller_key) {
+                if filter.should_process(caller_key.clone()) {
                     let entry_idx = entries.len();
                     entries.push(TraceEntry {
                         module: step.caller_module.clone(),
@@ -54,8 +54,7 @@ impl TraceResult {
                         line: step.line,
                         parent_index: None,
                     });
-                    entry_index_map.insert(caller_key.clone(), entry_idx);
-                    processed.insert(caller_key);
+                    entry_index_map.insert(caller_key, entry_idx);
                 }
             }
         }
@@ -63,7 +62,7 @@ impl TraceResult {
         // Process deeper levels (additional callers)
         for depth in 2..=max_depth as i64 {
             if let Some(depth_steps) = by_depth.get(&depth) {
-                let mut processed = std::collections::HashSet::new();
+                let mut filter = crate::dedup::DeduplicationFilter::new();
 
                 for step in depth_steps {
                     let caller_key = (
@@ -83,7 +82,7 @@ impl TraceResult {
 
                     let parent_index = entry_index_map.get(&parent_key).copied();
 
-                    if !processed.contains(&caller_key) && parent_index.is_some() {
+                    if filter.should_process(caller_key.clone()) && parent_index.is_some() {
                         let entry_idx = entries.len();
                         entries.push(TraceEntry {
                             module: step.caller_module.clone(),
@@ -97,8 +96,7 @@ impl TraceResult {
                             line: step.line,
                             parent_index,
                         });
-                        entry_index_map.insert(caller_key.clone(), entry_idx);
-                        processed.insert(caller_key);
+                        entry_index_map.insert(caller_key, entry_idx);
                     }
                 }
             }

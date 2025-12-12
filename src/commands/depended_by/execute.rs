@@ -56,8 +56,16 @@ impl ModuleGroupResult<DependentCaller> {
         let mut items: Vec<ModuleGroup<DependentCaller>> = vec![];
         for (module_name, callers_map) in by_module {
             let mut entries: Vec<DependentCaller> = vec![];
+            let mut module_file = String::new();
+
             for ((func_name, arity), func_calls) in callers_map {
                 let first = func_calls[0];
+
+                // Track the first file we encounter for this module
+                if module_file.is_empty() {
+                    module_file = first.caller.file.clone().unwrap_or_default();
+                }
+
                 let targets: Vec<DependentTarget> = func_calls
                     .iter()
                     .map(|c| DependentTarget {
@@ -83,7 +91,7 @@ impl ModuleGroupResult<DependentCaller> {
 
             items.push(ModuleGroup {
                 name: module_name,
-                file: String::new(),
+                file: module_file,
                 entries,
             });
         }

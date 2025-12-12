@@ -54,6 +54,8 @@ impl ModuleCollectionResult<SpecEntry> {
             .into_iter()
             .map(|(name, entries)| ModuleGroup {
                 name,
+                // File is intentionally empty for specs because the call graph data model
+                // does not track file locations for @spec definitions (only for functions).
                 file: String::new(),
                 entries,
             })

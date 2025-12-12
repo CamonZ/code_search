@@ -57,6 +57,9 @@ impl ModuleGroupResult<DependencyFunction> {
 
             items.push(ModuleGroup {
                 name: module_name,
+                // File is intentionally empty because dependencies are the grouping key,
+                // and a module can depend on functions defined across multiple files.
+                // The dependency targets themselves carry file information where needed.
                 file: String::new(),
                 entries,
             });

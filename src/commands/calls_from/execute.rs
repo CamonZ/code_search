@@ -55,14 +55,12 @@ impl ModuleGroupResult<CallerFunction> {
                     .map(|(key, mut calls)| {
                         // Deduplicate calls, keeping first occurrence by line
                         calls.sort_by_key(|c| c.line);
-                        let mut seen: std::collections::HashSet<(String, String, i64)> =
-                            std::collections::HashSet::new();
-                        calls.retain(|c| {
-                            seen.insert((
+                        crate::dedup::deduplicate_retain(&mut calls, |c| {
+                            (
                                 c.callee.module.clone(),
                                 c.callee.name.clone(),
                                 c.callee.arity,
-                            ))
+                            )
                         });
 
                         CallerFunction {

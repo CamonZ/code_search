@@ -55,14 +55,12 @@ impl ModuleGroupResult<CalleeFunction> {
                                 c.line,
                             )
                         });
-                        let mut seen: std::collections::HashSet<(String, String, i64)> =
-                            std::collections::HashSet::new();
-                        callers.retain(|c| {
-                            seen.insert((
+                        crate::dedup::deduplicate_retain(&mut callers, |c| {
+                            (
                                 c.caller.module.clone(),
                                 c.caller.name.clone(),
                                 c.caller.arity,
-                            ))
+                            )
                         });
 
                         CalleeFunction {
@@ -75,6 +73,9 @@ impl ModuleGroupResult<CalleeFunction> {
 
                 ModuleGroup {
                     name: module_name,
+                    // File is intentionally empty because callees are the grouping key,
+                    // and a module can be defined across multiple files. The calls themselves
+                    // carry file information where needed.
                     file: String::new(),
                     entries,
                 }

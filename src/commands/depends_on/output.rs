@@ -1,36 +1,37 @@
 //! Output formatting for depends-on command results.
 
-use crate::output::Outputable;
+use crate::output::TableFormatter;
 use crate::types::ModuleGroupResult;
 use super::execute::DependencyFunction;
 
-impl Outputable for ModuleGroupResult<DependencyFunction> {
-    fn to_table(&self) -> String {
-        let mut lines = Vec::new();
+impl TableFormatter for ModuleGroupResult<DependencyFunction> {
+    type Entry = DependencyFunction;
 
-        lines.push(format!("Dependencies of: {}", self.module_pattern));
-        lines.push(String::new());
+    fn format_header(&self) -> String {
+        format!("Dependencies of: {}", self.module_pattern)
+    }
 
-        if self.items.is_empty() {
-            lines.push("No dependencies found.".to_string());
-            return lines.join("\n");
-        }
+    fn format_empty_message(&self) -> String {
+        "No dependencies found.".to_string()
+    }
 
-        lines.push(format!("Found {} call(s) to {} module(s):", self.total_items, self.items.len()));
-        lines.push(String::new());
+    fn format_summary(&self, total: usize, module_count: usize) -> String {
+        format!("Found {} call(s) to {} module(s):", total, module_count)
+    }
 
-        for module in &self.items {
-            lines.push(format!("{}:", module.name));
-            for func in &module.entries {
-                lines.push(format!("  {}/{}:", func.name, func.arity));
-                for call in &func.callers {
-                    // Use empty context since callers come from different files
-                    let formatted = call.format_incoming(&module.name, "");
-                    lines.push(format!("    {}", formatted));
-                }
-            }
-        }
+    fn format_module_header(&self, module_name: &str, _module_file: &str) -> String {
+        format!("{}:", module_name)
+    }
 
-        lines.join("\n")
+    fn format_entry(&self, func: &DependencyFunction, _module: &str, _file: &str) -> String {
+        format!("{}/{}:", func.name, func.arity)
+    }
+
+    fn format_entry_details(&self, func: &DependencyFunction, module: &str, _file: &str) -> Vec<String> {
+        // Use empty context since callers come from different files
+        func.callers
+            .iter()
+            .map(|call| call.format_incoming(module, ""))
+            .collect()
     }
 }

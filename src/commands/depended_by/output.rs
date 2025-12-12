@@ -1,45 +1,48 @@
 //! Output formatting for depended-by command results.
 
-use crate::output::Outputable;
+use crate::output::TableFormatter;
 use crate::types::ModuleGroupResult;
 use super::execute::DependentCaller;
 
-impl Outputable for ModuleGroupResult<DependentCaller> {
-    fn to_table(&self) -> String {
-        let mut lines = Vec::new();
+impl TableFormatter for ModuleGroupResult<DependentCaller> {
+    type Entry = DependentCaller;
 
-        lines.push(format!("Modules that depend on: {}", self.module_pattern));
-        lines.push(String::new());
+    fn format_header(&self) -> String {
+        format!("Modules that depend on: {}", self.module_pattern)
+    }
 
-        if self.items.is_empty() {
-            lines.push("No dependents found.".to_string());
-            return lines.join("\n");
-        }
+    fn format_empty_message(&self) -> String {
+        "No dependents found.".to_string()
+    }
 
-        lines.push(format!("Found {} call(s) from {} module(s):", self.total_items, self.items.len()));
-        lines.push(String::new());
+    fn format_summary(&self, total: usize, module_count: usize) -> String {
+        format!("Found {} call(s) from {} module(s):", total, module_count)
+    }
 
-        for module in &self.items {
-            lines.push(format!("{}:", module.name));
-            for caller in &module.entries {
-                let kind_str = if caller.kind.is_empty() {
-                    String::new()
-                } else {
-                    format!(" [{}]", caller.kind)
-                };
-                // Extract just the filename from path
-                let filename = caller.file.rsplit('/').next().unwrap_or(&caller.file);
-                lines.push(format!(
-                    "  {}/{}{} ({}:L{}:{}):",
-                    caller.function, caller.arity, kind_str,
-                    filename, caller.start_line, caller.end_line
-                ));
-                for target in &caller.targets {
-                    lines.push(format!("    → @ L{} {}/{}", target.line, target.function, target.arity));
-                }
-            }
-        }
+    fn format_module_header(&self, module_name: &str, _module_file: &str) -> String {
+        format!("{}:", module_name)
+    }
 
-        lines.join("\n")
+    fn format_entry(&self, caller: &DependentCaller, _module: &str, _file: &str) -> String {
+        let kind_str = if caller.kind.is_empty() {
+            String::new()
+        } else {
+            format!(" [{}]", caller.kind)
+        };
+        // Extract just the filename from path
+        let filename = caller.file.rsplit('/').next().unwrap_or(&caller.file);
+        format!(
+            "{}/{}{} ({}:L{}:{}):",
+            caller.function, caller.arity, kind_str,
+            filename, caller.start_line, caller.end_line
+        )
+    }
+
+    fn format_entry_details(&self, caller: &DependentCaller, _module: &str, _file: &str) -> Vec<String> {
+        caller
+            .targets
+            .iter()
+            .map(|target| format!("→ @ L{} {}/{}", target.line, target.function, target.arity))
+            .collect()
     }
 }

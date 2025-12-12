@@ -3,6 +3,7 @@ use clap::Parser;
 mod cli;
 mod commands;
 mod db;
+mod dedup;
 pub mod output;
 mod queries;
 pub mod types;
