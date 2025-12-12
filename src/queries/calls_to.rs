@@ -21,24 +21,15 @@ pub fn find_calls_to(
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<Call>, Box<dyn Error>> {
-    // Build conditions for the callee (target)
-    let module_cond = if use_regex {
-        "regex_matches(callee_module, $module_pattern)".to_string()
-    } else {
-        "callee_module == $module_pattern".to_string()
-    };
-
-    let function_cond = match function_pattern {
-        Some(_) if use_regex => ", regex_matches(callee_function, $function_pattern)".to_string(),
-        Some(_) => ", callee_function == $function_pattern".to_string(),
-        None => String::new(),
-    };
-
-    let arity_cond = if arity.is_some() {
-        ", callee_arity == $arity"
-    } else {
-        ""
-    };
+    // Build conditions for the callee (target) using helpers
+    let module_cond = crate::utils::ConditionBuilder::new("callee_module", "module_pattern").build(use_regex);
+    let function_cond = crate::utils::OptionalConditionBuilder::new("callee_function", "function_pattern")
+        .with_leading_comma()
+        .with_regex()
+        .build_with_regex(function_pattern.is_some(), use_regex);
+    let arity_cond = crate::utils::OptionalConditionBuilder::new("callee_arity", "arity")
+        .with_leading_comma()
+        .build(arity.is_some());
 
     let project_cond = ", project == $project";
 

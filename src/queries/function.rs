@@ -32,24 +32,14 @@ pub fn find_functions(
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<FunctionSignature>, Box<dyn Error>> {
-    let module_cond = if use_regex {
-        "regex_matches(module, $module_pattern)".to_string()
-    } else {
-        "module == $module_pattern".to_string()
-    };
-
-    let function_cond = if use_regex {
-        ", regex_matches(name, $function_pattern)".to_string()
-    } else {
-        ", name == $function_pattern".to_string()
-    };
-
-    let arity_cond = if arity.is_some() {
-        ", arity == $arity"
-    } else {
-        ""
-    };
-
+    // Build query conditions using helpers
+    let module_cond = crate::utils::ConditionBuilder::new("module", "module_pattern").build(use_regex);
+    let function_cond = crate::utils::ConditionBuilder::new("name", "function_pattern")
+        .with_leading_comma()
+        .build(use_regex);
+    let arity_cond = crate::utils::OptionalConditionBuilder::new("arity", "arity")
+        .with_leading_comma()
+        .build(arity.is_some());
     let project_cond = ", project == $project";
 
     let script = format!(

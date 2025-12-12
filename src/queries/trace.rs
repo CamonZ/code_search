@@ -22,25 +22,12 @@ pub fn trace_calls(
     max_depth: u32,
     limit: u32,
 ) -> Result<Vec<Call>, Box<dyn Error>> {
-    // Build the starting condition for the recursive query
-    let module_cond = if use_regex {
-        "regex_matches(caller_module, $module_pattern)"
-    } else {
-        "caller_module == $module_pattern"
-    };
-
-    // Match against caller_name (from function_locations) since caller_function has arity suffix
-    let function_cond = if use_regex {
-        "regex_matches(caller_name, $function_pattern)"
-    } else {
-        "caller_name == $function_pattern"
-    };
-
-    let arity_cond = if arity.is_some() {
-        "callee_arity == $arity"
-    } else {
-        "true"  // No-op condition when arity not specified
-    };
+    // Build the starting conditions for the recursive query using helpers
+    let module_cond = crate::utils::ConditionBuilder::new("caller_module", "module_pattern").build(use_regex);
+    let function_cond = crate::utils::ConditionBuilder::new("caller_name", "function_pattern").build(use_regex);
+    let arity_cond = crate::utils::OptionalConditionBuilder::new("callee_arity", "arity")
+        .when_none("true")
+        .build(arity.is_some());
 
     // Recursive query to trace call chains, joined with function_locations for caller metadata
     // Base case: direct calls from the starting function

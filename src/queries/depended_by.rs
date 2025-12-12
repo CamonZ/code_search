@@ -20,11 +20,8 @@ pub fn find_dependents(
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<Call>, Box<dyn Error>> {
-    let module_cond = if use_regex {
-        "regex_matches(callee_module, $module_pattern)"
-    } else {
-        "callee_module == $module_pattern"
-    };
+    // Build module condition using helper
+    let module_cond = crate::utils::ConditionBuilder::new("callee_module", "module_pattern").build(use_regex);
 
     // Query calls with function_locations join for caller metadata, excluding self-references
     // Filter out struct calls (callee_function != '%')
