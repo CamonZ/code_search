@@ -70,15 +70,11 @@ pub fn find_calls_from(
         message: e.to_string(),
     })?;
 
-    let layout = CallRowLayout::with_project_and_type();
-    let results = rows.rows.iter()
-        .filter_map(|row| {
-            if row.len() >= 13 {
-                extract_call_from_row(row, &layout)
-            } else {
-                None
-            }
-        })
+    let layout = CallRowLayout::from_headers(&rows.headers)?;
+    let results = rows
+        .rows
+        .iter()
+        .filter_map(|row| extract_call_from_row(row, &layout))
         .collect();
 
     Ok(results)

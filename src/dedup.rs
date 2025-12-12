@@ -103,13 +103,6 @@ impl<K: Eq + Hash> DeduplicationFilter<K> {
     pub fn should_process(&mut self, key: K) -> bool {
         self.processed.insert(key)
     }
-
-    /// Check if a key has been seen without inserting it
-    ///
-    /// Use this when you want to check membership without taking ownership.
-    pub fn contains(&self, key: &K) -> bool {
-        self.processed.contains(key)
-    }
 }
 
 impl<K: Eq + Hash> Default for DeduplicationFilter<K> {

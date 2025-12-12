@@ -44,6 +44,9 @@ pub enum DbError {
 
     #[error("Query failed: {message}")]
     QueryFailed { message: String },
+
+    #[error("Missing column '{name}' in query result")]
+    MissingColumn { name: String },
 }
 
 pub type Params = BTreeMap<String, DataValue>;
@@ -178,6 +181,7 @@ pub fn extract_bool(value: &DataValue, default: bool) -> bool {
 }
 
 /// Layout descriptor for extracting call data from query result rows
+#[derive(Debug)]
 pub struct CallRowLayout {
     pub caller_module_idx: usize,
     pub caller_name_idx: usize,
@@ -194,42 +198,41 @@ pub struct CallRowLayout {
 }
 
 impl CallRowLayout {
-    /// Standard layout for queries that include project at [0] and call_type at [12]
-    /// Used by: calls_from, calls_to
-    pub fn with_project_and_type() -> Self {
-        Self {
-            caller_module_idx: 1,
-            caller_name_idx: 2,
-            caller_arity_idx: 3,
-            caller_kind_idx: 4,
-            caller_start_line_idx: 5,
-            caller_end_line_idx: 6,
-            callee_module_idx: 7,
-            callee_name_idx: 8,
-            callee_arity_idx: 9,
-            file_idx: 10,
-            line_idx: 11,
-            call_type_idx: Some(12),
-        }
-    }
+    /// Build layout dynamically from query result headers.
+    ///
+    /// This looks up column positions by name, making queries resilient to
+    /// column reordering. Returns error if any required column is missing.
+    ///
+    /// Expected column names (from CozoScript queries):
+    /// - caller_module, caller_name, caller_arity, caller_kind
+    /// - caller_start_line, caller_end_line
+    /// - callee_module, callee_function, callee_arity
+    /// - file, call_line
+    /// - call_type (optional)
+    pub fn from_headers(headers: &[String]) -> Result<Self, DbError> {
+        let find = |name: &str| -> Result<usize, DbError> {
+            headers
+                .iter()
+                .position(|h| h == name)
+                .ok_or_else(|| DbError::MissingColumn {
+                    name: name.to_string(),
+                })
+        };
 
-    /// Standard layout for queries without project or call_type
-    /// Used by: depends_on, depended_by
-    pub fn without_extras() -> Self {
-        Self {
-            caller_module_idx: 0,
-            caller_name_idx: 1,
-            caller_arity_idx: 2,
-            caller_kind_idx: 3,
-            caller_start_line_idx: 4,
-            caller_end_line_idx: 5,
-            callee_module_idx: 6,
-            callee_name_idx: 7,
-            callee_arity_idx: 8,
-            file_idx: 9,
-            line_idx: 10,
-            call_type_idx: None,
-        }
+        Ok(Self {
+            caller_module_idx: find("caller_module")?,
+            caller_name_idx: find("caller_name")?,
+            caller_arity_idx: find("caller_arity")?,
+            caller_kind_idx: find("caller_kind")?,
+            caller_start_line_idx: find("caller_start_line")?,
+            caller_end_line_idx: find("caller_end_line")?,
+            callee_module_idx: find("callee_module")?,
+            callee_name_idx: find("callee_function")?,
+            callee_arity_idx: find("callee_arity")?,
+            file_idx: find("file")?,
+            line_idx: find("call_line")?,
+            call_type_idx: headers.iter().position(|h| h == "call_type"),
+        })
     }
 }
 
@@ -360,5 +363,121 @@ mod tests {
     fn test_extract_bool_from_non_bool() {
         let value = DataValue::Str("true".into());
         assert_eq!(extract_bool(&value, false), false);
+    }
+
+    // CallRowLayout::from_headers tests
+
+    fn standard_headers() -> Vec<String> {
+        vec![
+            "caller_module",
+            "caller_name",
+            "caller_arity",
+            "caller_kind",
+            "caller_start_line",
+            "caller_end_line",
+            "callee_module",
+            "callee_function",
+            "callee_arity",
+            "file",
+            "call_line",
+        ]
+        .into_iter()
+        .map(String::from)
+        .collect()
+    }
+
+    #[rstest]
+    fn test_from_headers_all_required_columns() {
+        let headers = standard_headers();
+        let layout = CallRowLayout::from_headers(&headers).unwrap();
+
+        assert_eq!(layout.caller_module_idx, 0);
+        assert_eq!(layout.caller_name_idx, 1);
+        assert_eq!(layout.caller_arity_idx, 2);
+        assert_eq!(layout.caller_kind_idx, 3);
+        assert_eq!(layout.caller_start_line_idx, 4);
+        assert_eq!(layout.caller_end_line_idx, 5);
+        assert_eq!(layout.callee_module_idx, 6);
+        assert_eq!(layout.callee_name_idx, 7);
+        assert_eq!(layout.callee_arity_idx, 8);
+        assert_eq!(layout.file_idx, 9);
+        assert_eq!(layout.line_idx, 10);
+        assert_eq!(layout.call_type_idx, None);
+    }
+
+    #[rstest]
+    fn test_from_headers_with_optional_call_type() {
+        let mut headers = standard_headers();
+        headers.push("call_type".to_string());
+
+        let layout = CallRowLayout::from_headers(&headers).unwrap();
+        assert_eq!(layout.call_type_idx, Some(11));
+    }
+
+    #[rstest]
+    fn test_from_headers_different_column_order() {
+        // Columns in different order - the key benefit of dynamic lookup
+        let headers: Vec<String> = vec![
+            "file",
+            "callee_module",
+            "caller_module",
+            "call_line",
+            "caller_name",
+            "callee_function",
+            "caller_arity",
+            "callee_arity",
+            "caller_kind",
+            "caller_start_line",
+            "caller_end_line",
+            "call_type",
+        ]
+        .into_iter()
+        .map(String::from)
+        .collect();
+
+        let layout = CallRowLayout::from_headers(&headers).unwrap();
+
+        assert_eq!(layout.file_idx, 0);
+        assert_eq!(layout.callee_module_idx, 1);
+        assert_eq!(layout.caller_module_idx, 2);
+        assert_eq!(layout.line_idx, 3);
+        assert_eq!(layout.caller_name_idx, 4);
+        assert_eq!(layout.callee_name_idx, 5);
+        assert_eq!(layout.caller_arity_idx, 6);
+        assert_eq!(layout.callee_arity_idx, 7);
+        assert_eq!(layout.caller_kind_idx, 8);
+        assert_eq!(layout.caller_start_line_idx, 9);
+        assert_eq!(layout.caller_end_line_idx, 10);
+        assert_eq!(layout.call_type_idx, Some(11));
+    }
+
+    #[rstest]
+    fn test_from_headers_missing_required_column() {
+        let headers: Vec<String> = vec![
+            "caller_module",
+            "caller_name",
+            // missing caller_arity
+            "caller_kind",
+        ]
+        .into_iter()
+        .map(String::from)
+        .collect();
+
+        let result = CallRowLayout::from_headers(&headers);
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        assert!(matches!(err, DbError::MissingColumn { name } if name == "caller_arity"));
+    }
+
+    #[rstest]
+    fn test_from_headers_error_message() {
+        let headers: Vec<String> = vec!["caller_module".to_string()];
+
+        let err = CallRowLayout::from_headers(&headers).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Missing column 'caller_name' in query result"
+        );
     }
 }

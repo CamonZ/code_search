@@ -50,15 +50,11 @@ pub fn find_dependents(
         message: e.to_string(),
     })?;
 
-    let layout = CallRowLayout::without_extras();
-    let results = rows.rows.iter()
-        .filter_map(|row| {
-            if row.len() >= 11 {
-                extract_call_from_row(row, &layout)
-            } else {
-                None
-            }
-        })
+    let layout = CallRowLayout::from_headers(&rows.headers)?;
+    let results = rows
+        .rows
+        .iter()
+        .filter_map(|row| extract_call_from_row(row, &layout))
         .collect();
 
     Ok(results)
