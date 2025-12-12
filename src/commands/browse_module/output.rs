@@ -50,13 +50,14 @@ impl Outputable for BrowseModuleResult {
                     Definition::Function {
                         name,
                         arity,
-                        line,
+                        start_line,
+                        end_line,
                         kind,
                         args,
                         return_type,
                         ..
                     } => {
-                        output.push_str(&format!("    L{:<3}  [{}] {}/{}\n", line, kind, name, arity));
+                        output.push_str(&format!("    L{}-{}  [{}] {}/{}\n", start_line, end_line, kind, name, arity));
                         if !args.is_empty() || !return_type.is_empty() {
                             output.push_str(&format!("           {} {}\n", args, return_type).trim_end());
                             output.push('\n');
@@ -91,12 +92,8 @@ impl Outputable for BrowseModuleResult {
                     }
 
                     Definition::Struct { name, fields, .. } => {
-                        output.push_str(&format!("    L0    [struct] {} with {} fields\n", name, fields.len()));
-                        for (i, field) in fields.iter().enumerate() {
-                            if i >= 5 {
-                                output.push_str(&format!("           ... and {} more fields\n", fields.len() - 5));
-                                break;
-                            }
+                        output.push_str(&format!("    [struct] {} with {} fields\n", name, fields.len()));
+                        for field in fields.iter() {
                             output.push_str(&format!(
                                 "           - {}: {} {}\n",
                                 field.name,
@@ -162,7 +159,7 @@ mod tests {
         assert!(table.contains("MyApp.Accounts"));
         assert!(table.contains("get_user/1"));
         assert!(table.contains("[def]"));
-        assert!(table.contains("L10"));
+        assert!(table.contains("L10-20"));
     }
 
     #[test]
