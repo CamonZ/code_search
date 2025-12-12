@@ -1,7 +1,0 @@
-items[1]:
-  - entries[1]{definition,kind,line,name}:
-    "@type user() :: %{id: integer(), name: String.t()}",type,5,user
-    name: MyApp.Accounts
-module_pattern: MyApp.Accounts
-name_filter: user
-total_items: 1

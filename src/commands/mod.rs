@@ -8,7 +8,6 @@ mod calls_from;
 mod calls_to;
 mod depended_by;
 mod depends_on;
-mod file;
 mod function;
 mod hotspots;
 pub mod import;
@@ -16,10 +15,7 @@ mod location;
 mod path;
 mod reverse_trace;
 mod search;
-mod specs;
-mod struct_cmd;
 mod trace;
-mod types;
 mod unused;
 
 pub use browse_module::BrowseModuleCmd;
@@ -27,7 +23,6 @@ pub use calls_from::CallsFromCmd;
 pub use calls_to::CallsToCmd;
 pub use depended_by::DependedByCmd;
 pub use depends_on::DependsOnCmd;
-pub use file::FileCmd;
 pub use function::FunctionCmd;
 pub use hotspots::HotspotsCmd;
 pub use import::ImportCmd;
@@ -35,10 +30,7 @@ pub use location::LocationCmd;
 pub use path::PathCmd;
 pub use reverse_trace::ReverseTraceCmd;
 pub use search::SearchCmd;
-pub use specs::SpecsCmd;
-pub use struct_cmd::StructCmd;
 pub use trace::TraceCmd;
-pub use types::TypesCmd;
 pub use unused::UnusedCmd;
 
 use clap::Subcommand;
@@ -78,17 +70,8 @@ pub enum Command {
     /// Show function signature (args, return type)
     Function(FunctionCmd),
 
-    /// Show @spec and @callback definitions
-    Specs(SpecsCmd),
-
-    /// Show struct fields, defaults, and types
-    Struct(StructCmd),
-
     /// Trace call chains from a starting function (forward traversal)
     Trace(TraceCmd),
-
-    /// Show @type, @typep, and @opaque definitions
-    Types(TypesCmd),
 
     /// Trace call chains backwards - who calls the callers of a target
     ReverseTrace(ReverseTraceCmd),
@@ -107,9 +90,6 @@ pub enum Command {
 
     /// Find functions with the most incoming/outgoing calls
     Hotspots(HotspotsCmd),
-
-    /// Show all functions defined in a file
-    File(FileCmd),
 
     /// Catch-all for unknown commands
     #[command(external_subcommand)]
@@ -148,19 +128,7 @@ impl Command {
                 let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }
-            Command::Specs(cmd) => {
-                let result = cmd.execute(db)?;
-                Ok(result.format(format))
-            }
-            Command::Struct(cmd) => {
-                let result = cmd.execute(db)?;
-                Ok(result.format(format))
-            }
             Command::Trace(cmd) => {
-                let result = cmd.execute(db)?;
-                Ok(result.format(format))
-            }
-            Command::Types(cmd) => {
                 let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }
@@ -185,10 +153,6 @@ impl Command {
                 Ok(result.format(format))
             }
             Command::Hotspots(cmd) => {
-                let result = cmd.execute(db)?;
-                Ok(result.format(format))
-            }
-            Command::File(cmd) => {
                 let result = cmd.execute(db)?;
                 Ok(result.format(format))
             }

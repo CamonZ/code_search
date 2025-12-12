@@ -4,7 +4,7 @@ use cozo::{DataValue, Num};
 use thiserror::Error;
 
 use crate::db::{extract_call_from_row, run_query, CallRowLayout, Params};
-use crate::types::{Call, FunctionRef};
+use crate::types::Call;
 
 #[derive(Error, Debug)]
 pub enum CallsToError {

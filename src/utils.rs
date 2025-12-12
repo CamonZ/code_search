@@ -19,7 +19,6 @@ pub struct ConditionBuilder {
     field_name: String,
     param_name: String,
     with_leading_comma: bool,
-    use_substring: bool,
 }
 
 impl ConditionBuilder {
@@ -33,14 +32,7 @@ impl ConditionBuilder {
             field_name: field_name.to_string(),
             param_name: param_name.to_string(),
             with_leading_comma: false,
-            use_substring: false,
         }
-    }
-
-    /// Enables substring matching (str_includes) for non-regex queries
-    pub fn with_substring_match(mut self) -> Self {
-        self.use_substring = true;
-        self
     }
 
     /// Adds a leading comma to the condition (useful for mid-query conditions)
@@ -52,7 +44,7 @@ impl ConditionBuilder {
     /// Builds the condition string based on use_regex flag
     ///
     /// When `use_regex` is true, uses `regex_matches()`.
-    /// When `use_regex` is false, uses `==` or `str_includes()` depending on configuration.
+    /// When `use_regex` is false, uses exact matching with `==`.
     ///
     /// # Arguments
     /// * `use_regex` - Whether to use regex matching
@@ -65,11 +57,6 @@ impl ConditionBuilder {
         if use_regex {
             format!(
                 "{}regex_matches({}, ${})",
-                prefix, self.field_name, self.param_name
-            )
-        } else if self.use_substring {
-            format!(
-                "{}str_includes({}, ${})",
                 prefix, self.field_name, self.param_name
             )
         } else {
@@ -276,13 +263,6 @@ mod tests {
         let builder = ConditionBuilder::new("module", "module_pattern").with_leading_comma();
         assert_eq!(builder.build(false), ", module == $module_pattern");
         assert_eq!(builder.build(true), ", regex_matches(module, $module_pattern)");
-    }
-
-    #[test]
-    fn test_condition_builder_substring_match() {
-        let builder = ConditionBuilder::new("module", "module_pattern").with_substring_match();
-        assert_eq!(builder.build(false), "str_includes(module, $module_pattern)");
-        assert_eq!(builder.build(true), "regex_matches(module, $module_pattern)");
     }
 
     #[test]

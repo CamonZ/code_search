@@ -1,7 +1,0 @@
-module_pattern: MyApp.User
-structs[1]:
-  - fields[2]{default_value,inferred_type,name,required}:
-    nil,integer(),id,true
-    nil,String.t(),name,false
-    module: MyApp.User
-    project: default
