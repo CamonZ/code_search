@@ -5,6 +5,8 @@ use std::path::Path;
 use cozo::{DataValue, DbInstance, NamedRows, ScriptMutability};
 use thiserror::Error;
 
+use crate::types::{Call, FunctionRef};
+
 #[derive(Error, Debug)]
 pub enum DbError {
     #[error("Failed to open database '{path}': {message}")]
@@ -143,6 +145,116 @@ pub fn extract_bool(value: &DataValue, default: bool) -> bool {
         DataValue::Bool(b) => *b,
         _ => default,
     }
+}
+
+/// Layout descriptor for extracting call data from query result rows
+pub struct CallRowLayout {
+    pub caller_module_idx: usize,
+    pub caller_name_idx: usize,
+    pub caller_arity_idx: usize,
+    pub caller_kind_idx: usize,
+    pub caller_start_line_idx: usize,
+    pub caller_end_line_idx: usize,
+    pub callee_module_idx: usize,
+    pub callee_name_idx: usize,
+    pub callee_arity_idx: usize,
+    pub file_idx: usize,
+    pub line_idx: usize,
+    pub call_type_idx: Option<usize>,
+}
+
+impl CallRowLayout {
+    /// Standard layout for queries that include project at [0] and call_type at [12]
+    /// Used by: calls_from, calls_to
+    pub fn with_project_and_type() -> Self {
+        Self {
+            caller_module_idx: 1,
+            caller_name_idx: 2,
+            caller_arity_idx: 3,
+            caller_kind_idx: 4,
+            caller_start_line_idx: 5,
+            caller_end_line_idx: 6,
+            callee_module_idx: 7,
+            callee_name_idx: 8,
+            callee_arity_idx: 9,
+            file_idx: 10,
+            line_idx: 11,
+            call_type_idx: Some(12),
+        }
+    }
+
+    /// Standard layout for queries without project or call_type
+    /// Used by: depends_on, depended_by
+    pub fn without_extras() -> Self {
+        Self {
+            caller_module_idx: 0,
+            caller_name_idx: 1,
+            caller_arity_idx: 2,
+            caller_kind_idx: 3,
+            caller_start_line_idx: 4,
+            caller_end_line_idx: 5,
+            callee_module_idx: 6,
+            callee_name_idx: 7,
+            callee_arity_idx: 8,
+            file_idx: 9,
+            line_idx: 10,
+            call_type_idx: None,
+        }
+    }
+}
+
+/// Extract call data from a query result row
+///
+/// Returns Option<Call> if all required fields are present. Uses early return
+/// (None) if any required string field cannot be extracted.
+pub fn extract_call_from_row(row: &[DataValue], layout: &CallRowLayout) -> Option<Call> {
+    // Extract caller information
+    let Some(caller_module) = extract_string(&row[layout.caller_module_idx]) else { return None };
+    let Some(caller_name) = extract_string(&row[layout.caller_name_idx]) else { return None };
+    let caller_arity = extract_i64(&row[layout.caller_arity_idx], 0);
+    let caller_kind = extract_string_or(&row[layout.caller_kind_idx], "");
+    let caller_start_line = extract_i64(&row[layout.caller_start_line_idx], 0);
+    let caller_end_line = extract_i64(&row[layout.caller_end_line_idx], 0);
+
+    // Extract callee information
+    let Some(callee_module) = extract_string(&row[layout.callee_module_idx]) else { return None };
+    let Some(callee_name) = extract_string(&row[layout.callee_name_idx]) else { return None };
+    let callee_arity = extract_i64(&row[layout.callee_arity_idx], 0);
+
+    // Extract file and line
+    let Some(file) = extract_string(&row[layout.file_idx]) else { return None };
+    let line = extract_i64(&row[layout.line_idx], 0);
+
+    // Extract optional call_type
+    let call_type = layout.call_type_idx.and_then(|idx| {
+        if idx < row.len() {
+            Some(extract_string_or(&row[idx], "remote"))
+        } else {
+            None
+        }
+    });
+
+    // Create FunctionRef objects
+    let caller = FunctionRef::with_definition(
+        caller_module,
+        caller_name,
+        caller_arity,
+        caller_kind,
+        &file,
+        caller_start_line,
+        caller_end_line,
+    );
+
+    let callee = FunctionRef::new(callee_module, callee_name, callee_arity);
+
+    // Return Call
+    Some(Call {
+        caller,
+        callee,
+        line,
+        call_type,
+        depth: None,
+    })
 }
 
 #[cfg(test)]

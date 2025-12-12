@@ -3,7 +3,7 @@ use std::error::Error;
 use cozo::{DataValue, Num};
 use thiserror::Error;
 
-use crate::db::{extract_i64, extract_string, extract_string_or, run_query, Params};
+use crate::db::{extract_call_from_row, run_query, CallRowLayout, Params};
 use crate::types::{Call, FunctionRef};
 
 #[derive(Error, Debug)]
@@ -67,45 +67,16 @@ pub fn find_calls_to(
         message: e.to_string(),
     })?;
 
-    let mut results = Vec::new();
-    for row in rows.rows {
-        if row.len() >= 13 {
-            let Some(_project) = extract_string(&row[0]) else { continue };
-            let Some(caller_module) = extract_string(&row[1]) else { continue };
-            let Some(caller_name) = extract_string(&row[2]) else { continue };
-            let caller_arity = extract_i64(&row[3], 0);
-            let caller_kind = extract_string_or(&row[4], "");
-            let caller_start_line = extract_i64(&row[5], 0);
-            let caller_end_line = extract_i64(&row[6], 0);
-            let Some(callee_module) = extract_string(&row[7]) else { continue };
-            let Some(callee_name) = extract_string(&row[8]) else { continue };
-            let callee_arity = extract_i64(&row[9], 0);
-            let Some(file) = extract_string(&row[10]) else { continue };
-            let line = extract_i64(&row[11], 0);
-            let call_type = extract_string_or(&row[12], "remote");
-
-            let caller = FunctionRef::with_definition(
-                caller_module,
-                caller_name,
-                caller_arity,
-                caller_kind,
-                &file,
-                caller_start_line,
-                caller_end_line,
-            );
-
-            // Callee doesn't have definition info from this query
-            let callee = FunctionRef::new(callee_module, callee_name, callee_arity);
-
-            results.push(Call {
-                caller,
-                callee,
-                line,
-                call_type: Some(call_type),
-                depth: None,
-            });
-        }
-    }
+    let layout = CallRowLayout::with_project_and_type();
+    let results = rows.rows.iter()
+        .filter_map(|row| {
+            if row.len() >= 13 {
+                extract_call_from_row(row, &layout)
+            } else {
+                None
+            }
+        })
+        .collect();
 
     Ok(results)
 }
