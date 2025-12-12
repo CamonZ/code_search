@@ -39,7 +39,7 @@ pub fn find_specs(
     let module_filter = if use_regex {
         "regex_matches(module, $module_pattern)"
     } else {
-        "str_includes(module, $module_pattern)"
+        "module == $module_pattern"
     };
 
     // Build function filter

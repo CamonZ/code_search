@@ -37,7 +37,7 @@ pub fn find_types(
     let module_filter = if use_regex {
         "regex_matches(module, $module_pattern)"
     } else {
-        "str_includes(module, $module_pattern)"
+        "module == $module_pattern"
     };
 
     // Build name filter
