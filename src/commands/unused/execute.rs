@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::error::Error;
 
 use serde::Serialize;
@@ -6,7 +5,7 @@ use serde::Serialize;
 use super::UnusedCmd;
 use crate::commands::Execute;
 use crate::queries::unused::{find_unused_functions, UnusedFunction};
-use crate::types::{ModuleCollectionResult, ModuleGroup};
+use crate::types::ModuleCollectionResult;
 
 /// An unused function within a module
 #[derive(Debug, Clone, Serialize)]
@@ -25,28 +24,16 @@ impl ModuleCollectionResult<UnusedFunc> {
     ) -> Self {
         let total_items = functions.len();
 
-        // Group by module (BTreeMap for consistent ordering)
-        let mut module_map: BTreeMap<String, (String, Vec<UnusedFunc>)> = BTreeMap::new();
-
-        for func in functions {
+        // Use helper to group by module, tracking file for each module
+        let items = crate::utils::group_by_module_with_file(functions, |func| {
             let unused_func = UnusedFunc {
                 name: func.name,
                 arity: func.arity,
                 kind: func.kind,
                 line: func.line,
             };
-
-            module_map
-                .entry(func.module)
-                .or_insert_with(|| (func.file, Vec::new()))
-                .1
-                .push(unused_func);
-        }
-
-        let items: Vec<ModuleGroup<UnusedFunc>> = module_map
-            .into_iter()
-            .map(|(name, (file, entries))| ModuleGroup { name, file, entries })
-            .collect();
+            (func.module, unused_func, func.file)
+        });
 
         ModuleCollectionResult {
             module_pattern,

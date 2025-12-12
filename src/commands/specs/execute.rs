@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::error::Error;
 
 use serde::Serialize;
@@ -6,7 +5,7 @@ use serde::Serialize;
 use super::SpecsCmd;
 use crate::commands::Execute;
 use crate::queries::specs::{find_specs, SpecDef};
-use crate::types::{ModuleCollectionResult, ModuleGroup};
+use crate::types::ModuleCollectionResult;
 
 /// A single spec definition
 #[derive(Debug, Clone, Serialize)]
@@ -33,10 +32,8 @@ impl ModuleCollectionResult<SpecEntry> {
     ) -> Self {
         let total_items = specs.len();
 
-        // Group by module (BTreeMap for consistent ordering)
-        let mut module_map: BTreeMap<String, Vec<SpecEntry>> = BTreeMap::new();
-
-        for spec in specs {
+        // Use helper to group by module
+        let items = crate::utils::group_by_module(specs, |spec| {
             let entry = SpecEntry {
                 name: spec.name,
                 arity: spec.arity,
@@ -46,20 +43,10 @@ impl ModuleCollectionResult<SpecEntry> {
                 returns: spec.return_string,
                 full: spec.full,
             };
-
-            module_map.entry(spec.module).or_default().push(entry);
-        }
-
-        let items: Vec<ModuleGroup<SpecEntry>> = module_map
-            .into_iter()
-            .map(|(name, entries)| ModuleGroup {
-                name,
-                // File is intentionally empty for specs because the call graph data model
-                // does not track file locations for @spec definitions (only for functions).
-                file: String::new(),
-                entries,
-            })
-            .collect();
+            // File is intentionally empty for specs because the call graph data model
+            // does not track file locations for @spec definitions (only for functions).
+            (spec.module, entry)
+        });
 
         ModuleCollectionResult {
             module_pattern,

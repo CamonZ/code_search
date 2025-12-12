@@ -7,6 +7,7 @@ mod dedup;
 pub mod output;
 mod queries;
 pub mod types;
+mod utils;
 #[macro_use]
 mod test_macros;
 #[cfg(test)]

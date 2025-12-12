@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::error::Error;
 
 use serde::Serialize;
@@ -6,7 +5,7 @@ use serde::Serialize;
 use super::HotspotsCmd;
 use crate::commands::Execute;
 use crate::queries::hotspots::{find_hotspots, Hotspot, HotspotKind};
-use crate::types::{ModuleCollectionResult, ModuleGroup};
+use crate::types::ModuleCollectionResult;
 
 /// A single hotspot entry (function within a module)
 #[derive(Debug, Clone, Serialize)]
@@ -26,28 +25,16 @@ impl ModuleCollectionResult<HotspotEntry> {
     ) -> Self {
         let total_items = hotspots.len();
 
-        // Group by module (BTreeMap for consistent ordering)
-        let mut module_map: BTreeMap<String, Vec<HotspotEntry>> = BTreeMap::new();
-
-        for hotspot in hotspots {
+        // Use helper to group by module
+        let items = crate::utils::group_by_module(hotspots, |hotspot| {
             let entry = HotspotEntry {
                 function: hotspot.function,
                 incoming: hotspot.incoming,
                 outgoing: hotspot.outgoing,
                 total: hotspot.total,
             };
-
-            module_map.entry(hotspot.module).or_default().push(entry);
-        }
-
-        let items: Vec<ModuleGroup<HotspotEntry>> = module_map
-            .into_iter()
-            .map(|(name, entries)| ModuleGroup {
-                name,
-                file: String::new(),
-                entries,
-            })
-            .collect();
+            (hotspot.module, entry)
+        });
 
         ModuleCollectionResult {
             module_pattern,

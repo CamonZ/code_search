@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::error::Error;
 
 use serde::Serialize;
@@ -6,7 +5,7 @@ use serde::Serialize;
 use super::TypesCmd;
 use crate::commands::Execute;
 use crate::queries::types::{find_types, TypeInfo};
-use crate::types::{ModuleCollectionResult, ModuleGroup};
+use crate::types::ModuleCollectionResult;
 
 /// A single type definition
 #[derive(Debug, Clone, Serialize)]
@@ -30,10 +29,8 @@ impl ModuleCollectionResult<TypeEntry> {
     ) -> Self {
         let total_items = types.len();
 
-        // Group by module (BTreeMap for consistent ordering)
-        let mut module_map: BTreeMap<String, Vec<TypeEntry>> = BTreeMap::new();
-
-        for type_info in types {
+        // Use helper to group by module
+        let items = crate::utils::group_by_module(types, |type_info| {
             let entry = TypeEntry {
                 name: type_info.name,
                 kind: type_info.kind,
@@ -41,20 +38,10 @@ impl ModuleCollectionResult<TypeEntry> {
                 line: type_info.line,
                 definition: type_info.definition,
             };
-
-            module_map.entry(type_info.module).or_default().push(entry);
-        }
-
-        let items: Vec<ModuleGroup<TypeEntry>> = module_map
-            .into_iter()
-            .map(|(name, entries)| ModuleGroup {
-                name,
-                // File is intentionally empty for types because the call graph data model
-                // does not track file locations for @type definitions (only for functions).
-                file: String::new(),
-                entries,
-            })
-            .collect();
+            // File is intentionally empty for types because the call graph data model
+            // does not track file locations for @type definitions (only for functions).
+            (type_info.module, entry)
+        });
 
         ModuleCollectionResult {
             module_pattern,

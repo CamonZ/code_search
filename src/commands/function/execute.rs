@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::error::Error;
 
 use serde::Serialize;
@@ -6,7 +5,7 @@ use serde::Serialize;
 use super::FunctionCmd;
 use crate::commands::Execute;
 use crate::queries::function::{find_functions, FunctionSignature};
-use crate::types::{ModuleGroupResult, ModuleGroup};
+use crate::types::ModuleGroupResult;
 
 /// A function signature within a module
 #[derive(Debug, Clone, Serialize)]
@@ -28,31 +27,19 @@ impl ModuleGroupResult<FuncSig> {
     ) -> Self {
         let total_items = signatures.len();
 
-        // Group by module (BTreeMap for consistent ordering)
-        let mut module_map: BTreeMap<String, Vec<FuncSig>> = BTreeMap::new();
-
-        for sig in signatures {
+        // Use helper to group by module
+        let items = crate::utils::group_by_module(signatures, |sig| {
             let func_sig = FuncSig {
                 name: sig.name,
                 arity: sig.arity,
                 args: sig.args,
                 return_type: sig.return_type,
             };
-
-            module_map.entry(sig.module).or_default().push(func_sig);
-        }
-
-        let items: Vec<ModuleGroup<FuncSig>> = module_map
-            .into_iter()
-            .map(|(name, entries)| ModuleGroup {
-                name,
-                // File is intentionally empty for functions because the function command
-                // queries the functions table which doesn't track file locations.
-                // File locations are available in function_locations table if needed.
-                file: String::new(),
-                entries,
-            })
-            .collect();
+            // File is intentionally empty for functions because the function command
+            // queries the functions table which doesn't track file locations.
+            // File locations are available in function_locations table if needed.
+            (sig.module, func_sig)
+        });
 
         ModuleGroupResult {
             module_pattern,
