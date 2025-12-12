@@ -7,8 +7,11 @@ use crate::commands::{CommandRunner, Execute};
 use crate::output::{OutputFormat, Outputable};
 use serde::Serialize;
 
+mod cli_tests;
 pub mod execute;
+mod execute_tests;
 pub mod output;
+mod output_tests;
 
 /// Browse definitions in a module or file
 ///
