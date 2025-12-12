@@ -34,6 +34,7 @@ pub use trace::TraceCmd;
 pub use unused::UnusedCmd;
 
 use clap::Subcommand;
+use enum_dispatch::enum_dispatch;
 use std::error::Error;
 
 use cozo::DbInstance;
@@ -47,7 +48,15 @@ pub trait Execute {
     fn execute(self, db: &DbInstance) -> Result<Self::Output, Box<dyn Error>>;
 }
 
+/// Trait for commands that can be executed and formatted.
+/// Auto-implemented for all Command variants via enum_dispatch.
+#[enum_dispatch]
+pub trait CommandRunner {
+    fn run(self, db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>>;
+}
+
 #[derive(Subcommand, Debug)]
+#[enum_dispatch(CommandRunner)]
 pub enum Command {
     /// Import a call graph JSON file into the database
     Import(ImportCmd),
@@ -96,69 +105,12 @@ pub enum Command {
     Unknown(Vec<String>),
 }
 
-impl Command {
-    /// Execute the command and return formatted output
-    pub fn run(self, db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>> {
-        match self {
-            Command::Import(cmd) => {
-                let result = cmd.execute(db)?;
-                Ok(result.format(format))
-            }
-            Command::BrowseModule(cmd) => {
-                let result = cmd.execute(db)?;
-                Ok(result.format(format))
-            }
-            Command::Search(cmd) => {
-                let result = cmd.execute(db)?;
-                Ok(result.format(format))
-            }
-            Command::Location(cmd) => {
-                let result = cmd.execute(db)?;
-                Ok(result.format(format))
-            }
-            Command::CallsFrom(cmd) => {
-                let result = cmd.execute(db)?;
-                Ok(result.format(format))
-            }
-            Command::CallsTo(cmd) => {
-                let result = cmd.execute(db)?;
-                Ok(result.format(format))
-            }
-            Command::Function(cmd) => {
-                let result = cmd.execute(db)?;
-                Ok(result.format(format))
-            }
-            Command::Trace(cmd) => {
-                let result = cmd.execute(db)?;
-                Ok(result.format(format))
-            }
-            Command::ReverseTrace(cmd) => {
-                let result = cmd.execute(db)?;
-                Ok(result.format(format))
-            }
-            Command::Path(cmd) => {
-                let result = cmd.execute(db)?;
-                Ok(result.format(format))
-            }
-            Command::DependsOn(cmd) => {
-                let result = cmd.execute(db)?;
-                Ok(result.format(format))
-            }
-            Command::DependedBy(cmd) => {
-                let result = cmd.execute(db)?;
-                Ok(result.format(format))
-            }
-            Command::Unused(cmd) => {
-                let result = cmd.execute(db)?;
-                Ok(result.format(format))
-            }
-            Command::Hotspots(cmd) => {
-                let result = cmd.execute(db)?;
-                Ok(result.format(format))
-            }
-            Command::Unknown(args) => {
-                Err(format!("Unknown command: {}", args.first().unwrap_or(&String::new())).into())
-            }
-        }
+// CommandRunner implementations are provided by each command's module.
+// The enum_dispatch macro automatically generates dispatch logic for the Command enum.
+
+// Special handling for Unknown variant - not a real command
+impl CommandRunner for Vec<String> {
+    fn run(self, _db: &DbInstance, _format: OutputFormat) -> Result<String, Box<dyn Error>> {
+        Err(format!("Unknown command: {}", self.first().unwrap_or(&String::new())).into())
     }
 }

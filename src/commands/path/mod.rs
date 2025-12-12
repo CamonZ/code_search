@@ -4,7 +4,13 @@ mod execute_tests;
 mod output;
 mod output_tests;
 
+use std::error::Error;
+
 use clap::Args;
+use cozo::DbInstance;
+
+use crate::commands::{CommandRunner, Execute};
+use crate::output::{OutputFormat, Outputable};
 
 /// Find a call path between two functions
 #[derive(Args, Debug)]
@@ -50,4 +56,11 @@ pub struct PathCmd {
     /// Maximum number of paths to return (1-100)
     #[arg(short, long, default_value_t = 10, value_parser = clap::value_parser!(u32).range(1..=100))]
     pub limit: u32,
+}
+
+impl CommandRunner for PathCmd {
+    fn run(self, db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>> {
+        let result = self.execute(db)?;
+        Ok(result.format(format))
+    }
 }

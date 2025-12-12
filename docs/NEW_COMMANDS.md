@@ -2,6 +2,17 @@
 
 This guide walks through adding a new command to the CLI.
 
+## Key Improvement: enum_dispatch
+
+This codebase uses the `enum_dispatch` crate to automatically generate command dispatch logic. This means:
+
+- ✅ **No manual match arms** - The `#[enum_dispatch(CommandRunner)]` macro on the `Command` enum generates all dispatch logic automatically
+- ✅ **Simpler registration** - Just add a variant to the enum, and dispatch works automatically
+- ✅ **Better organization** - Each command implements `CommandRunner` in its own module (not in a central match statement)
+- ✅ **Type-safe & fast** - Compile-time generated, zero-cost dispatch
+
+When adding a new command, you don't need to touch the dispatch logic in `src/commands/mod.rs`. Just implement `CommandRunner` in your command's `mod.rs` file!
+
 ## Overview
 
 Each command is a directory module under `src/commands/` with this structure:
@@ -34,7 +45,13 @@ mod execute;
 mod output;
 mod output_tests;
 
+use std::error::Error;
+
 use clap::Args;
+use cozo::DbInstance;
+
+use crate::commands::{CommandRunner, Execute};
+use crate::output::{OutputFormat, Outputable};
 
 /// Description of what the command does
 #[derive(Args, Debug)]
@@ -53,6 +70,13 @@ pub struct <Name>Cmd {
     /// Maximum number of results to return (1-1000)
     #[arg(short, long, default_value_t = 100, value_parser = clap::value_parser!(u32).range(1..=1000))]
     pub limit: u32,
+}
+
+impl CommandRunner for <Name>Cmd {
+    fn run(self, db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>> {
+        let result = self.execute(db)?;
+        Ok(result.format(format))
+    }
 }
 ```
 
@@ -127,7 +151,7 @@ See [examples/output_tests.rs.example](./examples/output_tests.rs.example) for a
 
 ### 8. Register the command (`src/commands/mod.rs`)
 
-Add the module declaration:
+Add the module declaration and public export:
 
 ```rust
 mod <name>;
@@ -139,6 +163,7 @@ Add the variant to the `Command` enum:
 
 ```rust
 #[derive(Subcommand, Debug)]
+#[enum_dispatch(CommandRunner)]
 pub enum Command {
     /// Existing commands...
     Import(ImportCmd),
@@ -151,27 +176,9 @@ pub enum Command {
 }
 ```
 
-Add the match arm in `run()`:
+**Note:** The `#[enum_dispatch(CommandRunner)]` attribute is already on the `Command` enum. The `enum_dispatch` crate automatically generates the dispatch logic for all variants. You do NOT need to add a match arm in `Command::run()` - the `CommandRunner` implementation you added to your command's `mod.rs` file (in step 2) is all that's needed!
 
-```rust
-impl Command {
-    pub fn run(self, db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>> {
-        match self {
-            Command::Import(cmd) => {
-                let result = cmd.execute(db)?;
-                Ok(result.format(format))
-            }
-            Command::<Name>(cmd) => {
-                let result = cmd.execute(db)?;
-                Ok(result.format(format))
-            }
-            Command::Unknown(args) => {
-                Err(format!("Unknown command: {}", args.first().unwrap_or(&String::new())).into())
-            }
-        }
-    }
-}
-```
+The dispatch is handled entirely by the `enum_dispatch` procedural macro at compile time, which is faster and more maintainable than manual match arms.
 
 ### 9. Verify
 
@@ -187,6 +194,10 @@ cargo run -- <name> --help
 - [ ] Defined command struct with clap attributes in `mod.rs`
 - [ ] Added `#[command(after_help = "...")]` with usage examples
 - [ ] Added `--limit` with range validation (1-1000)
+- [ ] **Implemented `CommandRunner` trait in `mod.rs`** (new with enum_dispatch)
+  - [ ] Added imports: `std::error::Error`, `cozo::DbInstance`
+  - [ ] Added imports: `crate::commands::{CommandRunner, Execute}`, `crate::output::{OutputFormat, Outputable}`
+  - [ ] Implemented `impl CommandRunner for <Name>Cmd` with `run()` method
 - [ ] Created `cli_tests.rs` with test macros (see [TESTING_STRATEGY.md](./TESTING_STRATEGY.md))
   - [ ] Required argument tests (`cli_required_arg_test!`)
   - [ ] Option tests (`cli_option_test!`)
@@ -207,7 +218,10 @@ cargo run -- <name> --help
   - [ ] JSON format test with snapshot
   - [ ] Toon format tests (empty and populated)
 - [ ] Registered command in `src/commands/mod.rs`
-- [ ] Added match arm in `Command::run()`
+  - [ ] Added module declaration: `mod <name>;`
+  - [ ] Added public export: `pub use <name>::<Name>Cmd;`
+  - [ ] Added enum variant to `Command` enum (dispatch is automatic via `#[enum_dispatch(CommandRunner)]`)
+  - [ ] **No match arm needed** - enum_dispatch handles it automatically!
 - [ ] Verified with `cargo build && cargo test`
 
 ---

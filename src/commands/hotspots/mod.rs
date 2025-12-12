@@ -4,8 +4,14 @@ mod execute_tests;
 mod output;
 mod output_tests;
 
+use std::error::Error;
+
 use clap::Args;
-pub use crate::queries::hotspots::HotspotKind;
+use cozo::DbInstance;
+
+use crate::commands::{CommandRunner, Execute};
+use crate::output::{OutputFormat, Outputable};
+use crate::queries::hotspots::HotspotKind;
 
 /// Find functions with the most incoming/outgoing calls
 #[derive(Args, Debug)]
@@ -41,4 +47,11 @@ pub struct HotspotsCmd {
     /// Maximum number of results to return (1-1000)
     #[arg(short, long, default_value_t = 20, value_parser = clap::value_parser!(u32).range(1..=1000))]
     pub limit: u32,
+}
+
+impl CommandRunner for HotspotsCmd {
+    fn run(self, db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>> {
+        let result = self.execute(db)?;
+        Ok(result.format(format))
+    }
 }

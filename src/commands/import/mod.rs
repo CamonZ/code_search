@@ -3,9 +3,14 @@ mod execute;
 mod output;
 mod output_tests;
 
+use std::error::Error;
 use std::path::PathBuf;
 
 use clap::Args;
+use cozo::DbInstance;
+
+use crate::commands::{CommandRunner, Execute};
+use crate::output::{OutputFormat, Outputable};
 
 const DEFAULT_PROJECT: &str = "default";
 
@@ -35,4 +40,11 @@ pub struct ImportCmd {
     /// Clear all existing data before import (or just project data if --project is set)
     #[arg(long, default_value_t = false)]
     pub clear: bool,
+}
+
+impl CommandRunner for ImportCmd {
+    fn run(self, db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>> {
+        let result = self.execute(db)?;
+        Ok(result.format(format))
+    }
 }

@@ -1,4 +1,11 @@
+use std::error::Error;
+
 use clap::{Parser, ValueEnum};
+use cozo::DbInstance;
+
+use crate::commands::{CommandRunner, Execute};
+use crate::output::{OutputFormat, Outputable};
+use serde::Serialize;
 
 pub mod execute;
 pub mod output;
@@ -70,4 +77,9 @@ impl std::fmt::Display for DefinitionKind {
     }
 }
 
-use serde::Serialize;
+impl CommandRunner for BrowseModuleCmd {
+    fn run(self, db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>> {
+        let result = self.execute(db)?;
+        Ok(result.format(format))
+    }
+}

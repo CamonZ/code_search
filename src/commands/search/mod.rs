@@ -4,7 +4,13 @@ mod execute_tests;
 mod output;
 mod output_tests;
 
+use std::error::Error;
+
 use clap::{Args, ValueEnum};
+use cozo::DbInstance;
+
+use crate::commands::{CommandRunner, Execute};
+use crate::output::{OutputFormat, Outputable};
 
 /// What to search for
 #[derive(Debug, Clone, Copy, Default, ValueEnum)]
@@ -43,4 +49,11 @@ pub struct SearchCmd {
     /// Treat pattern as a regular expression
     #[arg(short, long, default_value_t = false)]
     pub regex: bool,
+}
+
+impl CommandRunner for SearchCmd {
+    fn run(self, db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>> {
+        let result = self.execute(db)?;
+        Ok(result.format(format))
+    }
 }

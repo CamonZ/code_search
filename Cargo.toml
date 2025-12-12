@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 cozo = { version = "0.7.6", default-features = false, features = ["compact", "storage-sqlite"] }
+enum_dispatch = "0.3"
 rayon = "=1.10.0"  # Pinned for graph_builder compatibility
 thiserror = "1.0"
 serde = { version = "1.0", features = ["derive"] }

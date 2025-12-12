@@ -15,6 +15,7 @@ pub mod fixtures;
 #[cfg(test)]
 pub mod test_utils;
 use cli::Args;
+use commands::CommandRunner;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
