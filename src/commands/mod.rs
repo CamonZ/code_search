@@ -38,6 +38,7 @@ mod calls_to;
 mod depended_by;
 mod depends_on;
 mod function;
+mod god_modules;
 mod hotspots;
 pub mod import;
 mod location;
@@ -54,6 +55,7 @@ pub use calls_to::CallsToCmd;
 pub use depended_by::DependedByCmd;
 pub use depends_on::DependsOnCmd;
 pub use function::FunctionCmd;
+pub use god_modules::GodModulesCmd;
 pub use hotspots::HotspotsCmd;
 pub use import::ImportCmd;
 pub use location::LocationCmd;
@@ -132,6 +134,9 @@ pub enum Command {
 
     /// Find boundary modules - modules with high fan-in but low fan-out
     Boundaries(BoundariesCmd),
+
+    /// Find god modules - modules with high function count and high connectivity
+    GodModules(GodModulesCmd),
 
     /// Catch-all for unknown commands
     #[command(external_subcommand)]
