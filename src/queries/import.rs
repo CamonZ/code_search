@@ -121,7 +121,11 @@ const SCHEMA_FUNCTION_LOCATIONS: &str = r#"
     pattern: String default "",
     guard: String default "",
     source_sha: String default "",
-    ast_sha: String default ""
+    ast_sha: String default "",
+    complexity: Int default 1,
+    max_nesting_depth: Int default 0,
+    generated_by: String default "",
+    macro_source: String default ""
 }
 "#;
 
@@ -430,9 +434,11 @@ pub fn import_function_locations(
             let guard = loc.guard.as_deref().unwrap_or("");
             let source_sha = loc.source_sha.as_deref().unwrap_or("");
             let ast_sha = loc.ast_sha.as_deref().unwrap_or("");
+            let generated_by = loc.generated_by.as_deref().unwrap_or("");
+            let macro_source = loc.macro_source.as_deref().unwrap_or("");
 
             rows.push(format!(
-                r#"["{}", "{}", "{}", {}, {}, "{}", "{}", {}, "{}", {}, {}, '{}', '{}', "{}", "{}"]"#,
+                r#"["{}", "{}", "{}", {}, {}, "{}", "{}", {}, "{}", {}, {}, '{}', '{}', "{}", "{}", {}, {}, "{}", "{}"]"#,
                 escaped_project,
                 escape_string(module),
                 escape_string(&name),
@@ -448,6 +454,10 @@ pub fn import_function_locations(
                 escape_string_single(guard),
                 escape_string(source_sha),
                 escape_string(ast_sha),
+                loc.complexity,
+                loc.max_nesting_depth,
+                escape_string(generated_by),
+                escape_string(macro_source),
             ));
         }
     }
@@ -455,8 +465,8 @@ pub fn import_function_locations(
     import_rows(
         db,
         rows,
-        "project, module, name, arity, line, file, source_file_absolute, column, kind, start_line, end_line, pattern, guard, source_sha, ast_sha",
-        "function_locations { project, module, name, arity, line => file, source_file_absolute, column, kind, start_line, end_line, pattern, guard, source_sha, ast_sha }",
+        "project, module, name, arity, line, file, source_file_absolute, column, kind, start_line, end_line, pattern, guard, source_sha, ast_sha, complexity, max_nesting_depth, generated_by, macro_source",
+        "function_locations { project, module, name, arity, line => file, source_file_absolute, column, kind, start_line, end_line, pattern, guard, source_sha, ast_sha, complexity, max_nesting_depth, generated_by, macro_source }",
         "function_locations",
     )
 }
@@ -580,4 +590,127 @@ pub fn import_json_str(
         })?;
 
     import_graph(db, project, &graph)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::open_db;
+    use tempfile::NamedTempFile;
+
+    // Test deserialization with all new fields present
+    #[test]
+    fn test_function_location_deserialize_with_new_fields() {
+        let json = r#"{
+            "kind": "def",
+            "line": 10,
+            "start_line": 10,
+            "end_line": 15,
+            "complexity": 5,
+            "max_nesting_depth": 3,
+            "generated_by": "Ecto.Schema",
+            "macro_source": "ecto/schema.ex"
+        }"#;
+
+        let result: crate::queries::import_models::FunctionLocation =
+            serde_json::from_str(json).expect("Deserialization should succeed");
+
+        assert_eq!(result.complexity, 5);
+        assert_eq!(result.max_nesting_depth, 3);
+        assert_eq!(result.generated_by, Some("Ecto.Schema".to_string()));
+        assert_eq!(result.macro_source, Some("ecto/schema.ex".to_string()));
+    }
+
+    // Test deserialization without new fields (backward compatibility)
+    #[test]
+    fn test_function_location_deserialize_without_new_fields() {
+        let json = r#"{
+            "kind": "def",
+            "line": 10,
+            "start_line": 10,
+            "end_line": 15
+        }"#;
+
+        let result: crate::queries::import_models::FunctionLocation =
+            serde_json::from_str(json).expect("Deserialization should succeed");
+
+        // Should use defaults
+        assert_eq!(result.complexity, 1); // default_complexity
+        assert_eq!(result.max_nesting_depth, 0); // default
+        assert_eq!(result.generated_by, None); // default
+        assert_eq!(result.macro_source, None); // default
+    }
+
+    // Test deserialization with empty string values
+    #[test]
+    fn test_function_location_deserialize_empty_strings() {
+        let json = r#"{
+            "kind": "def",
+            "line": 10,
+            "start_line": 10,
+            "end_line": 15,
+            "complexity": 1,
+            "max_nesting_depth": 0,
+            "generated_by": "",
+            "macro_source": ""
+        }"#;
+
+        let result: crate::queries::import_models::FunctionLocation =
+            serde_json::from_str(json).expect("Deserialization should succeed");
+
+        // Empty strings should deserialize to None or empty string
+        assert_eq!(result.complexity, 1);
+        assert_eq!(result.max_nesting_depth, 0);
+        // Empty strings should parse as Some("") not None
+        assert_eq!(result.generated_by, Some("".to_string()));
+        assert_eq!(result.macro_source, Some("".to_string()));
+    }
+
+    // Test import and database storage of new fields
+    #[test]
+    fn test_import_function_locations_with_new_fields() {
+        let json = r#"{
+            "structs": {},
+            "function_locations": {
+                "MyApp.Accounts": {
+                    "process_data/2:20": {
+                        "file": "lib/accounts.ex",
+                        "column": 5,
+                        "kind": "def",
+                        "line": 20,
+                        "start_line": 20,
+                        "end_line": 35,
+                        "pattern": null,
+                        "guard": null,
+                        "source_sha": "",
+                        "ast_sha": "",
+                        "complexity": 7,
+                        "max_nesting_depth": 4,
+                        "generated_by": "Phoenix.Endpoint",
+                        "macro_source": "phoenix/endpoint.ex"
+                    }
+                }
+            },
+            "calls": [],
+            "specs": {},
+            "types": {}
+        }"#;
+
+        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
+        let db = open_db(db_file.path()).expect("Failed to open db");
+
+        let result = import_json_str(&db, json, "test_project").expect("Import should succeed");
+
+        // Verify import succeeded
+        assert_eq!(result.function_locations_imported, 1);
+
+        // Verify modules were created (MyApp.Accounts is inferred from function_locations)
+        assert!(result.modules_imported > 0);
+
+        // If we got here, the new fields were successfully serialized and stored in the database
+        // The fact that import_graph succeeded means:
+        // 1. JSON deserialization worked with the new fields
+        // 2. import_function_locations() successfully formatted and inserted rows with 4 new fields
+        // 3. CozoDB schema accepted the data
+    }
 }

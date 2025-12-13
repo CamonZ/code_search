@@ -2,26 +2,31 @@
 
 Commands not yet implemented in the CLI.
 
-| Command | Description |
-|---------|-------------|
-| `types` | Show detailed type signatures with all clause variants |
-| `returns` | Find functions that return a specific type pattern |
-| `accepts` | Find functions that accept a specific type pattern |
-| `struct-usage` | Find all functions that use a specific struct |
-| `genservers` | List all modules implementing GenServer callbacks |
-| `callbacks` | Show which OTP callbacks a module implements |
-| `message-handlers` | Extract message patterns from handle_call/cast/info |
-| `complexity` | Show complexity metrics for a module |
-| `large-functions` | Find functions with many clauses |
-| `cycles` | Find circular dependencies between modules |
-| `clusters` | Group modules by coupling |
-| `boundaries` | Identify boundary modules |
-| `god-modules` | Find modules with too many functions/dependencies |
-| `dynamic-typed` | Find functions with mostly dynamic() types |
-| `struct-graph` | Show relationships between structs |
-| `struct-modules` | Show which modules create/manipulate each struct |
-| `duplicates` | Find functions with identical or near-identical implementations |
-| `duplicate-hotspots` | List modules ranked by number of duplicated functions |
+| Command | Description | Ticket |
+|---------|-------------|--------|
+| `complexity` | Display complexity metrics for functions and modules | #22 |
+| `large-functions` | Find functions with many lines of code (large line span) | #15 |
+| `many-clauses` | Find functions with many pattern-matched heads | #16 |
+| `returns` | Find functions that return a specific type pattern | #19 |
+| `accepts` | Find functions that accept a specific type pattern | #21 |
+| `cycles` | Find circular dependencies between modules | #23 |
+| `clusters` | Group modules by coupling | #24 |
+| `boundaries` | Identify boundary modules | #13 |
+| `god-modules` | Find modules with too many functions/dependencies | #14 |
+| `struct-modules` | Show which modules work with each struct (via specs) | #25 |
+| `duplicates` | Find functions with identical or near-identical implementations | #17 |
+| `duplicate-hotspots` | List modules ranked by number of duplicated functions | #18 |
+
+## Schema Prerequisites
+
+Some commands require schema updates from Ticket #00 (Schema Foundation):
+
+| Command | Required Fields |
+|---------|----------------|
+| `complexity` | `complexity`, `max_nesting_depth` |
+| `large-functions` | `generated_by` (for filtering) |
+| `many-clauses` | `generated_by` (optional filtering) |
+| `god-modules` | `complexity` (for enhanced scoring) |
 
 ## Covered by Existing Commands
 

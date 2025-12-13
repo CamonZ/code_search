@@ -50,6 +50,18 @@ pub struct FunctionLocation {
     pub guard: Option<String>,
     pub source_sha: Option<String>,
     pub ast_sha: Option<String>,
+    #[serde(default = "default_complexity")]
+    pub complexity: u32,
+    #[serde(default)]
+    pub max_nesting_depth: u32,
+    #[serde(default)]
+    pub generated_by: Option<String>,
+    #[serde(default)]
+    pub macro_source: Option<String>,
+}
+
+fn default_complexity() -> u32 {
+    1
 }
 
 #[derive(Debug, Deserialize)]

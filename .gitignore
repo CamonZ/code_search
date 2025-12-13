@@ -19,6 +19,8 @@ cozo.sqlite
 .cozo_repl_history
 /extracted_trace.json
 !src/fixtures/extracted_trace.json
+/trade_gym_call_graph.json
+/phoenix_call_graph.json
 INPUT_FORMAT.md
 docs/tickets
 .claude
