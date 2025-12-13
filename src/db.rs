@@ -28,7 +28,7 @@
 //! derive macro limitations) outweighs the type safety benefit. Field names
 //! (`module`, `name`) are sufficiently clear.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::error::Error;
 use std::path::Path;
 
@@ -219,10 +219,18 @@ impl CallRowLayout {
     /// - file, call_line
     /// - call_type (optional)
     pub fn from_headers(headers: &[String]) -> Result<Self, DbError> {
+        // Build lookup map once: O(m) where m = number of headers
+        let header_map: HashMap<&str, usize> = headers
+            .iter()
+            .enumerate()
+            .map(|(i, h)| (h.as_str(), i))
+            .collect();
+
+        // Helper for required columns: O(1) each
         let find = |name: &str| -> Result<usize, DbError> {
-            headers
-                .iter()
-                .position(|h| h == name)
+            header_map
+                .get(name)
+                .copied()
                 .ok_or_else(|| DbError::MissingColumn {
                     name: name.to_string(),
                 })
@@ -240,7 +248,7 @@ impl CallRowLayout {
             callee_arity_idx: find("callee_arity")?,
             file_idx: find("file")?,
             line_idx: find("call_line")?,
-            call_type_idx: headers.iter().position(|h| h == "call_type"),
+            call_type_idx: header_map.get("call_type").copied(),
         })
     }
 }
