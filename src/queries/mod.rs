@@ -65,6 +65,7 @@ pub mod large_functions;
 pub mod location;
 pub mod many_clauses;
 pub mod path;
+pub mod returns;
 pub mod reverse_trace;
 pub mod search;
 pub mod specs;

@@ -47,6 +47,7 @@ mod large_functions;
 mod location;
 mod many_clauses;
 mod path;
+mod returns;
 mod reverse_trace;
 mod search;
 mod trace;
@@ -68,6 +69,7 @@ pub use large_functions::LargeFunctionsCmd;
 pub use location::LocationCmd;
 pub use many_clauses::ManyClausesCmd;
 pub use path::PathCmd;
+pub use returns::ReturnsCmd;
 pub use reverse_trace::ReverseTraceCmd;
 pub use search::SearchCmd;
 pub use trace::TraceCmd;
@@ -127,6 +129,9 @@ pub enum Command {
 
     /// Find a call path between two functions
     Path(PathCmd),
+
+    /// Find functions returning a specific type pattern
+    Returns(ReturnsCmd),
 
     /// Show what modules a given module depends on (outgoing module dependencies)
     DependsOn(DependsOnCmd),
