@@ -49,6 +49,7 @@
 //!
 //! Parameters are escaped using [`crate::db::escape_string`] to prevent injection.
 
+pub mod accepts;
 pub mod calls;
 pub mod calls_from;
 pub mod calls_to;

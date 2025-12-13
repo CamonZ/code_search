@@ -31,6 +31,7 @@ pub struct CommonArgs {
     pub limit: u32,
 }
 
+mod accepts;
 mod boundaries;
 mod browse_module;
 mod calls_from;
@@ -54,6 +55,7 @@ mod struct_usage;
 mod trace;
 mod unused;
 
+pub use accepts::AcceptsCmd;
 pub use boundaries::BoundariesCmd;
 pub use browse_module::BrowseModuleCmd;
 pub use calls_from::CallsFromCmd;
@@ -131,6 +133,9 @@ pub enum Command {
 
     /// Find a call path between two functions
     Path(PathCmd),
+
+    /// Find functions accepting a specific type pattern
+    Accepts(AcceptsCmd),
 
     /// Find functions returning a specific type pattern
     Returns(ReturnsCmd),
