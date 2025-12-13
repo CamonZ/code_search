@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 use crate::types::{ModuleGroup, Call};
+use crate::dedup::sort_and_deduplicate;
 
 /// Builds SQL WHERE clause conditions for query patterns (exact or regex matching)
 ///
@@ -200,6 +201,86 @@ where
         .into_iter()
         .map(|(name, (file, entries))| ModuleGroup { name, file, entries, function_count: None })
         .collect()
+}
+
+/// Groups calls by module and function key, applying sort/deduplicate to each group.
+///
+/// This is the primary helper for processing call data that follows this pattern:
+/// 1. Receive Vec<Call> from a query
+/// 2. Group by module and function key using closures
+/// 3. Apply sort_and_deduplicate to each function's calls
+/// 4. Convert to ModuleGroupResult using entry_fn and file_fn
+///
+/// # Arguments
+/// * `calls` - Vector of Call objects to group
+/// * `module_fn` - Closure that extracts the module name from a Call
+/// * `key_fn` - Closure that extracts the grouping key (e.g., function info) from a Call
+/// * `sort_cmp` - Comparator closure for sorting calls (e.g., by line number)
+/// * `dedup_key` - Closure that extracts the deduplication key from a Call
+/// * `entry_fn` - Closure that converts (key, sorted/deduped calls) to an entry
+/// * `file_fn` - Closure that determines the file path for a module group
+///
+/// # Returns
+/// A tuple of (total_items_count, Vec<ModuleGroup<E>>)
+///
+/// # Example
+/// ```ignore
+/// let (total, groups) = group_calls(
+///     calls,
+///     |call| call.caller.module.clone(),  // group by caller module
+///     |call| (call.caller.name.clone(), call.caller.arity),  // key by (name, arity)
+///     |a, b| a.line.cmp(&b.line),  // sort by line
+///     |c| (c.callee.module.clone(), c.callee.name.clone()),  // dedup by callee
+///     |(name, arity), calls| MyEntry { name, arity, calls },  // build entry
+///     |_module, _map| String::new(),  // no file tracking
+/// );
+/// ```
+pub fn group_calls<K, E, MF, KF, SC, DK, D, EF, FF>(
+    calls: Vec<Call>,
+    module_fn: MF,
+    key_fn: KF,
+    sort_cmp: SC,
+    dedup_key: DK,
+    entry_fn: EF,
+    file_fn: FF,
+) -> (usize, Vec<ModuleGroup<E>>)
+where
+    K: Ord,
+    MF: Fn(&Call) -> String,
+    KF: Fn(&Call) -> K,
+    SC: FnMut(&Call, &Call) -> std::cmp::Ordering + Clone,
+    DK: Fn(&Call) -> D + Clone,
+    D: Eq + std::hash::Hash,
+    EF: Fn(K, Vec<Call>) -> E,
+    FF: Fn(&str, &BTreeMap<K, Vec<Call>>) -> String,
+{
+    let total_items = calls.len();
+
+    // Group by module -> key -> calls
+    let mut by_module: BTreeMap<String, BTreeMap<K, Vec<Call>>> = BTreeMap::new();
+    for call in calls {
+        let module = module_fn(&call);
+        let key = key_fn(&call);
+        by_module.entry(module).or_default().entry(key).or_default().push(call);
+    }
+
+    // Convert to ModuleGroups with sort/dedup
+    let items = by_module.into_iter().map(|(module_name, mut functions_map)| {
+        let file = file_fn(&module_name, &functions_map);
+
+        // Sort and deduplicate each function's calls
+        for calls in functions_map.values_mut() {
+            sort_and_deduplicate(calls, sort_cmp.clone(), dedup_key.clone());
+        }
+
+        let entries: Vec<E> = functions_map.into_iter()
+            .map(|(key, calls)| entry_fn(key, calls))
+            .collect();
+
+        ModuleGroup { name: module_name, file, entries, function_count: None }
+    }).collect();
+
+    (total_items, items)
 }
 
 /// Converts a two-level nested map into Vec<ModuleGroup<E>>.

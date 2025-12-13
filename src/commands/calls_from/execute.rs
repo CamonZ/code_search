@@ -1,14 +1,12 @@
-use std::collections::BTreeMap;
 use std::error::Error;
 
 use serde::Serialize;
 
 use super::CallsFromCmd;
 use crate::commands::Execute;
-use crate::dedup::sort_and_deduplicate;
 use crate::queries::calls_from::find_calls_from;
 use crate::types::{Call, ModuleGroupResult};
-use crate::utils::convert_to_module_groups;
+use crate::utils::group_calls;
 
 /// A caller function with all its outgoing calls
 #[derive(Debug, Clone, Serialize)]
@@ -24,48 +22,30 @@ pub struct CallerFunction {
 impl ModuleGroupResult<CallerFunction> {
     /// Build grouped result from flat calls
     pub fn from_calls(module_pattern: String, function_pattern: String, calls: Vec<Call>) -> Self {
-        let total_items = calls.len();
-
-        // Group by module -> function -> calls
-        // Using BTreeMap for consistent ordering
-        let mut by_module: BTreeMap<String, BTreeMap<CallerFunctionKey, Vec<Call>>> = BTreeMap::new();
-
-        for call in calls {
-            let fn_key = CallerFunctionKey {
+        let (total_items, items) = group_calls(
+            calls,
+            // Group by caller module
+            |call| call.caller.module.clone(),
+            // Key by caller function metadata
+            |call| CallerFunctionKey {
                 name: call.caller.name.clone(),
                 arity: call.caller.arity,
                 kind: call.caller.kind.clone().unwrap_or_default(),
                 start_line: call.caller.start_line.unwrap_or(0),
                 end_line: call.caller.end_line.unwrap_or(0),
-            };
-
-            by_module
-                .entry(call.caller.module.clone())
-                .or_default()
-                .entry(fn_key)
-                .or_default()
-                .push(call);
-        }
-
-        // Convert to ModuleGroup structure
-        let items = convert_to_module_groups(
-            by_module,
-            |key, mut calls| {
-                // Deduplicate calls, keeping first occurrence by line
-                sort_and_deduplicate(
-                    &mut calls,
-                    |a, b| a.line.cmp(&b.line),
-                    |c| (c.callee.module.clone(), c.callee.name.clone(), c.callee.arity),
-                );
-
-                CallerFunction {
-                    name: key.name,
-                    arity: key.arity,
-                    kind: key.kind,
-                    start_line: key.start_line,
-                    end_line: key.end_line,
-                    calls,
-                }
+            },
+            // Sort by line number
+            |a, b| a.line.cmp(&b.line),
+            // Deduplicate by callee (module, name, arity)
+            |c| (c.callee.module.clone(), c.callee.name.clone(), c.callee.arity),
+            // Build CallerFunction entry
+            |key, calls| CallerFunction {
+                name: key.name,
+                arity: key.arity,
+                kind: key.kind,
+                start_line: key.start_line,
+                end_line: key.end_line,
+                calls,
             },
             // File tracking strategy: extract from first call in first function
             |_module, functions_map| {

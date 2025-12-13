@@ -1,14 +1,12 @@
-use std::collections::BTreeMap;
 use std::error::Error;
 
 use serde::Serialize;
 
 use super::CallsToCmd;
 use crate::commands::Execute;
-use crate::dedup::sort_and_deduplicate;
 use crate::queries::calls_to::find_calls_to;
 use crate::types::{Call, ModuleGroupResult};
-use crate::utils::convert_to_module_groups;
+use crate::utils::group_calls;
 
 /// A callee function (target) with all its callers
 #[derive(Debug, Clone, Serialize)]
@@ -21,47 +19,29 @@ pub struct CalleeFunction {
 impl ModuleGroupResult<CalleeFunction> {
     /// Build grouped result from flat calls
     pub fn from_calls(module_pattern: String, function_pattern: String, calls: Vec<Call>) -> Self {
-        let total_items = calls.len();
-
-        // Group by callee module -> callee function -> callers
-        let mut by_module: BTreeMap<String, BTreeMap<CalleeFunctionKey, Vec<Call>>> =
-            BTreeMap::new();
-
-        for call in calls {
-            let fn_key = CalleeFunctionKey {
+        let (total_items, items) = group_calls(
+            calls,
+            // Group by callee module
+            |call| call.callee.module.clone(),
+            // Key by callee function metadata
+            |call| CalleeFunctionKey {
                 name: call.callee.name.clone(),
                 arity: call.callee.arity,
-            };
-
-            by_module
-                .entry(call.callee.module.clone())
-                .or_default()
-                .entry(fn_key)
-                .or_default()
-                .push(call);
-        }
-
-        // Convert to ModuleGroup structure
-        let items = convert_to_module_groups(
-            by_module,
-            |key, mut callers| {
-                // Deduplicate callers, keeping first occurrence by line
-                sort_and_deduplicate(
-                    &mut callers,
-                    |a, b| {
-                        a.caller.module.cmp(&b.caller.module)
-                            .then_with(|| a.caller.name.cmp(&b.caller.name))
-                            .then_with(|| a.caller.arity.cmp(&b.caller.arity))
-                            .then_with(|| a.line.cmp(&b.line))
-                    },
-                    |c| (c.caller.module.clone(), c.caller.name.clone(), c.caller.arity),
-                );
-
-                CalleeFunction {
-                    name: key.name,
-                    arity: key.arity,
-                    callers,
-                }
+            },
+            // Sort by caller module, name, arity, then line
+            |a, b| {
+                a.caller.module.cmp(&b.caller.module)
+                    .then_with(|| a.caller.name.cmp(&b.caller.name))
+                    .then_with(|| a.caller.arity.cmp(&b.caller.arity))
+                    .then_with(|| a.line.cmp(&b.line))
+            },
+            // Deduplicate by caller (module, name, arity)
+            |c| (c.caller.module.clone(), c.caller.name.clone(), c.caller.arity),
+            // Build CalleeFunction entry
+            |key, callers| CalleeFunction {
+                name: key.name,
+                arity: key.arity,
+                callers,
             },
             // File is intentionally empty because callees are the grouping key,
             // and a module can be defined across multiple files. The calls themselves
