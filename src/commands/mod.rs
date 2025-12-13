@@ -37,6 +37,7 @@ mod calls_from;
 mod calls_to;
 mod depended_by;
 mod depends_on;
+mod duplicate_hotspots;
 mod duplicates;
 mod function;
 mod god_modules;
@@ -57,6 +58,7 @@ pub use calls_from::CallsFromCmd;
 pub use calls_to::CallsToCmd;
 pub use depended_by::DependedByCmd;
 pub use depends_on::DependsOnCmd;
+pub use duplicate_hotspots::DuplicateHotspotsCmd;
 pub use duplicates::DuplicatesCmd;
 pub use function::FunctionCmd;
 pub use god_modules::GodModulesCmd;
@@ -137,6 +139,9 @@ pub enum Command {
 
     /// Find functions with identical or near-identical implementations
     Duplicates(DuplicatesCmd),
+
+    /// Find modules with the most duplicated functions
+    DuplicateHotspots(DuplicateHotspotsCmd),
 
     /// Find functions with the most incoming/outgoing calls
     Hotspots(HotspotsCmd),
