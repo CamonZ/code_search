@@ -36,6 +36,7 @@ mod boundaries;
 mod browse_module;
 mod calls_from;
 mod calls_to;
+mod complexity;
 mod depended_by;
 mod depends_on;
 mod duplicate_hotspots;
@@ -60,6 +61,7 @@ pub use boundaries::BoundariesCmd;
 pub use browse_module::BrowseModuleCmd;
 pub use calls_from::CallsFromCmd;
 pub use calls_to::CallsToCmd;
+pub use complexity::ComplexityCmd;
 pub use depended_by::DependedByCmd;
 pub use depends_on::DependsOnCmd;
 pub use duplicate_hotspots::DuplicateHotspotsCmd;
@@ -121,6 +123,9 @@ pub enum Command {
 
     /// Show what calls a module/function (incoming edges)
     CallsTo(CallsToCmd),
+
+    /// Display complexity metrics for functions
+    Complexity(ComplexityCmd),
 
     /// Show function signature (args, return type)
     Function(FunctionCmd),

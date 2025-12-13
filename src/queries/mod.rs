@@ -53,6 +53,7 @@ pub mod accepts;
 pub mod calls;
 pub mod calls_from;
 pub mod calls_to;
+pub mod complexity;
 pub mod depended_by;
 pub mod dependencies;
 pub mod depends_on;
