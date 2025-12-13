@@ -54,6 +54,7 @@ mod path;
 mod returns;
 mod reverse_trace;
 mod search;
+pub mod setup;
 mod struct_modules;
 mod struct_usage;
 mod trace;
@@ -82,6 +83,7 @@ pub use path::PathCmd;
 pub use returns::ReturnsCmd;
 pub use reverse_trace::ReverseTraceCmd;
 pub use search::SearchCmd;
+pub use setup::SetupCmd;
 pub use struct_modules::StructModulesCmd;
 pub use struct_usage::StructUsageCmd;
 pub use trace::TraceCmd;
@@ -112,6 +114,9 @@ pub trait CommandRunner {
 #[derive(Subcommand, Debug)]
 #[enum_dispatch(CommandRunner)]
 pub enum Command {
+    /// Create database schema without importing data
+    Setup(SetupCmd),
+
     /// Import a call graph JSON file into the database
     Import(ImportCmd),
 

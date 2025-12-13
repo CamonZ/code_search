@@ -71,6 +71,7 @@ pub mod many_clauses;
 pub mod path;
 pub mod returns;
 pub mod reverse_trace;
+pub mod schema;
 pub mod search;
 pub mod specs;
 pub mod struct_usage;

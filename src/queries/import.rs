@@ -5,7 +5,8 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::queries::import_models::CallGraph;
-use crate::db::{escape_string, escape_string_single, run_query, run_query_no_params, try_create_relation, Params};
+use crate::queries::schema;
+use crate::db::{escape_string, escape_string_single, run_query, run_query_no_params, Params};
 
 /// Chunk size for batch database imports
 const IMPORT_CHUNK_SIZE: usize = 500;
@@ -18,6 +19,7 @@ pub enum ImportError {
     #[error("Failed to parse call graph JSON: {message}")]
     JsonParseFailed { message: String },
 
+    #[allow(dead_code)]
     #[error("Schema creation failed for '{relation}': {message}")]
     SchemaCreationFailed { relation: String, message: String },
 
@@ -49,138 +51,16 @@ pub struct SchemaResult {
     pub already_existed: Vec<String>,
 }
 
-// Schema definitions
-
-const SCHEMA_MODULES: &str = r#"
-:create modules {
-    project: String,
-    name: String
-    =>
-    file: String default "",
-    source: String default "unknown"
-}
-"#;
-
-const SCHEMA_FUNCTIONS: &str = r#"
-:create functions {
-    project: String,
-    module: String,
-    name: String,
-    arity: Int
-    =>
-    return_type: String default "",
-    args: String default "",
-    source: String default "unknown"
-}
-"#;
-
-const SCHEMA_CALLS: &str = r#"
-:create calls {
-    project: String,
-    caller_module: String,
-    caller_function: String,
-    callee_module: String,
-    callee_function: String,
-    callee_arity: Int,
-    file: String,
-    line: Int,
-    column: Int
-    =>
-    call_type: String default "remote",
-    caller_kind: String default "",
-    callee_args: String default ""
-}
-"#;
-
-const SCHEMA_STRUCT_FIELDS: &str = r#"
-:create struct_fields {
-    project: String,
-    module: String,
-    field: String
-    =>
-    default_value: String,
-    required: Bool,
-    inferred_type: String
-}
-"#;
-
-const SCHEMA_FUNCTION_LOCATIONS: &str = r#"
-:create function_locations {
-    project: String,
-    module: String,
-    name: String,
-    arity: Int,
-    line: Int
-    =>
-    file: String,
-    source_file_absolute: String default "",
-    column: Int,
-    kind: String,
-    start_line: Int,
-    end_line: Int,
-    pattern: String default "",
-    guard: String default "",
-    source_sha: String default "",
-    ast_sha: String default "",
-    complexity: Int default 1,
-    max_nesting_depth: Int default 0,
-    generated_by: String default "",
-    macro_source: String default ""
-}
-"#;
-
-const SCHEMA_SPECS: &str = r#"
-:create specs {
-    project: String,
-    module: String,
-    name: String,
-    arity: Int
-    =>
-    kind: String,
-    line: Int,
-    inputs_string: String default "",
-    return_string: String default "",
-    full: String default ""
-}
-"#;
-
-const SCHEMA_TYPES: &str = r#"
-:create types {
-    project: String,
-    module: String,
-    name: String
-    =>
-    kind: String,
-    params: String default "",
-    line: Int,
-    definition: String default ""
-}
-"#;
-
 pub fn create_schema(db: &DbInstance) -> Result<SchemaResult, Box<dyn Error>> {
     let mut result = SchemaResult::default();
 
-    let schemas = [
-        ("modules", SCHEMA_MODULES),
-        ("functions", SCHEMA_FUNCTIONS),
-        ("calls", SCHEMA_CALLS),
-        ("struct_fields", SCHEMA_STRUCT_FIELDS),
-        ("function_locations", SCHEMA_FUNCTION_LOCATIONS),
-        ("specs", SCHEMA_SPECS),
-        ("types", SCHEMA_TYPES),
-    ];
+    let schema_results = schema::create_schema(db)?;
 
-    for (name, script) in schemas {
-        match try_create_relation(db, script) {
-            Ok(true) => result.created.push(name.to_string()),
-            Ok(false) => result.already_existed.push(name.to_string()),
-            Err(e) => {
-                return Err(ImportError::SchemaCreationFailed {
-                    relation: name.to_string(),
-                    message: e.to_string(),
-                }
-                .into())
-            }
+    for schema_result in schema_results {
+        if schema_result.created {
+            result.created.push(schema_result.relation);
+        } else {
+            result.already_existed.push(schema_result.relation);
         }
     }
 
