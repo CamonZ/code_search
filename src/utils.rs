@@ -198,7 +198,7 @@ where
 
     module_map
         .into_iter()
-        .map(|(name, (file, entries))| ModuleGroup { name, file, entries })
+        .map(|(name, (file, entries))| ModuleGroup { name, file, entries, function_count: None })
         .collect()
 }
 
@@ -254,6 +254,7 @@ where
                 name: module_name,
                 file,
                 entries,
+                function_count: None,
             }
         })
         .collect()

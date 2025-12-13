@@ -21,6 +21,7 @@ Examples:
   code_search hotspots -k outgoing           # Functions that call many others
   code_search hotspots -k total              # Highest total connections
   code_search hotspots -k ratio              # Boundary modules (high incoming/outgoing ratio)
+  code_search hotspots -k functions          # Modules with most functions (god modules)
   code_search hotspots -m MyApp -l 10        # Top 10 in MyApp namespace
 
   # Find wide modules (high fan-out):
@@ -30,7 +31,10 @@ Examples:
   code_search hotspots -k incoming -l 20     # Top 20 most-called functions
 
   # Find boundary modules (many callers, few dependencies):
-  code_search hotspots -k ratio -l 20        # Top 20 boundary modules")]
+  code_search hotspots -k ratio -l 20        # Top 20 boundary modules
+
+  # Find god modules:
+  code_search hotspots -k functions -l 20    # Top 20 modules by function count")]
 pub struct HotspotsCmd {
     /// Type of hotspots to find
     #[arg(short, long, value_enum, default_value_t = HotspotKind::Incoming)]

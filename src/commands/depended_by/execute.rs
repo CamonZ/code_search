@@ -95,6 +95,7 @@ impl ModuleGroupResult<DependentCaller> {
                     name: module_name,
                     file: module_file,
                     entries,
+                    function_count: None,
                 }
             })
             .collect();

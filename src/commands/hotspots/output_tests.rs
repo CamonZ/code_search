@@ -57,6 +57,7 @@ MyApp.Accounts: (in: 3, out: 1, total: 4)
                     total: 4,
                     ratio: 3.0,
                 }],
+                function_count: None,
             }],
         }
     }
@@ -79,6 +80,7 @@ MyApp.Accounts: (in: 3, out: 1, total: 4)
                     total: 5,
                     ratio: 0.0,
                 }],
+                function_count: None,
             }],
         }
     }

@@ -19,6 +19,8 @@ pub enum HotspotKind {
     Total,
     /// Functions with highest ratio of incoming to outgoing calls (boundary modules)
     Ratio,
+    /// Modules with most functions (god modules)
+    Functions,
 }
 
 #[derive(Error, Debug)]
@@ -36,6 +38,57 @@ pub struct Hotspot {
     pub outgoing: i64,
     pub total: i64,
     pub ratio: f64,
+}
+
+/// Get function count per module
+pub fn get_function_counts(
+    db: &cozo::DbInstance,
+    project: &str,
+    module_pattern: Option<&str>,
+    use_regex: bool,
+) -> Result<std::collections::HashMap<String, i64>, Box<dyn Error>> {
+    // Build optional module filter
+    let module_filter = match module_pattern {
+        Some(_) if use_regex => ", regex_matches(module, $module_pattern)".to_string(),
+        Some(_) => ", str_includes(module, $module_pattern)".to_string(),
+        None => String::new(),
+    };
+
+    let script = format!(
+        r#"
+        func_counts[module, count(name)] :=
+            *function_locations{{project, module, name}},
+            project == $project
+            {module_filter}
+
+        ?[module, func_count] :=
+            func_counts[module, func_count]
+
+        :order -func_count
+        "#,
+    );
+
+    let mut params = Params::new();
+    params.insert("project".to_string(), DataValue::Str(project.into()));
+    if let Some(pattern) = module_pattern {
+        params.insert("module_pattern".to_string(), DataValue::Str(pattern.into()));
+    }
+
+    let rows = run_query(db, &script, params).map_err(|e| HotspotsError::QueryFailed {
+        message: e.to_string(),
+    })?;
+
+    let mut counts = std::collections::HashMap::new();
+    for row in rows.rows {
+        if row.len() >= 2 {
+            if let Some(module) = extract_string(&row[0]) {
+                let count = extract_i64(&row[1], 0);
+                counts.insert(module, count);
+            }
+        }
+    }
+
+    Ok(counts)
 }
 
 pub fn find_hotspots(
@@ -58,6 +111,7 @@ pub fn find_hotspots(
         HotspotKind::Outgoing => "outgoing",
         HotspotKind::Total => "total",
         HotspotKind::Ratio => "ratio",
+        HotspotKind::Functions => "incoming", // Functions uses incoming count for sorting
     };
 
     // Query to find hotspots by counting incoming and outgoing calls

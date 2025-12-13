@@ -33,4 +33,6 @@ pub struct ModuleGroup<E> {
     #[serde(skip_serializing_if = "String::is_empty")]
     pub file: String,
     pub entries: Vec<E>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub function_count: Option<i64>,
 }

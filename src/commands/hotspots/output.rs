@@ -35,7 +35,15 @@ impl TableFormatter for ModuleCollectionResult<HotspotEntry> {
         _module_file: &str,
         entries: &[HotspotEntry],
     ) -> String {
+        // Get module from result to access function_count
+        let module = self.items.iter().find(|m| m.name == module_name);
+
         if entries.is_empty() {
+            if let Some(m) = module {
+                if let Some(count) = m.function_count {
+                    return format!("{}: (funcs: {})", module_name, count);
+                }
+            }
             return format!("{}:", module_name);
         }
 
@@ -43,6 +51,16 @@ impl TableFormatter for ModuleCollectionResult<HotspotEntry> {
         let total_incoming: i64 = entries.iter().map(|e| e.incoming).sum();
         let total_outgoing: i64 = entries.iter().map(|e| e.outgoing).sum();
         let total_total: i64 = entries.iter().map(|e| e.total).sum();
+
+        // Add function count if available
+        if let Some(m) = module {
+            if let Some(count) = m.function_count {
+                return format!(
+                    "{}: (funcs: {}, in: {}, out: {}, total: {})",
+                    module_name, count, total_incoming, total_outgoing, total_total
+                );
+            }
+        }
 
         format!(
             "{}: (in: {}, out: {}, total: {})",

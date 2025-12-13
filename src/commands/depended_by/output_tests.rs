@@ -73,6 +73,7 @@ MyApp.Service:
                         line: 15,
                     }],
                 }],
+                function_count: None,
             }],
         }
     }
@@ -100,6 +101,7 @@ MyApp.Service:
                             line: 20,
                         }],
                     }],
+                    function_count: None,
                 },
                 ModuleGroup {
                     name: "MyApp.Service".to_string(),
@@ -117,6 +119,7 @@ MyApp.Service:
                             line: 15,
                         }],
                     }],
+                    function_count: None,
                 },
             ],
         }

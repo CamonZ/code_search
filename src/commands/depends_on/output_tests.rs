@@ -79,6 +79,7 @@ Phoenix.View:
                         depth: None,
                     }],
                 }],
+                function_count: None,
             }],
         }
     }
@@ -112,6 +113,7 @@ Phoenix.View:
                             depth: None,
                         }],
                     }],
+                    function_count: None,
                 },
                 ModuleGroup {
                     name: "Phoenix.View".to_string(),
@@ -135,6 +137,7 @@ Phoenix.View:
                             depth: None,
                         }],
                     }],
+                    function_count: None,
                 },
             ],
         }

@@ -65,6 +65,7 @@ MyApp.Accounts (lib/accounts.ex):
                     kind: "defp".to_string(),
                     line: 35,
                 }],
+                function_count: None,
             }],
         }
     }
@@ -86,6 +87,7 @@ MyApp.Accounts (lib/accounts.ex):
                     kind: "defp".to_string(),
                     line: 35,
                 }],
+                function_count: None,
             }],
         }
     }

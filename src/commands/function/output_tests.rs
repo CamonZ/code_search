@@ -68,6 +68,7 @@ MyApp.Accounts:
                     args: "integer()".to_string(),
                     return_type: "User.t() | nil".to_string(),
                 }],
+                function_count: None,
             }],
         }
     }
@@ -95,6 +96,7 @@ MyApp.Accounts:
                         return_type: "User.t() | nil".to_string(),
                     },
                 ],
+                function_count: None,
             }],
         }
     }
