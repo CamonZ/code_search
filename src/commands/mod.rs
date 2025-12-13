@@ -41,6 +41,7 @@ mod complexity;
 mod cycles;
 mod depended_by;
 mod depends_on;
+mod describe;
 mod duplicate_hotspots;
 mod duplicates;
 mod function;
@@ -70,6 +71,7 @@ pub use complexity::ComplexityCmd;
 pub use cycles::CyclesCmd;
 pub use depended_by::DependedByCmd;
 pub use depends_on::DependsOnCmd;
+pub use describe::DescribeCmd;
 pub use duplicate_hotspots::DuplicateHotspotsCmd;
 pub use duplicates::DuplicatesCmd;
 pub use function::FunctionCmd;
@@ -143,6 +145,9 @@ pub enum Command {
 
     /// Detect circular dependencies between modules
     Cycles(CyclesCmd),
+
+    /// Display detailed documentation about available commands
+    Describe(DescribeCmd),
 
     /// Show function signature (args, return type)
     Function(FunctionCmd),
