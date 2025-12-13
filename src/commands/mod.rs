@@ -36,6 +36,7 @@ mod boundaries;
 mod browse_module;
 mod calls_from;
 mod calls_to;
+mod clusters;
 mod complexity;
 mod cycles;
 mod depended_by;
@@ -62,6 +63,7 @@ pub use boundaries::BoundariesCmd;
 pub use browse_module::BrowseModuleCmd;
 pub use calls_from::CallsFromCmd;
 pub use calls_to::CallsToCmd;
+pub use clusters::ClustersCmd;
 pub use complexity::ComplexityCmd;
 pub use cycles::CyclesCmd;
 pub use depended_by::DependedByCmd;
@@ -125,6 +127,9 @@ pub enum Command {
 
     /// Show what calls a module/function (incoming edges)
     CallsTo(CallsToCmd),
+
+    /// Analyze module connectivity using namespace-based clustering
+    Clusters(ClustersCmd),
 
     /// Display complexity metrics for functions
     Complexity(ComplexityCmd),
