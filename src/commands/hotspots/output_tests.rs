@@ -20,7 +20,7 @@ Hotspots (total)
 
 Found 1 hotspot(s) in 1 module(s):
 
-MyApp.Accounts:
+MyApp.Accounts: (in: 3, out: 1, total: 4)
   get_user (in: 3, out: 1, total: 4)";
 
     // =========================================================================

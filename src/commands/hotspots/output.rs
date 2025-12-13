@@ -29,6 +29,27 @@ impl TableFormatter for ModuleCollectionResult<HotspotEntry> {
         format!("{}:", module_name)
     }
 
+    fn format_module_header_with_entries(
+        &self,
+        module_name: &str,
+        _module_file: &str,
+        entries: &[HotspotEntry],
+    ) -> String {
+        if entries.is_empty() {
+            return format!("{}:", module_name);
+        }
+
+        // Aggregate incoming, outgoing, and total across all entries in the module
+        let total_incoming: i64 = entries.iter().map(|e| e.incoming).sum();
+        let total_outgoing: i64 = entries.iter().map(|e| e.outgoing).sum();
+        let total_total: i64 = entries.iter().map(|e| e.total).sum();
+
+        format!(
+            "{}: (in: {}, out: {}, total: {})",
+            module_name, total_incoming, total_outgoing, total_total
+        )
+    }
+
     fn format_entry(&self, entry: &HotspotEntry, _module: &str, _file: &str) -> String {
         format!(
             "{} (in: {}, out: {}, total: {})",

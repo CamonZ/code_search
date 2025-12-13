@@ -64,6 +64,25 @@ pub trait TableFormatter {
     /// * `module_file` - File path associated with the module (may be empty)
     fn format_module_header(&self, module_name: &str, module_file: &str) -> String;
 
+    /// Format the header for a module with access to its entries for aggregation
+    ///
+    /// Default implementation delegates to `format_module_header`.
+    /// Override this to include aggregated data from entries in the module header.
+    ///
+    /// # Arguments
+    /// * `module_name` - Name of the module
+    /// * `module_file` - File path associated with the module (may be empty)
+    /// * `entries` - Reference to the entries in this module
+    fn format_module_header_with_entries(
+        &self,
+        module_name: &str,
+        module_file: &str,
+        entries: &[Self::Entry],
+    ) -> String {
+        let _ = entries; // Silence unused warning for default implementation
+        self.format_module_header(module_name, module_file)
+    }
+
     /// Format a single entry within a module
     ///
     /// # Arguments
@@ -122,7 +141,7 @@ where
                 lines.push(String::new());
             }
 
-            lines.push(self.format_module_header(&module.name, &module.file));
+            lines.push(self.format_module_header_with_entries(&module.name, &module.file, &module.entries));
 
             for entry in &module.entries {
                 lines.push(format!("  {}", self.format_entry(entry, &module.name, &module.file)));
@@ -164,7 +183,7 @@ where
                 lines.push(String::new());
             }
 
-            lines.push(self.format_module_header(&module.name, &module.file));
+            lines.push(self.format_module_header_with_entries(&module.name, &module.file, &module.entries));
 
             for entry in &module.entries {
                 lines.push(format!("  {}", self.format_entry(entry, &module.name, &module.file)));
