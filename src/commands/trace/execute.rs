@@ -151,10 +151,10 @@ impl Execute for TraceCmd {
             &self.module,
             &self.function,
             self.arity,
-            &self.project,
-            self.regex,
+            &self.common.project,
+            self.common.regex,
             self.depth,
-            self.limit,
+            self.common.limit,
         )?;
 
         Ok(TraceResult::from_calls(

@@ -75,7 +75,7 @@ impl Execute for SearchCmd {
     fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
         match self.kind {
             SearchKind::Modules => {
-                let modules = search_modules(db, &self.pattern, &self.project, self.limit, self.regex)?;
+                let modules = search_modules(db, &self.pattern, &self.common.project, self.common.limit, self.common.regex)?;
                 Ok(SearchResult {
                     pattern: self.pattern,
                     kind: "modules".to_string(),
@@ -85,7 +85,7 @@ impl Execute for SearchCmd {
                 })
             }
             SearchKind::Functions => {
-                let functions = search_functions(db, &self.pattern, &self.project, self.limit, self.regex)?;
+                let functions = search_functions(db, &self.pattern, &self.common.project, self.common.limit, self.common.regex)?;
                 Ok(SearchResult::from_functions(self.pattern, functions))
             }
         }

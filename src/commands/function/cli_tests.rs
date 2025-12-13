@@ -54,7 +54,7 @@ mod tests {
         variant: Function,
         test_name: test_with_regex,
         args: ["--module", "MyApp.*", "--function", "get_.*", "--regex"],
-        field: regex,
+        field: common.regex,
         expected: true,
     }
 
@@ -63,7 +63,7 @@ mod tests {
         variant: Function,
         test_name: test_with_limit,
         args: ["--module", "MyApp", "--function", "foo", "--limit", "50"],
-        field: limit,
+        field: common.limit,
         expected: 50,
     }
 
@@ -72,7 +72,7 @@ mod tests {
         variant: Function,
         required_args: ["--module", "MyApp", "--function", "foo"],
         limit: {
-            field: limit,
+            field: common.limit,
             default: 100,
             max: 1000,
         },

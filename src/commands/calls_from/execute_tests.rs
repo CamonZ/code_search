@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::CallsFromCmd;
+    use crate::commands::CommonArgs;
     use rstest::{fixture, rstest};
 
     crate::shared_fixture! {
@@ -23,9 +24,11 @@ mod tests {
             module: "MyApp.Accounts".to_string(),
             function: None,
             arity: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_items, 3,
@@ -41,9 +44,11 @@ mod tests {
             module: "MyApp.Accounts".to_string(),
             function: Some("get_user".to_string()),
             arity: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_items, 2);
@@ -67,9 +72,11 @@ mod tests {
             module: "MyApp\\..*".to_string(),
             function: None,
             arity: None,
-            project: "test_project".to_string(),
-            regex: true,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_items, 11,
@@ -88,9 +95,11 @@ mod tests {
             module: "NonExistent".to_string(),
             function: None,
             arity: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert!(result.items.is_empty(), "Expected no modules for non-existent module");
@@ -109,9 +118,11 @@ mod tests {
             module: "MyApp.Accounts".to_string(),
             function: None,
             arity: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             // All results should be for the test_project (verified implicitly by getting results)
@@ -126,9 +137,11 @@ mod tests {
             module: "MyApp\\..*".to_string(),
             function: None,
             arity: None,
-            project: "test_project".to_string(),
-            regex: true,
-            limit: 1,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 1,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_items, 1, "Limit should restrict to 1 call");
@@ -145,9 +158,11 @@ mod tests {
             module: "MyApp".to_string(),
             function: None,
             arity: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
     }
 }

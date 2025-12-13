@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::FunctionCmd;
+    use crate::commands::CommonArgs;
     use rstest::{fixture, rstest};
 
     crate::shared_fixture! {
@@ -23,9 +24,11 @@ mod tests {
             module: "MyApp.Accounts".to_string(),
             function: "get_user".to_string(),
             arity: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_items, 2);
@@ -41,9 +44,11 @@ mod tests {
             module: "MyApp.Accounts".to_string(),
             function: "get_user".to_string(),
             arity: Some(1),
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_items, 1);
@@ -62,9 +67,11 @@ mod tests {
             module: "MyApp\\..*".to_string(),
             function: ".*user.*".to_string(),
             arity: None,
-            project: "test_project".to_string(),
-            regex: true,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_items, 4);
@@ -82,9 +89,11 @@ mod tests {
             module: "NonExistent".to_string(),
             function: "foo".to_string(),
             arity: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         empty_field: items,
     }
@@ -100,9 +109,11 @@ mod tests {
             module: "MyApp.Accounts".to_string(),
             function: "get_user".to_string(),
             arity: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.items.len(), 1);
@@ -117,9 +128,11 @@ mod tests {
             module: "MyApp\\..*".to_string(),
             function: ".*".to_string(),
             arity: None,
-            project: "test_project".to_string(),
-            regex: true,
-            limit: 2,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 2,
+            },
         },
         assertions: |result| {
             // Limit applies to raw results before grouping
@@ -137,9 +150,11 @@ mod tests {
             module: "MyApp".to_string(),
             function: "foo".to_string(),
             arity: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
     }
 }

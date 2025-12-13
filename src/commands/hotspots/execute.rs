@@ -61,9 +61,9 @@ impl Execute for HotspotsCmd {
             db,
             self.kind,
             self.module.as_deref(),
-            &self.project,
-            self.regex,
-            self.limit,
+            &self.common.project,
+            self.common.regex,
+            self.common.limit,
         )?;
 
         Ok(<ModuleCollectionResult<HotspotEntry>>::from_hotspots(

@@ -48,7 +48,7 @@ mod tests {
         variant: Location,
         test_name: test_with_regex,
         args: ["--module", "MyApp.*", "--function", "get_.*", "--regex"],
-        field: regex,
+        field: common.regex,
         expected: true,
     }
 
@@ -57,7 +57,7 @@ mod tests {
         variant: Location,
         test_name: test_with_project,
         args: ["--module", "MyApp.Accounts", "--function", "get_user", "--project", "my_app"],
-        field: project,
+        field: common.project,
         expected: "my_app",
     }
 
@@ -66,7 +66,7 @@ mod tests {
         variant: Location,
         test_name: test_with_limit,
         args: ["--function", "get_user", "--limit", "10"],
-        field: limit,
+        field: common.limit,
         expected: 10,
     }
 
@@ -75,7 +75,7 @@ mod tests {
         variant: Location,
         required_args: ["--function", "get_user"],
         limit: {
-            field: limit,
+            field: common.limit,
             default: 100,
             max: 1000,
         },

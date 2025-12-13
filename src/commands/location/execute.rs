@@ -117,9 +117,9 @@ impl Execute for LocationCmd {
             self.module.as_deref(),
             &self.function,
             self.arity,
-            &self.project,
-            self.regex,
-            self.limit,
+            &self.common.project,
+            self.common.regex,
+            self.common.limit,
         )?;
 
         Ok(LocationResult::from_locations(

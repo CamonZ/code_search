@@ -12,7 +12,7 @@ macro_rules! cli_defaults_test {
         variant: $variant:ident,
         required_args: [$($req_arg:literal),*],
         defaults: {
-            $($def_field:ident : $def_expected:expr),* $(,)?
+            $($($def_field:ident).+ : $def_expected:expr),* $(,)?
         } $(,)?
     ) => {
         #[rstest]
@@ -21,8 +21,8 @@ macro_rules! cli_defaults_test {
             match args.command {
                 crate::commands::Command::$variant(cmd) => {
                     $(
-                        assert_eq!(cmd.$def_field, $def_expected,
-                            concat!("Default value mismatch for field: ", stringify!($def_field)));
+                        assert_eq!(cmd.$($def_field).+, $def_expected,
+                            concat!("Default value mismatch for field: ", stringify!($($def_field).+)));
                     )*
                 }
                 _ => panic!(concat!("Expected ", stringify!($variant), " command")),
@@ -39,7 +39,7 @@ macro_rules! cli_option_test {
         variant: $variant:ident,
         test_name: $test_name:ident,
         args: [$($arg:literal),+],
-        field: $field:ident,
+        field: $($field:ident).+,
         expected: $expected:expr $(,)?
     ) => {
         #[rstest]
@@ -51,8 +51,8 @@ macro_rules! cli_option_test {
             ]).unwrap();
             match args.command {
                 crate::commands::Command::$variant(cmd) => {
-                    assert_eq!(cmd.$field, $expected,
-                        concat!("Field ", stringify!($field), " mismatch"));
+                    assert_eq!(cmd.$($field).+, $expected,
+                        concat!("Field ", stringify!($($field).+), " mismatch"));
                 }
                 _ => panic!(concat!("Expected ", stringify!($variant), " command")),
             }
@@ -69,7 +69,7 @@ macro_rules! cli_option_test_with_required {
         required_args: [$($req_arg:literal),+],
         test_name: $test_name:ident,
         args: [$($arg:literal),+],
-        field: $field:ident,
+        field: $($field:ident).+,
         expected: $expected:expr $(,)?
     ) => {
         #[rstest]
@@ -82,8 +82,8 @@ macro_rules! cli_option_test_with_required {
             ]).unwrap();
             match args.command {
                 crate::commands::Command::$variant(cmd) => {
-                    assert_eq!(cmd.$field, $expected,
-                        concat!("Field ", stringify!($field), " mismatch"));
+                    assert_eq!(cmd.$($field).+, $expected,
+                        concat!("Field ", stringify!($($field).+), " mismatch"));
                 }
                 _ => panic!(concat!("Expected ", stringify!($variant), " command")),
             }
@@ -99,7 +99,7 @@ macro_rules! cli_limit_tests {
         variant: $variant:ident,
         required_args: [$($req_arg:literal),*],
         limit: {
-            field: $limit_field:ident,
+            field: $($limit_field:ident).+,
             default: $limit_default:expr,
             max: $limit_max:expr $(,)?
         } $(,)?
@@ -109,7 +109,7 @@ macro_rules! cli_limit_tests {
             let args = Args::try_parse_from(["code_search", $cmd, $($req_arg),*]).unwrap();
             match args.command {
                 crate::commands::Command::$variant(cmd) => {
-                    assert_eq!(cmd.$limit_field, $limit_default);
+                    assert_eq!(cmd.$($limit_field).+, $limit_default);
                 }
                 _ => panic!(concat!("Expected ", stringify!($variant), " command")),
             }

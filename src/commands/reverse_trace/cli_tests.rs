@@ -54,7 +54,7 @@ mod tests {
         variant: ReverseTrace,
         test_name: test_with_limit,
         args: ["--module", "MyApp", "--function", "foo", "--limit", "50"],
-        field: limit,
+        field: common.limit,
         expected: 50,
     }
 
@@ -63,7 +63,7 @@ mod tests {
         variant: ReverseTrace,
         required_args: ["--module", "MyApp", "--function", "foo"],
         limit: {
-            field: limit,
+            field: common.limit,
             default: 100,
             max: 1000,
         },

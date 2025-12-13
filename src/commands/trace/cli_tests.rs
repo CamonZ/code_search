@@ -45,7 +45,7 @@ mod tests {
         variant: Trace,
         test_name: test_with_project,
         args: ["--module", "MyApp", "--function", "foo", "--project", "my_custom_project"],
-        field: project,
+        field: common.project,
         expected: "my_custom_project",
     }
 
@@ -63,7 +63,7 @@ mod tests {
         variant: Trace,
         test_name: test_with_limit,
         args: ["--module", "MyApp", "--function", "foo", "--limit", "50"],
-        field: limit,
+        field: common.limit,
         expected: 50,
     }
 
@@ -72,7 +72,7 @@ mod tests {
         variant: Trace,
         required_args: ["--module", "MyApp", "--function", "foo"],
         limit: {
-            field: limit,
+            field: common.limit,
             default: 100,
             max: 1000,
         },

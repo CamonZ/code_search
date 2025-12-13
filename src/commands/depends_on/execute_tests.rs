@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::DependsOnCmd;
+    use crate::commands::CommonArgs;
     use rstest::{fixture, rstest};
 
     crate::shared_fixture! {
@@ -21,9 +22,11 @@ mod tests {
         fixture: populated_db,
         cmd: DependsOnCmd {
             module: "MyApp.Controller".to_string(),
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.items.len(), 2);
@@ -39,9 +42,11 @@ mod tests {
         fixture: populated_db,
         cmd: DependsOnCmd {
             module: "MyApp.Service".to_string(),
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.items.len(), 2);
@@ -59,9 +64,11 @@ mod tests {
         fixture: populated_db,
         cmd: DependsOnCmd {
             module: "NonExistent".to_string(),
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         empty_field: items,
     }
@@ -75,9 +82,11 @@ mod tests {
         fixture: populated_db,
         cmd: DependsOnCmd {
             module: "MyApp.Repo".to_string(),
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         collection: items,
         condition: |m| m.name != "MyApp.Repo",
@@ -91,9 +100,11 @@ mod tests {
         cmd_type: DependsOnCmd,
         cmd: DependsOnCmd {
             module: "MyApp".to_string(),
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
     }
 }

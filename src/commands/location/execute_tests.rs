@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::LocationCmd;
+    use crate::commands::CommonArgs;
     use rstest::{fixture, rstest};
 
     crate::shared_fixture! {
@@ -22,9 +23,11 @@ mod tests {
             module: Some("MyApp.Accounts".to_string()),
             function: "get_user".to_string(),
             arity: Some(1),
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.modules.len(), 1);
@@ -44,9 +47,11 @@ mod tests {
             module: None,
             function: "get_user".to_string(),
             arity: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             // 2 functions (get_user/1 and get_user/2) in 1 module
@@ -65,9 +70,11 @@ mod tests {
             module: None,
             function: ".*user.*".to_string(),
             arity: None,
-            project: "test_project".to_string(),
-            regex: true,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_clauses, 3);
@@ -82,9 +89,11 @@ mod tests {
             module: Some("MyApp.Accounts".to_string()),
             function: "get_user".to_string(),
             arity: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_clauses, 2);
@@ -98,9 +107,11 @@ mod tests {
             module: Some("MyApp\\..*".to_string()),
             function: ".*user.*".to_string(),
             arity: None,
-            project: "test_project".to_string(),
-            regex: true,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_clauses, 3);
@@ -114,9 +125,11 @@ mod tests {
             module: Some("MyApp.Accounts".to_string()),
             function: "get_user".to_string(),
             arity: Some(1),
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             let func = &result.modules[0].functions[0];
@@ -138,9 +151,11 @@ mod tests {
             module: Some("NonExistent".to_string()),
             function: "foo".to_string(),
             arity: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         empty_field: modules,
     }
@@ -152,9 +167,11 @@ mod tests {
             module: None,
             function: "get_user".to_string(),
             arity: None,
-            project: "nonexistent_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "nonexistent_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         empty_field: modules,
     }
@@ -170,9 +187,11 @@ mod tests {
             module: Some("MyApp.Accounts".to_string()),
             function: "get_user".to_string(),
             arity: Some(1),
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.modules.len(), 1);
@@ -188,9 +207,11 @@ mod tests {
             module: None,
             function: ".*".to_string(),
             arity: Some(1),
-            project: "test_project".to_string(),
-            regex: true,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 100,
+            },
         },
         assertions: |result| {
             let total_funcs: usize = result.modules.iter().map(|m| m.functions.len()).sum();
@@ -211,9 +232,11 @@ mod tests {
             module: None,
             function: "get_user".to_string(),
             arity: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_clauses, 2);
@@ -228,9 +251,11 @@ mod tests {
             module: Some("MyApp.Accounts".to_string()),
             function: ".*user.*".to_string(),
             arity: None,
-            project: "test_project".to_string(),
-            regex: true,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_clauses, 3);
@@ -244,9 +269,11 @@ mod tests {
             module: None,
             function: "list_users".to_string(),
             arity: Some(0),
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_clauses, 1);
@@ -261,9 +288,11 @@ mod tests {
             module: None,
             function: ".*user.*".to_string(),
             arity: None,
-            project: "test_project".to_string(),
-            regex: true,
-            limit: 1,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 1,
+            },
         },
         assertions: |result| {
             // Limit applies to raw results before grouping
@@ -281,9 +310,11 @@ mod tests {
             module: Some("MyApp".to_string()),
             function: "foo".to_string(),
             arity: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
     }
 }

@@ -33,7 +33,7 @@ mod tests {
         variant: Search,
         test_name: test_search_with_project_filter,
         args: ["--pattern", "User", "--project", "my_app"],
-        field: project,
+        field: common.project,
         expected: "my_app",
     }
 
@@ -42,7 +42,7 @@ mod tests {
         variant: Search,
         test_name: test_search_with_limit,
         args: ["--pattern", "User", "--limit", "50"],
-        field: limit,
+        field: common.limit,
         expected: 50,
     }
 
@@ -52,7 +52,7 @@ mod tests {
         variant: Search,
         required_args: ["--pattern", "User"],
         limit: {
-            field: limit,
+            field: common.limit,
             default: 100,
             max: 1000,
         },

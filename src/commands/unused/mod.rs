@@ -9,7 +9,7 @@ use std::error::Error;
 use clap::Args;
 use cozo::DbInstance;
 
-use crate::commands::{CommandRunner, Execute};
+use crate::commands::{CommandRunner, CommonArgs, Execute};
 use crate::output::{OutputFormat, Outputable};
 
 /// Find functions that are never called
@@ -32,14 +32,6 @@ pub struct UnusedCmd {
     #[arg(short, long)]
     pub module: Option<String>,
 
-    /// Project to search in
-    #[arg(long, default_value = "default")]
-    pub project: String,
-
-    /// Treat module pattern as a regular expression
-    #[arg(short, long, default_value_t = false)]
-    pub regex: bool,
-
     /// Only show private functions (defp, defmacrop)
     #[arg(short, long, default_value_t = false, conflicts_with = "public_only")]
     pub private_only: bool,
@@ -52,9 +44,8 @@ pub struct UnusedCmd {
     #[arg(short = 'x', long, default_value_t = false)]
     pub exclude_generated: bool,
 
-    /// Maximum number of results to return (1-1000)
-    #[arg(short, long, default_value_t = 100, value_parser = clap::value_parser!(u32).range(1..=1000))]
-    pub limit: u32,
+    #[command(flatten)]
+    pub common: CommonArgs,
 }
 
 impl CommandRunner for UnusedCmd {

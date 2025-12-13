@@ -73,9 +73,9 @@ impl Execute for DependsOnCmd {
         let calls = find_dependencies(
             db,
             &self.module,
-            &self.project,
-            self.regex,
-            self.limit,
+            &self.common.project,
+            self.common.regex,
+            self.common.limit,
         )?;
 
         Ok(<ModuleGroupResult<DependencyFunction>>::from_calls(self.module, calls))

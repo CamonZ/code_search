@@ -59,9 +59,9 @@ impl Execute for FunctionCmd {
             &self.module,
             &self.function,
             self.arity,
-            &self.project,
-            self.regex,
-            self.limit,
+            &self.common.project,
+            self.common.regex,
+            self.common.limit,
         )?;
 
         Ok(<ModuleGroupResult<FuncSig>>::from_signatures(

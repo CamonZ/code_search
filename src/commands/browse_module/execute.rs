@@ -133,9 +133,9 @@ impl Execute for BrowseModuleCmd {
             let funcs = find_functions_in_module(
                 db,
                 &self.module_or_file,
-                &self.project,
-                self.regex,
-                self.limit,
+                &self.common.project,
+                self.common.regex,
+                self.common.limit,
             )?;
 
             for func in funcs {
@@ -170,9 +170,9 @@ impl Execute for BrowseModuleCmd {
                 &self.module_or_file,
                 self.name.as_deref(),
                 None, // kind filter (optional, not used for browse)
-                &self.project,
-                self.regex,
-                self.limit,
+                &self.common.project,
+                self.common.regex,
+                self.common.limit,
             )?;
 
             for spec in specs {
@@ -196,9 +196,9 @@ impl Execute for BrowseModuleCmd {
                 &self.module_or_file,
                 self.name.as_deref(),
                 None, // kind filter (optional, not used for browse)
-                &self.project,
-                self.regex,
-                self.limit,
+                &self.common.project,
+                self.common.regex,
+                self.common.limit,
             )?;
 
             for type_def in types {
@@ -215,7 +215,7 @@ impl Execute for BrowseModuleCmd {
 
         // Query structs
         if should_query_structs {
-            let fields = find_struct_fields(db, &self.module_or_file, &self.project, self.regex, self.limit)?;
+            let fields = find_struct_fields(db, &self.module_or_file, &self.common.project, self.common.regex, self.common.limit)?;
             let structs = group_fields_into_structs(fields);
 
             for struct_def in structs {
@@ -245,12 +245,12 @@ impl Execute for BrowseModuleCmd {
         let total_items = definitions.len();
 
         // Apply limit
-        definitions.truncate(self.limit as usize);
+        definitions.truncate(self.common.limit as usize);
 
         Ok(BrowseModuleResult {
             search_term: self.module_or_file,
             kind_filter: self.kind,
-            project: self.project,
+            project: self.common.project,
             total_items,
             definitions,
         })

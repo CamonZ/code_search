@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::UnusedCmd;
+    use crate::commands::CommonArgs;
     use rstest::{fixture, rstest};
 
     crate::shared_fixture! {
@@ -22,12 +23,14 @@ mod tests {
         fixture: populated_db,
         cmd: UnusedCmd {
             module: None,
-            project: "test_project".to_string(),
-            regex: false,
             private_only: false,
             public_only: false,
             exclude_generated: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_items, 6);
@@ -45,12 +48,14 @@ mod tests {
         fixture: populated_db,
         cmd: UnusedCmd {
             module: Some("Accounts".to_string()),
-            project: "test_project".to_string(),
-            regex: false,
             private_only: false,
             public_only: false,
             exclude_generated: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_items, 2);
@@ -63,12 +68,14 @@ mod tests {
         fixture: populated_db,
         cmd: UnusedCmd {
             module: Some("^MyApp\\.Controller$".to_string()),
-            project: "test_project".to_string(),
-            regex: true,
             private_only: false,
             public_only: false,
             exclude_generated: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_items, 3);
@@ -84,12 +91,14 @@ mod tests {
         fixture: populated_db,
         cmd: UnusedCmd {
             module: Some("NonExistent".to_string()),
-            project: "test_project".to_string(),
-            regex: false,
             private_only: false,
             public_only: false,
             exclude_generated: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         empty_field: items,
     }
@@ -103,12 +112,14 @@ mod tests {
         fixture: populated_db,
         cmd: UnusedCmd {
             module: None,
-            project: "test_project".to_string(),
-            regex: false,
             private_only: false,
             public_only: false,
             exclude_generated: false,
-            limit: 1,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 1,
+            },
         },
         assertions: |result| {
             // Limit applies to raw results before grouping
@@ -122,12 +133,14 @@ mod tests {
         fixture: populated_db,
         cmd: UnusedCmd {
             module: None,
-            project: "test_project".to_string(),
-            regex: false,
             private_only: true,
             public_only: false,
             exclude_generated: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_items, 1);
@@ -142,12 +155,14 @@ mod tests {
         fixture: populated_db,
         cmd: UnusedCmd {
             module: None,
-            project: "test_project".to_string(),
-            regex: false,
             private_only: false,
             public_only: true,
             exclude_generated: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_items, 5);
@@ -167,12 +182,14 @@ mod tests {
         cmd_type: UnusedCmd,
         cmd: UnusedCmd {
             module: None,
-            project: "test_project".to_string(),
-            regex: false,
             private_only: false,
             public_only: false,
             exclude_generated: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
     }
 }

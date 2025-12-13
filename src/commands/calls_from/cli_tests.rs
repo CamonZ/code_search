@@ -48,7 +48,7 @@ mod tests {
         variant: CallsFrom,
         test_name: test_with_regex,
         args: ["--module", "MyApp.*", "--regex"],
-        field: regex,
+        field: common.regex,
         expected: true,
     }
 
@@ -57,7 +57,7 @@ mod tests {
         variant: CallsFrom,
         test_name: test_with_limit,
         args: ["--module", "MyApp.Accounts", "--limit", "50"],
-        field: limit,
+        field: common.limit,
         expected: 50,
     }
 
@@ -66,7 +66,7 @@ mod tests {
         variant: CallsFrom,
         required_args: ["--module", "MyApp.Accounts"],
         limit: {
-            field: limit,
+            field: common.limit,
             default: 100,
             max: 1000,
         },

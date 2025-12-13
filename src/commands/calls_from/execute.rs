@@ -106,9 +106,9 @@ impl Execute for CallsFromCmd {
             &self.module,
             self.function.as_deref(),
             self.arity,
-            &self.project,
-            self.regex,
-            self.limit,
+            &self.common.project,
+            self.common.regex,
+            self.common.limit,
         )?;
 
         Ok(<ModuleGroupResult<CallerFunction>>::from_calls(

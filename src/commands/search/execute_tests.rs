@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::{SearchCmd, SearchKind};
+    use crate::commands::CommonArgs;
     use rstest::{fixture, rstest};
 
     crate::shared_fixture! {
@@ -22,9 +23,11 @@ mod tests {
         cmd: SearchCmd {
             pattern: "MyApp".to_string(),
             kind: SearchKind::Modules,
-            project: "test_project".to_string(),
-            limit: 100,
-            regex: false,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.kind, "modules");
@@ -39,9 +42,11 @@ mod tests {
         cmd: SearchCmd {
             pattern: "user".to_string(),
             kind: SearchKind::Functions,
-            project: "test_project".to_string(),
-            limit: 100,
-            regex: false,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.kind, "functions");
@@ -56,9 +61,11 @@ mod tests {
         cmd: SearchCmd {
             pattern: "get".to_string(),
             kind: SearchKind::Functions,
-            project: "test_project".to_string(),
-            limit: 100,
-            regex: false,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_functions, Some(4));
@@ -71,9 +78,11 @@ mod tests {
         cmd: SearchCmd {
             pattern: "^get_user$".to_string(),
             kind: SearchKind::Functions,
-            project: "test_project".to_string(),
-            limit: 100,
-            regex: true,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_functions, Some(2));
@@ -93,9 +102,11 @@ mod tests {
         cmd: SearchCmd {
             pattern: "\\.(Accounts|Users)$".to_string(),
             kind: SearchKind::Modules,
-            project: "test_project".to_string(),
-            limit: 100,
-            regex: true,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.modules.len(), 2);
@@ -112,9 +123,11 @@ mod tests {
         cmd: SearchCmd {
             pattern: "NonExistent".to_string(),
             kind: SearchKind::Modules,
-            project: "test_project".to_string(),
-            limit: 100,
-            regex: false,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         empty_field: modules,
     }
@@ -125,9 +138,11 @@ mod tests {
         cmd: SearchCmd {
             pattern: "^xyz".to_string(),
             kind: SearchKind::Functions,
-            project: "test_project".to_string(),
-            limit: 100,
-            regex: true,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 100,
+            },
         },
         empty_field: function_modules,
     }
@@ -142,9 +157,11 @@ mod tests {
         cmd: SearchCmd {
             pattern: "App".to_string(),
             kind: SearchKind::Modules,
-            project: "test_project".to_string(),
-            limit: 100,
-            regex: false,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         collection: modules,
         condition: |m| m.project == "test_project",
@@ -156,9 +173,11 @@ mod tests {
         cmd: SearchCmd {
             pattern: "user".to_string(),
             kind: SearchKind::Functions,
-            project: "test_project".to_string(),
-            limit: 1,
-            regex: false,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 1,
+            },
         },
         assertions: |result| {
             // Limit applies to raw results before grouping
@@ -175,9 +194,11 @@ mod tests {
         cmd: SearchCmd {
             pattern: "test".to_string(),
             kind: SearchKind::Modules,
-            project: "test_project".to_string(),
-            limit: 100,
-            regex: false,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
     }
 }

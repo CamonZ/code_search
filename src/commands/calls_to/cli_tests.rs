@@ -48,7 +48,7 @@ mod tests {
         variant: CallsTo,
         test_name: test_with_regex,
         args: ["--module", "MyApp\\.Repo", "--regex"],
-        field: regex,
+        field: common.regex,
         expected: true,
     }
 
@@ -57,7 +57,7 @@ mod tests {
         variant: CallsTo,
         test_name: test_with_limit,
         args: ["--module", "MyApp.Repo", "--limit", "25"],
-        field: limit,
+        field: common.limit,
         expected: 25,
     }
 
@@ -66,7 +66,7 @@ mod tests {
         variant: CallsTo,
         required_args: ["--module", "MyApp.Repo"],
         limit: {
-            field: limit,
+            field: common.limit,
             default: 100,
             max: 1000,
         },

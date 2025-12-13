@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::{HotspotKind, HotspotsCmd};
+    use crate::commands::CommonArgs;
     use rstest::{fixture, rstest};
 
     crate::shared_fixture! {
@@ -22,9 +23,11 @@ mod tests {
         cmd: HotspotsCmd {
             kind: HotspotKind::Incoming,
             module: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 20,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 20,
+            },
         },
         assertions: |result| {
             assert_eq!(result.kind_filter, Some("incoming".to_string()));
@@ -43,9 +46,11 @@ mod tests {
         cmd: HotspotsCmd {
             kind: HotspotKind::Outgoing,
             module: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 20,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 20,
+            },
         },
         assertions: |result| {
             assert_eq!(result.kind_filter, Some("outgoing".to_string()));
@@ -63,9 +68,11 @@ mod tests {
         cmd: HotspotsCmd {
             kind: HotspotKind::Total,
             module: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 20,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 20,
+            },
         },
         assertions: |result| {
             assert_eq!(result.kind_filter, Some("total".to_string()));
@@ -87,9 +94,11 @@ mod tests {
         cmd: HotspotsCmd {
             kind: HotspotKind::Incoming,
             module: Some("Accounts".to_string()),
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 20,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 20,
+            },
         },
         assertions: |result| {
             assert!(result.items.iter().all(|m| m.name.contains("Accounts")));
@@ -102,9 +111,11 @@ mod tests {
         cmd: HotspotsCmd {
             kind: HotspotKind::Incoming,
             module: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 2,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 2,
+            },
         },
         assertions: |result| {
             assert!(result.total_items <= 2);
@@ -120,9 +131,11 @@ mod tests {
         cmd: HotspotsCmd {
             kind: HotspotKind::Incoming,
             module: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 20,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 20,
+            },
         },
     }
 }

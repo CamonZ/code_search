@@ -2,6 +2,34 @@
 //!
 //! Each command is defined in its own module with:
 //! - The command struct with clap attributes for CLI parsing
+//! - Common arguments shared via [`CommonArgs`]
+
+use clap::Args;
+
+/// Common arguments shared across most commands.
+///
+/// Use `#[command(flatten)]` to include these in a command struct:
+/// ```ignore
+/// pub struct MyCmd {
+///     pub module: String,
+///     #[command(flatten)]
+///     pub common: CommonArgs,
+/// }
+/// ```
+#[derive(Args, Debug, Clone)]
+pub struct CommonArgs {
+    /// Project to search in
+    #[arg(long, default_value = "default")]
+    pub project: String,
+
+    /// Treat patterns as regular expressions
+    #[arg(short, long, default_value_t = false)]
+    pub regex: bool,
+
+    /// Maximum number of results to return (1-1000)
+    #[arg(short, long, default_value_t = 100, value_parser = clap::value_parser!(u32).range(1..=1000))]
+    pub limit: u32,
+}
 
 mod browse_module;
 mod calls_from;

@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::TraceCmd;
+    use crate::commands::CommonArgs;
     use rstest::{fixture, rstest};
 
     crate::shared_fixture! {
@@ -23,10 +24,12 @@ mod tests {
             module: "MyApp.Controller".to_string(),
             function: "index".to_string(),
             arity: None,
-            project: "test_project".to_string(),
-            regex: false,
             depth: 1,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_items, 1);
@@ -47,10 +50,12 @@ mod tests {
             module: "MyApp.Controller".to_string(),
             function: "index".to_string(),
             arity: None,
-            project: "test_project".to_string(),
-            regex: false,
             depth: 3,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_items, 2);
@@ -64,10 +69,12 @@ mod tests {
             module: "MyApp.Controller".to_string(),
             function: "index".to_string(),
             arity: None,
-            project: "test_project".to_string(),
-            regex: false,
             depth: 2,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.total_items, 2);
@@ -86,10 +93,12 @@ mod tests {
             module: "NonExistent".to_string(),
             function: "foo".to_string(),
             arity: None,
-            project: "test_project".to_string(),
-            regex: false,
             depth: 5,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         empty_field: entries,
     }
@@ -104,10 +113,12 @@ mod tests {
             module: "MyApp".to_string(),
             function: "foo".to_string(),
             arity: None,
-            project: "test_project".to_string(),
-            regex: false,
             depth: 5,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
     }
 }

@@ -4,6 +4,7 @@
 mod tests {
     use super::super::{BrowseModuleCmd, DefinitionKind};
     use super::super::execute::Definition;
+    use crate::commands::CommonArgs;
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -33,9 +34,11 @@ mod tests {
             module_or_file: "MyApp.Accounts".to_string(),
             kind: Some(DefinitionKind::Functions),
             name: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert!(!result.definitions.is_empty());
@@ -55,9 +58,11 @@ mod tests {
             module_or_file: "MyApp.Accounts".to_string(),
             kind: Some(DefinitionKind::Functions),
             name: Some("get_user".to_string()),
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             // Only get_user/1 and get_user/2 should match
@@ -81,9 +86,11 @@ mod tests {
             module_or_file: "MyApp.Accounts".to_string(),
             kind: Some(DefinitionKind::Specs),
             name: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert!(!result.definitions.is_empty());
@@ -107,9 +114,11 @@ mod tests {
             module_or_file: "MyApp.Accounts".to_string(),
             kind: Some(DefinitionKind::Types),
             name: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert!(!result.definitions.is_empty());
@@ -133,9 +142,11 @@ mod tests {
             module_or_file: "MyApp.User".to_string(),
             kind: Some(DefinitionKind::Structs),
             name: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             assert_eq!(result.definitions.len(), 1);
@@ -160,9 +171,11 @@ mod tests {
             module_or_file: "MyApp.Accounts".to_string(),
             kind: None,  // No kind filter - get all
             name: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         assertions: |result| {
             // Should have functions, specs, and types
@@ -190,9 +203,11 @@ mod tests {
             module_or_file: "MyApp\\..*".to_string(),
             kind: Some(DefinitionKind::Functions),
             name: None,
-            project: "test_project".to_string(),
-            regex: true,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 100,
+            },
         },
         assertions: |result| {
             // Should find functions from all MyApp.* modules
@@ -214,9 +229,11 @@ mod tests {
             module_or_file: "MyApp\\..*".to_string(),
             kind: Some(DefinitionKind::Functions),
             name: None,
-            project: "test_project".to_string(),
-            regex: true,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 100,
+            },
         },
         assertions: |result| {
             // Verify sorted by module then by line
@@ -252,9 +269,11 @@ mod tests {
             module_or_file: "MyApp\\..*".to_string(),
             kind: Some(DefinitionKind::Functions),
             name: None,
-            project: "test_project".to_string(),
-            regex: true,
-            limit: 5,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 5,
+            },
         },
         assertions: |result| {
             // Should respect limit
@@ -275,9 +294,11 @@ mod tests {
             module_or_file: "NonExistent.Module".to_string(),
             kind: None,
             name: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
         empty_field: definitions,
     }
@@ -292,9 +313,11 @@ mod tests {
             module_or_file: "MyApp.Accounts".to_string(),
             kind: None,
             name: None,
-            project: "test_project".to_string(),
-            regex: false,
-            limit: 100,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
         },
     }
 }

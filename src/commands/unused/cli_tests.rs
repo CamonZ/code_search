@@ -16,12 +16,12 @@ mod tests {
         variant: Unused,
         required_args: [],
         defaults: {
-            project: "default",
-            regex: false,
+            common.project: "default",
+            common.regex: false,
             private_only: false,
             public_only: false,
             exclude_generated: false,
-            limit: 100,
+            common.limit: 100,
         },
     }
 
@@ -39,7 +39,7 @@ mod tests {
         variant: Unused,
         test_name: test_with_project,
         args: ["--project", "my_app"],
-        field: project,
+        field: common.project,
         expected: "my_app",
     }
 
@@ -48,7 +48,7 @@ mod tests {
         variant: Unused,
         test_name: test_with_regex,
         args: ["--module", "MyApp\\..*", "--regex"],
-        field: regex,
+        field: common.regex,
         expected: true,
     }
 
@@ -57,7 +57,7 @@ mod tests {
         variant: Unused,
         test_name: test_with_limit,
         args: ["--limit", "50"],
-        field: limit,
+        field: common.limit,
         expected: 50,
     }
 
@@ -93,7 +93,7 @@ mod tests {
         variant: Unused,
         required_args: [],
         limit: {
-            field: limit,
+            field: common.limit,
             default: 100,
             max: 1000,
         },
