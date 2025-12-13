@@ -54,6 +54,7 @@ mod path;
 mod returns;
 mod reverse_trace;
 mod search;
+mod struct_modules;
 mod struct_usage;
 mod trace;
 mod unused;
@@ -81,6 +82,7 @@ pub use path::PathCmd;
 pub use returns::ReturnsCmd;
 pub use reverse_trace::ReverseTraceCmd;
 pub use search::SearchCmd;
+pub use struct_modules::StructModulesCmd;
 pub use struct_usage::StructUsageCmd;
 pub use trace::TraceCmd;
 pub use unused::UnusedCmd;
@@ -157,6 +159,9 @@ pub enum Command {
 
     /// Find functions that accept or return a specific type pattern
     StructUsage(StructUsageCmd),
+
+    /// Show which modules work with a given struct type
+    StructModules(StructModulesCmd),
 
     /// Show what modules a given module depends on (outgoing module dependencies)
     DependsOn(DependsOnCmd),
