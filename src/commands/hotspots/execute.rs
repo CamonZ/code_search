@@ -14,6 +14,7 @@ pub struct HotspotEntry {
     pub incoming: i64,
     pub outgoing: i64,
     pub total: i64,
+    pub ratio: f64,
 }
 
 impl ModuleCollectionResult<HotspotEntry> {
@@ -32,6 +33,7 @@ impl ModuleCollectionResult<HotspotEntry> {
                 incoming: hotspot.incoming,
                 outgoing: hotspot.outgoing,
                 total: hotspot.total,
+                ratio: hotspot.ratio,
             };
             (hotspot.module, entry)
         });
@@ -55,6 +57,7 @@ impl Execute for HotspotsCmd {
             HotspotKind::Incoming => "incoming".to_string(),
             HotspotKind::Outgoing => "outgoing".to_string(),
             HotspotKind::Total => "total".to_string(),
+            HotspotKind::Ratio => "ratio".to_string(),
         };
 
         let hotspots = find_hotspots(

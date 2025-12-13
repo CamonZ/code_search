@@ -5,7 +5,7 @@ use cozo::DataValue;
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::db::{extract_i64, extract_string, run_query, Params};
+use crate::db::{extract_f64, extract_i64, extract_string, run_query, Params};
 
 /// What type of hotspots to find
 #[derive(Debug, Clone, Copy, Default, ValueEnum)]
@@ -17,6 +17,8 @@ pub enum HotspotKind {
     Outgoing,
     /// Functions with highest total (incoming + outgoing)
     Total,
+    /// Functions with highest ratio of incoming to outgoing calls (boundary modules)
+    Ratio,
 }
 
 #[derive(Error, Debug)]
@@ -33,6 +35,7 @@ pub struct Hotspot {
     pub incoming: i64,
     pub outgoing: i64,
     pub total: i64,
+    pub ratio: f64,
 }
 
 pub fn find_hotspots(
@@ -54,6 +57,7 @@ pub fn find_hotspots(
         HotspotKind::Incoming => "incoming",
         HotspotKind::Outgoing => "outgoing",
         HotspotKind::Total => "total",
+        HotspotKind::Ratio => "ratio",
     };
 
     // Query to find hotspots by counting incoming and outgoing calls
@@ -80,14 +84,15 @@ pub fn find_hotspots(
         all_functions[module, function] := outgoing_counts[module, function, _]
         all_functions[module, function] := incoming_counts[module, function, _]
 
-        # Combine counts with defaults of 0
-        ?[module, function, incoming, outgoing, total] :=
+        # Combine counts with defaults of 0 and calculate ratio
+        ?[module, function, incoming, outgoing, total, ratio] :=
             all_functions[module, function],
             incoming_counts[module, function, inc] or inc = 0,
             outgoing_counts[module, function, out] or out = 0,
             incoming = inc,
             outgoing = out,
-            total = inc + out
+            total = inc + out,
+            ratio = if(out == 0, inc * 1000.0, inc / out)
             {module_filter}
 
         :order -{order_by}, module, function
@@ -107,12 +112,13 @@ pub fn find_hotspots(
 
     let mut results = Vec::new();
     for row in rows.rows {
-        if row.len() >= 5 {
+        if row.len() >= 6 {
             let Some(module) = extract_string(&row[0]) else { continue };
             let Some(function) = extract_string(&row[1]) else { continue };
             let incoming = extract_i64(&row[2], 0);
             let outgoing = extract_i64(&row[3], 0);
             let total = extract_i64(&row[4], 0);
+            let ratio = extract_f64(&row[5], 0.0);
 
             results.push(Hotspot {
                 module,
@@ -120,6 +126,7 @@ pub fn find_hotspots(
                 incoming,
                 outgoing,
                 total,
+                ratio,
             });
         }
     }

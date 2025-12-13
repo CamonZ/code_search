@@ -10,7 +10,8 @@
           "function": "get_user",
           "incoming": 3,
           "outgoing": 1,
-          "total": 4
+          "total": 4,
+          "ratio": 3.0
         }
       ]
     }

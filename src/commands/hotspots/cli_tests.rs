@@ -109,4 +109,15 @@ mod tests {
             _ => panic!("Expected Hotspots command"),
         }
     }
+
+    #[rstest]
+    fn test_kind_ratio() {
+        let args = Args::try_parse_from(["code_search", "hotspots", "--kind", "ratio"]).unwrap();
+        match args.command {
+            crate::commands::Command::Hotspots(cmd) => {
+                assert!(matches!(cmd.kind, HotspotKind::Ratio));
+            }
+            _ => panic!("Expected Hotspots command"),
+        }
+    }
 }

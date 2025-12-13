@@ -55,6 +55,7 @@ MyApp.Accounts: (in: 3, out: 1, total: 4)
                     incoming: 3,
                     outgoing: 1,
                     total: 4,
+                    ratio: 3.0,
                 }],
             }],
         }
@@ -76,6 +77,7 @@ MyApp.Accounts: (in: 3, out: 1, total: 4)
                     incoming: 0,
                     outgoing: 5,
                     total: 5,
+                    ratio: 0.0,
                 }],
             }],
         }

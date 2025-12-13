@@ -180,6 +180,15 @@ pub fn extract_bool(value: &DataValue, default: bool) -> bool {
     }
 }
 
+/// Extract an f64 from a DataValue, returning the default if not a number
+pub fn extract_f64(value: &DataValue, default: f64) -> f64 {
+    match value {
+        DataValue::Num(Num::Int(i)) => *i as f64,
+        DataValue::Num(Num::Float(f)) => *f,
+        _ => default,
+    }
+}
+
 /// Layout descriptor for extracting call data from query result rows
 #[derive(Debug)]
 pub struct CallRowLayout {

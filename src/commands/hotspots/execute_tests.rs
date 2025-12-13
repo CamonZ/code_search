@@ -84,6 +84,33 @@ mod tests {
         },
     }
 
+    // Ratio: boundary modules with high incoming/outgoing ratio
+    // Functions with 0 outgoing get ratio = incoming * 1000
+    crate::execute_test! {
+        test_name: test_hotspots_ratio,
+        fixture: populated_db,
+        cmd: HotspotsCmd {
+            kind: HotspotKind::Ratio,
+            module: None,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 20,
+            },
+        },
+        assertions: |result| {
+            assert_eq!(result.kind_filter, Some("ratio".to_string()));
+            assert!(!result.items.is_empty());
+            // Check that ratio values are calculated and populated
+            let all_entries: Vec<_> = result.items.iter()
+                .flat_map(|m| &m.entries)
+                .collect();
+            assert!(all_entries.len() > 0);
+            // All entries should have a ratio value
+            assert!(all_entries.iter().all(|e| e.ratio >= 0.0));
+        },
+    }
+
     // =========================================================================
     // Filter tests
     // =========================================================================

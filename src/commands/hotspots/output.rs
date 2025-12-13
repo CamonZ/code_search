@@ -51,10 +51,18 @@ impl TableFormatter for ModuleCollectionResult<HotspotEntry> {
     }
 
     fn format_entry(&self, entry: &HotspotEntry, _module: &str, _file: &str) -> String {
-        format!(
-            "{} (in: {}, out: {}, total: {})",
-            entry.function, entry.incoming, entry.outgoing, entry.total
-        )
+        let kind = self.kind_filter.as_ref().map(|s| s.as_str()).unwrap_or("all");
+        if kind == "ratio" {
+            format!(
+                "{} (in: {}, out: {}, ratio: {:.2})",
+                entry.function, entry.incoming, entry.outgoing, entry.ratio
+            )
+        } else {
+            format!(
+                "{} (in: {}, out: {}, total: {})",
+                entry.function, entry.incoming, entry.outgoing, entry.total
+            )
+        }
     }
 
     fn blank_before_module(&self) -> bool {
