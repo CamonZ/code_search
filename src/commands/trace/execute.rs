@@ -53,27 +53,27 @@ impl TraceResult {
                 // Check if we already have this callee at this depth
                 let existing = entries.iter().position(|e| {
                     e.depth == 1
-                        && e.module == call.callee.module
-                        && e.function == call.callee.name
+                        && e.module == call.callee.module.as_ref()
+                        && e.function == call.callee.name.as_ref()
                         && e.arity == call.callee.arity
                 });
 
                 if existing.is_none() || seen_at_depth.insert(existing.unwrap_or(usize::MAX)) {
                     if existing.is_none() {
                         let entry_idx = entries.len();
-                        // Move strings from call into entry, clone once for map key
-                        let module = call.callee.module;
-                        let function = call.callee.name;
+                        // Convert from Rc<str> to String for storage
+                        let module = call.callee.module.to_string();
+                        let function = call.callee.name.to_string();
                         let arity = call.callee.arity;
                         entry_index_map.insert((module.clone(), function.clone(), arity, 1i64), entry_idx);
                         entries.push(TraceEntry {
                             module,
                             function,
                             arity,
-                            kind: call.callee.kind.unwrap_or_default(),
+                            kind: call.callee.kind.as_deref().unwrap_or("").to_string(),
                             start_line: call.callee.start_line.unwrap_or(0),
                             end_line: call.callee.end_line.unwrap_or(0),
-                            file: call.callee.file.unwrap_or_default(),
+                            file: call.callee.file.as_deref().unwrap_or("").to_string(),
                             depth: 1,
                             line: call.line,
                             parent_index: Some(0),
@@ -90,8 +90,8 @@ impl TraceResult {
                     // Check if we already have this callee at this depth
                     let existing = entries.iter().position(|e| {
                         e.depth == depth
-                            && e.module == call.callee.module
-                            && e.function == call.callee.name
+                            && e.module == call.callee.module.as_ref()
+                            && e.function == call.callee.name.as_ref()
                             && e.arity == call.callee.arity
                     });
 
@@ -99,26 +99,26 @@ impl TraceResult {
                         // Find parent index using references (no cloning)
                         let parent_index = entries.iter().position(|e| {
                             e.depth == depth - 1
-                                && e.module == call.caller.module
-                                && e.function == call.caller.name
+                                && e.module == call.caller.module.as_ref()
+                                && e.function == call.caller.name.as_ref()
                                 && e.arity == call.caller.arity
                         });
 
                         if parent_index.is_some() {
                             let entry_idx = entries.len();
-                            // Move strings from call into entry, clone once for map key
-                            let module = call.callee.module;
-                            let function = call.callee.name;
+                            // Convert from Rc<str> to String for storage
+                            let module = call.callee.module.to_string();
+                            let function = call.callee.name.to_string();
                             let arity = call.callee.arity;
                             entry_index_map.insert((module.clone(), function.clone(), arity, depth), entry_idx);
                             entries.push(TraceEntry {
                                 module,
                                 function,
                                 arity,
-                                kind: call.callee.kind.unwrap_or_default(),
+                                kind: call.callee.kind.as_deref().unwrap_or("").to_string(),
                                 start_line: call.callee.start_line.unwrap_or(0),
                                 end_line: call.callee.end_line.unwrap_or(0),
-                                file: call.callee.file.unwrap_or_default(),
+                                file: call.callee.file.as_deref().unwrap_or("").to_string(),
                                 depth,
                                 line: call.line,
                                 parent_index,

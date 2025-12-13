@@ -22,21 +22,21 @@ impl ModuleGroupResult<CalleeFunction> {
         let (total_items, items) = group_calls(
             calls,
             // Group by callee module
-            |call| call.callee.module.clone(),
+            |call| call.callee.module.to_string(),
             // Key by callee function metadata
             |call| CalleeFunctionKey {
-                name: call.callee.name.clone(),
+                name: call.callee.name.to_string(),
                 arity: call.callee.arity,
             },
             // Sort by caller module, name, arity, then line
             |a, b| {
-                a.caller.module.cmp(&b.caller.module)
-                    .then_with(|| a.caller.name.cmp(&b.caller.name))
+                a.caller.module.as_ref().cmp(b.caller.module.as_ref())
+                    .then_with(|| a.caller.name.as_ref().cmp(b.caller.name.as_ref()))
                     .then_with(|| a.caller.arity.cmp(&b.caller.arity))
                     .then_with(|| a.line.cmp(&b.line))
             },
             // Deduplicate by caller (module, name, arity)
-            |c| (c.caller.module.clone(), c.caller.name.clone(), c.caller.arity),
+            |c| (c.caller.module.to_string(), c.caller.name.to_string(), c.caller.arity),
             // Build CalleeFunction entry
             |key, callers| CalleeFunction {
                 name: key.name,

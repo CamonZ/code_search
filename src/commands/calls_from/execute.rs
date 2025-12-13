@@ -25,19 +25,19 @@ impl ModuleGroupResult<CallerFunction> {
         let (total_items, items) = group_calls(
             calls,
             // Group by caller module
-            |call| call.caller.module.clone(),
+            |call| call.caller.module.to_string(),
             // Key by caller function metadata
             |call| CallerFunctionKey {
-                name: call.caller.name.clone(),
+                name: call.caller.name.to_string(),
                 arity: call.caller.arity,
-                kind: call.caller.kind.clone().unwrap_or_default(),
+                kind: call.caller.kind.as_deref().unwrap_or("").to_string(),
                 start_line: call.caller.start_line.unwrap_or(0),
                 end_line: call.caller.end_line.unwrap_or(0),
             },
             // Sort by line number
             |a, b| a.line.cmp(&b.line),
             // Deduplicate by callee (module, name, arity)
-            |c| (c.callee.module.clone(), c.callee.name.clone(), c.callee.arity),
+            |c| (c.callee.module.to_string(), c.callee.name.to_string(), c.callee.arity),
             // Build CallerFunction entry
             |key, calls| CallerFunction {
                 name: key.name,
@@ -53,8 +53,9 @@ impl ModuleGroupResult<CallerFunction> {
                     .values()
                     .next()
                     .and_then(|calls| calls.first())
-                    .and_then(|call| call.caller.file.clone())
-                    .unwrap_or_default()
+                    .and_then(|call| call.caller.file.as_deref())
+                    .unwrap_or("")
+                    .to_string()
             },
         );
 

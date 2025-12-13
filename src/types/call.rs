@@ -1,34 +1,86 @@
 //! Core types for representing function calls.
 
-use serde::Serialize;
+use std::rc::Rc;
+use serde::{Serialize, Serializer};
 
 /// A function reference with optional definition location and type information.
 /// Queries populate only the fields they need - optional fields are skipped during serialization.
-#[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
+/// Uses Rc<str> for module and function names to reduce memory allocations when
+/// the same names appear multiple times (which is typical in call graphs).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FunctionRef {
-    pub module: String,
-    pub name: String,
+    pub module: Rc<str>,
+    pub name: Rc<str>,
     pub arity: i64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub kind: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub file: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<Rc<str>>,
+    pub file: Option<Rc<str>>,
     pub start_line: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub end_line: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub args: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub return_type: Option<String>,
+    pub args: Option<Rc<str>>,
+    pub return_type: Option<Rc<str>>,
+}
+
+impl Serialize for FunctionRef {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("FunctionRef", 9)?;
+        state.serialize_field("module", self.module.as_ref())?;
+        state.serialize_field("name", self.name.as_ref())?;
+        state.serialize_field("arity", &self.arity)?;
+        if self.kind.is_some() {
+            state.serialize_field("kind", &self.kind.as_deref())?;
+        }
+        if self.file.is_some() {
+            state.serialize_field("file", &self.file.as_deref())?;
+        }
+        if self.start_line.is_some() {
+            state.serialize_field("start_line", &self.start_line)?;
+        }
+        if self.end_line.is_some() {
+            state.serialize_field("end_line", &self.end_line)?;
+        }
+        if self.args.is_some() {
+            state.serialize_field("args", &self.args.as_deref())?;
+        }
+        if self.return_type.is_some() {
+            state.serialize_field("return_type", &self.return_type.as_deref())?;
+        }
+        state.end()
+    }
+}
+
+/// Helper trait to convert various string types into Rc<str>
+trait IntoRcStr {
+    fn into_rc_str(self) -> Rc<str>;
+}
+
+impl IntoRcStr for String {
+    fn into_rc_str(self) -> Rc<str> {
+        Rc::from(self.into_boxed_str())
+    }
+}
+
+impl IntoRcStr for &str {
+    fn into_rc_str(self) -> Rc<str> {
+        Rc::from(self)
+    }
+}
+
+impl IntoRcStr for Rc<str> {
+    fn into_rc_str(self) -> Rc<str> {
+        self
+    }
 }
 
 impl FunctionRef {
     /// Create a minimal function reference (module, name, arity only).
-    pub fn new(module: impl Into<String>, name: impl Into<String>, arity: i64) -> Self {
+    pub fn new(module: impl IntoRcStr, name: impl IntoRcStr, arity: i64) -> Self {
         Self {
-            module: module.into(),
-            name: name.into(),
+            module: module.into_rc_str(),
+            name: name.into_rc_str(),
             arity,
             kind: None,
             file: None,
@@ -41,20 +93,20 @@ impl FunctionRef {
 
     /// Create a function reference with full definition info.
     pub fn with_definition(
-        module: impl Into<String>,
-        name: impl Into<String>,
+        module: impl IntoRcStr,
+        name: impl IntoRcStr,
         arity: i64,
-        kind: impl Into<String>,
-        file: impl Into<String>,
+        kind: impl IntoRcStr,
+        file: impl IntoRcStr,
         start_line: i64,
         end_line: i64,
     ) -> Self {
         Self {
-            module: module.into(),
-            name: name.into(),
+            module: module.into_rc_str(),
+            name: name.into_rc_str(),
             arity,
-            kind: Some(kind.into()),
-            file: Some(file.into()),
+            kind: Some(kind.into_rc_str()),
+            file: Some(file.into_rc_str()),
             start_line: Some(start_line),
             end_line: Some(end_line),
             args: None,
@@ -64,32 +116,32 @@ impl FunctionRef {
 
     /// Create a function reference with type information.
     pub fn with_types(
-        module: impl Into<String>,
-        name: impl Into<String>,
+        module: impl IntoRcStr,
+        name: impl IntoRcStr,
         arity: i64,
-        kind: impl Into<String>,
-        file: impl Into<String>,
+        kind: impl IntoRcStr,
+        file: impl IntoRcStr,
         start_line: i64,
         end_line: i64,
-        args: impl Into<String>,
-        return_type: impl Into<String>,
+        args: impl IntoRcStr,
+        return_type: impl IntoRcStr,
     ) -> Self {
         Self {
-            module: module.into(),
-            name: name.into(),
+            module: module.into_rc_str(),
+            name: name.into_rc_str(),
             arity,
-            kind: Some(kind.into()),
-            file: Some(file.into()),
+            kind: Some(kind.into_rc_str()),
+            file: Some(file.into_rc_str()),
             start_line: Some(start_line),
             end_line: Some(end_line),
-            args: Some(args.into()),
-            return_type: Some(return_type.into()),
+            args: Some(args.into_rc_str()),
+            return_type: Some(return_type.into_rc_str()),
         }
     }
 
     /// Format as "name/arity" or "Module.name/arity" if module differs from context.
     pub fn format_name(&self, context_module: Option<&str>) -> String {
-        if context_module == Some(self.module.as_str()) {
+        if context_module == Some(self.module.as_ref()) {
             format!("{}/{}", self.name, self.arity)
         } else {
             format!("{}.{}/{}", self.module, self.name, self.arity)
@@ -141,7 +193,7 @@ pub struct Call {
 impl Call {
     /// Check if this is a struct construction call (e.g., %MyStruct{}).
     pub fn is_struct_call(&self) -> bool {
-        self.callee.name == "%"
+        self.callee.name.as_ref() == "%"
     }
 
     /// Format as outgoing call: "→ @ L37 name/arity [kind] (location)"

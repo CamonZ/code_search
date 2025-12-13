@@ -56,8 +56,8 @@ mod tests {
             for module in &result.items {
                 for func in &module.entries {
                     for call in &func.calls {
-                        assert_eq!(call.callee.module, "MyApp.Repo");
-                        assert_eq!(call.callee.name, "get");
+                        assert_eq!(call.callee.module.as_ref(), "MyApp.Repo");
+                        assert_eq!(call.callee.name.as_ref(), "get");
                     }
                 }
             }

@@ -36,9 +36,9 @@ impl ModuleGroupResult<DependencyFunction> {
         let mut by_module: BTreeMap<String, BTreeMap<(String, i64), Vec<Call>>> = BTreeMap::new();
         for call in calls {
             by_module
-                .entry(call.callee.module.clone())
+                .entry(call.callee.module.to_string())
                 .or_default()
-                .entry((call.callee.name.clone(), call.callee.arity))
+                .entry((call.callee.name.to_string(), call.callee.arity))
                 .or_default()
                 .push(call);
         }

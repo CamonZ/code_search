@@ -31,6 +31,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::error::Error;
 use std::path::Path;
+use std::rc::Rc;
 
 use cozo::{DataValue, DbInstance, NamedRows, ScriptMutability};
 use thiserror::Error;
@@ -283,18 +284,22 @@ pub fn extract_call_from_row(row: &[DataValue], layout: &CallRowLayout) -> Optio
         }
     });
 
-    // Create FunctionRef objects
+    // Create FunctionRef objects with Rc<str> to reduce memory allocations
     let caller = FunctionRef::with_definition(
-        caller_module,
-        caller_name,
+        Rc::from(caller_module.into_boxed_str()),
+        Rc::from(caller_name.into_boxed_str()),
         caller_arity,
-        caller_kind,
-        &file,
+        Rc::from(caller_kind.into_boxed_str()),
+        Rc::from(file.into_boxed_str()),
         caller_start_line,
         caller_end_line,
     );
 
-    let callee = FunctionRef::new(callee_module, callee_name, callee_arity);
+    let callee = FunctionRef::new(
+        Rc::from(callee_module.into_boxed_str()),
+        Rc::from(callee_name.into_boxed_str()),
+        callee_arity,
+    );
 
     // Return Call
     Some(Call {

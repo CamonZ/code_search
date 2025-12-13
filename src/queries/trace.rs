@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::rc::Rc;
 
 use cozo::DataValue;
 use thiserror::Error;
@@ -101,17 +102,21 @@ pub fn trace_calls(
             let line = extract_i64(&row[11], 0);
 
             let caller = FunctionRef::with_definition(
-                caller_module,
-                caller_name,
+                Rc::from(caller_module.into_boxed_str()),
+                Rc::from(caller_name.into_boxed_str()),
                 caller_arity,
-                caller_kind,
-                &file,
+                Rc::from(caller_kind.into_boxed_str()),
+                Rc::from(file.into_boxed_str()),
                 caller_start_line,
                 caller_end_line,
             );
 
             // Callee doesn't have definition info from this query
-            let callee = FunctionRef::new(callee_module, callee_name, callee_arity);
+            let callee = FunctionRef::new(
+                Rc::from(callee_module.into_boxed_str()),
+                Rc::from(callee_name.into_boxed_str()),
+                callee_arity,
+            );
 
             results.push(Call {
                 caller,

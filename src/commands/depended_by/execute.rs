@@ -47,9 +47,9 @@ impl ModuleGroupResult<DependentCaller> {
         let mut by_module: BTreeMap<String, BTreeMap<(String, i64), Vec<&Call>>> = BTreeMap::new();
         for call in &calls {
             by_module
-                .entry(call.caller.module.clone())
+                .entry(call.caller.module.to_string())
                 .or_default()
-                .entry((call.caller.name.clone(), call.caller.arity))
+                .entry((call.caller.name.to_string(), call.caller.arity))
                 .or_default()
                 .push(call);
         }
@@ -62,8 +62,9 @@ impl ModuleGroupResult<DependentCaller> {
                     .values()
                     .next()
                     .and_then(|calls| calls.first())
-                    .and_then(|call| call.caller.file.clone())
-                    .unwrap_or_default();
+                    .and_then(|call| call.caller.file.as_deref())
+                    .unwrap_or("")
+                    .to_string();
 
                 let entries: Vec<DependentCaller> = callers_map
                     .into_iter()
@@ -73,7 +74,7 @@ impl ModuleGroupResult<DependentCaller> {
                         let targets: Vec<DependentTarget> = func_calls
                             .iter()
                             .map(|c| DependentTarget {
-                                function: c.callee.name.clone(),
+                                function: c.callee.name.to_string(),
                                 arity: c.callee.arity,
                                 line: c.line,
                             })
@@ -82,10 +83,10 @@ impl ModuleGroupResult<DependentCaller> {
                         DependentCaller {
                             function: func_name,
                             arity,
-                            kind: first.caller.kind.clone().unwrap_or_default(),
+                            kind: first.caller.kind.as_deref().unwrap_or("").to_string(),
                             start_line: first.caller.start_line.unwrap_or(0),
                             end_line: first.caller.end_line.unwrap_or(0),
-                            file: first.caller.file.clone().unwrap_or_default(),
+                            file: first.caller.file.as_deref().unwrap_or("").to_string(),
                             targets,
                         }
                     })
