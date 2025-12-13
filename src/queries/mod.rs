@@ -60,6 +60,7 @@ pub mod function;
 pub mod hotspots;
 pub mod import;
 pub mod import_models;
+pub mod large_functions;
 pub mod location;
 pub mod path;
 pub mod reverse_trace;

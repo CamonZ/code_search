@@ -41,6 +41,7 @@ mod function;
 mod god_modules;
 mod hotspots;
 pub mod import;
+mod large_functions;
 mod location;
 mod path;
 mod reverse_trace;
@@ -58,6 +59,7 @@ pub use function::FunctionCmd;
 pub use god_modules::GodModulesCmd;
 pub use hotspots::HotspotsCmd;
 pub use import::ImportCmd;
+pub use large_functions::LargeFunctionsCmd;
 pub use location::LocationCmd;
 pub use path::PathCmd;
 pub use reverse_trace::ReverseTraceCmd;
@@ -137,6 +139,9 @@ pub enum Command {
 
     /// Find god modules - modules with high function count and high connectivity
     GodModules(GodModulesCmd),
+
+    /// Find large functions that may need refactoring
+    LargeFunctions(LargeFunctionsCmd),
 
     /// Catch-all for unknown commands
     #[command(external_subcommand)]
