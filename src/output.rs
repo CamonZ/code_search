@@ -114,6 +114,55 @@ pub trait TableFormatter {
     }
 }
 
+/// Format module-grouped results as a table.
+///
+/// This is the shared implementation for both ModuleGroupResult and ModuleCollectionResult.
+/// Extracts the common logic to avoid duplication between the two impl blocks.
+fn format_module_table<F>(formatter: &F, items: &[crate::types::ModuleGroup<F::Entry>], total_items: usize) -> String
+where
+    F: TableFormatter,
+{
+    let mut lines = Vec::new();
+
+    lines.push(formatter.format_header());
+    lines.push(String::new());
+
+    if items.is_empty() {
+        lines.push(formatter.format_empty_message());
+        return lines.join("\n");
+    }
+
+    lines.push(formatter.format_summary(total_items, items.len()));
+    if formatter.blank_after_summary() {
+        lines.push(String::new());
+    }
+
+    for module in items {
+        if formatter.blank_before_module() {
+            lines.push(String::new());
+        }
+
+        lines.push(formatter.format_module_header_with_entries(
+            &module.name,
+            &module.file,
+            &module.entries,
+        ));
+
+        for entry in &module.entries {
+            lines.push(format!(
+                "  {}",
+                formatter.format_entry(entry, &module.name, &module.file)
+            ));
+
+            for detail in formatter.format_entry_details(entry, &module.name, &module.file) {
+                lines.push(format!("    {}", detail));
+            }
+        }
+    }
+
+    lines.join("\n")
+}
+
 /// Default implementation of Outputable for ModuleGroupResult using TableFormatter
 impl<E> Outputable for ModuleGroupResult<E>
 where
@@ -121,38 +170,7 @@ where
     ModuleGroupResult<E>: TableFormatter<Entry = E>,
 {
     fn to_table(&self) -> String {
-        let mut lines = Vec::new();
-
-        lines.push(self.format_header());
-        lines.push(String::new());
-
-        if self.items.is_empty() {
-            lines.push(self.format_empty_message());
-            return lines.join("\n");
-        }
-
-        lines.push(self.format_summary(self.total_items, self.items.len()));
-        if self.blank_after_summary() {
-            lines.push(String::new());
-        }
-
-        for module in &self.items {
-            if self.blank_before_module() {
-                lines.push(String::new());
-            }
-
-            lines.push(self.format_module_header_with_entries(&module.name, &module.file, &module.entries));
-
-            for entry in &module.entries {
-                lines.push(format!("  {}", self.format_entry(entry, &module.name, &module.file)));
-
-                for detail in self.format_entry_details(entry, &module.name, &module.file) {
-                    lines.push(format!("    {}", detail));
-                }
-            }
-        }
-
-        lines.join("\n")
+        format_module_table(self, &self.items, self.total_items)
     }
 }
 
@@ -163,37 +181,6 @@ where
     ModuleCollectionResult<E>: TableFormatter<Entry = E>,
 {
     fn to_table(&self) -> String {
-        let mut lines = Vec::new();
-
-        lines.push(self.format_header());
-        lines.push(String::new());
-
-        if self.items.is_empty() {
-            lines.push(self.format_empty_message());
-            return lines.join("\n");
-        }
-
-        lines.push(self.format_summary(self.total_items, self.items.len()));
-        if self.blank_after_summary() {
-            lines.push(String::new());
-        }
-
-        for module in &self.items {
-            if self.blank_before_module() {
-                lines.push(String::new());
-            }
-
-            lines.push(self.format_module_header_with_entries(&module.name, &module.file, &module.entries));
-
-            for entry in &module.entries {
-                lines.push(format!("  {}", self.format_entry(entry, &module.name, &module.file)));
-
-                for detail in self.format_entry_details(entry, &module.name, &module.file) {
-                    lines.push(format!("    {}", detail));
-                }
-            }
-        }
-
-        lines.join("\n")
+        format_module_table(self, &self.items, self.total_items)
     }
 }
