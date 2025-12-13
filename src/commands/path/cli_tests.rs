@@ -103,7 +103,7 @@ mod tests {
                 assert_eq!(cmd.to_module, "MyApp.Repo");
                 assert_eq!(cmd.to_function, "get");
                 assert_eq!(cmd.depth, 10); // default
-                assert_eq!(cmd.limit, 10); // default
+                assert_eq!(cmd.limit, 100); // default
             }
             _ => panic!("Expected Path command"),
         }
@@ -180,7 +180,7 @@ mod tests {
             "--to-function",
             "bar",
             "--limit",
-            "101",
+            "1001",
         ]);
         assert!(result.is_err());
     }

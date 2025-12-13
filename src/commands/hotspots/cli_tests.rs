@@ -19,7 +19,7 @@ mod tests {
         defaults: {
             project: "default",
             regex: false,
-            limit: 20,
+            limit: 100,
         },
     }
 
@@ -67,7 +67,7 @@ mod tests {
         required_args: [],
         limit: {
             field: limit,
-            default: 20,
+            default: 100,
             max: 1000,
         },
     }
