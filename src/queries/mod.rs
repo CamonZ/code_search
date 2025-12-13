@@ -69,6 +69,7 @@ pub mod returns;
 pub mod reverse_trace;
 pub mod search;
 pub mod specs;
+pub mod struct_usage;
 pub mod structs;
 pub mod trace;
 pub mod types;
