@@ -35,7 +35,7 @@ where
 
 /// Combined sort and deduplicate operation.
 ///
-/// Sorts a collection by one key, then deduplicates using a different key.
+/// Sorts a collection using a comparator, then deduplicates using a different key.
 /// Preserves the first occurrence of each duplicate.
 ///
 /// Use this when you need to:
@@ -44,29 +44,29 @@ where
 ///
 /// # Arguments
 /// * `items` - Mutable vector of items to sort and deduplicate
-/// * `sort_key_fn` - Function that extracts the sort key
+/// * `sort_cmp` - Comparator function that returns the ordering between two items
 /// * `dedup_key_fn` - Function that extracts the deduplication key
 ///
 /// # Example
 /// ```ignore
 /// let mut calls = vec![...];
-/// sort_and_deduplicate(&mut calls,
-///     |c| c.line,  // Sort by line number
+/// sort_and_deduplicate(
+///     &mut calls,
+///     |a, b| a.line.cmp(&b.line),  // Sort by line number - no allocation
 ///     |c| (c.callee.module.clone(), c.callee.name.clone(), c.callee.arity)  // Dedup by callee
 /// );
 /// ```
-pub fn sort_and_deduplicate<T, SK, DK, S, D>(
+pub fn sort_and_deduplicate<T, SC, DK, D>(
     items: &mut Vec<T>,
-    sort_key: SK,
+    sort_cmp: SC,
     dedup_key: DK,
 )
 where
-    SK: FnMut(&T) -> S,
-    S: Ord,
+    SC: FnMut(&T, &T) -> std::cmp::Ordering,
     DK: Fn(&T) -> D,
     D: Eq + Hash,
 {
-    items.sort_by_key(sort_key);
+    items.sort_by(sort_cmp);
     deduplicate_retain(items, dedup_key);
 }
 

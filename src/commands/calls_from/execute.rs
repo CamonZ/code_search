@@ -54,7 +54,7 @@ impl ModuleGroupResult<CallerFunction> {
                 // Deduplicate calls, keeping first occurrence by line
                 sort_and_deduplicate(
                     &mut calls,
-                    |c| c.line,
+                    |a, b| a.line.cmp(&b.line),
                     |c| (c.callee.module.clone(), c.callee.name.clone(), c.callee.arity),
                 );
 

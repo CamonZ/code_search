@@ -48,7 +48,12 @@ impl ModuleGroupResult<CalleeFunction> {
                 // Deduplicate callers, keeping first occurrence by line
                 sort_and_deduplicate(
                     &mut callers,
-                    |c| (c.caller.module.clone(), c.caller.name.clone(), c.caller.arity, c.line),
+                    |a, b| {
+                        a.caller.module.cmp(&b.caller.module)
+                            .then_with(|| a.caller.name.cmp(&b.caller.name))
+                            .then_with(|| a.caller.arity.cmp(&b.caller.arity))
+                            .then_with(|| a.line.cmp(&b.line))
+                    },
                     |c| (c.caller.module.clone(), c.caller.name.clone(), c.caller.arity),
                 );
 
