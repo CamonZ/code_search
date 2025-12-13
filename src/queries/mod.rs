@@ -55,6 +55,7 @@ pub mod calls_to;
 pub mod depended_by;
 pub mod dependencies;
 pub mod depends_on;
+pub mod duplicates;
 pub mod file;
 pub mod function;
 pub mod hotspots;
