@@ -43,6 +43,7 @@ mod hotspots;
 pub mod import;
 mod large_functions;
 mod location;
+mod many_clauses;
 mod path;
 mod reverse_trace;
 mod search;
@@ -61,6 +62,7 @@ pub use hotspots::HotspotsCmd;
 pub use import::ImportCmd;
 pub use large_functions::LargeFunctionsCmd;
 pub use location::LocationCmd;
+pub use many_clauses::ManyClausesCmd;
 pub use path::PathCmd;
 pub use reverse_trace::ReverseTraceCmd;
 pub use search::SearchCmd;
@@ -142,6 +144,9 @@ pub enum Command {
 
     /// Find large functions that may need refactoring
     LargeFunctions(LargeFunctionsCmd),
+
+    /// Find functions with many pattern-matched heads
+    ManyClauses(ManyClausesCmd),
 
     /// Catch-all for unknown commands
     #[command(external_subcommand)]

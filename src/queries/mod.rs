@@ -62,6 +62,7 @@ pub mod import;
 pub mod import_models;
 pub mod large_functions;
 pub mod location;
+pub mod many_clauses;
 pub mod path;
 pub mod reverse_trace;
 pub mod search;
