@@ -31,6 +31,7 @@ pub struct CommonArgs {
     pub limit: u32,
 }
 
+mod boundaries;
 mod browse_module;
 mod calls_from;
 mod calls_to;
@@ -46,6 +47,7 @@ mod search;
 mod trace;
 mod unused;
 
+pub use boundaries::BoundariesCmd;
 pub use browse_module::BrowseModuleCmd;
 pub use calls_from::CallsFromCmd;
 pub use calls_to::CallsToCmd;
@@ -127,6 +129,9 @@ pub enum Command {
 
     /// Find functions with the most incoming/outgoing calls
     Hotspots(HotspotsCmd),
+
+    /// Find boundary modules - modules with high fan-in but low fan-out
+    Boundaries(BoundariesCmd),
 
     /// Catch-all for unknown commands
     #[command(external_subcommand)]
