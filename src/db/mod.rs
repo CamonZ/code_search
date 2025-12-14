@@ -35,6 +35,7 @@ mod extraction;
 mod query;
 mod value;
 mod config;
+pub mod schema;
 
 // Re-export public items
 // DatabaseBackend: Used by open_db() return type. External imports after Ticket #44.
