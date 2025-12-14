@@ -6,16 +6,20 @@
 
 use std::error::Error;
 use cozo::DataValue;
+use super::value::DatabaseValue;
 
 /// Result of a query execution.
+///
+/// Generic over value type to support different database backends.
+/// Defaults to `cozo::DataValue` for the CozoDB backend.
 ///
 /// Currently used only in tests; will be the return type for Execute trait
 /// after Ticket #44.
 #[derive(Debug, Clone)]
 #[allow(dead_code)] // Fields read after Ticket #44
-pub struct QueryResult {
+pub struct QueryResult<V: DatabaseValue = DataValue> {
     pub headers: Vec<String>,
-    pub rows: Vec<Vec<DataValue>>,
+    pub rows: Vec<Vec<V>>,
 }
 
 /// Trait for database backends that can execute queries.
@@ -30,13 +34,13 @@ pub trait DatabaseBackend: Send + Sync {
         &self,
         script: &str,
         params: &Params,
-    ) -> Result<QueryResult, Box<dyn Error>>;
+    ) -> Result<QueryResult<DataValue>, Box<dyn Error>>;
 
     /// Execute a query without parameters.
     fn execute_query_no_params(
         &self,
         script: &str,
-    ) -> Result<QueryResult, Box<dyn Error>> {
+    ) -> Result<QueryResult<DataValue>, Box<dyn Error>> {
         self.execute_query(script, &Params::new())
     }
 
@@ -64,7 +68,7 @@ mod tests {
 
     #[test]
     fn test_query_result_creation() {
-        let result = QueryResult {
+        let result: QueryResult<DataValue> = QueryResult {
             headers: vec!["col1".to_string(), "col2".to_string()],
             rows: vec![vec![DataValue::Num(cozo::Num::Int(1)), DataValue::Str("test".into())]],
         };

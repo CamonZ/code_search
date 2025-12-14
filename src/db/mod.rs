@@ -33,11 +33,12 @@ mod connection;
 mod escape;
 mod extraction;
 mod query;
+mod value;
 
 // Re-export public items
 // DatabaseBackend: Used by open_db() return type. External imports after Ticket #44.
 #[allow(unused_imports)]
-pub use backend::{DatabaseBackend, Params};
+pub use backend::{DatabaseBackend, Params, QueryResult};
 pub use connection::open_db;
 #[cfg(test)]
 pub use connection::open_mem_db_raw;
@@ -50,6 +51,10 @@ pub use extraction::{
 };
 
 pub use query::{run_query, run_query_no_params, try_create_relation};
+
+// DatabaseValue trait available for future backends
+#[allow(unused_imports)]
+pub use value::DatabaseValue;
 
 use thiserror::Error;
 

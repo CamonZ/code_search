@@ -3,51 +3,55 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use cozo::{DataValue, Num};
+use cozo::DataValue;
 
+use super::value::DatabaseValue;
 use super::DbError;
 use crate::types::{Call, FunctionRef};
 
-/// Extract a String from a DataValue, returning None if not a string
+/// Extract a String from a DataValue, returning None if not a string.
+///
+/// Thin wrapper over DatabaseValue::as_string() that provides backward compatibility
+/// with existing code. For generic extraction over different value types, use the
+/// trait methods directly.
 pub fn extract_string(value: &DataValue) -> Option<String> {
-    match value {
-        DataValue::Str(s) => Some(s.to_string()),
-        _ => None,
-    }
+    value.as_string()
 }
 
-/// Extract an i64 from a DataValue, returning the default if not a number
+/// Extract an i64 from a DataValue, returning the default if not a number.
+///
+/// Thin wrapper over DatabaseValue::as_i64_or() that provides backward compatibility
+/// with existing code. For generic extraction over different value types, use the
+/// trait methods directly.
 pub fn extract_i64(value: &DataValue, default: i64) -> i64 {
-    match value {
-        DataValue::Num(Num::Int(i)) => *i,
-        DataValue::Num(Num::Float(f)) => *f as i64,
-        _ => default,
-    }
+    value.as_i64_or(default)
 }
 
-/// Extract a String from a DataValue, returning the default if not a string
+/// Extract a String from a DataValue, returning the default if not a string.
+///
+/// Thin wrapper over DatabaseValue::as_string_or() that provides backward compatibility
+/// with existing code. For generic extraction over different value types, use the
+/// trait methods directly.
 pub fn extract_string_or(value: &DataValue, default: &str) -> String {
-    match value {
-        DataValue::Str(s) => s.to_string(),
-        _ => default.to_string(),
-    }
+    value.as_string_or(default)
 }
 
-/// Extract a bool from a DataValue, returning the default if not a bool
+/// Extract a bool from a DataValue, returning the default if not a bool.
+///
+/// Thin wrapper over DatabaseValue::as_bool_or() that provides backward compatibility
+/// with existing code. For generic extraction over different value types, use the
+/// trait methods directly.
 pub fn extract_bool(value: &DataValue, default: bool) -> bool {
-    match value {
-        DataValue::Bool(b) => *b,
-        _ => default,
-    }
+    value.as_bool_or(default)
 }
 
-/// Extract an f64 from a DataValue, returning the default if not a number
+/// Extract an f64 from a DataValue, returning the default if not a number.
+///
+/// Thin wrapper over DatabaseValue::as_f64() that provides backward compatibility
+/// with existing code. For generic extraction over different value types, use the
+/// trait methods directly.
 pub fn extract_f64(value: &DataValue, default: f64) -> f64 {
-    match value {
-        DataValue::Num(Num::Int(i)) => *i as f64,
-        DataValue::Num(Num::Float(f)) => *f,
-        _ => default,
-    }
+    value.as_f64().unwrap_or(default)
 }
 
 /// Layout descriptor for extracting call data from query result rows
@@ -176,6 +180,7 @@ pub fn extract_call_from_row(row: &[DataValue], layout: &CallRowLayout) -> Optio
 mod tests {
     use super::*;
     use rstest::rstest;
+    use cozo::Num;
 
     #[rstest]
     fn test_extract_string_from_str() {
@@ -229,6 +234,23 @@ mod tests {
     fn test_extract_bool_from_non_bool() {
         let value = DataValue::Str("true".into());
         assert_eq!(extract_bool(&value, false), false);
+    }
+
+    #[rstest]
+    fn test_extract_helpers_work_with_trait() {
+        // Verify that extraction helpers work with DataValue through the trait
+        let str_val = DataValue::Str("test".into());
+        assert_eq!(extract_string(&str_val), Some("test".to_string()));
+        assert_eq!(extract_string_or(&str_val, "default"), "test".to_string());
+
+        let num_val = DataValue::Num(Num::Int(42));
+        assert_eq!(extract_i64(&num_val, 0), 42);
+
+        let bool_val = DataValue::Bool(true);
+        assert_eq!(extract_bool(&bool_val, false), true);
+
+        let float_val = DataValue::Num(Num::Float(3.14));
+        assert_eq!(extract_f64(&float_val, 0.0), 3.14);
     }
 
     // CallRowLayout::from_headers tests
