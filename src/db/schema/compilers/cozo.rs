@@ -76,6 +76,92 @@ impl CozoCompiler {
             .map(|rel| Self::compile_relation(rel))
             .collect()
     }
+
+    /// Generate Cozo :put statement for batch insert.
+    ///
+    /// Produces output in the format:
+    /// ```cozo
+    /// ?[col1, col2, col3, ...] <- [[val1, val2, val3], [val4, val5, val6], ...]
+    /// :put table_name { key1, key2 => val1, val2 }
+    /// ```
+    ///
+    /// # Arguments
+    /// * `relation` - The schema relation definition
+    /// * `row_literals` - Pre-formatted row strings like `["val1", "val2", 3]`
+    ///
+    /// # Example
+    /// ```rust
+    /// let rows = vec![
+    ///     r#"["proj", "MyApp", "", "unknown"]"#.to_string(),
+    ///     r#"["proj", "MyApp.User", "", "unknown"]"#.to_string(),
+    /// ];
+    /// let script = CozoCompiler::compile_insert(&MODULES, &rows);
+    /// // Returns:
+    /// // ?[project, name, file, source] <- [["proj", "MyApp", "", "unknown"], ["proj", "MyApp.User", "", "unknown"]]
+    /// // :put modules { project, name => file, source }
+    /// ```
+    pub fn compile_insert(relation: &SchemaRelation, row_literals: &[String]) -> String {
+        let all_columns = relation
+            .all_fields()
+            .map(|f| f.name)
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let key_columns = relation
+            .key_fields
+            .iter()
+            .map(|f| f.name)
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let value_columns = relation
+            .value_fields
+            .iter()
+            .map(|f| f.name)
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        format!(
+            "?[{}] <- [{}]\n:put {} {{ {} => {} }}",
+            all_columns,
+            row_literals.join(", "),
+            relation.name,
+            key_columns,
+            value_columns,
+        )
+    }
+
+    /// Generate Cozo :rm statement for deleting rows by project.
+    ///
+    /// Produces output in the format:
+    /// ```cozo
+    /// ?[key1, key2, ...] := *table{project: $project, key1, key2, ...}
+    /// :rm table {key1, key2, ...}
+    /// ```
+    ///
+    /// # Arguments
+    /// * `relation` - The schema relation definition
+    ///
+    /// # Example
+    /// ```rust
+    /// let script = CozoCompiler::compile_delete_by_project(&MODULES);
+    /// // Returns:
+    /// // ?[project, name] := *modules{project: $project, project, name}
+    /// // :rm modules {project, name}
+    /// ```
+    pub fn compile_delete_by_project(relation: &SchemaRelation) -> String {
+        let key_columns = relation
+            .key_fields
+            .iter()
+            .map(|f| f.name)
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        format!(
+            "?[{}] := *{}{{project: $project, {}}}\n:rm {} {{{}}}",
+            key_columns, relation.name, key_columns, relation.name, key_columns,
+        )
+    }
 }
 
 #[cfg(test)]
@@ -320,6 +406,110 @@ mod tests {
         for relation in ALL_RELATIONS {
             let _compiled = CozoCompiler::compile_relation(relation);
             // If we got here without panicking, the test passes
+        }
+    }
+
+    #[test]
+    fn test_compile_insert_modules() {
+        let rows = vec![r#"["proj", "MyApp", "", "unknown"]"#.to_string()];
+        let script = CozoCompiler::compile_insert(&MODULES, &rows);
+
+        assert!(script.contains("?[project, name, file, source]"));
+        assert!(script.contains("<-"));
+        assert!(script.contains(":put modules"));
+        assert!(script.contains("project, name => file, source"));
+    }
+
+    #[test]
+    fn test_compile_insert_multiple_rows() {
+        let rows = vec![
+            r#"["proj", "MyApp", "", "unknown"]"#.to_string(),
+            r#"["proj", "MyApp.User", "", "unknown"]"#.to_string(),
+        ];
+        let script = CozoCompiler::compile_insert(&MODULES, &rows);
+
+        // Should contain both rows
+        assert!(script.contains("MyApp"));
+        assert!(script.contains("MyApp.User"));
+    }
+
+    #[test]
+    fn test_compile_insert_functions() {
+        let rows = vec![r#"["proj", "MyApp", "start", 0, "", "", "unknown"]"#.to_string()];
+        let script = CozoCompiler::compile_insert(&FUNCTIONS, &rows);
+
+        assert!(script.contains("?[project, module, name, arity, return_type, args, source]"));
+        assert!(script.contains(":put functions"));
+        assert!(script.contains("project, module, name, arity => return_type, args, source"));
+    }
+
+    #[test]
+    fn test_compile_insert_calls() {
+        let rows = vec![
+            r#"["proj", "MyApp", "start/0", "Logger", "info", 1, "lib/app.ex", 10, 5, "remote", "def", ""]"#
+                .to_string(),
+        ];
+        let script = CozoCompiler::compile_insert(&CALLS, &rows);
+
+        assert!(script.contains(":put calls"));
+        // CALLS has 9 key fields and 3 value fields
+        assert!(script.contains(
+            "project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line, column => call_type, caller_kind, callee_args"
+        ));
+    }
+
+    #[test]
+    fn test_compile_delete_by_project_modules() {
+        let script = CozoCompiler::compile_delete_by_project(&MODULES);
+
+        assert!(script.contains("?[project, name]"));
+        assert!(script.contains("*modules{project: $project"));
+        assert!(script.contains(":rm modules {project, name}"));
+    }
+
+    #[test]
+    fn test_compile_delete_by_project_functions() {
+        let script = CozoCompiler::compile_delete_by_project(&FUNCTIONS);
+
+        assert!(script.contains("?[project, module, name, arity]"));
+        assert!(script.contains("*functions{project: $project"));
+        assert!(script.contains(":rm functions {project, module, name, arity}"));
+    }
+
+    #[test]
+    fn test_compile_delete_by_project_calls() {
+        let script = CozoCompiler::compile_delete_by_project(&CALLS);
+
+        assert!(script.contains("*calls{project: $project"));
+        assert!(script.contains(":rm calls"));
+    }
+
+    #[test]
+    fn test_compile_insert_all_relations() {
+        // Verify all relations can generate valid insert statements
+        for relation in ALL_RELATIONS {
+            let rows = vec!["[]".to_string()]; // Empty row just for syntax check
+            let script = CozoCompiler::compile_insert(relation, &rows);
+            assert!(script.contains(":put"), "Should contain :put for {}", relation.name);
+            assert!(
+                script.contains(relation.name),
+                "Should contain relation name for {}",
+                relation.name
+            );
+        }
+    }
+
+    #[test]
+    fn test_compile_delete_all_relations() {
+        // Verify all relations can generate valid delete statements
+        for relation in ALL_RELATIONS {
+            let script = CozoCompiler::compile_delete_by_project(relation);
+            assert!(script.contains(":rm"), "Should contain :rm for {}", relation.name);
+            assert!(
+                script.contains("$project"),
+                "Should contain $project for {}",
+                relation.name
+            );
         }
     }
 }
