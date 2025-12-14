@@ -30,6 +30,7 @@
 
 mod definition;
 mod relations;
+pub mod compilers;
 
 // Re-export public items
 #[allow(unused_imports)]
