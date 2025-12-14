@@ -68,16 +68,14 @@ impl DatabaseBackend for CozoSqliteBackend {
     }
 }
 
-/// CozoDB backend using in-memory storage (test-only).
+/// CozoDB backend using in-memory storage.
 ///
-/// Used to test the DatabaseBackend trait implementation. Production code
+/// Primarily used for testing and configuration. Production code
 /// uses CozoSqliteBackend via `open_db()`.
-#[cfg(test)]
 pub struct CozoMemBackend {
     db: DbInstance,
 }
 
-#[cfg(test)]
 impl CozoMemBackend {
     /// Create a new in-memory CozoDB backend from a database instance.
     pub fn new(db: DbInstance) -> Self {
@@ -85,7 +83,6 @@ impl CozoMemBackend {
     }
 }
 
-#[cfg(test)]
 impl DatabaseBackend for CozoMemBackend {
     fn execute_query(
         &self,
@@ -143,6 +140,7 @@ fn named_rows_to_query_result(rows: NamedRows) -> QueryResult {
 }
 
 /// Open a CozoDB database backed by SQLite storage.
+#[allow(dead_code)] // Will be used after Ticket #44
 pub fn open_db(path: &Path) -> Result<Box<dyn DatabaseBackend>, Box<dyn Error>> {
     let db = DbInstance::new("sqlite", path, "").map_err(|e| {
         Box::new(DbError::OpenFailed {

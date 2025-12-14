@@ -16,10 +16,12 @@ pub mod fixtures;
 pub mod test_utils;
 use cli::Args;
 use commands::CommandRunner;
+use db::DatabaseConfig;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let backend = db::open_db(&args.db)?;
+    let config = DatabaseConfig::resolve(&args.db)?;
+    let backend = config.connect()?;
     let db = backend.as_db_instance();
     let output = args.command.run(db, args.format)?;
     println!("{}", output);

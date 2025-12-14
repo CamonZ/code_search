@@ -34,12 +34,15 @@ mod escape;
 mod extraction;
 mod query;
 mod value;
+mod config;
 
 // Re-export public items
 // DatabaseBackend: Used by open_db() return type. External imports after Ticket #44.
 #[allow(unused_imports)]
 pub use backend::{DatabaseBackend, Params, QueryResult};
-pub use connection::open_db;
+#[allow(unused_imports)]
+pub use connection::{open_db, CozoSqliteBackend, CozoMemBackend};
+pub use config::DatabaseConfig;
 #[cfg(test)]
 pub use connection::open_mem_db_raw;
 
@@ -60,6 +63,7 @@ use thiserror::Error;
 
 /// Database error types
 #[derive(Error, Debug)]
+#[allow(dead_code)] // OpenFailed variant will be used for future backends
 pub enum DbError {
     #[error("Failed to open database '{path}': {message}")]
     OpenFailed { path: String, message: String },
