@@ -138,6 +138,121 @@ impl AgeCompiler {
         singular.to_string()
     }
 
+    /// Generate Cypher batch insert using UNWIND.
+    ///
+    /// Produces output in the format:
+    /// ```cypher
+    /// UNWIND $rows AS row
+    /// CREATE (n:Label { prop1: row.prop1, prop2: row.prop2, ... })
+    /// ```
+    ///
+    /// The caller passes rows as the `$rows` parameter in a format like:
+    /// `[{project: "proj", name: "MyApp"}, {project: "proj", name: "Other"}]`
+    ///
+    /// # Arguments
+    /// * `relation` - The schema relation definition
+    ///
+    /// # Example
+    /// ```rust
+    /// let script = AgeCompiler::compile_batch_insert(&MODULES);
+    /// // Returns:
+    /// // UNWIND $rows AS row
+    /// // CREATE (n:Module { project: row.project, name: row.name, file: row.file, source: row.source })
+    /// ```
+    pub fn compile_batch_insert(relation: &SchemaRelation) -> String {
+        let vertex_label = Self::relation_to_vertex_label(relation.name);
+
+        let props = relation.all_fields()
+            .map(|f| format!("{}: row.{}", f.name, f.name))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        format!(
+            "UNWIND $rows AS row\nCREATE (n:{} {{ {} }})",
+            vertex_label, props
+        )
+    }
+
+    /// Generate Cypher DELETE statement by project.
+    ///
+    /// Produces output in the format:
+    /// ```cypher
+    /// MATCH (n:Label)
+    /// WHERE n.project = $project
+    /// DETACH DELETE n
+    /// ```
+    ///
+    /// Uses DETACH DELETE to also remove any edges connected to the vertices.
+    ///
+    /// # Arguments
+    /// * `relation` - The schema relation definition
+    ///
+    /// # Example
+    /// ```rust
+    /// let script = AgeCompiler::compile_delete_by_project(&MODULES);
+    /// // Returns:
+    /// // MATCH (n:Module)
+    /// // WHERE n.project = $project
+    /// // DETACH DELETE n
+    /// ```
+    pub fn compile_delete_by_project(relation: &SchemaRelation) -> String {
+        let vertex_label = Self::relation_to_vertex_label(relation.name);
+        format!(
+            "MATCH (n:{})\nWHERE n.project = $project\nDETACH DELETE n",
+            vertex_label
+        )
+    }
+
+    /// Generate Cypher MERGE statement for upsert.
+    ///
+    /// Produces output in the format:
+    /// ```cypher
+    /// UNWIND $rows AS row
+    /// MERGE (n:Label { key1: row.key1, key2: row.key2 })
+    /// SET n.val1 = row.val1, n.val2 = row.val2
+    /// ```
+    ///
+    /// MERGE creates the vertex if it doesn't exist (based on key fields),
+    /// then SET updates the value fields.
+    ///
+    /// # Arguments
+    /// * `relation` - The schema relation definition
+    ///
+    /// # Example
+    /// ```rust
+    /// let script = AgeCompiler::compile_upsert(&MODULES);
+    /// // Returns:
+    /// // UNWIND $rows AS row
+    /// // MERGE (n:Module { project: row.project, name: row.name })
+    /// // SET n.file = row.file, n.source = row.source
+    /// ```
+    pub fn compile_upsert(relation: &SchemaRelation) -> String {
+        let vertex_label = Self::relation_to_vertex_label(relation.name);
+
+        let key_props = relation.key_fields.iter()
+            .map(|f| format!("{}: row.{}", f.name, f.name))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let value_sets = relation.value_fields.iter()
+            .map(|f| format!("n.{} = row.{}", f.name, f.name))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        if value_sets.is_empty() {
+            // No value fields, just MERGE
+            format!(
+                "UNWIND $rows AS row\nMERGE (n:{} {{ {} }})",
+                vertex_label, key_props
+            )
+        } else {
+            format!(
+                "UNWIND $rows AS row\nMERGE (n:{} {{ {} }})\nSET {}",
+                vertex_label, key_props, value_sets
+            )
+        }
+    }
+
     /// Generate comprehensive schema documentation.
     ///
     /// Produces full documentation including vertices and edges sections.
@@ -605,5 +720,142 @@ mod tests {
         assert!(!query.contains('\n'));
         assert!(query.starts_with("MATCH"));
         assert!(query.ends_with("count"));
+    }
+
+    // ==================== compile_batch_insert tests ====================
+
+    #[test]
+    fn test_compile_batch_insert_modules() {
+        let script = AgeCompiler::compile_batch_insert(&MODULES);
+
+        assert!(script.contains("UNWIND $rows AS row"));
+        assert!(script.contains("CREATE (n:Module"));
+        assert!(script.contains("project: row.project"));
+        assert!(script.contains("name: row.name"));
+        assert!(script.contains("file: row.file"));
+        assert!(script.contains("source: row.source"));
+    }
+
+    #[test]
+    fn test_compile_batch_insert_functions() {
+        let script = AgeCompiler::compile_batch_insert(&FUNCTIONS);
+
+        assert!(script.contains("UNWIND $rows AS row"));
+        assert!(script.contains("CREATE (n:Function"));
+        assert!(script.contains("module: row.module"));
+        assert!(script.contains("arity: row.arity"));
+    }
+
+    #[test]
+    fn test_compile_batch_insert_calls() {
+        let script = AgeCompiler::compile_batch_insert(&CALLS);
+
+        assert!(script.contains("CREATE (n:Call"));
+        assert!(script.contains("caller_module: row.caller_module"));
+        assert!(script.contains("callee_function: row.callee_function"));
+    }
+
+    #[test]
+    fn test_compile_batch_insert_all_relations() {
+        for relation in ALL_RELATIONS {
+            let script = AgeCompiler::compile_batch_insert(relation);
+            assert!(script.contains("UNWIND"), "Should contain UNWIND for {}", relation.name);
+            assert!(script.contains("CREATE"), "Should contain CREATE for {}", relation.name);
+        }
+    }
+
+    // ==================== compile_delete_by_project tests ====================
+
+    #[test]
+    fn test_compile_delete_by_project_modules() {
+        let script = AgeCompiler::compile_delete_by_project(&MODULES);
+
+        assert!(script.contains("MATCH (n:Module)"));
+        assert!(script.contains("WHERE n.project = $project"));
+        assert!(script.contains("DETACH DELETE n"));
+    }
+
+    #[test]
+    fn test_compile_delete_by_project_functions() {
+        let script = AgeCompiler::compile_delete_by_project(&FUNCTIONS);
+
+        assert!(script.contains("MATCH (n:Function)"));
+        assert!(script.contains("DETACH DELETE n"));
+    }
+
+    #[test]
+    fn test_compile_delete_by_project_calls() {
+        let script = AgeCompiler::compile_delete_by_project(&CALLS);
+
+        assert!(script.contains("MATCH (n:Call)"));
+        assert!(script.contains("DETACH DELETE n"));
+    }
+
+    #[test]
+    fn test_compile_delete_by_project_all_relations() {
+        for relation in ALL_RELATIONS {
+            let script = AgeCompiler::compile_delete_by_project(relation);
+            assert!(script.contains("MATCH"), "Should contain MATCH for {}", relation.name);
+            assert!(script.contains("$project"), "Should contain $project for {}", relation.name);
+            assert!(script.contains("DETACH DELETE"), "Should contain DETACH DELETE for {}", relation.name);
+        }
+    }
+
+    // ==================== compile_upsert tests ====================
+
+    #[test]
+    fn test_compile_upsert_modules() {
+        let script = AgeCompiler::compile_upsert(&MODULES);
+
+        assert!(script.contains("UNWIND $rows AS row"));
+        assert!(script.contains("MERGE (n:Module"));
+        // Key fields in MERGE
+        assert!(script.contains("project: row.project"));
+        assert!(script.contains("name: row.name"));
+        // Value fields in SET
+        assert!(script.contains("SET n.file = row.file"));
+        assert!(script.contains("n.source = row.source"));
+    }
+
+    #[test]
+    fn test_compile_upsert_functions() {
+        let script = AgeCompiler::compile_upsert(&FUNCTIONS);
+
+        assert!(script.contains("MERGE (n:Function"));
+        // Key fields: project, module, name, arity
+        assert!(script.contains("arity: row.arity"));
+        // Value fields in SET
+        assert!(script.contains("n.return_type = row.return_type"));
+    }
+
+    #[test]
+    fn test_compile_upsert_key_value_separation() {
+        // MODULES has 2 key fields (project, name) and 2 value fields (file, source)
+        let script = AgeCompiler::compile_upsert(&MODULES);
+
+        // MERGE should only have key fields
+        let merge_part = script.lines()
+            .find(|l| l.contains("MERGE"))
+            .unwrap();
+        assert!(merge_part.contains("project: row.project"));
+        assert!(merge_part.contains("name: row.name"));
+        assert!(!merge_part.contains("file:"));
+        assert!(!merge_part.contains("source:"));
+
+        // SET should only have value fields
+        let set_part = script.lines()
+            .find(|l| l.contains("SET"))
+            .unwrap();
+        assert!(set_part.contains("n.file"));
+        assert!(set_part.contains("n.source"));
+    }
+
+    #[test]
+    fn test_compile_upsert_all_relations() {
+        for relation in ALL_RELATIONS {
+            let script = AgeCompiler::compile_upsert(relation);
+            assert!(script.contains("UNWIND"), "Should contain UNWIND for {}", relation.name);
+            assert!(script.contains("MERGE"), "Should contain MERGE for {}", relation.name);
+        }
     }
 }
