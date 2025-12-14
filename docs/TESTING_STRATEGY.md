@@ -10,8 +10,36 @@ Tests are organized by file type within each command module:
 |------|---------|---------------|
 | `cli_tests.rs` | CLI argument parsing | Defaults, options, required args, limit validation |
 | `execute.rs` | Database query execution | Empty DB, no match, core functionality, filters |
+| `execute_tests.rs` | Execute macros for command tests | (alternative file name for execute tests) |
 | `output.rs` | Output formatting implementation | (no tests - implementation only) |
 | `output_tests.rs` | Output formatting tests | Table/JSON/Toon snapshots using macros |
+
+### Test Isolation
+
+Tests that modify global state (current directory, environment variables) must use proper synchronization to prevent test interference when running in parallel:
+
+```rust
+use std::sync::Mutex;
+use std::sync::OnceLock;
+
+fn test_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
+
+#[test]
+fn test_requires_isolation() {
+    let _lock = test_lock().lock();
+    // Safe to modify cwd and env vars here
+    let old_dir = std::env::current_dir().unwrap();
+    // ... test code ...
+    std::env::set_current_dir(old_dir).unwrap();
+}
+```
+
+This pattern is used in `src/config.rs` and `src/db/config.rs` for tests that:
+- Change the current working directory (`std::env::set_current_dir`)
+- Modify environment variables (`std::env::set_var`, `std::env::remove_var`)
 
 ## Test Macros
 

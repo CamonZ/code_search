@@ -316,6 +316,7 @@ mod tests {
 
     #[test]
     fn test_from_env_none() {
+        let _lock = test_lock().lock();
         // Remove env vars if they exist
         unsafe {
             std::env::remove_var("DATABASE_URL");
@@ -327,6 +328,7 @@ mod tests {
 
     #[test]
     fn test_from_env_database_url() {
+        let _lock = test_lock().lock();
         unsafe {
             std::env::set_var("DATABASE_URL", "sqlite:///tmp/test.db");
         }
@@ -337,6 +339,7 @@ mod tests {
 
     #[test]
     fn test_from_env_cozo_path() {
+        let _lock = test_lock().lock();
         unsafe {
             std::env::remove_var("DATABASE_URL");
             std::env::set_var("COZO_PATH", "/tmp/test.sqlite");
@@ -352,6 +355,7 @@ mod tests {
 
     #[test]
     fn test_from_env_database_url_takes_precedence() {
+        let _lock = test_lock().lock();
         unsafe {
             std::env::set_var("DATABASE_URL", "sqlite:///tmp/from_url.db");
             std::env::set_var("COZO_PATH", "/tmp/from_path.sqlite");
@@ -368,6 +372,7 @@ mod tests {
 
     #[test]
     fn test_resolve_env_fallback() {
+        let _lock = test_lock().lock();
         let temp_dir = tempfile::tempdir().unwrap();
         let old_dir = std::env::current_dir().unwrap();
         std::env::set_current_dir(&temp_dir).unwrap();
@@ -386,6 +391,7 @@ mod tests {
 
     #[test]
     fn test_resolve_default_fallback() {
+        let _lock = test_lock().lock();
         let temp_dir = tempfile::tempdir().unwrap();
         let old_dir = std::env::current_dir().unwrap();
         std::env::set_current_dir(&temp_dir).unwrap();

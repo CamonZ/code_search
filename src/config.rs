@@ -432,6 +432,16 @@ mod tests {
     #[test]
     fn test_load_missing_file() {
         // Change to a temp directory where .code_search.json doesn't exist
+        // Use a lock to prevent test interference
+        use std::sync::Mutex;
+        use std::sync::OnceLock;
+
+        fn test_lock() -> &'static Mutex<()> {
+            static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+            LOCK.get_or_init(|| Mutex::new(()))
+        }
+
+        let _lock = test_lock().lock();
         let temp_dir = tempfile::tempdir().unwrap();
         let old_dir = std::env::current_dir().unwrap();
         std::env::set_current_dir(&temp_dir).unwrap();
@@ -448,6 +458,15 @@ mod tests {
 
     #[test]
     fn test_load_invalid_json() {
+        use std::sync::Mutex;
+        use std::sync::OnceLock;
+
+        fn test_lock() -> &'static Mutex<()> {
+            static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+            LOCK.get_or_init(|| Mutex::new(()))
+        }
+
+        let _lock = test_lock().lock();
         let temp_dir = tempfile::tempdir().unwrap();
 
         let mut file = NamedTempFile::new_in(&temp_dir).unwrap();
@@ -465,6 +484,15 @@ mod tests {
 
     #[test]
     fn test_load_valid_sqlite_file() {
+        use std::sync::Mutex;
+        use std::sync::OnceLock;
+
+        fn test_lock() -> &'static Mutex<()> {
+            static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+            LOCK.get_or_init(|| Mutex::new(()))
+        }
+
+        let _lock = test_lock().lock();
         let temp_dir = tempfile::tempdir().unwrap();
         let config_path = temp_dir.path().join(".code_search.json");
 
