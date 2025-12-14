@@ -81,6 +81,130 @@ main.rs → Args::parse() → Command::run(db_path, format) → cmd.execute() �
 **Adding new commands:**
 See `docs/NEW_COMMANDS.md` for a step-by-step recipe. For module-grouped commands specifically, see the "Adding Module-Grouped Commands" section in `docs/NEW_COMMANDS.md`.
 
+## Configuration System
+
+The application uses a `.code_search.json` configuration file in the current directory to specify database settings. The config file is **required** and must be present before running any commands.
+
+**Configuration File Location:**
+Place `.code_search.json` in the directory where you run code_search commands.
+
+### Database Backend Options
+
+#### SQLite (Embedded Database)
+
+Recommended for local development. Database is stored as a single file.
+
+```json
+{
+  "database": {
+    "type": "sqlite",
+    "path": "./cozo.sqlite"
+  }
+}
+```
+
+**Fields:**
+- `type`: Must be `"sqlite"`
+- `path`: File system path to the database (relative or absolute)
+
+#### In-Memory Database (Testing)
+
+For testing and ephemeral analysis. Data is lost when the process exits.
+
+```json
+{
+  "database": {
+    "type": "memory"
+  }
+}
+```
+
+**Fields:**
+- `type`: Must be `"memory"`
+
+#### PostgreSQL with Connection String (Not Yet Implemented)
+
+Planned for future release.
+
+```json
+{
+  "database": {
+    "type": "postgres",
+    "connection_string": "postgres://user:password@localhost:5432/mydb"
+  }
+}
+```
+
+#### PostgreSQL with Individual Options (Not Yet Implemented)
+
+Planned for future release.
+
+```json
+{
+  "database": {
+    "type": "postgres",
+    "host": "localhost",
+    "port": 5432,
+    "user": "myuser",
+    "password": "mypassword",
+    "database": "mydb",
+    "ssl": false,
+    "graph_name": "call_graph"
+  }
+}
+```
+
+### Configuration Resolution
+
+The tool uses this priority order:
+
+1. **Config File** (highest priority) - `.code_search.json` in current directory
+2. **Environment Variables** (second priority) - `DATABASE_URL` or `COZO_PATH`
+3. **Default** (lowest priority) - `./cozo.sqlite`
+
+The config file takes precedence if present. If not, environment variables are checked, otherwise defaults to `./cozo.sqlite`.
+
+### Security Considerations
+
+**Protecting Credentials:**
+
+1. **Add to .gitignore** to prevent credentials from being committed:
+   ```
+   .code_search.json
+   ```
+
+2. **Restrict file permissions** (Unix/Linux/macOS):
+   ```bash
+   chmod 600 .code_search.json
+   ```
+
+3. **Use environment-specific configs** for development vs. production:
+   ```
+   .code_search.local.json    # Local (in .gitignore)
+   .code_search.staging.json  # Staging (in .gitignore)
+   .code_search.prod.json     # Production (in .gitignore)
+   ```
+
+4. **Provide .code_search.example.json** in git for developers to copy:
+   ```json
+   {
+     "database": {
+       "type": "sqlite",
+       "path": "./cozo.sqlite"
+     }
+   }
+   ```
+
+**Best Practices:**
+
+- Never commit `.code_search.json` with credentials to version control
+- Use `.gitignore` to ensure accidental commits are blocked
+- For CI/CD, use environment variables instead of config files
+- Rotate database passwords regularly if hardcoded
+- Use file permissions to restrict access (chmod 600)
+
+For detailed configuration guidance, see `docs/configuration.md`.
+
 ## Architectural Patterns & Refactoring Rules
 
 ### Query-Level vs Output-Level Concerns

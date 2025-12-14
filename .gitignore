@@ -13,14 +13,27 @@ target
 # Contains mutation testing data
 **/mutants.out*/
 
+# Configuration files with credentials
+.code_search.json
+.code_search.*.json
+
+# Database files
 cozo.sqlite
+*.sqlite
+*.sqlite3
+
+# Call graph imports
 /call_graph.json
 !src/fixtures/call_graph.json
-.cozo_repl_history
 /extracted_trace.json
 !src/fixtures/extracted_trace.json
 /trade_gym_call_graph.json
 /phoenix_call_graph.json
+
+# CozoDB REPL history
+.cozo_repl_history
+
+# Documentation and artifacts
 INPUT_FORMAT.md
 docs/tickets
 .claude
