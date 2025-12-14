@@ -12,6 +12,7 @@ use thiserror::Error;
 
 use crate::db::{extract_call_from_row, run_query, CallRowLayout, Params};
 use crate::types::Call;
+use crate::queries::builder::{QueryBuilder, CompiledQuery};
 
 #[derive(Error, Debug)]
 pub enum CallsError {
@@ -50,6 +51,129 @@ impl CallDirection {
     }
 }
 
+/// Query builder for finding function calls
+#[derive(Debug)]
+pub struct CallsQueryBuilder {
+    pub direction: CallDirection,
+    pub module_pattern: String,
+    pub function_pattern: Option<String>,
+    pub arity: Option<i64>,
+    pub project: String,
+    pub use_regex: bool,
+    pub limit: u32,
+}
+
+impl QueryBuilder for CallsQueryBuilder {
+    fn compile(&self, backend: &dyn DatabaseBackend) -> Result<String, Box<dyn Error>> {
+        match backend.backend_name() {
+            "CozoSqlite" | "CozoRocksdb" | "CozoMem" => self.compile_cozo(),
+            "PostgresAge" => self.compile_age(),
+            _ => Err(format!("Unsupported backend: {}", backend.backend_name()).into()),
+        }
+    }
+
+    fn parameters(&self) -> Params {
+        let mut params = Params::new();
+        params.insert("module_pattern".to_string(), DataValue::Str(self.module_pattern.clone().into()));
+        if let Some(ref fn_pat) = self.function_pattern {
+            params.insert("function_pattern".to_string(), DataValue::Str(fn_pat.clone().into()));
+        }
+        if let Some(a) = self.arity {
+            params.insert("arity".to_string(), DataValue::from(a));
+        }
+        params.insert("project".to_string(), DataValue::Str(self.project.clone().into()));
+        params
+    }
+}
+
+impl CallsQueryBuilder {
+    fn compile_cozo(&self) -> Result<String, Box<dyn Error>> {
+        let (module_field, function_field, arity_field) = self.direction.filter_fields();
+        let order_clause = self.direction.order_clause();
+
+        // Build conditions using the appropriate field names
+        let module_cond =
+            crate::utils::ConditionBuilder::new(module_field, "module_pattern").build(self.use_regex);
+        let function_cond =
+            crate::utils::OptionalConditionBuilder::new(function_field, "function_pattern")
+                .with_leading_comma()
+                .with_regex()
+                .build_with_regex(self.function_pattern.is_some(), self.use_regex);
+        let arity_cond = crate::utils::OptionalConditionBuilder::new(arity_field, "arity")
+            .with_leading_comma()
+            .build(self.arity.is_some());
+
+        let project_cond = ", project == $project";
+
+        // Join calls with function_locations to get caller's arity and line range
+        // Filter out struct calls (callee_function == '%')
+        Ok(format!(
+            r#"?[project, caller_module, caller_name, caller_arity, caller_kind, caller_start_line, caller_end_line, callee_module, callee_function, callee_arity, file, call_line, call_type] :=
+    *calls{{project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line: call_line, call_type, caller_kind}},
+    *function_locations{{project, module: caller_module, name: caller_name, arity: caller_arity, start_line: caller_start_line, end_line: caller_end_line}},
+    starts_with(caller_function, caller_name),
+    call_line >= caller_start_line,
+    call_line <= caller_end_line,
+    callee_function != '%',
+    {module_cond}
+    {function_cond}
+    {arity_cond}
+    {project_cond}
+:order {order_clause}
+:limit {}"#,
+            self.limit
+        ))
+    }
+
+    fn compile_age(&self) -> Result<String, Box<dyn Error>> {
+        let mod_match = if self.use_regex { "=~" } else { "=" };
+        let fn_match = if self.use_regex { "=~" } else { "=" };
+
+        // Build WHERE conditions
+        let mut where_conditions = vec![
+            format!("caller.project = $project"),
+            format!("caller.module {} $module_pattern", mod_match),
+            "callee.name <> '%'".to_string(),
+        ];
+
+        // Add function filter if present
+        if self.function_pattern.is_some() {
+            where_conditions.push(format!("caller.name {} $function_pattern", fn_match));
+        }
+
+        // Add arity filter if present
+        if self.arity.is_some() {
+            where_conditions.push("caller.arity = $arity".to_string());
+        }
+
+        let where_clause = where_conditions.join("\n  AND ");
+
+        // Order clause depends on direction
+        let order_clause = match self.direction {
+            CallDirection::From => {
+                "caller.module, caller.name, caller.arity, c.line"
+            }
+            CallDirection::To => {
+                "callee.module, callee.name, callee.arity, caller.module, caller.name"
+            }
+        };
+
+        Ok(format!(
+            r#"MATCH (caller:Function)-[c:CALLS]->(callee:Function),
+      (caller)-[:DEFINED_IN]->(loc:FunctionLocation)
+WHERE {where_clause}
+  AND c.line >= loc.start_line AND c.line <= loc.end_line
+RETURN caller.module, caller.name, caller.arity, loc.kind,
+       loc.start_line, loc.end_line,
+       callee.module, callee.name, callee.arity,
+       c.file, c.line, c.call_type
+ORDER BY {order_clause}
+LIMIT {}"#,
+            self.limit
+        ))
+    }
+}
+
 /// Find calls in the specified direction.
 ///
 /// - `From`: Returns all calls made by functions matching the pattern
@@ -64,60 +188,18 @@ pub fn find_calls(
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<Call>, Box<dyn Error>> {
-    let (module_field, function_field, arity_field) = direction.filter_fields();
-    let order_clause = direction.order_clause();
+    let builder = CallsQueryBuilder {
+        direction,
+        module_pattern: module_pattern.to_string(),
+        function_pattern: function_pattern.map(|s| s.to_string()),
+        arity,
+        project: project.to_string(),
+        use_regex,
+        limit,
+    };
 
-    // Build conditions using the appropriate field names
-    let module_cond =
-        crate::utils::ConditionBuilder::new(module_field, "module_pattern").build(use_regex);
-    let function_cond =
-        crate::utils::OptionalConditionBuilder::new(function_field, "function_pattern")
-            .with_leading_comma()
-            .with_regex()
-            .build_with_regex(function_pattern.is_some(), use_regex);
-    let arity_cond = crate::utils::OptionalConditionBuilder::new(arity_field, "arity")
-        .with_leading_comma()
-        .build(arity.is_some());
-
-    let project_cond = ", project == $project";
-
-    // Join calls with function_locations to get caller's arity and line range
-    // Filter out struct calls (callee_function == '%')
-    let script = format!(
-        r#"
-        ?[project, caller_module, caller_name, caller_arity, caller_kind, caller_start_line, caller_end_line, callee_module, callee_function, callee_arity, file, call_line, call_type] :=
-            *calls{{project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line: call_line, call_type, caller_kind}},
-            *function_locations{{project, module: caller_module, name: caller_name, arity: caller_arity, start_line: caller_start_line, end_line: caller_end_line}},
-            starts_with(caller_function, caller_name),
-            call_line >= caller_start_line,
-            call_line <= caller_end_line,
-            callee_function != '%',
-            {module_cond}
-            {function_cond}
-            {arity_cond}
-            {project_cond}
-        :order {order_clause}
-        :limit {limit}
-        "#,
-    );
-
-    let mut params = Params::new();
-    params.insert(
-        "module_pattern".to_string(),
-        DataValue::Str(module_pattern.into()),
-    );
-    if let Some(fn_pat) = function_pattern {
-        params.insert(
-            "function_pattern".to_string(),
-            DataValue::Str(fn_pat.into()),
-        );
-    }
-    if let Some(a) = arity {
-        params.insert("arity".to_string(), DataValue::from(a));
-    }
-    params.insert("project".to_string(), DataValue::Str(project.into()));
-
-    let rows = run_query(db, &script, params).map_err(|e| CallsError::QueryFailed {
+    let compiled = CompiledQuery::from_builder(&builder, db)?;
+    let rows = run_query(db, &compiled.script, compiled.params).map_err(|e| CallsError::QueryFailed {
         message: e.to_string(),
     })?;
 
@@ -129,4 +211,169 @@ pub fn find_calls(
         .collect();
 
     Ok(results)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::open_mem_db;
+
+    #[test]
+    fn test_calls_query_cozo_from_direction() {
+        let builder = CallsQueryBuilder {
+            direction: CallDirection::From,
+            module_pattern: "MyApp.Server".to_string(),
+            function_pattern: None,
+            arity: None,
+            project: "myproject".to_string(),
+            use_regex: false,
+            limit: 100,
+        };
+
+        let backend = open_mem_db(true).unwrap();
+        let compiled = builder.compile(backend.as_ref()).unwrap();
+
+        assert!(compiled.contains("*calls"));
+        assert!(compiled.contains("*function_locations"));
+        assert!(compiled.contains("caller_module"));
+        assert!(compiled.contains("callee_function != '%'"));
+    }
+
+    #[test]
+    fn test_calls_query_cozo_to_direction() {
+        let builder = CallsQueryBuilder {
+            direction: CallDirection::To,
+            module_pattern: "MyApp.Server".to_string(),
+            function_pattern: Some("handle_call".to_string()),
+            arity: Some(3),
+            project: "myproject".to_string(),
+            use_regex: false,
+            limit: 50,
+        };
+
+        let backend = open_mem_db(true).unwrap();
+        let compiled = builder.compile(backend.as_ref()).unwrap();
+
+        assert!(compiled.contains("callee_module"));
+        assert!(compiled.contains("callee_function"));
+        assert!(compiled.contains("callee_arity"));
+    }
+
+    #[test]
+    fn test_calls_query_age_from_direction() {
+        let builder = CallsQueryBuilder {
+            direction: CallDirection::From,
+            module_pattern: "MyApp".to_string(),
+            function_pattern: None,
+            arity: None,
+            project: "myproject".to_string(),
+            use_regex: true,
+            limit: 100,
+        };
+
+        let compiled = builder.compile_age().unwrap();
+
+        assert!(compiled.contains("MATCH"));
+        assert!(compiled.contains("CALLS"));
+        assert!(compiled.contains("caller.module =~"));
+    }
+
+    #[test]
+    fn test_calls_query_parameters() {
+        let builder = CallsQueryBuilder {
+            direction: CallDirection::From,
+            module_pattern: "mod".to_string(),
+            function_pattern: Some("func".to_string()),
+            arity: Some(2),
+            project: "proj".to_string(),
+            use_regex: false,
+            limit: 10,
+        };
+
+        let params = builder.parameters();
+        assert_eq!(params.len(), 4);
+        assert!(params.contains_key("module_pattern"));
+        assert!(params.contains_key("function_pattern"));
+        assert!(params.contains_key("arity"));
+        assert!(params.contains_key("project"));
+    }
+
+    #[test]
+    fn test_calls_query_cozo_with_regex() {
+        let builder = CallsQueryBuilder {
+            direction: CallDirection::From,
+            module_pattern: "MyApp.*".to_string(),
+            function_pattern: None,
+            arity: None,
+            project: "myproject".to_string(),
+            use_regex: true,
+            limit: 100,
+        };
+
+        let backend = open_mem_db(true).unwrap();
+        let compiled = builder.compile(backend.as_ref()).unwrap();
+
+        assert!(compiled.contains("regex_matches"));
+    }
+
+    #[test]
+    fn test_calls_query_cozo_with_function_pattern() {
+        let builder = CallsQueryBuilder {
+            direction: CallDirection::From,
+            module_pattern: "mod".to_string(),
+            function_pattern: Some("test_func".to_string()),
+            arity: None,
+            project: "proj".to_string(),
+            use_regex: false,
+            limit: 100,
+        };
+
+        let backend = open_mem_db(true).unwrap();
+        let compiled = builder.compile(backend.as_ref()).unwrap();
+
+        assert!(compiled.contains("caller_name == $function_pattern"));
+    }
+
+    #[test]
+    fn test_calls_query_cozo_with_arity() {
+        let builder = CallsQueryBuilder {
+            direction: CallDirection::From,
+            module_pattern: "mod".to_string(),
+            function_pattern: None,
+            arity: Some(2),
+            project: "proj".to_string(),
+            use_regex: false,
+            limit: 100,
+        };
+
+        let backend = open_mem_db(true).unwrap();
+        let compiled = builder.compile(backend.as_ref()).unwrap();
+
+        assert!(compiled.contains("caller_arity == $arity"));
+    }
+
+    #[test]
+    fn test_calls_query_age_to_direction() {
+        let builder = CallsQueryBuilder {
+            direction: CallDirection::To,
+            module_pattern: "MyApp".to_string(),
+            function_pattern: Some("handle".to_string()),
+            arity: Some(2),
+            project: "myproject".to_string(),
+            use_regex: false,
+            limit: 50,
+        };
+
+        let compiled = builder.compile_age().unwrap();
+
+        assert!(compiled.contains("MATCH"));
+        assert!(compiled.contains("caller.name = $function_pattern"));
+        assert!(compiled.contains("caller.arity = $arity"));
+    }
+
+    #[test]
+    fn test_calls_query_direction_enum() {
+        assert_eq!(CallDirection::From.filter_fields(), ("caller_module", "caller_name", "caller_arity"));
+        assert_eq!(CallDirection::To.filter_fields(), ("callee_module", "callee_function", "callee_arity"));
+    }
 }
