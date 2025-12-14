@@ -6,6 +6,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::db::{extract_i64, extract_string, run_query, Params};
+use crate::queries::builder::{QueryBuilder, CompiledQuery};
 
 #[derive(Error, Debug)]
 pub enum UnusedError {
@@ -40,6 +41,122 @@ const GENERATED_PATTERNS: &[&str] = &[
     "__meta__",
 ];
 
+/// Query builder for finding unused functions
+#[derive(Debug)]
+pub struct UnusedQueryBuilder {
+    pub module_pattern: Option<String>,
+    pub project: String,
+    pub use_regex: bool,
+    pub private_only: bool,
+    pub public_only: bool,
+    pub limit: u32,
+}
+
+impl QueryBuilder for UnusedQueryBuilder {
+    fn compile(&self, backend: &dyn DatabaseBackend) -> Result<String, Box<dyn Error>> {
+        match backend.backend_name() {
+            "CozoSqlite" | "CozoRocksdb" | "CozoMem" => self.compile_cozo(),
+            "PostgresAge" => self.compile_age(),
+            _ => Err(format!("Unsupported backend: {}", backend.backend_name()).into()),
+        }
+    }
+
+    fn parameters(&self) -> Params {
+        let mut params = Params::new();
+        params.insert("project".to_string(), DataValue::Str(self.project.clone().into()));
+        if let Some(ref pattern) = self.module_pattern {
+            params.insert("module_pattern".to_string(), DataValue::Str(pattern.clone().into()));
+        }
+        params
+    }
+}
+
+impl UnusedQueryBuilder {
+    fn compile_cozo(&self) -> Result<String, Box<dyn Error>> {
+        let module_filter = match self.module_pattern {
+            Some(_) if self.use_regex => ", regex_matches(module, $module_pattern)".to_string(),
+            Some(_) => ", str_includes(module, $module_pattern)".to_string(),
+            None => String::new(),
+        };
+
+        let kind_filter = if self.private_only {
+            ", (kind == \"defp\" or kind == \"defmacrop\")".to_string()
+        } else if self.public_only {
+            ", (kind == \"def\" or kind == \"defmacro\")".to_string()
+        } else {
+            String::new()
+        };
+
+        Ok(format!(
+            r#"# All defined functions
+defined[module, name, arity, kind, file, start_line] :=
+    *function_locations{{project, module, name, arity, kind, file, start_line}},
+    project == $project
+    {module_filter}
+    {kind_filter}
+
+# All functions that are called (as callees)
+called[module, name, arity] :=
+    *calls{{project, callee_module, callee_function, callee_arity}},
+    project == $project,
+    module = callee_module,
+    name = callee_function,
+    arity = callee_arity
+
+# Functions that are defined but never called
+?[module, name, arity, kind, file, line] :=
+    defined[module, name, arity, kind, file, line],
+    not called[module, name, arity]
+
+:order module, name, arity
+:limit {}"#,
+            self.limit
+        ))
+    }
+
+    fn compile_age(&self) -> Result<String, Box<dyn Error>> {
+        let mod_match = if self.use_regex { "=~" } else { "=" };
+
+        let where_clause = match &self.module_pattern {
+            Some(_) => format!("f.module {} $module_pattern", mod_match),
+            None => String::new(),
+        };
+
+        let kind_filter = if self.private_only {
+            "AND (f.kind = 'defp' OR f.kind = 'defmacrop')"
+        } else if self.public_only {
+            "AND (f.kind = 'def' OR f.kind = 'defmacro')"
+        } else {
+            ""
+        };
+
+        let where_filter = if where_clause.is_empty() && kind_filter.is_empty() {
+            String::new()
+        } else {
+            let mut parts = vec!["f.project = $project".to_string()];
+            if !where_clause.is_empty() {
+                parts.push(where_clause);
+            }
+            if !kind_filter.is_empty() {
+                parts.push(kind_filter.to_string());
+            }
+            format!("\nWHERE {}", parts.join("\n  AND "))
+        };
+
+        Ok(format!(
+            r#"MATCH (f:Function)
+{where_filter}
+OPTIONAL MATCH (caller)-[:CALLS]->(f)
+WITH f, count(caller) as call_count
+WHERE call_count = 0
+RETURN f.module, f.name, f.arity, f.kind, f.file, f.line
+ORDER BY f.module, f.name, f.arity
+LIMIT {}"#,
+            self.limit
+        ))
+    }
+}
+
 pub fn find_unused_functions(
     db: &dyn DatabaseBackend,
     module_pattern: Option<&str>,
@@ -50,59 +167,17 @@ pub fn find_unused_functions(
     exclude_generated: bool,
     limit: u32,
 ) -> Result<Vec<UnusedFunction>, Box<dyn Error>> {
-    // Build optional module filter
-    let module_filter = match module_pattern {
-        Some(_) if use_regex => ", regex_matches(module, $module_pattern)".to_string(),
-        Some(_) => ", str_includes(module, $module_pattern)".to_string(),
-        None => String::new(),
+    let builder = UnusedQueryBuilder {
+        module_pattern: module_pattern.map(|s| s.to_string()),
+        project: project.to_string(),
+        use_regex,
+        private_only,
+        public_only,
+        limit,
     };
 
-    // Build kind filter for private_only/public_only
-    let kind_filter = if private_only {
-        ", (kind == \"defp\" or kind == \"defmacrop\")".to_string()
-    } else if public_only {
-        ", (kind == \"def\" or kind == \"defmacro\")".to_string()
-    } else {
-        String::new()
-    };
-
-    // Find functions that exist in function_locations but are never called
-    // We use function_locations as the source of "defined functions" and check
-    // if they appear as a callee in the calls table
-    let script = format!(
-        r#"
-        # All defined functions
-        defined[module, name, arity, kind, file, start_line] :=
-            *function_locations{{project, module, name, arity, kind, file, start_line}},
-            project == $project
-            {module_filter}
-            {kind_filter}
-
-        # All functions that are called (as callees)
-        called[module, name, arity] :=
-            *calls{{project, callee_module, callee_function, callee_arity}},
-            project == $project,
-            module = callee_module,
-            name = callee_function,
-            arity = callee_arity
-
-        # Functions that are defined but never called
-        ?[module, name, arity, kind, file, line] :=
-            defined[module, name, arity, kind, file, line],
-            not called[module, name, arity]
-
-        :order module, name, arity
-        :limit {limit}
-        "#,
-    );
-
-    let mut params = Params::new();
-    params.insert("project".to_string(), DataValue::Str(project.into()));
-    if let Some(pattern) = module_pattern {
-        params.insert("module_pattern".to_string(), DataValue::Str(pattern.into()));
-    }
-
-    let rows = run_query(db, &script, params).map_err(|e| UnusedError::QueryFailed {
+    let compiled = CompiledQuery::from_builder(&builder, db)?;
+    let rows = run_query(db, &compiled.script, compiled.params).map_err(|e| UnusedError::QueryFailed {
         message: e.to_string(),
     })?;
 
@@ -133,4 +208,217 @@ pub fn find_unused_functions(
     }
 
     Ok(results)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::open_mem_db;
+
+    #[test]
+    fn test_unused_query_cozo_basic() {
+        let builder = UnusedQueryBuilder {
+            module_pattern: None,
+            project: "myproject".to_string(),
+            use_regex: false,
+            private_only: false,
+            public_only: false,
+            limit: 100,
+        };
+
+        let backend = open_mem_db(true).unwrap();
+        let compiled = builder.compile(backend.as_ref()).unwrap();
+
+        // Verify set difference pattern
+        assert!(compiled.contains("defined["));
+        assert!(compiled.contains("called["));
+        assert!(compiled.contains("not called["));
+    }
+
+    #[test]
+    fn test_unused_query_cozo_private_only() {
+        let builder = UnusedQueryBuilder {
+            module_pattern: None,
+            project: "myproject".to_string(),
+            use_regex: false,
+            private_only: true,
+            public_only: false,
+            limit: 100,
+        };
+
+        let backend = open_mem_db(true).unwrap();
+        let compiled = builder.compile(backend.as_ref()).unwrap();
+
+        assert!(compiled.contains("defp"));
+        assert!(compiled.contains("defmacrop"));
+    }
+
+    #[test]
+    fn test_unused_query_cozo_public_only() {
+        let builder = UnusedQueryBuilder {
+            module_pattern: None,
+            project: "myproject".to_string(),
+            use_regex: false,
+            private_only: false,
+            public_only: true,
+            limit: 100,
+        };
+
+        let backend = open_mem_db(true).unwrap();
+        let compiled = builder.compile(backend.as_ref()).unwrap();
+
+        assert!(compiled.contains("def"));
+        assert!(compiled.contains("defmacro"));
+    }
+
+    #[test]
+    fn test_unused_query_cozo_with_module_pattern() {
+        let builder = UnusedQueryBuilder {
+            module_pattern: Some("MyApp".to_string()),
+            project: "myproject".to_string(),
+            use_regex: true,
+            private_only: false,
+            public_only: false,
+            limit: 50,
+        };
+
+        let backend = open_mem_db(true).unwrap();
+        let compiled = builder.compile(backend.as_ref()).unwrap();
+
+        assert!(compiled.contains("regex_matches"));
+    }
+
+    #[test]
+    fn test_unused_query_cozo_with_module_pattern_literal() {
+        let builder = UnusedQueryBuilder {
+            module_pattern: Some("MyApp".to_string()),
+            project: "myproject".to_string(),
+            use_regex: false,
+            private_only: false,
+            public_only: false,
+            limit: 50,
+        };
+
+        let backend = open_mem_db(true).unwrap();
+        let compiled = builder.compile(backend.as_ref()).unwrap();
+
+        assert!(compiled.contains("str_includes"));
+    }
+
+    #[test]
+    fn test_unused_query_age() {
+        let builder = UnusedQueryBuilder {
+            module_pattern: None,
+            project: "myproject".to_string(),
+            use_regex: false,
+            private_only: false,
+            public_only: false,
+            limit: 100,
+        };
+
+        let compiled = builder.compile_age().unwrap();
+
+        assert!(compiled.contains("MATCH"));
+        assert!(compiled.contains("OPTIONAL MATCH"));
+    }
+
+    #[test]
+    fn test_unused_query_age_with_module_pattern() {
+        let builder = UnusedQueryBuilder {
+            module_pattern: Some("MyApp".to_string()),
+            project: "myproject".to_string(),
+            use_regex: false,
+            private_only: false,
+            public_only: false,
+            limit: 50,
+        };
+
+        let compiled = builder.compile_age().unwrap();
+
+        assert!(compiled.contains("f.module ="));
+    }
+
+    #[test]
+    fn test_unused_query_age_with_module_pattern_regex() {
+        let builder = UnusedQueryBuilder {
+            module_pattern: Some("MyApp".to_string()),
+            project: "myproject".to_string(),
+            use_regex: true,
+            private_only: false,
+            public_only: false,
+            limit: 50,
+        };
+
+        let compiled = builder.compile_age().unwrap();
+
+        assert!(compiled.contains("f.module =~"));
+    }
+
+    #[test]
+    fn test_unused_query_age_private_only() {
+        let builder = UnusedQueryBuilder {
+            module_pattern: None,
+            project: "myproject".to_string(),
+            use_regex: false,
+            private_only: true,
+            public_only: false,
+            limit: 100,
+        };
+
+        let compiled = builder.compile_age().unwrap();
+
+        assert!(compiled.contains("defp"));
+        assert!(compiled.contains("defmacrop"));
+    }
+
+    #[test]
+    fn test_unused_query_age_public_only() {
+        let builder = UnusedQueryBuilder {
+            module_pattern: None,
+            project: "myproject".to_string(),
+            use_regex: false,
+            private_only: false,
+            public_only: true,
+            limit: 100,
+        };
+
+        let compiled = builder.compile_age().unwrap();
+
+        assert!(compiled.contains("f.kind = 'def'"));
+        assert!(compiled.contains("f.kind = 'defmacro'"));
+    }
+
+    #[test]
+    fn test_unused_query_parameters() {
+        let builder = UnusedQueryBuilder {
+            module_pattern: Some("test".to_string()),
+            project: "proj".to_string(),
+            use_regex: false,
+            private_only: false,
+            public_only: false,
+            limit: 10,
+        };
+
+        let params = builder.parameters();
+        assert_eq!(params.len(), 2);
+        assert!(params.contains_key("project"));
+        assert!(params.contains_key("module_pattern"));
+    }
+
+    #[test]
+    fn test_unused_query_parameters_no_pattern() {
+        let builder = UnusedQueryBuilder {
+            module_pattern: None,
+            project: "proj".to_string(),
+            use_regex: false,
+            private_only: false,
+            public_only: false,
+            limit: 10,
+        };
+
+        let params = builder.parameters();
+        assert_eq!(params.len(), 1);
+        assert!(params.contains_key("project"));
+        assert!(!params.contains_key("module_pattern"));
+    }
 }
