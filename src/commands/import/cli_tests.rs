@@ -31,7 +31,7 @@ mod tests {
     }
 
     // =========================================================================
-    // Edge case tests (file validation, global --db flag)
+    // Edge case tests (file validation)
     // =========================================================================
 
     #[rstest]
@@ -48,29 +48,5 @@ mod tests {
         let result =
             Args::try_parse_from(["code_search", "import", "--file", path.to_str().unwrap()]);
         assert!(result.is_ok());
-    }
-
-    #[rstest]
-    fn test_db_has_default_value(temp_file: (TempDir, PathBuf)) {
-        let (_dir, path) = temp_file;
-        let args =
-            Args::try_parse_from(["code_search", "import", "--file", path.to_str().unwrap()])
-                .unwrap();
-        assert_eq!(args.db, PathBuf::from("./cozo.sqlite"));
-    }
-
-    #[rstest]
-    fn test_db_can_be_overridden(temp_file: (TempDir, PathBuf)) {
-        let (_dir, path) = temp_file;
-        let args = Args::try_parse_from([
-            "code_search",
-            "--db",
-            "/custom/path.db",
-            "import",
-            "--file",
-            path.to_str().unwrap(),
-        ])
-        .unwrap();
-        assert_eq!(args.db, PathBuf::from("/custom/path.db"));
     }
 }

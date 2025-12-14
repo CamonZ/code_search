@@ -133,21 +133,15 @@ impl DatabaseConfig {
         Ok(None)
     }
 
-    /// Resolve configuration from config file, environment, and CLI args.
+    /// Resolve configuration from config file and environment.
     ///
-    /// Priority: Config file > CLI args (if non-default) > Environment > Default
+    /// Priority: Config file > Environment > Default (./cozo.sqlite)
     ///
-    /// The new default behavior (when called without args) loads from `.code_search.json`.
-    /// For backward compatibility, the CLI default `./cozo.sqlite` falls back to environment.
-    pub fn resolve(cli_db: &str) -> Result<Self, Box<dyn Error>> {
-        // Try loading from config file first (new preferred method)
+    /// The preferred method is to use `.code_search.json` configuration file.
+    pub fn resolve() -> Result<Self, Box<dyn Error>> {
+        // Try loading from config file first (preferred method)
         if let Ok(config_file) = crate::config::ConfigFile::load() {
             return config_file.database.to_database_config();
-        }
-
-        // If CLI provides a non-default value, use it
-        if cli_db != "./cozo.sqlite" {
-            return Self::from_url(cli_db);
         }
 
         // Check environment
@@ -155,14 +149,22 @@ impl DatabaseConfig {
             return Ok(config);
         }
 
-        // Fall back to CLI default
-        Self::from_url(cli_db)
+        // Fall back to default
+        Self::from_url("./cozo.sqlite")
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+    use std::sync::OnceLock;
+
+    // Mutex to serialize tests that modify global state (current directory, env vars)
+    fn test_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
 
     #[test]
     fn test_from_url_file_path() {
@@ -363,53 +365,49 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_resolve_cli_override() {
-        unsafe {
-            std::env::set_var("DATABASE_URL", "sqlite:///tmp/env.db");
-        }
-        let config = DatabaseConfig::resolve("sqlite:///tmp/cli.db").unwrap();
-        match config {
-            DatabaseConfig::CozoSqlite { path } => {
-                assert_eq!(path, PathBuf::from("/tmp/cli.db"));
-            }
-            _ => panic!("Expected CozoSqlite"),
-        }
-    }
 
     #[test]
     fn test_resolve_env_fallback() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let old_dir = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&temp_dir).unwrap();
         unsafe {
             std::env::set_var("DATABASE_URL", "sqlite:///tmp/env.db");
         }
-        let config = DatabaseConfig::resolve("./cozo.sqlite").unwrap();
+        let config = DatabaseConfig::resolve().unwrap();
         match config {
             DatabaseConfig::CozoSqlite { path } => {
                 assert_eq!(path, PathBuf::from("/tmp/env.db"));
             }
             _ => panic!("Expected CozoSqlite"),
         }
+        std::env::set_current_dir(old_dir).unwrap();
     }
 
     #[test]
     fn test_resolve_default_fallback() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let old_dir = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&temp_dir).unwrap();
         unsafe {
             std::env::remove_var("DATABASE_URL");
             std::env::remove_var("COZO_PATH");
         }
-        let config = DatabaseConfig::resolve("./cozo.sqlite").unwrap();
+        let config = DatabaseConfig::resolve().unwrap();
         match config {
             DatabaseConfig::CozoSqlite { path } => {
                 assert_eq!(path, PathBuf::from("./cozo.sqlite"));
             }
             _ => panic!("Expected CozoSqlite"),
         }
+        std::env::set_current_dir(old_dir).unwrap();
     }
 
     // New resolve() tests - load from config file
 
     #[test]
     fn test_resolve_from_config_file_sqlite() {
+        let _lock = test_lock().lock();
         let temp_dir = tempfile::tempdir().unwrap();
         let config_path = temp_dir.path().join(".code_search.json");
 
@@ -427,19 +425,21 @@ mod tests {
         let old_dir = std::env::current_dir().unwrap();
         std::env::set_current_dir(&temp_dir).unwrap();
 
-        let config = DatabaseConfig::resolve("./cozo.sqlite").unwrap();
+        let result = DatabaseConfig::resolve();
+        std::env::set_current_dir(old_dir).unwrap();
+
+        let config = result.unwrap();
         match config {
             DatabaseConfig::CozoSqlite { path } => {
                 assert_eq!(path, PathBuf::from("./test.sqlite"));
             }
             _ => panic!("Expected CozoSqlite"),
         }
-
-        std::env::set_current_dir(old_dir).unwrap();
     }
 
     #[test]
     fn test_resolve_from_config_file_memory() {
+        let _lock = test_lock().lock();
         let temp_dir = tempfile::tempdir().unwrap();
         let config_path = temp_dir.path().join(".code_search.json");
 
@@ -456,10 +456,11 @@ mod tests {
         let old_dir = std::env::current_dir().unwrap();
         std::env::set_current_dir(&temp_dir).unwrap();
 
-        let config = DatabaseConfig::resolve("./cozo.sqlite").unwrap();
-        assert!(matches!(config, DatabaseConfig::CozoMem));
-
+        let result = DatabaseConfig::resolve();
         std::env::set_current_dir(old_dir).unwrap();
+
+        let config = result.unwrap();
+        assert!(matches!(config, DatabaseConfig::CozoMem));
     }
 
     #[test]
@@ -472,7 +473,7 @@ mod tests {
             std::env::set_var("DATABASE_URL", "sqlite:///tmp/from_env.db");
         }
 
-        let config = DatabaseConfig::resolve("./cozo.sqlite").unwrap();
+        let config = DatabaseConfig::resolve().unwrap();
         match config {
             DatabaseConfig::CozoSqlite { path } => {
                 assert_eq!(path, PathBuf::from("/tmp/from_env.db"));
@@ -485,6 +486,7 @@ mod tests {
 
     #[test]
     fn test_resolve_config_file_takes_precedence_over_env() {
+        let _lock = test_lock().lock();
         let temp_dir = tempfile::tempdir().unwrap();
         let config_path = temp_dir.path().join(".code_search.json");
 
@@ -505,7 +507,10 @@ mod tests {
             std::env::set_var("DATABASE_URL", "sqlite:///tmp/from_env.db");
         }
 
-        let config = DatabaseConfig::resolve("./cozo.sqlite").unwrap();
+        let result = DatabaseConfig::resolve();
+        std::env::set_current_dir(old_dir).unwrap();
+
+        let config = result.unwrap();
         match config {
             DatabaseConfig::CozoSqlite { path } => {
                 // Config file should take precedence
@@ -513,7 +518,5 @@ mod tests {
             }
             _ => panic!("Expected CozoSqlite"),
         }
-
-        std::env::set_current_dir(old_dir).unwrap();
     }
 }

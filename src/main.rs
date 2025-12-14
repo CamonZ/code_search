@@ -23,7 +23,18 @@ use db::schema::get_current_version;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let config = DatabaseConfig::resolve(&args.db)?;
+    let config = DatabaseConfig::resolve()
+        .map_err(|e| {
+            eprintln!("Error: {}", e);
+            eprintln!();
+            eprintln!("Please create a .code_search.json file in the current directory.");
+            eprintln!("Example for SQLite:");
+            eprintln!(r#"  {{"database": {{"type": "sqlite", "path": "./cozo.sqlite"}}}}"#);
+            eprintln!();
+            eprintln!("Example for PostgreSQL:");
+            eprintln!(r#"  {{"database": {{"type": "postgres", "connection_string": "postgres://user@host/db"}}}}"#);
+            e
+        })?;
     let backend = config.connect()?;
 
     // Check if database is initialized, unless running setup
