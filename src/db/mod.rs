@@ -35,6 +35,7 @@ mod extraction;
 mod query;
 mod value;
 mod config;
+pub mod postgres;
 pub mod schema;
 
 // Re-export public items
@@ -43,7 +44,8 @@ pub mod schema;
 pub use backend::{DatabaseBackend, Params, QueryResult};
 #[allow(unused_imports)]
 pub use connection::{open_db, CozoSqliteBackend, CozoMemBackend};
-pub use config::DatabaseConfig;
+pub use config::{DatabaseConfig, PostgresConfig};
+pub use postgres::PostgresAgeBackend;
 #[cfg(test)]
 pub use connection::{open_mem_db, open_mem_db_empty};
 

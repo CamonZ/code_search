@@ -9,7 +9,107 @@ use std::path::PathBuf;
 
 use super::backend::DatabaseBackend;
 use super::connection::{CozoMemBackend, CozoSqliteBackend};
+use super::postgres::PostgresAgeBackend;
 use cozo::DbInstance;
+
+/// PostgreSQL connection configuration.
+///
+/// Supports either a direct connection string or individual connection parameters.
+/// If `connection_string` is provided, it takes precedence over individual fields.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct PostgresConfig {
+    /// Direct connection string (postgres://...) - takes precedence if provided
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub connection_string: Option<String>,
+    /// PostgreSQL host
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub host: Option<String>,
+    /// PostgreSQL port (default: 5432)
+    #[serde(default)]
+    pub port: u16,
+    /// PostgreSQL username
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user: Option<String>,
+    /// PostgreSQL password
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub password: Option<String>,
+    /// PostgreSQL database name
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub database: Option<String>,
+    /// Enable SSL/TLS
+    #[serde(default)]
+    pub ssl: bool,
+    /// Name of the AGE graph to use (default: "call_graph")
+    #[serde(default = "default_graph_name")]
+    pub graph_name: String,
+}
+
+fn default_graph_name() -> String {
+    "call_graph".to_string()
+}
+
+impl PostgresConfig {
+    /// Build the connection string from configuration.
+    ///
+    /// If `connection_string` is set, returns it directly.
+    /// Otherwise, builds the connection string from individual fields.
+    pub fn build_connection_string(&self) -> Result<String, Box<dyn Error>> {
+        if let Some(ref conn_str) = self.connection_string {
+            return Ok(conn_str.clone());
+        }
+
+        let host = self.host.as_ref().ok_or("PostgreSQL host is required")?;
+        let user = self.user.as_ref().ok_or("PostgreSQL user is required")?;
+        let database = self
+            .database
+            .as_ref()
+            .ok_or("PostgreSQL database is required")?;
+
+        if host.is_empty() {
+            return Err("PostgreSQL host is required".into());
+        }
+        if user.is_empty() {
+            return Err("PostgreSQL user is required".into());
+        }
+        if database.is_empty() {
+            return Err("PostgreSQL database is required".into());
+        }
+
+        let port = if self.port == 0 { 5432 } else { self.port };
+
+        // URL-encode special characters in password
+        let auth = if let Some(ref pwd) = self.password {
+            let encoded_pwd = Self::url_encode(pwd);
+            format!("{}:{}@", user, encoded_pwd)
+        } else {
+            format!("{}@", user)
+        };
+
+        let mut connection_string = format!("postgres://{}{}:{}/{}", auth, host, port, database);
+
+        if self.ssl {
+            connection_string.push_str("?sslmode=require");
+        }
+
+        Ok(connection_string)
+    }
+
+    /// URL-encode a string for use in PostgreSQL connection strings.
+    fn url_encode(s: &str) -> String {
+        s.chars()
+            .map(|c| match c {
+                '@' => "%40".to_string(),
+                ':' => "%3A".to_string(),
+                '#' => "%23".to_string(),
+                '/' => "%2F".to_string(),
+                '?' => "%3F".to_string(),
+                '=' => "%3D".to_string(),
+                '&' => "%26".to_string(),
+                c => c.to_string(),
+            })
+            .collect()
+    }
+}
 
 /// Configuration for database backend selection.
 ///
@@ -27,15 +127,8 @@ pub enum DatabaseConfig {
     /// Local CozoDB with RocksDB storage (future).
     CozoRocksdb { path: PathBuf },
 
-    /// PostgreSQL connection (future).
-    Postgres {
-        host: String,
-        port: u16,
-        database: String,
-        username: String,
-        password: Option<String>,
-        ssl: bool,
-    },
+    /// PostgreSQL with Apache AGE extension.
+    Postgres(PostgresConfig),
 }
 
 impl DatabaseConfig {
@@ -55,8 +148,10 @@ impl DatabaseConfig {
             Self::CozoRocksdb { .. } => {
                 return Err("RocksDB backend not yet implemented".into());
             }
-            Self::Postgres { .. } => {
-                return Err("PostgreSQL backend not yet implemented".into());
+            Self::Postgres(config) => {
+                let connection_string = config.build_connection_string()?;
+                let backend = PostgresAgeBackend::new(&connection_string, &config.graph_name)?;
+                Box::new(backend) as Box<dyn DatabaseBackend>
             }
         };
 
@@ -69,8 +164,7 @@ impl DatabaseConfig {
     /// - `./path/to/db.sqlite` or `/absolute/path` → CozoSqlite
     /// - `sqlite:///path/to/db` → CozoSqlite
     /// - `:memory:` → CozoMem
-    /// - `rocksdb:///path/to/db` → CozoRocksdb (future)
-    /// - `postgres://user:pass@host:port/db` → Postgres (future)
+    /// - `postgres://user:pass@host:port/db` → Postgres
     pub fn from_url(url: &str) -> Result<Self, Box<dyn Error>> {
         // Memory database
         if url == ":memory:" {
@@ -89,17 +183,56 @@ impl DatabaseConfig {
         }
 
         if url.starts_with("postgres://") || url.starts_with("postgresql://") {
-            return Err("PostgreSQL backend not yet implemented".into());
-        }
-
-        if url.starts_with("cozo://") || url.starts_with("cozo+tcp://") {
-            return Err("Remote Cozo backend not yet implemented".into());
+            return Self::parse_postgres_url(url);
         }
 
         // Default: treat as file path (CozoSqlite)
         Ok(Self::CozoSqlite {
             path: PathBuf::from(url),
         })
+    }
+
+    /// Parse a PostgreSQL connection URL.
+    ///
+    /// Format: `postgres://user:pass@host:port/database?graph=graph_name`
+    ///
+    /// The `graph` query parameter specifies the AGE graph name.
+    /// Defaults to "call_graph" if not specified.
+    fn parse_postgres_url(url: &str) -> Result<Self, Box<dyn Error>> {
+        // Extract graph name from query params if present
+        let (base_url, graph_name) = if let Some(idx) = url.find("?graph=") {
+            let (base, rest) = url.split_at(idx);
+            let graph = rest
+                .strip_prefix("?graph=")
+                .unwrap_or("call_graph")
+                .split('&')
+                .next()
+                .unwrap_or("call_graph");
+            (base.to_string(), graph.to_string())
+        } else if let Some(idx) = url.find("&graph=") {
+            // graph param might not be first
+            let graph_start = idx + 7;
+            let graph_end = url[graph_start..]
+                .find('&')
+                .map(|i| graph_start + i)
+                .unwrap_or(url.len());
+            let graph = &url[graph_start..graph_end];
+            let base = url.replace(&format!("&graph={}", graph), "");
+            (base, graph.to_string())
+        } else {
+            (url.to_string(), "call_graph".to_string())
+        };
+
+        Ok(Self::Postgres(PostgresConfig {
+            connection_string: Some(base_url),
+            host: None,
+            port: 0,
+            user: None,
+            password: None,
+            database: None,
+            ssl: false,
+            graph_name,
+        }))
     }
 
     /// Load from environment variables.
@@ -192,43 +325,40 @@ mod tests {
     }
 
     #[test]
-    fn test_from_url_postgres_not_implemented() {
-        let result = DatabaseConfig::from_url("postgres://localhost/test");
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("not yet implemented"));
+    fn test_parse_postgres_url_with_graph() {
+        let config =
+            DatabaseConfig::from_url("postgres://user:pass@localhost:5432/mydb?graph=my_graph")
+                .unwrap();
+
+        match config {
+            DatabaseConfig::Postgres(pg_config) => {
+                assert_eq!(
+                    pg_config.connection_string,
+                    Some("postgres://user:pass@localhost:5432/mydb".to_string())
+                );
+                assert_eq!(pg_config.graph_name, "my_graph");
+            }
+            _ => panic!("Expected Postgres config"),
+        }
     }
 
     #[test]
-    fn test_from_url_postgres_alternate_scheme() {
-        let result = DatabaseConfig::from_url("postgresql://localhost/test");
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("not yet implemented"));
+    fn test_parse_postgres_url_default_graph() {
+        let config = DatabaseConfig::from_url("postgres://localhost/mydb").unwrap();
+
+        match config {
+            DatabaseConfig::Postgres(pg_config) => {
+                assert_eq!(pg_config.graph_name, "call_graph");
+            }
+            _ => panic!("Expected Postgres config"),
+        }
     }
 
     #[test]
-    fn test_from_url_cozo_not_implemented() {
-        let result = DatabaseConfig::from_url("cozo://localhost:9000");
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("not yet implemented"));
-    }
+    fn test_parse_postgresql_scheme() {
+        let config = DatabaseConfig::from_url("postgresql://localhost/mydb").unwrap();
 
-    #[test]
-    fn test_from_url_cozo_tcp_not_implemented() {
-        let result = DatabaseConfig::from_url("cozo+tcp://localhost:9000");
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("not yet implemented"));
+        assert!(matches!(config, DatabaseConfig::Postgres(_)));
     }
 
     #[test]
@@ -262,20 +392,29 @@ mod tests {
     }
 
     #[test]
-    fn test_connect_postgres_not_implemented() {
-        let config = DatabaseConfig::Postgres {
-            host: "localhost".to_string(),
-            port: 5432,
-            database: "test".to_string(),
-            username: "user".to_string(),
+    fn test_connect_postgres_config_structure() {
+        // Test that the Postgres variant can be created with the new structure
+        let config = DatabaseConfig::Postgres(PostgresConfig {
+            connection_string: Some("postgres://localhost:5432/test".to_string()),
+            host: None,
+            port: 0,
+            user: None,
             password: None,
+            database: None,
             ssl: false,
-        };
-        let result = config.connect();
-        assert!(result.is_err());
-        if let Err(e) = result {
-            let err_msg = format!("{}", e);
-            assert!(err_msg.contains("not yet implemented"));
+            graph_name: "call_graph".to_string(),
+        });
+
+        // Verify the structure matches what we expect
+        match config {
+            DatabaseConfig::Postgres(pg_config) => {
+                assert_eq!(
+                    pg_config.connection_string,
+                    Some("postgres://localhost:5432/test".to_string())
+                );
+                assert_eq!(pg_config.graph_name, "call_graph");
+            }
+            _ => panic!("Expected Postgres config"),
         }
     }
 

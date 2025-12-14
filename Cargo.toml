@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+apache_age = { version = "0.6", features = ["sync"] }
 clap = { version = "4", features = ["derive"] }
 cozo = { version = "0.7.6", default-features = false, features = ["compact", "storage-sqlite"] }
 enum_dispatch = "0.3"

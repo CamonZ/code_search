@@ -66,16 +66,18 @@ impl Execute for SetupCmd {
                     let database = self.pg_database.as_ref().ok_or("--pg-database required for postgres")?;
 
                     crate::config::ConfigFile {
-                        database: crate::config::DatabaseConfigFile::Postgres {
-                            connection_string: None,
-                            host: Some(host.clone()),
-                            port: self.pg_port.unwrap_or(5432),
-                            user: Some(user.clone()),
-                            password: self.pg_password.clone(),
-                            database: Some(database.clone()),
-                            ssl: self.pg_ssl,
-                            graph_name: self.pg_graph.clone(),
-                        },
+                        database: crate::config::DatabaseConfigFile::Postgres(
+                            crate::db::PostgresConfig {
+                                connection_string: None,
+                                host: Some(host.clone()),
+                                port: self.pg_port.unwrap_or(5432),
+                                user: Some(user.clone()),
+                                password: self.pg_password.clone(),
+                                database: Some(database.clone()),
+                                ssl: self.pg_ssl,
+                                graph_name: self.pg_graph.clone(),
+                            }
+                        ),
                     }
                 }
                 other => return Err(format!("Unknown config type: {}", other).into()),
