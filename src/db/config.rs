@@ -375,7 +375,7 @@ mod tests {
         let _lock = test_lock().lock();
         let temp_dir = tempfile::tempdir().unwrap();
         let old_dir = std::env::current_dir().unwrap();
-        std::env::set_current_dir(&temp_dir).unwrap();
+        std::env::set_current_dir(temp_dir.path()).unwrap();
         unsafe {
             std::env::set_var("DATABASE_URL", "sqlite:///tmp/env.db");
         }
@@ -394,7 +394,7 @@ mod tests {
         let _lock = test_lock().lock();
         let temp_dir = tempfile::tempdir().unwrap();
         let old_dir = std::env::current_dir().unwrap();
-        std::env::set_current_dir(&temp_dir).unwrap();
+        std::env::set_current_dir(temp_dir.path()).unwrap();
         unsafe {
             std::env::remove_var("DATABASE_URL");
             std::env::remove_var("COZO_PATH");
@@ -429,7 +429,7 @@ mod tests {
         fs::write(&config_path, json).unwrap();
 
         let old_dir = std::env::current_dir().unwrap();
-        std::env::set_current_dir(&temp_dir).unwrap();
+        std::env::set_current_dir(temp_dir.path()).unwrap();
 
         let result = DatabaseConfig::resolve();
         std::env::set_current_dir(old_dir).unwrap();
@@ -460,7 +460,7 @@ mod tests {
         fs::write(&config_path, json).unwrap();
 
         let old_dir = std::env::current_dir().unwrap();
-        std::env::set_current_dir(&temp_dir).unwrap();
+        std::env::set_current_dir(temp_dir.path()).unwrap();
 
         let result = DatabaseConfig::resolve();
         std::env::set_current_dir(old_dir).unwrap();
@@ -471,10 +471,11 @@ mod tests {
 
     #[test]
     fn test_resolve_fallback_to_env_when_no_config_file() {
+        let _lock = test_lock().lock();
         let temp_dir = tempfile::tempdir().unwrap();
 
         let old_dir = std::env::current_dir().unwrap();
-        std::env::set_current_dir(&temp_dir).unwrap();
+        std::env::set_current_dir(temp_dir.path()).unwrap();
         unsafe {
             std::env::set_var("DATABASE_URL", "sqlite:///tmp/from_env.db");
         }
@@ -508,7 +509,7 @@ mod tests {
         fs::write(&config_path, json).unwrap();
 
         let old_dir = std::env::current_dir().unwrap();
-        std::env::set_current_dir(&temp_dir).unwrap();
+        std::env::set_current_dir(temp_dir.path()).unwrap();
         unsafe {
             std::env::set_var("DATABASE_URL", "sqlite:///tmp/from_env.db");
         }
