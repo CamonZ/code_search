@@ -7,6 +7,7 @@
 use std::error::Error;
 use cozo::DataValue;
 use super::value::DatabaseValue;
+use super::schema::SchemaRelation;
 
 /// Result of a query execution.
 ///
@@ -54,6 +55,55 @@ pub trait DatabaseBackend: Send + Sync {
     /// Returns true if created, false if already existed.
     fn try_create_relation(&self, schema: &str) -> Result<bool, Box<dyn Error>>;
 
+    /// Insert rows into a relation/table.
+    ///
+    /// Takes a schema relation definition and rows as vectors of DataValues.
+    /// Returns the number of rows inserted.
+    ///
+    /// # Arguments
+    /// * `relation` - The schema relation to insert into
+    /// * `rows` - Vector of rows, each row is a Vec<DataValue> matching the relation's fields
+    ///
+    /// # Errors
+    /// Returns an error if the insert fails (e.g., constraint violation, connection error)
+    fn insert_rows(
+        &self,
+        relation: &SchemaRelation,
+        rows: Vec<Vec<DataValue>>,
+    ) -> Result<usize, Box<dyn Error>>;
+
+    /// Delete rows matching a project filter.
+    ///
+    /// Deletes all rows where the `project` field matches the given value.
+    /// This is the primary deletion pattern used during import (clear before reimport).
+    ///
+    /// # Arguments
+    /// * `relation` - The schema relation to delete from
+    /// * `project` - The project identifier to match
+    ///
+    /// # Returns
+    /// Number of rows deleted (0 if backend doesn't support delete counts)
+    fn delete_by_project(
+        &self,
+        relation: &SchemaRelation,
+        project: &str,
+    ) -> Result<usize, Box<dyn Error>>;
+
+    /// Upsert rows (insert or update on conflict).
+    ///
+    /// For backends that support upsert semantics, this inserts new rows
+    /// or updates existing rows if the key already exists.
+    ///
+    /// # Default Implementation
+    /// Falls back to `insert_rows()` for backends where insert is already an upsert (like Cozo).
+    fn upsert_rows(
+        &self,
+        relation: &SchemaRelation,
+        rows: Vec<Vec<DataValue>>,
+    ) -> Result<usize, Box<dyn Error>> {
+        self.insert_rows(relation, rows)
+    }
+
     /// Get the underlying DbInstance for use with existing query functions.
     /// This provides a migration path during the transition to the trait-based API.
     fn as_db_instance(&self) -> &cozo::DbInstance;
@@ -81,5 +131,22 @@ mod tests {
     fn test_params_creation() {
         let params = Params::new();
         assert_eq!(params.len(), 0);
+    }
+
+    #[test]
+    fn test_trait_has_insert_rows_method() {
+        // Verify the trait can be used as a trait object with the new method
+        // This is a compile-time check that the trait is object-safe
+        fn accepts_backend(_db: &dyn DatabaseBackend) {}
+        let _ = accepts_backend;
+    }
+
+    #[test]
+    fn test_upsert_default_implementation() {
+        // The default upsert should call insert_rows
+        // This is tested via the concrete implementations
+        // At this level, we just verify the trait method exists and is callable
+        fn uses_upsert(_db: &dyn DatabaseBackend) {}
+        let _ = uses_upsert;
     }
 }

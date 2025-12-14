@@ -6,7 +6,7 @@ use std::path::Path;
 use cozo::{DbInstance, NamedRows, ScriptMutability};
 
 use super::backend::{DatabaseBackend, Params, QueryResult};
-use super::schema::run_migrations;
+use super::schema::{run_migrations, SchemaRelation};
 use super::DbError;
 
 /// CozoDB backend using SQLite storage.
@@ -70,6 +70,22 @@ impl DatabaseBackend for CozoSqliteBackend {
                 }
             }
         }
+    }
+
+    fn insert_rows(
+        &self,
+        _relation: &SchemaRelation,
+        _rows: Vec<Vec<cozo::DataValue>>,
+    ) -> Result<usize, Box<dyn Error>> {
+        todo!("insert_rows implementation pending for Ticket #54b")
+    }
+
+    fn delete_by_project(
+        &self,
+        _relation: &SchemaRelation,
+        _project: &str,
+    ) -> Result<usize, Box<dyn Error>> {
+        todo!("delete_by_project implementation pending for Ticket #54c")
     }
 
     fn as_db_instance(&self) -> &cozo::DbInstance {
@@ -141,6 +157,22 @@ impl DatabaseBackend for CozoMemBackend {
                 }
             }
         }
+    }
+
+    fn insert_rows(
+        &self,
+        _relation: &SchemaRelation,
+        _rows: Vec<Vec<cozo::DataValue>>,
+    ) -> Result<usize, Box<dyn Error>> {
+        todo!("insert_rows implementation pending for Ticket #54b")
+    }
+
+    fn delete_by_project(
+        &self,
+        _relation: &SchemaRelation,
+        _project: &str,
+    ) -> Result<usize, Box<dyn Error>> {
+        todo!("delete_by_project implementation pending for Ticket #54c")
     }
 
     fn as_db_instance(&self) -> &cozo::DbInstance {
