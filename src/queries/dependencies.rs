@@ -12,6 +12,7 @@ use thiserror::Error;
 
 use crate::db::{extract_call_from_row, run_query, CallRowLayout, Params};
 use crate::types::Call;
+use crate::queries::builder::{QueryBuilder, CompiledQuery};
 
 #[derive(Error, Debug)]
 pub enum DependencyError {
@@ -52,6 +53,94 @@ impl DependencyDirection {
     }
 }
 
+/// Query builder for finding module dependencies
+#[derive(Debug)]
+pub struct DependenciesQueryBuilder {
+    pub direction: DependencyDirection,
+    pub module_pattern: String,
+    pub project: String,
+    pub use_regex: bool,
+    pub limit: u32,
+}
+
+impl QueryBuilder for DependenciesQueryBuilder {
+    fn compile(&self, backend: &dyn DatabaseBackend) -> Result<String, Box<dyn Error>> {
+        match backend.backend_name() {
+            "CozoSqlite" | "CozoRocksdb" | "CozoMem" => self.compile_cozo(),
+            "PostgresAge" => self.compile_age(),
+            _ => Err(format!("Unsupported backend: {}", backend.backend_name()).into()),
+        }
+    }
+
+    fn parameters(&self) -> Params {
+        let mut params = Params::new();
+        params.insert("module_pattern".to_string(), DataValue::Str(self.module_pattern.clone().into()));
+        params.insert("project".to_string(), DataValue::Str(self.project.clone().into()));
+        params
+    }
+}
+
+impl DependenciesQueryBuilder {
+    fn compile_cozo(&self) -> Result<String, Box<dyn Error>> {
+        let filter_field = self.direction.filter_field();
+        let order_clause = self.direction.order_clause();
+
+        // Build module condition using the appropriate field name
+        let module_cond =
+            crate::utils::ConditionBuilder::new(filter_field, "module_pattern").build(self.use_regex);
+
+        // Query calls with function_locations join for caller metadata, excluding self-references
+        // Filter out struct calls (callee_function != '%')
+        Ok(format!(
+            r#"?[caller_module, caller_name, caller_arity, caller_kind, caller_start_line, caller_end_line, callee_module, callee_function, callee_arity, file, call_line] :=
+    *calls{{project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line: call_line}},
+    *function_locations{{project, module: caller_module, name: caller_name, arity: caller_arity, kind: caller_kind, start_line: caller_start_line, end_line: caller_end_line}},
+    starts_with(caller_function, caller_name),
+    call_line >= caller_start_line,
+    call_line <= caller_end_line,
+    callee_function != '%',
+    {module_cond},
+    caller_module != callee_module,
+    project == $project
+:order {order_clause}
+:limit {}"#,
+            self.limit
+        ))
+    }
+
+    fn compile_age(&self) -> Result<String, Box<dyn Error>> {
+        let mod_match = if self.use_regex { "=~" } else { "=" };
+
+        // Build WHERE conditions based on direction
+        let (module_filter, order_clause) = match self.direction {
+            DependencyDirection::Outgoing => {
+                ("caller.module {} $module_pattern".to_string(), "callee.module, callee.name, callee.arity")
+            }
+            DependencyDirection::Incoming => {
+                ("callee.module {} $module_pattern".to_string(), "caller.module, caller.name, caller.arity")
+            }
+        };
+
+        let where_clause = format!(
+            "callee.project = $project\n  AND {}\n  AND caller.module <> callee.module\n  AND c.line >= loc.start_line AND c.line <= loc.end_line\n  AND callee.name <> '%'",
+            module_filter.replace("{}", mod_match)
+        );
+
+        Ok(format!(
+            r#"MATCH (caller:Function)-[c:CALLS]->(callee:Function),
+      (caller)-[:DEFINED_IN]->(loc:FunctionLocation)
+WHERE {where_clause}
+RETURN caller.module, caller.name, caller.arity, loc.kind,
+       loc.start_line, loc.end_line,
+       callee.module, callee.name, callee.arity,
+       c.file, c.line
+ORDER BY {order_clause}
+LIMIT {}"#,
+            self.limit
+        ))
+    }
+}
+
 /// Find module dependencies in the specified direction.
 ///
 /// - `Outgoing`: Returns calls from the matched module to other modules
@@ -66,40 +155,16 @@ pub fn find_dependencies(
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<Call>, Box<dyn Error>> {
-    let filter_field = direction.filter_field();
-    let order_clause = direction.order_clause();
+    let builder = DependenciesQueryBuilder {
+        direction,
+        module_pattern: module_pattern.to_string(),
+        project: project.to_string(),
+        use_regex,
+        limit,
+    };
 
-    // Build module condition using the appropriate field name
-    let module_cond =
-        crate::utils::ConditionBuilder::new(filter_field, "module_pattern").build(use_regex);
-
-    // Query calls with function_locations join for caller metadata, excluding self-references
-    // Filter out struct calls (callee_function != '%')
-    let script = format!(
-        r#"
-        ?[caller_module, caller_name, caller_arity, caller_kind, caller_start_line, caller_end_line, callee_module, callee_function, callee_arity, file, call_line] :=
-            *calls{{project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line: call_line}},
-            *function_locations{{project, module: caller_module, name: caller_name, arity: caller_arity, kind: caller_kind, start_line: caller_start_line, end_line: caller_end_line}},
-            starts_with(caller_function, caller_name),
-            call_line >= caller_start_line,
-            call_line <= caller_end_line,
-            callee_function != '%',
-            {module_cond},
-            caller_module != callee_module,
-            project == $project
-        :order {order_clause}
-        :limit {limit}
-        "#,
-    );
-
-    let mut params = Params::new();
-    params.insert(
-        "module_pattern".to_string(),
-        DataValue::Str(module_pattern.into()),
-    );
-    params.insert("project".to_string(), DataValue::Str(project.into()));
-
-    let rows = run_query(db, &script, params).map_err(|e| DependencyError::QueryFailed {
+    let compiled = CompiledQuery::from_builder(&builder, db)?;
+    let rows = run_query(db, &compiled.script, compiled.params).map_err(|e| DependencyError::QueryFailed {
         message: e.to_string(),
     })?;
 
@@ -111,4 +176,101 @@ pub fn find_dependencies(
         .collect();
 
     Ok(results)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::open_mem_db;
+
+    #[test]
+    fn test_dependencies_query_cozo_outgoing() {
+        let builder = DependenciesQueryBuilder {
+            direction: DependencyDirection::Outgoing,
+            module_pattern: "MyApp.Server".to_string(),
+            project: "myproject".to_string(),
+            use_regex: false,
+            limit: 100,
+        };
+
+        let backend = open_mem_db(true).unwrap();
+        let compiled = builder.compile(backend.as_ref()).unwrap();
+
+        assert!(compiled.contains("*calls"));
+        assert!(compiled.contains("*function_locations"));
+        assert!(compiled.contains("caller_module != callee_module"));
+        assert!(compiled.contains("caller_module"));
+    }
+
+    #[test]
+    fn test_dependencies_query_cozo_incoming() {
+        let builder = DependenciesQueryBuilder {
+            direction: DependencyDirection::Incoming,
+            module_pattern: "MyApp.Server".to_string(),
+            project: "myproject".to_string(),
+            use_regex: true,
+            limit: 50,
+        };
+
+        let backend = open_mem_db(true).unwrap();
+        let compiled = builder.compile(backend.as_ref()).unwrap();
+
+        assert!(compiled.contains("callee_module"));
+        assert!(compiled.contains("regex_matches"));
+    }
+
+    #[test]
+    fn test_dependencies_query_age_outgoing() {
+        let builder = DependenciesQueryBuilder {
+            direction: DependencyDirection::Outgoing,
+            module_pattern: "MyApp".to_string(),
+            project: "myproject".to_string(),
+            use_regex: true,
+            limit: 100,
+        };
+
+        let compiled = builder.compile_age().unwrap();
+
+        assert!(compiled.contains("MATCH"));
+        assert!(compiled.contains("CALLS"));
+        assert!(compiled.contains("caller.module <>"));
+    }
+
+    #[test]
+    fn test_dependencies_query_age_incoming() {
+        let builder = DependenciesQueryBuilder {
+            direction: DependencyDirection::Incoming,
+            module_pattern: "MyApp".to_string(),
+            project: "myproject".to_string(),
+            use_regex: false,
+            limit: 100,
+        };
+
+        let compiled = builder.compile_age().unwrap();
+
+        assert!(compiled.contains("MATCH"));
+        assert!(compiled.contains("callee.module ="));
+    }
+
+    #[test]
+    fn test_dependencies_query_parameters() {
+        let builder = DependenciesQueryBuilder {
+            direction: DependencyDirection::Outgoing,
+            module_pattern: "mod".to_string(),
+            project: "proj".to_string(),
+            use_regex: false,
+            limit: 10,
+        };
+
+        let params = builder.parameters();
+        assert_eq!(params.len(), 2);
+        assert!(params.contains_key("module_pattern"));
+        assert!(params.contains_key("project"));
+    }
+
+    #[test]
+    fn test_dependencies_direction_enum() {
+        assert_eq!(DependencyDirection::Outgoing.filter_field(), "caller_module");
+        assert_eq!(DependencyDirection::Incoming.filter_field(), "callee_module");
+    }
 }
