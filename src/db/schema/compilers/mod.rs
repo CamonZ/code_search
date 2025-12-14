@@ -5,5 +5,7 @@
 //! native DDL syntax.
 
 pub mod cozo;
+pub mod age;
 
 pub use cozo::CozoCompiler;
+pub use age::AgeCompiler;
