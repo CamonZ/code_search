@@ -6,6 +6,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::db::{extract_i64, extract_string, run_query, Params};
+use crate::queries::builder::{QueryBuilder, CompiledQuery};
 
 #[derive(Error, Debug)]
 pub enum DuplicatesError {
@@ -24,6 +25,95 @@ pub struct DuplicateFunction {
     pub file: String,
 }
 
+/// Query builder for finding duplicate functions
+#[derive(Debug)]
+pub struct DuplicatesQueryBuilder {
+    pub project: String,
+    pub module_pattern: Option<String>,
+    pub use_regex: bool,
+    pub use_exact: bool,  // true = source_sha, false = ast_sha
+}
+
+impl QueryBuilder for DuplicatesQueryBuilder {
+    fn compile(&self, backend: &dyn DatabaseBackend) -> Result<String, Box<dyn Error>> {
+        match backend.backend_name() {
+            "CozoSqlite" | "CozoRocksdb" | "CozoMem" => self.compile_cozo(),
+            "PostgresAge" => self.compile_age(),
+            _ => Err(format!("Unsupported backend: {}", backend.backend_name()).into()),
+        }
+    }
+
+    fn parameters(&self) -> Params {
+        let mut params = Params::new();
+        params.insert("project".to_string(), DataValue::Str(self.project.clone().into()));
+        if let Some(ref pattern) = self.module_pattern {
+            params.insert("module_pattern".to_string(), DataValue::Str(pattern.clone().into()));
+        }
+        params
+    }
+}
+
+impl DuplicatesQueryBuilder {
+    fn compile_cozo(&self) -> Result<String, Box<dyn Error>> {
+        // Choose hash field based on exact flag
+        let hash_field = if self.use_exact { "source_sha" } else { "ast_sha" };
+
+        // Build optional module filter
+        let module_filter = match self.module_pattern {
+            Some(_) if self.use_regex => ", regex_matches(module, $module_pattern)".to_string(),
+            Some(_) => ", str_includes(module, $module_pattern)".to_string(),
+            None => String::new(),
+        };
+
+        Ok(format!(
+            r#"# Find hashes that appear more than once (count unique functions per hash)
+hash_counts[{hash_field}, count(module)] :=
+    *function_locations{{project, module, name, arity, {hash_field}}},
+    project == $project,
+    {hash_field} != ""
+
+# Get all functions with duplicate hashes
+?[{hash_field}, module, name, arity, line, file] :=
+    *function_locations{{project, module, name, arity, line, file, {hash_field}}},
+    hash_counts[{hash_field}, cnt],
+    cnt > 1,
+    project == $project
+    {module_filter}
+
+:order {hash_field}, module, name, arity"#,
+        ))
+    }
+
+    fn compile_age(&self) -> Result<String, Box<dyn Error>> {
+        // Choose hash field based on exact flag
+        let hash_field = if self.use_exact { "source_sha" } else { "ast_sha" };
+
+        let mod_match = if self.use_regex { "=~" } else { "=" };
+
+        let where_filter = match &self.module_pattern {
+            Some(_) => format!("AND f.module {} $module_pattern", mod_match),
+            None => String::new(),
+        };
+
+        Ok(format!(
+            r#"-- Find hashes with duplicates
+MATCH (f:Function)-[:DEFINED_IN]->(loc:FunctionLocation)
+WHERE f.project = $project
+  AND loc.{hash_field} <> ''
+WITH loc.{hash_field} as hash, count(f) as cnt
+WHERE cnt > 1
+
+-- Get functions with those hashes
+MATCH (f2:Function)-[:DEFINED_IN]->(loc2:FunctionLocation)
+WHERE f2.project = $project
+  AND loc2.{hash_field} = hash
+  {where_filter}
+RETURN loc2.{hash_field} as hash, f2.module, f2.name, f2.arity, loc2.line, loc2.file
+ORDER BY hash, f2.module, f2.name, f2.arity"#,
+        ))
+    }
+}
+
 pub fn find_duplicates(
     db: &dyn DatabaseBackend,
     project: &str,
@@ -31,44 +121,15 @@ pub fn find_duplicates(
     use_regex: bool,
     use_exact: bool,
 ) -> Result<Vec<DuplicateFunction>, Box<dyn Error>> {
-    // Choose hash field based on exact flag
-    let hash_field = if use_exact { "source_sha" } else { "ast_sha" };
-
-    // Build optional module filter
-    let module_filter = match module_pattern {
-        Some(_) if use_regex => ", regex_matches(module, $module_pattern)".to_string(),
-        Some(_) => ", str_includes(module, $module_pattern)".to_string(),
-        None => String::new(),
+    let builder = DuplicatesQueryBuilder {
+        project: project.to_string(),
+        module_pattern: module_pattern.map(|s| s.to_string()),
+        use_regex,
+        use_exact,
     };
 
-    // Query to find duplicate hashes and their functions
-    let script = format!(
-        r#"
-        # Find hashes that appear more than once (count unique functions per hash)
-        hash_counts[{hash_field}, count(module)] :=
-            *function_locations{{project, module, name, arity, {hash_field}}},
-            project == $project,
-            {hash_field} != ""
-
-        # Get all functions with duplicate hashes
-        ?[{hash_field}, module, name, arity, line, file] :=
-            *function_locations{{project, module, name, arity, line, file, {hash_field}}},
-            hash_counts[{hash_field}, cnt],
-            cnt > 1,
-            project == $project
-            {module_filter}
-
-        :order {hash_field}, module, name, arity
-        "#,
-    );
-
-    let mut params = Params::new();
-    params.insert("project".to_string(), DataValue::Str(project.into()));
-    if let Some(pattern) = module_pattern {
-        params.insert("module_pattern".to_string(), DataValue::Str(pattern.into()));
-    }
-
-    let rows = run_query(db, &script, params).map_err(|e| DuplicatesError::QueryFailed {
+    let compiled = CompiledQuery::from_builder(&builder, db)?;
+    let rows = run_query(db, &compiled.script, compiled.params).map_err(|e| DuplicatesError::QueryFailed {
         message: e.to_string(),
     })?;
 
@@ -94,4 +155,193 @@ pub fn find_duplicates(
     }
 
     Ok(results)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::open_mem_db;
+
+    #[test]
+    fn test_duplicates_query_cozo_ast_sha() {
+        let builder = DuplicatesQueryBuilder {
+            project: "myproject".to_string(),
+            module_pattern: None,
+            use_regex: false,
+            use_exact: false,  // AST hash
+        };
+
+        let backend = open_mem_db(true).unwrap();
+        let compiled = builder.compile(backend.as_ref()).unwrap();
+
+        assert!(compiled.contains("ast_sha"));
+        assert!(compiled.contains("hash_counts"));
+        assert!(compiled.contains("cnt > 1"));
+    }
+
+    #[test]
+    fn test_duplicates_query_cozo_source_sha() {
+        let builder = DuplicatesQueryBuilder {
+            project: "myproject".to_string(),
+            module_pattern: None,
+            use_regex: false,
+            use_exact: true,  // Source hash
+        };
+
+        let backend = open_mem_db(true).unwrap();
+        let compiled = builder.compile(backend.as_ref()).unwrap();
+
+        assert!(compiled.contains("source_sha"));
+        assert!(compiled.contains("hash_counts"));
+    }
+
+    #[test]
+    fn test_duplicates_query_cozo_with_module_pattern() {
+        let builder = DuplicatesQueryBuilder {
+            project: "myproject".to_string(),
+            module_pattern: Some("MyApp".to_string()),
+            use_regex: true,
+            use_exact: false,
+        };
+
+        let backend = open_mem_db(true).unwrap();
+        let compiled = builder.compile(backend.as_ref()).unwrap();
+
+        assert!(compiled.contains("regex_matches"));
+    }
+
+    #[test]
+    fn test_duplicates_query_cozo_with_module_pattern_str_includes() {
+        let builder = DuplicatesQueryBuilder {
+            project: "myproject".to_string(),
+            module_pattern: Some("MyApp".to_string()),
+            use_regex: false,
+            use_exact: false,
+        };
+
+        let backend = open_mem_db(true).unwrap();
+        let compiled = builder.compile(backend.as_ref()).unwrap();
+
+        assert!(compiled.contains("str_includes"));
+    }
+
+    #[test]
+    fn test_duplicates_query_age() {
+        let builder = DuplicatesQueryBuilder {
+            project: "myproject".to_string(),
+            module_pattern: None,
+            use_regex: false,
+            use_exact: false,
+        };
+
+        let compiled = builder.compile_age().unwrap();
+
+        assert!(compiled.contains("MATCH"));
+        assert!(compiled.contains("count"));
+        assert!(compiled.contains("cnt > 1"));
+    }
+
+    #[test]
+    fn test_duplicates_query_age_with_module_pattern() {
+        let builder = DuplicatesQueryBuilder {
+            project: "myproject".to_string(),
+            module_pattern: Some("TestModule".to_string()),
+            use_regex: false,
+            use_exact: false,
+        };
+
+        let compiled = builder.compile_age().unwrap();
+
+        assert!(compiled.contains("MATCH"));
+        assert!(compiled.contains("f.module ="));
+    }
+
+    #[test]
+    fn test_duplicates_query_age_with_module_pattern_regex() {
+        let builder = DuplicatesQueryBuilder {
+            project: "myproject".to_string(),
+            module_pattern: Some("Test.*".to_string()),
+            use_regex: true,
+            use_exact: false,
+        };
+
+        let compiled = builder.compile_age().unwrap();
+
+        assert!(compiled.contains("f.module =~"));
+    }
+
+    #[test]
+    fn test_duplicates_query_age_source_sha() {
+        let builder = DuplicatesQueryBuilder {
+            project: "myproject".to_string(),
+            module_pattern: None,
+            use_regex: false,
+            use_exact: true,
+        };
+
+        let compiled = builder.compile_age().unwrap();
+
+        assert!(compiled.contains("source_sha"));
+    }
+
+    #[test]
+    fn test_duplicates_query_parameters() {
+        let builder = DuplicatesQueryBuilder {
+            project: "proj".to_string(),
+            module_pattern: Some("test".to_string()),
+            use_regex: false,
+            use_exact: false,
+        };
+
+        let params = builder.parameters();
+        assert_eq!(params.len(), 2);
+        assert!(params.contains_key("project"));
+        assert!(params.contains_key("module_pattern"));
+    }
+
+    #[test]
+    fn test_duplicates_query_parameters_no_pattern() {
+        let builder = DuplicatesQueryBuilder {
+            project: "proj".to_string(),
+            module_pattern: None,
+            use_regex: false,
+            use_exact: false,
+        };
+
+        let params = builder.parameters();
+        assert_eq!(params.len(), 1);
+        assert!(params.contains_key("project"));
+    }
+
+    #[test]
+    fn test_duplicates_query_ordering() {
+        let builder = DuplicatesQueryBuilder {
+            project: "myproject".to_string(),
+            module_pattern: None,
+            use_regex: false,
+            use_exact: false,
+        };
+
+        let backend = open_mem_db(true).unwrap();
+        let compiled = builder.compile(backend.as_ref()).unwrap();
+
+        // Check that ordering is by hash, module, name, arity
+        assert!(compiled.contains(":order"));
+    }
+
+    #[test]
+    fn test_duplicates_query_filters_empty_hashes() {
+        let builder = DuplicatesQueryBuilder {
+            project: "myproject".to_string(),
+            module_pattern: None,
+            use_regex: false,
+            use_exact: false,
+        };
+
+        let backend = open_mem_db(true).unwrap();
+        let compiled = builder.compile(backend.as_ref()).unwrap();
+
+        // Check that empty hashes are filtered
+        assert!(compiled.contains("!= \"\""));
+    }
 }
