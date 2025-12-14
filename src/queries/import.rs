@@ -6,7 +6,10 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::queries::import_models::CallGraph;
-use crate::db::{escape_string, escape_string_single, run_query, run_query_no_params, Params};
+use crate::db::schema::{
+    ALL_RELATIONS, MODULES, FUNCTIONS, CALLS,
+    STRUCT_FIELDS, FUNCTION_LOCATIONS, SPECS, TYPES
+};
 
 /// Chunk size for batch database imports
 const IMPORT_CHUNK_SIZE: usize = 500;
@@ -44,70 +47,16 @@ pub struct ImportResult {
 }
 
 pub fn clear_project_data(db: &dyn DatabaseBackend, project: &str) -> Result<(), Box<dyn Error>> {
-    // Delete all data for this project from each table
-    // Using :rm with a query that selects rows matching the project
-    let tables = [
-        ("modules", "project, name"),
-        ("functions", "project, module, name, arity"),
-        ("calls", "project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line, column"),
-        ("struct_fields", "project, module, field"),
-        ("function_locations", "project, module, name, arity, line"),
-        ("specs", "project, module, name, arity"),
-        ("types", "project, module, name"),
-    ];
-
-    for (table, keys) in tables {
-        let script = format!(
-            r#"
-            ?[{keys}] := *{table}{{project: $project, {keys}}}
-            :rm {table} {{{keys}}}
-            "#,
-            table = table,
-            keys = keys
-        );
-
-        let mut params = Params::new();
-        params.insert("project".to_string(), DataValue::Str(project.into()));
-
-        run_query(db, &script, params).map_err(|e| ImportError::ClearFailed {
-            message: format!("Failed to clear {}: {}", table, e),
+    // Delete all data for this project from each table using the generic interface
+    for relation in ALL_RELATIONS {
+        db.delete_by_project(relation, project).map_err(|e| ImportError::ClearFailed {
+            message: format!("Failed to clear {}: {}", relation.name, e),
         })?;
     }
 
     Ok(())
 }
 
-/// Import rows in chunks into a CozoDB table
-fn import_rows(
-    db: &dyn DatabaseBackend,
-    rows: Vec<String>,
-    columns: &str,
-    table_spec: &str,
-    data_type: &str,
-) -> Result<usize, Box<dyn Error>> {
-    if rows.is_empty() {
-        return Ok(0);
-    }
-
-    for chunk in rows.chunks(IMPORT_CHUNK_SIZE) {
-        let script = format!(
-            r#"
-            ?[{columns}] <- [{rows}]
-            :put {table_spec}
-            "#,
-            columns = columns,
-            rows = chunk.join(", "),
-            table_spec = table_spec
-        );
-
-        run_query_no_params(db, &script).map_err(|e| ImportError::ImportFailed {
-            data_type: data_type.to_string(),
-            message: e.to_string(),
-        })?;
-    }
-
-    Ok(rows.len())
-}
 
 pub fn import_modules(
     db: &dyn DatabaseBackend,
@@ -121,24 +70,19 @@ pub fn import_modules(
     modules.extend(graph.structs.keys().cloned());
     modules.extend(graph.types.keys().cloned());
 
-    let rows: Vec<String> = modules
+    let rows: Vec<Vec<DataValue>> = modules
         .iter()
         .map(|m| {
-            format!(
-                r#"["{}", "{}", "", "unknown"]"#,
-                escape_string(project),
-                escape_string(m),
-            )
+            vec![
+                DataValue::Str(project.into()),       // project
+                DataValue::Str(m.clone().into()),     // name
+                DataValue::Str("".into()),            // file
+                DataValue::Str("unknown".into()),     // source
+            ]
         })
         .collect();
 
-    import_rows(
-        db,
-        rows,
-        "project, name, file, source",
-        "modules { project, name => file, source }",
-        "modules",
-    )
+    db.insert_rows(&MODULES, rows)
 }
 
 pub fn import_functions(
@@ -146,7 +90,6 @@ pub fn import_functions(
     project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
-    let escaped_project = escape_string(project);
     let mut rows = Vec::new();
 
     // Import functions from specs data
@@ -159,25 +102,19 @@ pub fn import_functions(
                 .map(|c| (c.return_string.clone(), c.inputs_string.join(", ")))
                 .unwrap_or_default();
 
-            rows.push(format!(
-                r#"["{}", "{}", "{}", {}, "{}", "{}", "unknown"]"#,
-                escaped_project,
-                escape_string(module),
-                escape_string(&spec.name),
-                spec.arity,
-                escape_string(&return_type),
-                escape_string(&args),
-            ));
+            rows.push(vec![
+                DataValue::Str(project.into()),           // project
+                DataValue::Str(module.clone().into()),    // module
+                DataValue::Str(spec.name.clone().into()), // name
+                DataValue::from(spec.arity as i64),       // arity
+                DataValue::Str(return_type.into()),       // return_type
+                DataValue::Str(args.into()),              // args
+                DataValue::Str("unknown".into()),         // source
+            ]);
         }
     }
 
-    import_rows(
-        db,
-        rows,
-        "project, module, name, arity, return_type, args, source",
-        "functions { project, module, name, arity => return_type, args, source }",
-        "functions",
-    )
+    db.insert_rows(&FUNCTIONS, rows)
 }
 
 pub fn import_calls(
@@ -185,39 +122,31 @@ pub fn import_calls(
     project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
-    let escaped_project = escape_string(project);
-    let rows: Vec<String> = graph
+    let rows: Vec<Vec<DataValue>> = graph
         .calls
         .iter()
         .map(|call| {
             let caller_kind = call.caller.kind.as_deref().unwrap_or("");
             let callee_args = call.callee.args.as_deref().unwrap_or("");
 
-            format!(
-                r#"["{}", "{}", "{}", "{}", "{}", {}, "{}", {}, {}, "{}", "{}", '{}']"#,
-                escaped_project,
-                escape_string(&call.caller.module),
-                escape_string(call.caller.function.as_deref().unwrap_or("<module>")),
-                escape_string(&call.callee.module),
-                escape_string(&call.callee.function),
-                call.callee.arity,
-                escape_string(&call.caller.file),
-                call.caller.line.unwrap_or(0),
-                call.caller.column.unwrap_or(0),
-                escape_string(&call.call_type),
-                escape_string(caller_kind),
-                escape_string_single(callee_args),
-            )
+            vec![
+                DataValue::Str(project.into()),                                    // project
+                DataValue::Str(call.caller.module.clone().into()),                 // caller_module
+                DataValue::Str(call.caller.function.clone().unwrap_or_default().into()), // caller_function
+                DataValue::Str(call.callee.module.clone().into()),                 // callee_module
+                DataValue::Str(call.callee.function.clone().into()),               // callee_function
+                DataValue::from(call.callee.arity as i64),                         // callee_arity
+                DataValue::Str(call.caller.file.clone().into()),                   // file
+                DataValue::from(call.caller.line.unwrap_or(0) as i64),             // line
+                DataValue::from(call.caller.column.unwrap_or(0) as i64),           // column
+                DataValue::Str(call.call_type.clone().into()),                     // call_type
+                DataValue::Str(caller_kind.into()),                                // caller_kind
+                DataValue::Str(callee_args.into()),                                // callee_args
+            ]
         })
         .collect();
 
-    import_rows(
-        db,
-        rows,
-        "project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line, column, call_type, caller_kind, callee_args",
-        "calls { project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line, column => call_type, caller_kind, callee_args }",
-        "calls",
-    )
+    db.insert_rows(&CALLS, rows)
 }
 
 pub fn import_structs(
@@ -225,31 +154,23 @@ pub fn import_structs(
     project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
-    let escaped_project = escape_string(project);
     let mut rows = Vec::new();
 
     for (module, def) in &graph.structs {
         for field in &def.fields {
             let inferred_type = field.inferred_type.as_deref().unwrap_or("");
-            rows.push(format!(
-                r#"["{}", "{}", "{}", '{}', {}, "{}"]"#,
-                escaped_project,
-                escape_string(module),
-                escape_string(&field.field),
-                escape_string_single(&field.default),
-                field.required,
-                escape_string(inferred_type)
-            ));
+            rows.push(vec![
+                DataValue::Str(project.into()),                    // project
+                DataValue::Str(module.clone().into()),             // module
+                DataValue::Str(field.field.clone().into()),        // field
+                DataValue::Str(field.default.clone().into()),      // default_value
+                DataValue::Bool(field.required),                   // required
+                DataValue::Str(inferred_type.into()),              // inferred_type
+            ]);
         }
     }
 
-    import_rows(
-        db,
-        rows,
-        "project, module, field, default_value, required, inferred_type",
-        "struct_fields { project, module, field => default_value, required, inferred_type }",
-        "struct_fields",
-    )
+    db.insert_rows(&STRUCT_FIELDS, rows)
 }
 
 /// Parse function key in format "name/arity:line" into (name, arity, line).
@@ -274,7 +195,6 @@ pub fn import_function_locations(
     project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
-    let escaped_project = escape_string(project);
     let mut rows = Vec::new();
 
     for (module, functions) in &graph.function_locations {
@@ -293,38 +213,31 @@ pub fn import_function_locations(
             let generated_by = loc.generated_by.as_deref().unwrap_or("");
             let macro_source = loc.macro_source.as_deref().unwrap_or("");
 
-            rows.push(format!(
-                r#"["{}", "{}", "{}", {}, {}, "{}", "{}", {}, "{}", {}, {}, '{}', '{}', "{}", "{}", {}, {}, "{}", "{}"]"#,
-                escaped_project,
-                escape_string(module),
-                escape_string(&name),
-                arity,
-                line,
-                escape_string(loc.file.as_deref().unwrap_or("")),
-                escape_string(source_file_absolute),
-                loc.column.unwrap_or(0),
-                escape_string(&loc.kind),
-                loc.start_line,
-                loc.end_line,
-                escape_string_single(pattern),
-                escape_string_single(guard),
-                escape_string(source_sha),
-                escape_string(ast_sha),
-                loc.complexity,
-                loc.max_nesting_depth,
-                escape_string(generated_by),
-                escape_string(macro_source),
-            ));
+            rows.push(vec![
+                DataValue::Str(project.into()),                          // project
+                DataValue::Str(module.clone().into()),                   // module
+                DataValue::Str(name.into()),                             // name
+                DataValue::from(arity as i64),                           // arity
+                DataValue::from(line as i64),                            // line
+                DataValue::Str(loc.file.as_deref().unwrap_or("").into()), // file
+                DataValue::Str(source_file_absolute.into()),             // source_file_absolute
+                DataValue::from(loc.column.unwrap_or(0) as i64),         // column
+                DataValue::Str(loc.kind.clone().into()),                 // kind
+                DataValue::from(loc.start_line as i64),                  // start_line
+                DataValue::from(loc.end_line as i64),                    // end_line
+                DataValue::Str(pattern.into()),                          // pattern
+                DataValue::Str(guard.into()),                            // guard
+                DataValue::Str(source_sha.into()),                       // source_sha
+                DataValue::Str(ast_sha.into()),                          // ast_sha
+                DataValue::from(loc.complexity as i64),                  // complexity
+                DataValue::from(loc.max_nesting_depth as i64),           // max_nesting_depth
+                DataValue::Str(generated_by.into()),                     // generated_by
+                DataValue::Str(macro_source.into()),                     // macro_source
+            ]);
         }
     }
 
-    import_rows(
-        db,
-        rows,
-        "project, module, name, arity, line, file, source_file_absolute, column, kind, start_line, end_line, pattern, guard, source_sha, ast_sha, complexity, max_nesting_depth, generated_by, macro_source",
-        "function_locations { project, module, name, arity, line => file, source_file_absolute, column, kind, start_line, end_line, pattern, guard, source_sha, ast_sha, complexity, max_nesting_depth, generated_by, macro_source }",
-        "function_locations",
-    )
+    db.insert_rows(&FUNCTION_LOCATIONS, rows)
 }
 
 pub fn import_specs(
@@ -332,7 +245,6 @@ pub fn import_specs(
     project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
-    let escaped_project = escape_string(project);
     let mut rows = Vec::new();
 
     for (module, specs) in &graph.specs {
@@ -350,28 +262,21 @@ pub fn import_specs(
                 })
                 .unwrap_or_default();
 
-            rows.push(format!(
-                r#"["{}", "{}", "{}", {}, "{}", {}, "{}", "{}", "{}"]"#,
-                escaped_project,
-                escape_string(module),
-                escape_string(&spec.name),
-                spec.arity,
-                escape_string(&spec.kind),
-                spec.line,
-                escape_string(&inputs_string),
-                escape_string(&return_string),
-                escape_string(&full),
-            ));
+            rows.push(vec![
+                DataValue::Str(project.into()),           // project
+                DataValue::Str(module.clone().into()),    // module
+                DataValue::Str(spec.name.clone().into()), // name
+                DataValue::from(spec.arity as i64),       // arity
+                DataValue::Str(spec.kind.clone().into()), // kind
+                DataValue::from(spec.line as i64),        // line
+                DataValue::Str(inputs_string.into()),     // inputs_string
+                DataValue::Str(return_string.into()),     // return_string
+                DataValue::Str(full.into()),              // full
+            ]);
         }
     }
 
-    import_rows(
-        db,
-        rows,
-        "project, module, name, arity, kind, line, inputs_string, return_string, full",
-        "specs { project, module, name, arity => kind, line, inputs_string, return_string, full }",
-        "specs",
-    )
+    db.insert_rows(&SPECS, rows)
 }
 
 pub fn import_types(
@@ -379,33 +284,25 @@ pub fn import_types(
     project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
-    let escaped_project = escape_string(project);
     let mut rows = Vec::new();
 
     for (module, types) in &graph.types {
         for type_def in types {
             let params = type_def.params.join(", ");
 
-            rows.push(format!(
-                r#"["{}", "{}", "{}", "{}", "{}", {}, "{}"]"#,
-                escaped_project,
-                escape_string(module),
-                escape_string(&type_def.name),
-                escape_string(&type_def.kind),
-                escape_string(&params),
-                type_def.line,
-                escape_string(&type_def.definition),
-            ));
+            rows.push(vec![
+                DataValue::Str(project.into()),           // project
+                DataValue::Str(module.clone().into()),    // module
+                DataValue::Str(type_def.name.clone().into()), // name
+                DataValue::Str(type_def.kind.clone().into()), // kind
+                DataValue::Str(params.into()),            // params
+                DataValue::from(type_def.line as i64),    // line
+                DataValue::Str(type_def.definition.clone().into()), // definition
+            ]);
         }
     }
 
-    import_rows(
-        db,
-        rows,
-        "project, module, name, kind, params, line, definition",
-        "types { project, module, name => kind, params, line, definition }",
-        "types",
-    )
+    db.insert_rows(&TYPES, rows)
 }
 
 /// Import a parsed CallGraph into the database.
