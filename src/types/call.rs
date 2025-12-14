@@ -52,35 +52,13 @@ impl Serialize for FunctionRef {
     }
 }
 
-/// Helper trait to convert various string types into Rc<str>
-trait IntoRcStr {
-    fn into_rc_str(self) -> Rc<str>;
-}
-
-impl IntoRcStr for String {
-    fn into_rc_str(self) -> Rc<str> {
-        Rc::from(self.into_boxed_str())
-    }
-}
-
-impl IntoRcStr for &str {
-    fn into_rc_str(self) -> Rc<str> {
-        Rc::from(self)
-    }
-}
-
-impl IntoRcStr for Rc<str> {
-    fn into_rc_str(self) -> Rc<str> {
-        self
-    }
-}
 
 impl FunctionRef {
     /// Create a minimal function reference (module, name, arity only).
-    pub fn new(module: impl IntoRcStr, name: impl IntoRcStr, arity: i64) -> Self {
+    pub fn new(module: impl Into<Rc<str>>, name: impl Into<Rc<str>>, arity: i64) -> Self {
         Self {
-            module: module.into_rc_str(),
-            name: name.into_rc_str(),
+            module: module.into(),
+            name: name.into(),
             arity,
             kind: None,
             file: None,
@@ -93,20 +71,20 @@ impl FunctionRef {
 
     /// Create a function reference with full definition info.
     pub fn with_definition(
-        module: impl IntoRcStr,
-        name: impl IntoRcStr,
+        module: impl Into<Rc<str>>,
+        name: impl Into<Rc<str>>,
         arity: i64,
-        kind: impl IntoRcStr,
-        file: impl IntoRcStr,
+        kind: impl Into<Rc<str>>,
+        file: impl Into<Rc<str>>,
         start_line: i64,
         end_line: i64,
     ) -> Self {
         Self {
-            module: module.into_rc_str(),
-            name: name.into_rc_str(),
+            module: module.into(),
+            name: name.into(),
             arity,
-            kind: Some(kind.into_rc_str()),
-            file: Some(file.into_rc_str()),
+            kind: Some(kind.into()),
+            file: Some(file.into()),
             start_line: Some(start_line),
             end_line: Some(end_line),
             args: None,
@@ -116,26 +94,26 @@ impl FunctionRef {
 
     /// Create a function reference with type information.
     pub fn with_types(
-        module: impl IntoRcStr,
-        name: impl IntoRcStr,
+        module: impl Into<Rc<str>>,
+        name: impl Into<Rc<str>>,
         arity: i64,
-        kind: impl IntoRcStr,
-        file: impl IntoRcStr,
+        kind: impl Into<Rc<str>>,
+        file: impl Into<Rc<str>>,
         start_line: i64,
         end_line: i64,
-        args: impl IntoRcStr,
-        return_type: impl IntoRcStr,
+        args: impl Into<Rc<str>>,
+        return_type: impl Into<Rc<str>>,
     ) -> Self {
         Self {
-            module: module.into_rc_str(),
-            name: name.into_rc_str(),
+            module: module.into(),
+            name: name.into(),
             arity,
-            kind: Some(kind.into_rc_str()),
-            file: Some(file.into_rc_str()),
+            kind: Some(kind.into()),
+            file: Some(file.into()),
             start_line: Some(start_line),
             end_line: Some(end_line),
-            args: Some(args.into_rc_str()),
-            return_type: Some(return_type.into_rc_str()),
+            args: Some(args.into()),
+            return_type: Some(return_type.into()),
         }
     }
 
