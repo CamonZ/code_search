@@ -92,6 +92,10 @@ impl DatabaseConfig {
             return Err("PostgreSQL backend not yet implemented".into());
         }
 
+        if url.starts_with("cozo://") || url.starts_with("cozo+tcp://") {
+            return Err("Remote Cozo backend not yet implemented".into());
+        }
+
         // Default: treat as file path (CozoSqlite)
         Ok(Self::CozoSqlite {
             path: PathBuf::from(url),
@@ -141,14 +145,7 @@ impl DatabaseConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
-    use std::sync::OnceLock;
-
-    // Mutex to serialize tests that modify global state (current directory, env vars)
-    fn test_lock() -> &'static Mutex<()> {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(()))
-    }
+    use crate::test_utils;
 
     #[test]
     fn test_from_url_file_path() {
@@ -284,7 +281,7 @@ mod tests {
 
     #[test]
     fn test_from_env_none() {
-        let _lock = test_lock().lock();
+        let _lock = test_utils::global_test_lock().lock();
         // Remove env vars if they exist
         unsafe {
             std::env::remove_var("DATABASE_URL");
@@ -296,7 +293,7 @@ mod tests {
 
     #[test]
     fn test_from_env_database_url() {
-        let _lock = test_lock().lock();
+        let _lock = test_utils::global_test_lock().lock();
         unsafe {
             std::env::set_var("DATABASE_URL", "sqlite:///tmp/test.db");
         }
@@ -307,7 +304,7 @@ mod tests {
 
     #[test]
     fn test_from_env_cozo_path() {
-        let _lock = test_lock().lock();
+        let _lock = test_utils::global_test_lock().lock();
         unsafe {
             std::env::remove_var("DATABASE_URL");
             std::env::set_var("COZO_PATH", "/tmp/test.sqlite");
@@ -323,7 +320,7 @@ mod tests {
 
     #[test]
     fn test_from_env_database_url_takes_precedence() {
-        let _lock = test_lock().lock();
+        let _lock = test_utils::global_test_lock().lock();
         unsafe {
             std::env::set_var("DATABASE_URL", "sqlite:///tmp/from_url.db");
             std::env::set_var("COZO_PATH", "/tmp/from_path.sqlite");
@@ -339,7 +336,7 @@ mod tests {
 
     #[test]
     fn test_resolve_env_fallback() {
-        let _lock = test_lock().lock();
+        let _lock = test_utils::global_test_lock().lock();
         let temp_dir = tempfile::tempdir().unwrap();
         let old_dir = std::env::current_dir().unwrap();
         std::env::set_current_dir(temp_dir.path()).unwrap();
@@ -358,7 +355,7 @@ mod tests {
 
     #[test]
     fn test_resolve_default_fallback() {
-        let _lock = test_lock().lock();
+        let _lock = test_utils::global_test_lock().lock();
         let temp_dir = tempfile::tempdir().unwrap();
         let old_dir = std::env::current_dir().unwrap();
         std::env::set_current_dir(temp_dir.path()).unwrap();
@@ -380,7 +377,7 @@ mod tests {
 
     #[test]
     fn test_resolve_from_config_file_sqlite() {
-        let _lock = test_lock().lock();
+        let _lock = test_utils::global_test_lock().lock();
         let temp_dir = tempfile::tempdir().unwrap();
         let config_path = temp_dir.path().join(".code_search.json");
 
@@ -412,7 +409,7 @@ mod tests {
 
     #[test]
     fn test_resolve_from_config_file_memory() {
-        let _lock = test_lock().lock();
+        let _lock = test_utils::global_test_lock().lock();
         let temp_dir = tempfile::tempdir().unwrap();
         let config_path = temp_dir.path().join(".code_search.json");
 
@@ -438,7 +435,7 @@ mod tests {
 
     #[test]
     fn test_resolve_fallback_to_env_when_no_config_file() {
-        let _lock = test_lock().lock();
+        let _lock = test_utils::global_test_lock().lock();
         let temp_dir = tempfile::tempdir().unwrap();
 
         let old_dir = std::env::current_dir().unwrap();
@@ -460,7 +457,7 @@ mod tests {
 
     #[test]
     fn test_resolve_config_file_takes_precedence_over_env() {
-        let _lock = test_lock().lock();
+        let _lock = test_utils::global_test_lock().lock();
         let temp_dir = tempfile::tempdir().unwrap();
         let config_path = temp_dir.path().join(".code_search.json");
 

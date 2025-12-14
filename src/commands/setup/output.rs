@@ -9,6 +9,19 @@ impl Outputable for SetupResult {
 
         output.push_str("Database Setup\n\n");
 
+        // Configuration section (if created)
+        if self.config_file_created {
+            output.push_str("Configuration\n\n");
+            output.push_str("  Created .code_search.json\n");
+            if let Some(path) = &self.config_file_path {
+                output.push_str(&format!("    at: {}\n", path));
+            }
+            output.push_str("\n");
+        }
+
+        // Schema section
+        output.push_str("Database Schema\n\n");
+
         if self.dry_run {
             output.push_str("Schema creation (dry-run):\n");
         } else {

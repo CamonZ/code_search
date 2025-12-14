@@ -12,9 +12,12 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search setup --db ./my_project.db      # Create schema
-  code_search setup --db ./my_project.db --force  # Drop and recreate
-  code_search setup --db ./my_project.db --dry-run  # Show what would be created")]
+  code_search setup                              # Setup schema only
+  code_search setup --init-config sqlite         # Initialize SQLite config
+  code_search setup --init-config postgres \\
+    --pg-host localhost --pg-user myuser \\
+    --pg-database mydb                           # Initialize Postgres config
+  code_search setup --dry-run                    # Preview what would happen")]
 pub struct SetupCmd {
     /// Drop existing schema and recreate
     #[arg(long, default_value_t = false)]
@@ -23,6 +26,43 @@ pub struct SetupCmd {
     /// Show what would be created without doing it
     #[arg(long, default_value_t = false)]
     pub dry_run: bool,
+
+    /// Initialize .code_search.json config file
+    /// Values: "sqlite", "memory", "postgres"
+    #[arg(long, value_name = "TYPE")]
+    pub init_config: Option<String>,
+
+    /// For postgres: database host
+    #[arg(long, requires = "init_config")]
+    pub pg_host: Option<String>,
+
+    /// For postgres: database port (default: 5432)
+    #[arg(long)]
+    pub pg_port: Option<u16>,
+
+    /// For postgres: database username
+    #[arg(long, requires = "init_config")]
+    pub pg_user: Option<String>,
+
+    /// For postgres: database password (optional)
+    #[arg(long)]
+    pub pg_password: Option<String>,
+
+    /// For postgres: database name
+    #[arg(long, requires = "init_config")]
+    pub pg_database: Option<String>,
+
+    /// For postgres: enable SSL
+    #[arg(long, default_value_t = false)]
+    pub pg_ssl: bool,
+
+    /// For postgres: AGE graph name (default: "call_graph")
+    #[arg(long, default_value = "call_graph")]
+    pub pg_graph: String,
+
+    /// SQLite: path to database file (default: "./cozo.sqlite")
+    #[arg(long, default_value = "./cozo.sqlite")]
+    pub sqlite_path: String,
 }
 
 impl CommandRunner for SetupCmd {

@@ -3,12 +3,37 @@
 //! This module provides common helpers used across command execute tests.
 
 use std::io::Write;
+use std::sync::Mutex;
+use std::sync::OnceLock;
 
 use tempfile::NamedTempFile;
 
 use crate::commands::Execute;
 use crate::db::{open_mem_db, open_mem_db_empty, DatabaseBackend};
 use crate::queries::import::import_json_str;
+
+// =============================================================================
+// Global test synchronization (for tests that modify global state)
+// =============================================================================
+
+/// Global lock for tests that modify global state (current directory, env vars).
+///
+/// Use this in tests that call `std::env::set_current_dir()` or modify
+/// environment variables to prevent interference between parallel tests.
+///
+/// Example:
+/// ```ignore
+/// #[test]
+/// fn test_something() {
+///     let _lock = crate::test_utils::global_test_lock().lock();
+///     // Now safe to modify global state
+///     std::env::set_current_dir(...);
+/// }
+/// ```
+pub fn global_test_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
 
 /// Create a temporary file containing the given content.
 ///
