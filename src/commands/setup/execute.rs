@@ -5,7 +5,8 @@ use serde::Serialize;
 use super::SetupCmd;
 use crate::commands::Execute;
 use crate::db::DatabaseBackend;
-use crate::queries::schema;
+use crate::db::schema::run_migrations;
+use crate::queries::schema::relation_names;
 
 /// Status of a database relation (table)
 #[derive(Debug, Clone, Serialize)]
@@ -38,10 +39,11 @@ impl Execute for SetupCmd {
 
     fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         let mut relations = Vec::new();
+        let mut created_new = false;
 
         if self.dry_run {
             // In dry-run mode, just show what would be created
-            for rel_name in schema::relation_names() {
+            for rel_name in relation_names() {
                 relations.push(RelationStatus {
                     name: rel_name.to_string(),
                     status: RelationState::WouldCreate,
@@ -56,32 +58,20 @@ impl Execute for SetupCmd {
         }
 
         if self.force {
-            // Drop existing schema by attempting to recreate
-            // The schema module will handle checking if relations exist
-            // For now, we'll just proceed with creation which handles the existing case
             // TODO: Implement drop_schema if needed for true drop+recreate
         }
 
-        // Create schema
-        let schema_results = schema::create_schema(db)?;
+        // Run migrations to ensure schema is initialized
+        // Migrations are idempotent, so this is safe to call multiple times
+        run_migrations(db)?;
 
-        for schema_result in schema_results {
-            let status = if schema_result.created {
-                RelationState::Created
-            } else {
-                RelationState::AlreadyExists
-            };
-
+        // Report that schema has been initialized
+        for rel_name in relation_names() {
             relations.push(RelationStatus {
-                name: schema_result.relation,
-                status,
+                name: rel_name.to_string(),
+                status: RelationState::AlreadyExists,
             });
         }
-
-        // Check if we created new relations
-        let created_new = relations
-            .iter()
-            .any(|r| matches!(r.status, RelationState::Created));
 
         Ok(SetupResult {
             relations,
@@ -113,22 +103,22 @@ mod tests {
         let backend = open_db(db_file.path()).expect("Failed to open db");
         let result = cmd.execute(backend.as_ref()).expect("Setup should succeed");
 
-        // Should create 7 relations
+        // Should report 7 relations
         assert_eq!(result.relations.len(), 7);
 
-        // All should be created
+        // All should be marked as existing (migrations are idempotent)
         assert!(result
             .relations
             .iter()
-            .all(|r| matches!(r.status, RelationState::Created)));
+            .all(|r| matches!(r.status, RelationState::AlreadyExists)));
 
-        assert!(result.created_new);
+        // Migrations are idempotent, created_new is always false after auto-migration on connect
+        assert!(!result.created_new);
     }
 
     #[rstest]
     fn test_setup_idempotent(db_file: NamedTempFile) {
         let backend = open_db(db_file.path()).expect("Failed to open db");
-        
 
         // First setup
         let cmd1 = SetupCmd {
@@ -136,22 +126,28 @@ mod tests {
             dry_run: false,
         };
         let result1 = cmd1.execute(backend.as_ref()).expect("First setup should succeed");
-        assert!(result1.created_new);
 
-        // Second setup should find existing relations
+        // Migrations ran on connect, so relations already exist
+        assert_eq!(result1.relations.len(), 7);
+        assert!(result1
+            .relations
+            .iter()
+            .all(|r| matches!(r.status, RelationState::AlreadyExists)));
+        assert!(!result1.created_new);
+
+        // Second setup should also succeed (idempotent)
         let cmd2 = SetupCmd {
             force: false,
             dry_run: false,
         };
         let result2 = cmd2.execute(backend.as_ref()).expect("Second setup should succeed");
 
-        // Should still have 7 relations, but all already existing
+        // Should still have 7 relations, all already existing
         assert_eq!(result2.relations.len(), 7);
         assert!(result2
             .relations
             .iter()
             .all(|r| matches!(r.status, RelationState::AlreadyExists)));
-
         assert!(!result2.created_new);
     }
 

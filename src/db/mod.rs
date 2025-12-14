@@ -45,7 +45,7 @@ pub use backend::{DatabaseBackend, Params, QueryResult};
 pub use connection::{open_db, CozoSqliteBackend, CozoMemBackend};
 pub use config::DatabaseConfig;
 #[cfg(test)]
-pub use connection::open_mem_db;
+pub use connection::{open_mem_db, open_mem_db_empty};
 
 pub use escape::{escape_string, escape_string_single};
 

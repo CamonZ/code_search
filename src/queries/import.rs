@@ -6,7 +6,6 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::queries::import_models::CallGraph;
-use crate::queries::schema;
 use crate::db::{escape_string, escape_string_single, run_query, run_query_no_params, Params};
 
 /// Chunk size for batch database imports
@@ -34,7 +33,6 @@ pub enum ImportError {
 /// Result of the import command execution
 #[derive(Debug, Default, Serialize)]
 pub struct ImportResult {
-    pub schemas: SchemaResult,
     pub cleared: bool,
     pub modules_imported: usize,
     pub functions_imported: usize,
@@ -43,29 +41,6 @@ pub struct ImportResult {
     pub function_locations_imported: usize,
     pub specs_imported: usize,
     pub types_imported: usize,
-}
-
-/// Result of schema creation
-#[derive(Debug, Default, Serialize)]
-pub struct SchemaResult {
-    pub created: Vec<String>,
-    pub already_existed: Vec<String>,
-}
-
-pub fn create_schema(db: &dyn DatabaseBackend) -> Result<SchemaResult, Box<dyn Error>> {
-    let mut result = SchemaResult::default();
-
-    let schema_results = schema::create_schema(db)?;
-
-    for schema_result in schema_results {
-        if schema_result.created {
-            result.created.push(schema_result.relation);
-        } else {
-            result.already_existed.push(schema_result.relation);
-        }
-    }
-
-    Ok(result)
 }
 
 pub fn clear_project_data(db: &dyn DatabaseBackend, project: &str) -> Result<(), Box<dyn Error>> {
@@ -435,7 +410,8 @@ pub fn import_types(
 
 /// Import a parsed CallGraph into the database.
 ///
-/// Creates schemas and imports all data (modules, functions, calls, structs, locations).
+/// Imports all data (modules, functions, calls, structs, locations).
+/// Schema is created automatically when the database connects via run_migrations().
 /// This is the core import logic used by both the CLI command and test utilities.
 pub fn import_graph(
     db: &dyn DatabaseBackend,
@@ -444,7 +420,6 @@ pub fn import_graph(
 ) -> Result<ImportResult, Box<dyn Error>> {
     let mut result = ImportResult::default();
 
-    result.schemas = create_schema(db)?;
     result.modules_imported = import_modules(db, project, graph)?;
     result.functions_imported = import_functions(db, project, graph)?;
     result.calls_imported = import_calls(db, project, graph)?;
@@ -476,8 +451,7 @@ pub fn import_json_str(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::open_db;
-    use tempfile::NamedTempFile;
+    use crate::db::open_mem_db;
 
     // Test deserialization with all new fields present
     #[test]
@@ -577,8 +551,7 @@ mod tests {
             "types": {}
         }"#;
 
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let backend = open_db(db_file.path()).expect("Failed to open db");
+        let backend = open_mem_db(true).expect("Failed to open db");
 
         let result = import_json_str(backend.as_ref(), json, "test_project").expect("Import should succeed");
 

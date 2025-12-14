@@ -424,6 +424,29 @@ pub const TYPES: SchemaRelation = SchemaRelation {
     relationships: &[],
 };
 
+/// Schema migrations relation: tracks which schema versions have been applied
+///
+/// Key fields: version
+/// Value fields: description
+pub const SCHEMA_MIGRATIONS: SchemaRelation = SchemaRelation {
+    name: "schema_versions",
+    key_fields: &[
+        SchemaField {
+            name: "version",
+            data_type: DataType::Int,
+            default: None,
+        },
+    ],
+    value_fields: &[
+        SchemaField {
+            name: "description",
+            data_type: DataType::String,
+            default: Some(""),
+        },
+    ],
+    relationships: &[],
+};
+
 /// All relations for easy iteration.
 ///
 /// Contains references to all 7 database relations.

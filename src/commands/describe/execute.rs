@@ -1,8 +1,8 @@
-use std::error::Error;
 use serde::Serialize;
+use std::error::Error;
 
+use super::descriptions::{descriptions_by_category, get_description, CommandDescription};
 use super::DescribeCmd;
-use super::descriptions::{CommandDescription, get_description, descriptions_by_category};
 use crate::commands::Execute;
 use crate::db::DatabaseBackend;
 
@@ -78,11 +78,9 @@ mod tests {
     #[test]
     fn test_describe_all_lists_categories() {
         use crate::db::open_mem_db;
-        let cmd = DescribeCmd {
-            commands: vec![],
-        };
+        let cmd = DescribeCmd { commands: vec![] };
 
-        let db = open_mem_db().expect("Failed to create test database");
+        let db = open_mem_db(true).expect("Failed to create test database");
         let result = cmd.execute(db.as_ref()).expect("Should succeed");
 
         match result.mode {
@@ -103,7 +101,7 @@ mod tests {
             commands: vec!["calls-to".to_string()],
         };
 
-        let db = open_mem_db().expect("Failed to create test database");
+        let db = open_mem_db(true).expect("Failed to create test database");
         let result = cmd.execute(db.as_ref()).expect("Should succeed");
 
         match result.mode {
@@ -126,7 +124,7 @@ mod tests {
             ],
         };
 
-        let db = open_mem_db().expect("Failed to create test database");
+        let db = open_mem_db(true).expect("Failed to create test database");
         let result = cmd.execute(db.as_ref()).expect("Should succeed");
 
         match result.mode {
@@ -148,7 +146,7 @@ mod tests {
             commands: vec!["nonexistent".to_string()],
         };
 
-        let db = open_mem_db().expect("Failed to create test database");
+        let db = open_mem_db(true).expect("Failed to create test database");
         let result = cmd.execute(db.as_ref());
         assert!(result.is_err());
     }

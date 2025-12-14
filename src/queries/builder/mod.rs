@@ -25,13 +25,13 @@
 //! let result = backend.execute_query(&compiled.script, &compiled.params)?;
 //! ```
 
-pub mod params;
 pub mod compilers;
-pub mod patterns;
 pub mod helpers;
+pub mod params;
+pub mod patterns;
 
-use std::error::Error;
 use crate::db::{DatabaseBackend, Params};
+use std::error::Error;
 
 /// Backend-agnostic query definition.
 ///
@@ -107,7 +107,7 @@ mod tests {
 
     #[test]
     fn test_compiled_query_from_builder() {
-        let backend = open_mem_db().unwrap();
+        let backend = open_mem_db(true).unwrap();
         let params = Params::new();
         let test_query = TestQuery {
             script: "test script".to_string(),

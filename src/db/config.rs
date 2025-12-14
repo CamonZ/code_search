@@ -6,8 +6,8 @@
 use std::error::Error;
 use std::path::PathBuf;
 
-use super::connection::{CozoSqliteBackend, CozoMemBackend};
 use super::backend::DatabaseBackend;
+use super::connection::{CozoMemBackend, CozoSqliteBackend};
 use cozo::DbInstance;
 
 /// Configuration for database backend selection.
@@ -48,27 +48,29 @@ pub enum DatabaseConfig {
 impl DatabaseConfig {
     /// Create a backend instance from this configuration.
     pub fn connect(&self) -> Result<Box<dyn DatabaseBackend>, Box<dyn Error>> {
-        match self {
+        let backend = match self {
             Self::CozoSqlite { path } => {
                 let db = DbInstance::new("sqlite", path, "").map_err(|e| {
                     format!("Failed to open SQLite database at {:?}: {:?}", path, e)
                 })?;
-                Ok(Box::new(CozoSqliteBackend::new(db)))
+                Box::new(CozoSqliteBackend::new(db)) as Box<dyn DatabaseBackend>
             }
             Self::CozoMem => {
                 let db = DbInstance::new("mem", "", "")?;
-                Ok(Box::new(CozoMemBackend::new(db)))
+                Box::new(CozoMemBackend::new(db)) as Box<dyn DatabaseBackend>
             }
             Self::CozoRocksdb { .. } => {
-                Err("RocksDB backend not yet implemented".into())
+                return Err("RocksDB backend not yet implemented".into());
             }
             Self::Postgres { .. } => {
-                Err("PostgreSQL backend not yet implemented".into())
+                return Err("PostgreSQL backend not yet implemented".into());
             }
             Self::RemoteCozo { .. } => {
-                Err("Remote Cozo backend not yet implemented".into())
+                return Err("Remote Cozo backend not yet implemented".into());
             }
-        }
+        };
+
+        Ok(backend)
     }
 
     /// Parse from a connection URL or file path.
@@ -194,35 +196,50 @@ mod tests {
     fn test_from_url_rocksdb_not_implemented() {
         let result = DatabaseConfig::from_url("rocksdb:///tmp/test.db");
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("not yet implemented"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("not yet implemented"));
     }
 
     #[test]
     fn test_from_url_postgres_not_implemented() {
         let result = DatabaseConfig::from_url("postgres://localhost/test");
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("not yet implemented"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("not yet implemented"));
     }
 
     #[test]
     fn test_from_url_postgres_alternate_scheme() {
         let result = DatabaseConfig::from_url("postgresql://localhost/test");
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("not yet implemented"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("not yet implemented"));
     }
 
     #[test]
     fn test_from_url_cozo_not_implemented() {
         let result = DatabaseConfig::from_url("cozo://localhost:9000");
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("not yet implemented"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("not yet implemented"));
     }
 
     #[test]
     fn test_from_url_cozo_tcp_not_implemented() {
         let result = DatabaseConfig::from_url("cozo+tcp://localhost:9000");
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("not yet implemented"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("not yet implemented"));
     }
 
     #[test]

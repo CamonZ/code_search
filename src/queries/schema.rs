@@ -1,12 +1,7 @@
-//! Database schema creation and management.
+//! Database schema definitions.
 //!
-//! This module provides shared schema utilities used by both the import
-//! and setup commands. It defines the database schema for all relations
-//! and provides functions to create, check, and drop them.
-
-use crate::db::DatabaseBackend;
-use std::error::Error;
-use crate::db::try_create_relation;
+//! This module defines the database schema for all relations.
+//! Schema creation is now handled by the migration system in src/db/schema/migrations.rs.
 
 // Schema definitions
 
@@ -115,41 +110,6 @@ pub const SCHEMA_TYPES: &str = r#"
     definition: String default ""
 }
 "#;
-
-/// Result of schema creation operation
-#[derive(Debug, Clone)]
-pub struct SchemaCreationResult {
-    pub relation: String,
-    pub created: bool,
-}
-
-/// Create all database schemas.
-///
-/// Returns a list of all relations with their creation status.
-/// If a relation already exists, returns Ok with created=false for that relation.
-pub fn create_schema(db: &dyn DatabaseBackend) -> Result<Vec<SchemaCreationResult>, Box<dyn Error>> {
-    let mut result = Vec::new();
-
-    let schemas = [
-        ("modules", SCHEMA_MODULES),
-        ("functions", SCHEMA_FUNCTIONS),
-        ("calls", SCHEMA_CALLS),
-        ("struct_fields", SCHEMA_STRUCT_FIELDS),
-        ("function_locations", SCHEMA_FUNCTION_LOCATIONS),
-        ("specs", SCHEMA_SPECS),
-        ("types", SCHEMA_TYPES),
-    ];
-
-    for (name, script) in schemas {
-        let created = try_create_relation(db, script)?;
-        result.push(SchemaCreationResult {
-            relation: name.to_string(),
-            created,
-        });
-    }
-
-    Ok(result)
-}
 
 /// Get list of all relation names managed by this schema
 pub fn relation_names() -> Vec<&'static str> {

@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     use crate::output::OutputFormat;
-    use crate::queries::import::{ImportResult, SchemaResult};
+    use crate::queries::import::ImportResult;
     use rstest::{fixture, rstest};
 
     const EMPTY_TABLE_OUTPUT: &str = "\
@@ -28,10 +28,6 @@ Import Summary:
   Locations: 45
   Specs: 25
   Types: 12
-
-Created Schemas:
-  - modules
-  - functions
 ";
 
     const FULL_TABLE_OUTPUT_NO_CLEAR: &str = "\
@@ -43,10 +39,6 @@ Import Summary:
   Locations: 45
   Specs: 25
   Types: 12
-
-Created Schemas:
-  - modules
-  - functions
 ";
 
 
@@ -58,10 +50,6 @@ Created Schemas:
     #[fixture]
     fn full_result() -> ImportResult {
         ImportResult {
-            schemas: SchemaResult {
-                created: vec!["modules".to_string(), "functions".to_string()],
-                already_existed: vec!["calls".to_string()],
-            },
             cleared: true,
             modules_imported: 10,
             functions_imported: 50,

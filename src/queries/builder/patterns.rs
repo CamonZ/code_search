@@ -3,9 +3,9 @@
 //! This module provides pre-built query builders for common patterns like
 //! simple SELECT queries and recursive traversal queries.
 
-use std::error::Error;
+use super::{compilers::get_compiler, QueryBuilder};
 use crate::db::{DatabaseBackend, Params};
-use super::{QueryBuilder, compilers::get_compiler};
+use std::error::Error;
 
 /// A simple SELECT query builder.
 ///
@@ -37,10 +37,8 @@ impl QueryBuilder for SelectQuery {
                     .collect::<Vec<_>>()
                     .join(", ");
 
-                let mut query = format!(
-                    "?[{}] := *{}{{{}}}",
-                    fields, self.relation, field_bindings
-                );
+                let mut query =
+                    format!("?[{}] := *{}{{{}}}", fields, self.relation, field_bindings);
 
                 if !self.filters.is_empty() {
                     query.push_str(",\n    ");
@@ -154,7 +152,7 @@ mod tests {
             limit: Some(10),
         };
 
-        let backend = open_mem_db().unwrap();
+        let backend = open_mem_db(true).unwrap();
         let compiled = query.compile(backend.as_ref()).unwrap();
 
         // Verify Cozo syntax
@@ -175,7 +173,7 @@ mod tests {
             limit: None,
         };
 
-        let backend = open_mem_db().unwrap();
+        let backend = open_mem_db(true).unwrap();
         let compiled = query.compile(backend.as_ref()).unwrap();
 
         assert!(compiled.contains("module == $mod"));
@@ -191,7 +189,7 @@ mod tests {
             limit: None,
         };
 
-        let backend = open_mem_db().unwrap();
+        let backend = open_mem_db(true).unwrap();
         let compiled = query.compile(backend.as_ref()).unwrap();
 
         assert!(!compiled.contains(":limit"));
@@ -206,7 +204,7 @@ mod tests {
             limit: Some(5),
         };
 
-        let backend = open_mem_db().unwrap();
+        let backend = open_mem_db(true).unwrap();
         let compiled = query.compile(backend.as_ref()).unwrap();
 
         assert!(compiled.contains("file, line, column"));
@@ -222,7 +220,7 @@ mod tests {
             return_fields: vec!["caller", "callee"],
         };
 
-        let backend = open_mem_db().unwrap();
+        let backend = open_mem_db(true).unwrap();
         let result = query.compile(backend.as_ref());
 
         // Should fail with informative error until Ticket #47

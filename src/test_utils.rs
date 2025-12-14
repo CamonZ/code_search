@@ -6,9 +6,9 @@ use std::io::Write;
 
 use tempfile::NamedTempFile;
 
-use crate::queries::import::import_json_str;
 use crate::commands::Execute;
-use crate::db::{open_mem_db, DatabaseBackend};
+use crate::db::{open_mem_db, open_mem_db_empty, DatabaseBackend};
+use crate::queries::import::import_json_str;
 
 /// Create a temporary file containing the given content.
 ///
@@ -25,13 +25,16 @@ pub fn create_temp_json_file(content: &str) -> NamedTempFile {
 /// This is the standard setup for execute tests: create an in-memory DB,
 /// import test data, return the DB instance for command execution.
 pub fn setup_test_db(json_content: &str, project: &str) -> Box<dyn DatabaseBackend> {
-    let db = open_mem_db().expect("Failed to create in-memory database");
+    let db = open_mem_db(true).expect("Failed to create in-memory database");
     import_json_str(db.as_ref(), json_content, project).expect("Import should succeed");
     db
 }
 
 /// Execute a command against a database and return the result.
-pub fn execute_cmd<C: Execute>(cmd: C, db: &dyn DatabaseBackend) -> Result<C::Output, Box<dyn std::error::Error>> {
+pub fn execute_cmd<C: Execute>(
+    cmd: C,
+    db: &dyn DatabaseBackend,
+) -> Result<C::Output, Box<dyn std::error::Error>> {
     cmd.execute(db)
 }
 
@@ -39,7 +42,7 @@ pub fn execute_cmd<C: Execute>(cmd: C, db: &dyn DatabaseBackend) -> Result<C::Ou
 ///
 /// Used to verify commands fail gracefully on empty DBs.
 pub fn execute_on_empty_db<C: Execute>(cmd: C) -> Result<C::Output, Box<dyn std::error::Error>> {
-    let db = open_mem_db().expect("Failed to create in-memory database");
+    let db = open_mem_db_empty().expect("Failed to create empty in-memory database");
     cmd.execute(db.as_ref())
 }
 

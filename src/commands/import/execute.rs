@@ -38,7 +38,7 @@ impl Execute for ImportCmd {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::open_db;
+    use crate::db::open_mem_db;
     use rstest::{fixture, rstest};
     use std::io::Write;
     use tempfile::NamedTempFile;
@@ -115,25 +115,16 @@ mod tests {
     }
 
     #[fixture]
-    fn db_file() -> NamedTempFile {
-        NamedTempFile::new().expect("Failed to create temp db file")
-    }
-
-    #[fixture]
-    fn import_result(json_file: NamedTempFile, db_file: NamedTempFile) -> ImportResult {
+    fn import_result(json_file: NamedTempFile) -> ImportResult {
         let cmd = ImportCmd {
             file: json_file.path().to_path_buf(),
             project: "test_project".to_string(),
             clear: false,
         };
-        let backend = open_db(db_file.path()).expect("Failed to open db");
-        
-        cmd.execute(backend.as_ref()).expect("Import should succeed")
-    }
+        let backend = open_mem_db(true).expect("Failed to open db");
 
-    #[rstest]
-    fn test_import_creates_schemas(import_result: ImportResult) {
-        assert!(!import_result.schemas.created.is_empty() || !import_result.schemas.already_existed.is_empty());
+        cmd.execute(backend.as_ref())
+            .expect("Import should succeed")
     }
 
     #[rstest]
@@ -162,15 +153,15 @@ mod tests {
     }
 
     #[rstest]
-    fn test_import_with_clear_flag(json_file: NamedTempFile, db_file: NamedTempFile) {
+    fn test_import_with_clear_flag(json_file: NamedTempFile) {
         // First import
         let cmd1 = ImportCmd {
             file: json_file.path().to_path_buf(),
             project: "test_project".to_string(),
             clear: false,
         };
-        let backend = open_db(db_file.path()).expect("Failed to open db");
-        
+        let backend = open_mem_db(true).expect("Failed to open db");
+
         cmd1.execute(backend.as_ref())
             .expect("First import should succeed");
 
@@ -189,7 +180,7 @@ mod tests {
     }
 
     #[rstest]
-    fn test_import_empty_graph(db_file: NamedTempFile) {
+    fn test_import_empty_graph() {
         let empty_json = r#"{
             "structs": {},
             "function_locations": {},
@@ -205,9 +196,11 @@ mod tests {
             clear: false,
         };
 
-        let backend = open_db(db_file.path()).expect("Failed to open db");
-        
-        let result = cmd.execute(backend.as_ref()).expect("Import should succeed");
+        let backend = open_mem_db(true).expect("Failed to open db");
+
+        let result = cmd
+            .execute(backend.as_ref())
+            .expect("Import should succeed");
 
         assert_eq!(result.modules_imported, 0);
         assert_eq!(result.functions_imported, 0);
@@ -217,7 +210,7 @@ mod tests {
     }
 
     #[rstest]
-    fn test_import_invalid_json_fails(db_file: NamedTempFile) {
+    fn test_import_invalid_json_fails() {
         let invalid_json = "{ not valid json }";
         let json_file = create_temp_json_file(invalid_json);
 
@@ -227,22 +220,22 @@ mod tests {
             clear: false,
         };
 
-        let backend = open_db(db_file.path()).expect("Failed to open db");
-        
+        let backend = open_mem_db(true).expect("Failed to open db");
+
         let result = cmd.execute(backend.as_ref());
         assert!(result.is_err());
     }
 
     #[rstest]
-    fn test_import_nonexistent_file_fails(db_file: NamedTempFile) {
+    fn test_import_nonexistent_file_fails() {
         let cmd = ImportCmd {
             file: "/nonexistent/path/call_graph.json".into(),
             project: "test_project".to_string(),
             clear: false,
         };
 
-        let backend = open_db(db_file.path()).expect("Failed to open db");
-        
+        let backend = open_mem_db(true).expect("Failed to open db");
+
         let result = cmd.execute(backend.as_ref());
         assert!(result.is_err());
     }

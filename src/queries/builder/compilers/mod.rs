@@ -4,8 +4,8 @@
 //! allowing query builders to compile to multiple backend syntaxes
 //! (Cozo Datalog, AGE Cypher, etc.).
 
-pub mod cozo;
 pub mod age;
+pub mod cozo;
 
 use crate::db::DatabaseBackend;
 
@@ -51,14 +51,14 @@ mod tests {
 
     #[test]
     fn test_get_compiler_cozo() {
-        let backend = open_mem_db().unwrap();
+        let backend = open_mem_db(false).unwrap();
         let _compiler = get_compiler(backend.as_ref());
         // If we got here without panicking, the test passed
     }
 
     #[test]
     fn test_backend_compiler_trait_object() {
-        let backend = open_mem_db().unwrap();
+        let backend = open_mem_db(false).unwrap();
         let compiler = get_compiler(backend.as_ref());
 
         // Test that we can call trait methods

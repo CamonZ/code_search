@@ -6,6 +6,7 @@ use std::path::Path;
 use cozo::{DbInstance, NamedRows, ScriptMutability};
 
 use super::backend::{DatabaseBackend, Params, QueryResult};
+use super::schema::run_migrations;
 use super::DbError;
 
 /// CozoDB backend using SQLite storage.
@@ -21,12 +22,10 @@ impl CozoSqliteBackend {
 }
 
 impl DatabaseBackend for CozoSqliteBackend {
-    fn execute_query(
-        &self,
-        script: &str,
-        params: &Params,
-    ) -> Result<QueryResult, Box<dyn Error>> {
-        let result = self.db.run_script(script, params.clone(), ScriptMutability::Mutable)?;
+    fn execute_query(&self, script: &str, params: &Params) -> Result<QueryResult, Box<dyn Error>> {
+        let result = self
+            .db
+            .run_script(script, params.clone(), ScriptMutability::Mutable)?;
         Ok(named_rows_to_query_result(result))
     }
 
@@ -35,12 +34,19 @@ impl DatabaseBackend for CozoSqliteBackend {
     }
 
     fn relation_exists(&self, name: &str) -> Result<bool, Box<dyn Error>> {
-        let script = format!("?[count] := *{}", name);
+        // Try to query the relation - if it doesn't exist, Cozo will error
+        // We accept any error that suggests the relation doesn't exist
+        let script = format!("?[x] := *{}{{x}}", name);
         match self.execute_query_no_params(&script) {
             Ok(_) => Ok(true),
             Err(e) => {
                 let err_str = e.to_string();
-                if err_str.contains("not found") || err_str.contains("NoSuchRelation") {
+                // Accept various error messages that indicate relation doesn't exist
+                if err_str.contains("not found")
+                    || err_str.contains("NoSuchRelation")
+                    || err_str.contains("does not exist")
+                    || err_str.contains("no binding for")
+                {
                     Ok(false)
                 } else {
                     Err(e)
@@ -54,7 +60,10 @@ impl DatabaseBackend for CozoSqliteBackend {
             Ok(_) => Ok(true),
             Err(e) => {
                 let err_str = e.to_string();
-                if err_str.contains("AlreadyExists") || err_str.contains("stored_relation_conflict") || err_str.contains("conflicts") {
+                if err_str.contains("AlreadyExists")
+                    || err_str.contains("stored_relation_conflict")
+                    || err_str.contains("conflicts")
+                {
                     Ok(false)
                 } else {
                     Err(e)
@@ -84,12 +93,10 @@ impl CozoMemBackend {
 }
 
 impl DatabaseBackend for CozoMemBackend {
-    fn execute_query(
-        &self,
-        script: &str,
-        params: &Params,
-    ) -> Result<QueryResult, Box<dyn Error>> {
-        let result = self.db.run_script(script, params.clone(), ScriptMutability::Mutable)?;
+    fn execute_query(&self, script: &str, params: &Params) -> Result<QueryResult, Box<dyn Error>> {
+        let result = self
+            .db
+            .run_script(script, params.clone(), ScriptMutability::Mutable)?;
         Ok(named_rows_to_query_result(result))
     }
 
@@ -98,12 +105,19 @@ impl DatabaseBackend for CozoMemBackend {
     }
 
     fn relation_exists(&self, name: &str) -> Result<bool, Box<dyn Error>> {
-        let script = format!("?[count] := *{}", name);
+        // Try to query the relation - if it doesn't exist, Cozo will error
+        // We accept any error that suggests the relation doesn't exist
+        let script = format!("?[x] := *{}{{x}}", name);
         match self.execute_query_no_params(&script) {
             Ok(_) => Ok(true),
             Err(e) => {
                 let err_str = e.to_string();
-                if err_str.contains("not found") || err_str.contains("NoSuchRelation") {
+                // Accept various error messages that indicate relation doesn't exist
+                if err_str.contains("not found")
+                    || err_str.contains("NoSuchRelation")
+                    || err_str.contains("does not exist")
+                    || err_str.contains("no binding for")
+                {
                     Ok(false)
                 } else {
                     Err(e)
@@ -117,7 +131,10 @@ impl DatabaseBackend for CozoMemBackend {
             Ok(_) => Ok(true),
             Err(e) => {
                 let err_str = e.to_string();
-                if err_str.contains("AlreadyExists") || err_str.contains("stored_relation_conflict") || err_str.contains("conflicts") {
+                if err_str.contains("AlreadyExists")
+                    || err_str.contains("stored_relation_conflict")
+                    || err_str.contains("conflicts")
+                {
                     Ok(false)
                 } else {
                     Err(e)
@@ -148,7 +165,9 @@ pub fn open_db(path: &Path) -> Result<Box<dyn DatabaseBackend>, Box<dyn Error>> 
             message: format!("{:?}", e),
         }) as Box<dyn Error>
     })?;
-    Ok(Box::new(CozoSqliteBackend::new(db)))
+    let backend = Box::new(CozoSqliteBackend::new(db));
+
+    Ok(backend)
 }
 
 /// Create an in-memory database backend for test utilities.
@@ -156,7 +175,29 @@ pub fn open_db(path: &Path) -> Result<Box<dyn DatabaseBackend>, Box<dyn Error>> 
 /// Returns a boxed DatabaseBackend trait object wrapping an in-memory CozoDB instance.
 /// Used by test fixtures after Ticket #44.
 #[cfg(test)]
-pub fn open_mem_db() -> Result<Box<dyn DatabaseBackend>, Box<dyn Error>> {
+pub fn open_mem_db(do_run_migrations: bool) -> Result<Box<dyn DatabaseBackend>, Box<dyn Error>> {
+    let db = DbInstance::new("mem", "", "").map_err(|e| {
+        Box::new(DbError::OpenFailed {
+            path: "mem".to_string(),
+            message: format!("{:?}", e),
+        }) as Box<dyn Error>
+    })?;
+    let backend = Box::new(CozoMemBackend::new(db));
+
+    if do_run_migrations {
+        // Run migrations to ensure schema exists
+        run_migrations(backend.as_ref())?;
+    }
+
+    Ok(backend)
+}
+
+/// Create an in-memory database backend WITHOUT running migrations.
+///
+/// Used only for testing empty database scenarios.
+/// WARNING: Do not use in production code.
+#[cfg(test)]
+pub fn open_mem_db_empty() -> Result<Box<dyn DatabaseBackend>, Box<dyn Error>> {
     let db = DbInstance::new("mem", "", "").map_err(|e| {
         Box::new(DbError::OpenFailed {
             path: "mem".to_string(),

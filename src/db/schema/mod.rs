@@ -31,9 +31,12 @@
 mod definition;
 mod relations;
 pub mod compilers;
+pub mod migrations;
 
 // Re-export public items
 #[allow(unused_imports)]
 pub use definition::{DataType, SchemaField, SchemaRelation, SchemaRelationship};
 #[allow(unused_imports)]
 pub use relations::{ALL_RELATIONS, CALLS, FUNCTION_LOCATIONS, FUNCTIONS, MODULES, SPECS, STRUCT_FIELDS, TYPES};
+#[allow(unused_imports)]
+pub use migrations::{get_current_version, run_migrations, update_version, MigrationSet};

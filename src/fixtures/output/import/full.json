@@ -1,13 +1,4 @@
 {
-  "schemas": {
-    "created": [
-      "modules",
-      "functions"
-    ],
-    "already_existed": [
-      "calls"
-    ]
-  },
   "cleared": true,
   "modules_imported": 10,
   "functions_imported": 50,
