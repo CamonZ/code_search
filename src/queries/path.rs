@@ -7,11 +7,130 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::db::{extract_i64, extract_string, run_query, Params};
+use crate::queries::builder::QueryBuilder;
 
 #[derive(Error, Debug)]
 pub enum PathError {
     #[error("Path query failed: {message}")]
     QueryFailed { message: String },
+}
+
+/// Query builder for finding call paths between two functions
+#[derive(Debug)]
+pub struct PathQueryBuilder {
+    pub from_module: String,
+    pub from_function: String,
+    pub from_arity: Option<i64>,
+    pub to_module: String,
+    pub to_function: String,
+    pub to_arity: Option<i64>,
+    pub project: String,
+    pub max_depth: u32,
+    pub limit: u32,
+}
+
+impl QueryBuilder for PathQueryBuilder {
+    fn compile(&self, backend: &dyn DatabaseBackend) -> Result<String, Box<dyn Error>> {
+        match backend.backend_name() {
+            "CozoSqlite" | "CozoRocksdb" | "CozoMem" => self.compile_cozo(),
+            "PostgresAge" => self.compile_age(),
+            _ => Err(format!("Unsupported backend: {}", backend.backend_name()).into()),
+        }
+    }
+
+    fn parameters(&self) -> Params {
+        let mut params = Params::new();
+        params.insert("from_module".to_string(), DataValue::Str(self.from_module.clone().into()));
+        params.insert("from_function".to_string(), DataValue::Str(self.from_function.clone().into()));
+        params.insert("to_module".to_string(), DataValue::Str(self.to_module.clone().into()));
+        params.insert("to_function".to_string(), DataValue::Str(self.to_function.clone().into()));
+        if let Some(a) = self.to_arity {
+            params.insert("to_arity".to_string(), DataValue::from(a));
+        }
+        params.insert("project".to_string(), DataValue::Str(self.project.clone().into()));
+        params
+    }
+}
+
+impl PathQueryBuilder {
+    fn compile_cozo(&self) -> Result<String, Box<dyn Error>> {
+        let to_arity_cond = if self.to_arity.is_some() {
+            ", callee_arity == $to_arity"
+        } else {
+            ""
+        };
+
+        Ok(format!(
+            r#"
+        # Base case: direct calls from the source function
+        trace[depth, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line] :=
+            *calls{{project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line}},
+            caller_module == $from_module,
+            caller_function == $from_function,
+            project == $project,
+            depth = 1
+
+        # Recursive case: continue from callees we've found
+        # Note: caller_function has arity suffix (e.g., "foo/2") but callee_function doesn't (e.g., "foo")
+        # So we use starts_with to match caller_function starting with prev_callee_function
+        trace[depth, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line] :=
+            trace[prev_depth, _, _, prev_callee_module, prev_callee_function, _, _, _],
+            *calls{{project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line}},
+            caller_module == prev_callee_module,
+            starts_with(caller_function, prev_callee_function),
+            prev_depth < {max_depth},
+            depth = prev_depth + 1,
+            project == $project
+
+        # Find the depth at which we reach the target
+        target_depth[d] :=
+            trace[d, _, _, callee_module, callee_function, callee_arity, _, _],
+            callee_module == $to_module,
+            callee_function == $to_function
+            {to_arity_cond}
+
+        # Only return edges at depths <= minimum target depth (edges on valid paths)
+        ?[depth, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line] :=
+            trace[depth, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line],
+            target_depth[min_d],
+            depth <= min_d
+
+        :order depth, caller_module, caller_function, callee_module, callee_function
+        :limit {limit}
+        "#,
+            max_depth = self.max_depth,
+            limit = self.limit,
+            to_arity_cond = to_arity_cond
+        ))
+    }
+
+    fn compile_age(&self) -> Result<String, Box<dyn Error>> {
+        Ok(format!(
+            r#"MATCH path = (source:Function)-[:CALLS*1..{max_depth}]->(target:Function)
+WHERE source.module = $from_module
+  AND source.name = $from_function
+  AND source.project = $project
+  AND target.module = $to_module
+  AND target.name = $to_function
+  AND ($to_arity IS NULL OR target.arity = $to_arity)
+WITH path, length(path) as depth,
+     nodes(path) as funcs,
+     relationships(path) as calls
+UNWIND range(0, size(calls)-1) as idx
+RETURN depth,
+       funcs[idx].module as caller_module,
+       funcs[idx].name as caller_function,
+       funcs[idx+1].module as callee_module,
+       funcs[idx+1].name as callee_function,
+       funcs[idx+1].arity as callee_arity,
+       calls[idx].file as file,
+       calls[idx].line as line
+ORDER BY depth, caller_module, caller_function
+LIMIT {limit}"#,
+            max_depth = self.max_depth,
+            limit = self.limit
+        ))
+    }
 }
 
 /// A single step in a call path
@@ -46,68 +165,22 @@ pub fn find_paths(
     max_depth: u32,
     limit: u32,
 ) -> Result<Vec<CallPath>, Box<dyn Error>> {
-    let project_cond = ", project == $project";
+    use crate::queries::builder::CompiledQuery;
 
-    let to_arity_cond = if to_arity.is_some() {
-        ", callee_arity == $to_arity"
-    } else {
-        ""
+    let builder = PathQueryBuilder {
+        from_module: from_module.to_string(),
+        from_function: from_function.to_string(),
+        from_arity: None,
+        to_module: to_module.to_string(),
+        to_function: to_function.to_string(),
+        to_arity,
+        project: project.to_string(),
+        max_depth,
+        limit,
     };
 
-    // Simpler approach: trace forward from source to find all reachable calls,
-    // then filter to paths that end at the target.
-    // Returns edges on valid paths (may include multiple paths if they exist).
-    let script = format!(
-        r#"
-        # Base case: direct calls from the source function
-        trace[depth, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line] :=
-            *calls{{project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line}},
-            caller_module == $from_module,
-            caller_function == $from_function
-            {project_cond},
-            depth = 1
-
-        # Recursive case: continue from callees we've found
-        # Note: caller_function has arity suffix (e.g., "foo/2") but callee_function doesn't (e.g., "foo")
-        # So we use starts_with to match caller_function starting with prev_callee_function
-        trace[depth, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line] :=
-            trace[prev_depth, _, _, prev_callee_module, prev_callee_function, _, _, _],
-            *calls{{project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line}},
-            caller_module == prev_callee_module,
-            starts_with(caller_function, prev_callee_function),
-            prev_depth < {max_depth},
-            depth = prev_depth + 1
-            {project_cond}
-
-        # Find the depth at which we reach the target
-        target_depth[d] :=
-            trace[d, _, _, callee_module, callee_function, callee_arity, _, _],
-            callee_module == $to_module,
-            callee_function == $to_function
-            {to_arity_cond}
-
-        # Only return edges at depths <= minimum target depth (edges on valid paths)
-        ?[depth, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line] :=
-            trace[depth, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line],
-            target_depth[min_d],
-            depth <= min_d
-
-        :order depth, caller_module, caller_function, callee_module, callee_function
-        :limit {limit}
-        "#,
-    );
-
-    let mut params = Params::new();
-    params.insert("from_module".to_string(), DataValue::Str(from_module.into()));
-    params.insert("from_function".to_string(), DataValue::Str(from_function.into()));
-    params.insert("to_module".to_string(), DataValue::Str(to_module.into()));
-    params.insert("to_function".to_string(), DataValue::Str(to_function.into()));
-    if let Some(a) = to_arity {
-        params.insert("to_arity".to_string(), DataValue::from(a));
-    }
-    params.insert("project".to_string(), DataValue::Str(project.into()));
-
-    let rows = run_query(db, &script, params).map_err(|e| PathError::QueryFailed {
+    let compiled = CompiledQuery::from_builder(&builder, db)?;
+    let rows = run_query(db, &compiled.script, compiled.params).map_err(|e| PathError::QueryFailed {
         message: e.to_string(),
     })?;
 
@@ -234,4 +307,95 @@ fn dfs_find_paths(
 
     // Backtrack
     current_path.pop();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::open_mem_db;
+
+    #[test]
+    fn test_path_query_cozo_basic() {
+        let builder = PathQueryBuilder {
+            from_module: "MyApp.Controller".to_string(),
+            from_function: "handle_request".to_string(),
+            from_arity: None,
+            to_module: "MyApp.Repo".to_string(),
+            to_function: "insert".to_string(),
+            to_arity: None,
+            project: "myproject".to_string(),
+            max_depth: 10,
+            limit: 100,
+        };
+
+        let backend = open_mem_db(true).unwrap();
+        let compiled = builder.compile(backend.as_ref()).unwrap();
+
+        // Verify recursive structure with target filtering
+        assert!(compiled.contains("trace[depth"));
+        assert!(compiled.contains("target_depth"));
+        assert!(compiled.contains("$from_module"));
+        assert!(compiled.contains("$to_module"));
+        assert!(compiled.contains("depth <= min_d"));
+    }
+
+    #[test]
+    fn test_path_query_cozo_with_arity() {
+        let builder = PathQueryBuilder {
+            from_module: "MyApp".to_string(),
+            from_function: "start".to_string(),
+            from_arity: Some(0),
+            to_module: "MyApp.DB".to_string(),
+            to_function: "query".to_string(),
+            to_arity: Some(2),
+            project: "myproject".to_string(),
+            max_depth: 5,
+            limit: 50,
+        };
+
+        let backend = open_mem_db(true).unwrap();
+        let compiled = builder.compile(backend.as_ref()).unwrap();
+
+        assert!(compiled.contains("callee_arity == $to_arity"));
+    }
+
+    #[test]
+    fn test_path_query_age() {
+        let builder = PathQueryBuilder {
+            from_module: "MyApp".to_string(),
+            from_function: "start".to_string(),
+            from_arity: None,
+            to_module: "MyApp.Target".to_string(),
+            to_function: "end".to_string(),
+            to_arity: None,
+            project: "myproject".to_string(),
+            max_depth: 5,
+            limit: 100,
+        };
+
+        let compiled = builder.compile_age().unwrap();
+
+        assert!(compiled.contains("MATCH"));
+        assert!(compiled.contains("CALLS*1..5"));
+        assert!(compiled.contains("source.module"));
+        assert!(compiled.contains("target.module"));
+    }
+
+    #[test]
+    fn test_path_query_parameters() {
+        let builder = PathQueryBuilder {
+            from_module: "A".to_string(),
+            from_function: "a".to_string(),
+            from_arity: None,
+            to_module: "B".to_string(),
+            to_function: "b".to_string(),
+            to_arity: Some(1),
+            project: "proj".to_string(),
+            max_depth: 3,
+            limit: 10,
+        };
+
+        let params = builder.parameters();
+        assert_eq!(params.len(), 6); // from_module, from_function, to_module, to_function, to_arity, project
+    }
 }
