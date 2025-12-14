@@ -40,3 +40,5 @@ pub use definition::{DataType, SchemaField, SchemaRelation, SchemaRelationship};
 pub use relations::{ALL_RELATIONS, CALLS, FUNCTION_LOCATIONS, FUNCTIONS, MODULES, SPECS, STRUCT_FIELDS, TYPES};
 #[allow(unused_imports)]
 pub use migrations::{get_current_version, run_migrations, update_version, MigrationSet};
+#[allow(unused_imports)]
+pub use compilers::CozoCompiler;

@@ -3,11 +3,54 @@
 use std::error::Error;
 use std::path::Path;
 
-use cozo::{DbInstance, NamedRows, ScriptMutability};
+use cozo::{DataValue, DbInstance, NamedRows, ScriptMutability};
 
 use super::backend::{DatabaseBackend, Params, QueryResult};
-use super::schema::{run_migrations, SchemaRelation};
+use super::escape::escape_string;
+use super::schema::{run_migrations, SchemaRelation, CozoCompiler};
 use super::DbError;
+
+/// Format a row of DataValues as a Cozo array literal.
+///
+/// Converts each DataValue to its Cozo representation:
+/// - String: `"value"` (double quotes, escaped)
+/// - Int: `123`
+/// - Float: `1.23`
+/// - Bool: `true` or `false`
+/// - Null: `null`
+/// - List: `[item1, item2, ...]` (nested, with items formatted recursively)
+///
+/// # Example
+/// ```rust
+/// let row = vec![
+///     DataValue::Str("MyApp".into()),
+///     DataValue::Num(cozo::Num::Int(42)),
+///     DataValue::Bool(true),
+/// ];
+/// assert_eq!(format_cozo_row(&row), r#"["MyApp", 42, true]"#);
+/// ```
+fn format_cozo_row(row: &[DataValue]) -> String {
+    let values: Vec<String> = row.iter().map(format_cozo_value).collect();
+    format!("[{}]", values.join(", "))
+}
+
+/// Format a single DataValue for use in Cozo literals.
+fn format_cozo_value(v: &DataValue) -> String {
+    match v {
+        DataValue::Str(s) => format!(r#""{}""#, escape_string(s)),
+        DataValue::Num(n) => match n {
+            cozo::Num::Int(i) => i.to_string(),
+            cozo::Num::Float(f) => f.to_string(),
+        },
+        DataValue::Bool(b) => b.to_string(),
+        DataValue::Null => "null".to_string(),
+        DataValue::List(l) => {
+            let items: Vec<String> = l.iter().map(format_cozo_value).collect();
+            format!("[{}]", items.join(", "))
+        }
+        _ => "null".to_string(), // Fallback for other types
+    }
+}
 
 /// CozoDB backend using SQLite storage.
 pub struct CozoSqliteBackend {
@@ -74,18 +117,47 @@ impl DatabaseBackend for CozoSqliteBackend {
 
     fn insert_rows(
         &self,
-        _relation: &SchemaRelation,
-        _rows: Vec<Vec<cozo::DataValue>>,
+        relation: &SchemaRelation,
+        rows: Vec<Vec<DataValue>>,
     ) -> Result<usize, Box<dyn Error>> {
-        todo!("insert_rows implementation pending for Ticket #54b")
+        if rows.is_empty() {
+            return Ok(0);
+        }
+
+        let row_count = rows.len();
+
+        // Convert rows to Cozo row literal format
+        let row_literals: Vec<String> = rows.iter().map(|row| format_cozo_row(row)).collect();
+
+        // Chunk for large imports
+        const CHUNK_SIZE: usize = 500;
+        for chunk in row_literals.chunks(CHUNK_SIZE) {
+            let script = CozoCompiler::compile_insert(relation, &chunk.to_vec());
+            self.execute_query_no_params(&script)?;
+        }
+
+        Ok(row_count)
     }
 
     fn delete_by_project(
         &self,
-        _relation: &SchemaRelation,
-        _project: &str,
+        relation: &SchemaRelation,
+        project: &str,
     ) -> Result<usize, Box<dyn Error>> {
-        todo!("delete_by_project implementation pending for Ticket #54c")
+        let script = CozoCompiler::compile_delete_by_project(relation);
+        let mut params = Params::new();
+        params.insert("project".to_string(), DataValue::Str(project.into()));
+        self.execute_query(&script, &params)?;
+        Ok(0) // Cozo doesn't return delete count
+    }
+
+    fn upsert_rows(
+        &self,
+        relation: &SchemaRelation,
+        rows: Vec<Vec<DataValue>>,
+    ) -> Result<usize, Box<dyn Error>> {
+        // Cozo :put is already an upsert
+        self.insert_rows(relation, rows)
     }
 
     fn as_db_instance(&self) -> &cozo::DbInstance {
@@ -161,18 +233,47 @@ impl DatabaseBackend for CozoMemBackend {
 
     fn insert_rows(
         &self,
-        _relation: &SchemaRelation,
-        _rows: Vec<Vec<cozo::DataValue>>,
+        relation: &SchemaRelation,
+        rows: Vec<Vec<DataValue>>,
     ) -> Result<usize, Box<dyn Error>> {
-        todo!("insert_rows implementation pending for Ticket #54b")
+        if rows.is_empty() {
+            return Ok(0);
+        }
+
+        let row_count = rows.len();
+
+        // Convert rows to Cozo row literal format
+        let row_literals: Vec<String> = rows.iter().map(|row| format_cozo_row(row)).collect();
+
+        // Chunk for large imports
+        const CHUNK_SIZE: usize = 500;
+        for chunk in row_literals.chunks(CHUNK_SIZE) {
+            let script = CozoCompiler::compile_insert(relation, &chunk.to_vec());
+            self.execute_query_no_params(&script)?;
+        }
+
+        Ok(row_count)
     }
 
     fn delete_by_project(
         &self,
-        _relation: &SchemaRelation,
-        _project: &str,
+        relation: &SchemaRelation,
+        project: &str,
     ) -> Result<usize, Box<dyn Error>> {
-        todo!("delete_by_project implementation pending for Ticket #54c")
+        let script = CozoCompiler::compile_delete_by_project(relation);
+        let mut params = Params::new();
+        params.insert("project".to_string(), DataValue::Str(project.into()));
+        self.execute_query(&script, &params)?;
+        Ok(0) // Cozo doesn't return delete count
+    }
+
+    fn upsert_rows(
+        &self,
+        relation: &SchemaRelation,
+        rows: Vec<Vec<DataValue>>,
+    ) -> Result<usize, Box<dyn Error>> {
+        // Cozo :put is already an upsert
+        self.insert_rows(relation, rows)
     }
 
     fn as_db_instance(&self) -> &cozo::DbInstance {
@@ -242,6 +343,7 @@ pub fn open_mem_db_empty() -> Result<Box<dyn DatabaseBackend>, Box<dyn Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::schema::MODULES;
 
     #[test]
     fn test_cozosqlite_backend_name() {
@@ -290,5 +392,192 @@ mod tests {
             .try_create_relation(schema)
             .expect("Failed on second creation");
         assert!(!second_result);
+    }
+
+    #[test]
+    fn test_format_cozo_row_strings() {
+        let row = vec![
+            DataValue::Str("MyApp".into()),
+            DataValue::Str("test".into()),
+        ];
+        let formatted = format_cozo_row(&row);
+        assert_eq!(formatted, r#"["MyApp", "test"]"#);
+    }
+
+    #[test]
+    fn test_format_cozo_row_mixed() {
+        let row = vec![
+            DataValue::Str("proj".into()),
+            DataValue::Num(cozo::Num::Int(42)),
+            DataValue::Bool(true),
+        ];
+        let formatted = format_cozo_row(&row);
+        assert_eq!(formatted, r#"["proj", 42, true]"#);
+    }
+
+    #[test]
+    fn test_format_cozo_row_escaping() {
+        let row = vec![
+            DataValue::Str(r#"value with "quotes""#.into()),
+        ];
+        let formatted = format_cozo_row(&row);
+        assert!(formatted.contains(r#"\""#) || formatted.contains(r#""""#));
+    }
+
+    #[test]
+    fn test_format_cozo_row_null() {
+        let row = vec![
+            DataValue::Str("test".into()),
+            DataValue::Null,
+        ];
+        let formatted = format_cozo_row(&row);
+        assert_eq!(formatted, r#"["test", null]"#);
+    }
+
+    #[test]
+    fn test_insert_rows_empty() {
+        let db = open_mem_db(true).unwrap();
+        let result = db.insert_rows(&MODULES, vec![]).unwrap();
+        assert_eq!(result, 0);
+    }
+
+    #[test]
+    fn test_insert_rows_modules() {
+        let db = open_mem_db(true).unwrap();
+
+        let rows = vec![
+            vec![
+                DataValue::Str("test_proj".into()),
+                DataValue::Str("MyApp".into()),
+                DataValue::Str("".into()),
+                DataValue::Str("unknown".into()),
+            ],
+        ];
+
+        let result = db.insert_rows(&MODULES, rows).unwrap();
+        assert_eq!(result, 1);
+
+        // Verify data was inserted
+        let query_result = db.execute_query_no_params(
+            "?[project, name] := *modules{project, name}"
+        ).unwrap();
+        assert_eq!(query_result.rows.len(), 1);
+    }
+
+    #[test]
+    fn test_delete_by_project() {
+        let db = open_mem_db(true).unwrap();
+
+        // Insert some data
+        let rows = vec![
+            vec![
+                DataValue::Str("proj1".into()),
+                DataValue::Str("MyApp".into()),
+                DataValue::Str("".into()),
+                DataValue::Str("unknown".into()),
+            ],
+            vec![
+                DataValue::Str("proj2".into()),
+                DataValue::Str("OtherApp".into()),
+                DataValue::Str("".into()),
+                DataValue::Str("unknown".into()),
+            ],
+        ];
+        db.insert_rows(&MODULES, rows).unwrap();
+
+        // Verify initial count
+        let before = db.execute_query_no_params(
+            "?[project, name] := *modules{project, name}"
+        ).unwrap();
+        assert_eq!(before.rows.len(), 2);
+
+        // Delete proj1 - this should succeed without error
+        let result = db.delete_by_project(&MODULES, "proj1");
+        assert!(result.is_ok(), "delete_by_project should succeed");
+
+        // Verify deletion happened (rows decreased)
+        let after = db.execute_query_no_params(
+            "?[project, name] := *modules{project, name}"
+        ).unwrap();
+        // The row count should be less than before deletion
+        assert!(after.rows.len() < before.rows.len(),
+            "Row count should decrease after deletion (before: {}, after: {})",
+            before.rows.len(),
+            after.rows.len());
+    }
+
+    #[test]
+    fn test_upsert_rows_insert() {
+        let db = open_mem_db(true).unwrap();
+
+        let rows = vec![
+            vec![
+                DataValue::Str("test_proj".into()),
+                DataValue::Str("MyApp".into()),
+                DataValue::Str("lib/app.ex".into()),
+                DataValue::Str("unknown".into()),
+            ],
+        ];
+
+        let result = db.upsert_rows(&MODULES, rows).unwrap();
+        assert_eq!(result, 1);
+    }
+
+    #[test]
+    fn test_upsert_rows_update() {
+        let db = open_mem_db(true).unwrap();
+
+        // Insert initial data
+        let initial = vec![
+            vec![
+                DataValue::Str("test_proj".into()),
+                DataValue::Str("MyApp".into()),
+                DataValue::Str("".into()),
+                DataValue::Str("unknown".into()),
+            ],
+        ];
+        db.insert_rows(&MODULES, initial).unwrap();
+
+        // Upsert with updated file
+        let updated = vec![
+            vec![
+                DataValue::Str("test_proj".into()),
+                DataValue::Str("MyApp".into()),
+                DataValue::Str("lib/app.ex".into()), // Updated
+                DataValue::Str("elixir".into()), // Updated
+            ],
+        ];
+        db.upsert_rows(&MODULES, updated).unwrap();
+
+        // Verify update (still 1 row, but with new values)
+        let query_result = db.execute_query_no_params(
+            "?[project, name, file, source] := *modules{project, name, file, source}"
+        ).unwrap();
+        assert_eq!(query_result.rows.len(), 1);
+    }
+
+    #[test]
+    fn test_insert_rows_chunking() {
+        let db = open_mem_db(true).unwrap();
+
+        // Create more rows than CHUNK_SIZE to test chunking
+        let rows: Vec<Vec<DataValue>> = (0..600)
+            .map(|i| vec![
+                DataValue::Str("test_proj".into()),
+                DataValue::Str(format!("Module{}", i).into()),
+                DataValue::Str("".into()),
+                DataValue::Str("unknown".into()),
+            ])
+            .collect();
+
+        let result = db.insert_rows(&MODULES, rows).unwrap();
+        assert_eq!(result, 600);
+
+        // Verify all were inserted by checking that we can retrieve them
+        let query_result = db.execute_query_no_params(
+            "?[project, name] := *modules{project, name}"
+        ).unwrap();
+        // Should have successfully inserted all 600 rows
+        assert_eq!(query_result.rows.len(), 600, "All 600 rows should be inserted and retrievable");
     }
 }
