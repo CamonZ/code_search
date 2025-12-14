@@ -1,3 +1,4 @@
+use crate::db::DatabaseBackend;
 use std::error::Error;
 
 use cozo::{DataValue, Num};
@@ -29,7 +30,7 @@ pub struct FunctionLocation {
 }
 
 pub fn find_locations(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     module_pattern: Option<&str>,
     function_pattern: &str,
     arity: Option<i64>,

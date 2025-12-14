@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use super::PathCmd;
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 use crate::queries::path::{find_paths, CallPath};
 
 /// Result of the path command execution
@@ -20,7 +21,7 @@ pub struct PathResult {
 impl Execute for PathCmd {
     type Output = PathResult;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         let mut result = PathResult {
             from_module: self.from_module.clone(),
             from_function: self.from_function.clone(),

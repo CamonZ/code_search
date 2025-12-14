@@ -1,9 +1,10 @@
 use std::error::Error;
-use cozo::DbInstance;
+
 use serde::Serialize;
 
 use super::SetupCmd;
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 use crate::queries::schema;
 
 /// Status of a database relation (table)
@@ -35,7 +36,7 @@ pub struct SetupResult {
 impl Execute for SetupCmd {
     type Output = SetupResult;
 
-    fn execute(self, db: &DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         let mut relations = Vec::new();
 
         if self.dry_run {
@@ -110,8 +111,7 @@ mod tests {
         };
 
         let backend = open_db(db_file.path()).expect("Failed to open db");
-        let db = backend.as_db_instance();
-        let result = cmd.execute(db).expect("Setup should succeed");
+        let result = cmd.execute(backend.as_ref()).expect("Setup should succeed");
 
         // Should create 7 relations
         assert_eq!(result.relations.len(), 7);
@@ -128,14 +128,14 @@ mod tests {
     #[rstest]
     fn test_setup_idempotent(db_file: NamedTempFile) {
         let backend = open_db(db_file.path()).expect("Failed to open db");
-        let db = backend.as_db_instance();
+        
 
         // First setup
         let cmd1 = SetupCmd {
             force: false,
             dry_run: false,
         };
-        let result1 = cmd1.execute(db).expect("First setup should succeed");
+        let result1 = cmd1.execute(backend.as_ref()).expect("First setup should succeed");
         assert!(result1.created_new);
 
         // Second setup should find existing relations
@@ -143,7 +143,7 @@ mod tests {
             force: false,
             dry_run: false,
         };
-        let result2 = cmd2.execute(db).expect("Second setup should succeed");
+        let result2 = cmd2.execute(backend.as_ref()).expect("Second setup should succeed");
 
         // Should still have 7 relations, but all already existing
         assert_eq!(result2.relations.len(), 7);
@@ -163,8 +163,8 @@ mod tests {
         };
 
         let backend = open_db(db_file.path()).expect("Failed to open db");
-        let db = backend.as_db_instance();
-        let result = cmd.execute(db).expect("Setup should succeed");
+        
+        let result = cmd.execute(backend.as_ref()).expect("Setup should succeed");
 
         assert!(result.dry_run);
         assert_eq!(result.relations.len(), 7);
@@ -187,8 +187,8 @@ mod tests {
         };
 
         let backend = open_db(db_file.path()).expect("Failed to open db");
-        let db = backend.as_db_instance();
-        let result = cmd.execute(db).expect("Setup should succeed");
+        
+        let result = cmd.execute(backend.as_ref()).expect("Setup should succeed");
 
         let relation_names: Vec<_> = result.relations.iter().map(|r| r.name.as_str()).collect();
 

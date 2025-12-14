@@ -1,3 +1,4 @@
+use crate::db::DatabaseBackend;
 use std::error::Error;
 
 use cozo::DataValue;
@@ -26,7 +27,7 @@ pub struct ManyClauses {
 }
 
 pub fn find_many_clauses(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     min_clauses: i64,
     module_pattern: Option<&str>,
     project: &str,

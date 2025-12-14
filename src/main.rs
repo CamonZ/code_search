@@ -22,8 +22,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let config = DatabaseConfig::resolve(&args.db)?;
     let backend = config.connect()?;
-    let db = backend.as_db_instance();
-    let output = args.command.run(db, args.format)?;
+    let output = args.command.run(backend.as_ref(), args.format)?;
     println!("{}", output);
     Ok(())
 }

@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use super::UnusedCmd;
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 use crate::queries::unused::{find_unused_functions, UnusedFunction};
 use crate::types::ModuleCollectionResult;
 
@@ -49,7 +50,7 @@ impl ModuleCollectionResult<UnusedFunc> {
 impl Execute for UnusedCmd {
     type Output = ModuleCollectionResult<UnusedFunc>;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         let functions = find_unused_functions(
             db,
             self.module.as_deref(),

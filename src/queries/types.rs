@@ -1,3 +1,4 @@
+use crate::db::DatabaseBackend;
 use std::error::Error;
 
 use cozo::DataValue;
@@ -25,7 +26,7 @@ pub struct TypeInfo {
 }
 
 pub fn find_types(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     module_pattern: &str,
     name_filter: Option<&str>,
     kind_filter: Option<&str>,

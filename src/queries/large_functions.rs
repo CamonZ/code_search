@@ -1,3 +1,4 @@
+use crate::db::DatabaseBackend;
 use std::error::Error;
 
 use cozo::DataValue;
@@ -26,7 +27,7 @@ pub struct LargeFunction {
 }
 
 pub fn find_large_functions(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     min_lines: i64,
     module_pattern: Option<&str>,
     project: &str,

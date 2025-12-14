@@ -7,9 +7,9 @@ mod output_tests;
 use std::error::Error;
 
 use clap::Args;
-use cozo::DbInstance;
 
 use crate::commands::{CommandRunner, CommonArgs, Execute};
+use crate::db::DatabaseBackend;
 use crate::output::{OutputFormat, Outputable};
 
 /// Find where a function is defined (file:line_start:line_end)
@@ -38,7 +38,7 @@ pub struct LocationCmd {
 }
 
 impl CommandRunner for LocationCmd {
-    fn run(self, db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>> {
+    fn run(self, db: &dyn DatabaseBackend, format: OutputFormat) -> Result<String, Box<dyn Error>> {
         let result = self.execute(db)?;
         Ok(result.format(format))
     }

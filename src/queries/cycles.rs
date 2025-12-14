@@ -6,6 +6,7 @@
 //! 3. Detect modules that can reach themselves (cycles)
 //! 4. Return cycle edges for reconstruction by the command
 
+use crate::db::DatabaseBackend;
 use std::error::Error;
 
 use cozo::DataValue;
@@ -23,7 +24,7 @@ pub struct CycleEdge {
 ///
 /// Returns edges (from, to) where both modules are part of at least one cycle.
 pub fn find_cycle_edges(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     project: &str,
     module_pattern: Option<&str>,
 ) -> Result<Vec<CycleEdge>, Box<dyn Error>> {

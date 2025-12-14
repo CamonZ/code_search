@@ -3,20 +3,20 @@
 use std::collections::BTreeMap;
 use std::error::Error;
 
-use cozo::{DataValue, DbInstance, NamedRows, ScriptMutability};
+use cozo::{DataValue, NamedRows, ScriptMutability};
 
-use super::DbError;
+use super::{DbError, DatabaseBackend};
 
 /// Type alias for query parameters.
 pub type Params = BTreeMap<String, DataValue>;
 
 /// Run a mutable query (insert, delete, create, etc.)
 pub fn run_query(
-    db: &DbInstance,
+    db: &dyn DatabaseBackend,
     script: &str,
     params: Params,
 ) -> Result<NamedRows, Box<dyn Error>> {
-    db.run_script(script, params, ScriptMutability::Mutable)
+    db.as_db_instance().run_script(script, params, ScriptMutability::Mutable)
         .map_err(|e| {
             Box::new(DbError::QueryFailed {
                 message: format!("{:?}", e),
@@ -25,12 +25,12 @@ pub fn run_query(
 }
 
 /// Run a mutable query with no parameters
-pub fn run_query_no_params(db: &DbInstance, script: &str) -> Result<NamedRows, Box<dyn Error>> {
+pub fn run_query_no_params(db: &dyn DatabaseBackend, script: &str) -> Result<NamedRows, Box<dyn Error>> {
     run_query(db, script, Params::new())
 }
 
 /// Try to create a relation, returning Ok(true) if created, Ok(false) if already exists
-pub fn try_create_relation(db: &DbInstance, script: &str) -> Result<bool, Box<dyn Error>> {
+pub fn try_create_relation(db: &dyn DatabaseBackend, script: &str) -> Result<bool, Box<dyn Error>> {
     match run_query_no_params(db, script) {
         Ok(_) => Ok(true),
         Err(e) => {

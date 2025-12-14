@@ -5,6 +5,7 @@ use serde::Serialize;
 
 use super::LocationCmd;
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 use crate::queries::location::{find_locations, FunctionLocation};
 
 /// A single clause (definition) of a function
@@ -111,7 +112,7 @@ impl LocationResult {
 impl Execute for LocationCmd {
     type Output = LocationResult;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         let locations = find_locations(
             db,
             self.module.as_deref(),

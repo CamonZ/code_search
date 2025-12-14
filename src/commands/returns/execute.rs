@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use super::ReturnsCmd;
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 use crate::queries::returns::{find_returns, ReturnEntry};
 use crate::types::ModuleGroupResult;
 
@@ -48,7 +49,7 @@ impl ModuleGroupResult<ReturnInfo> {
 impl Execute for ReturnsCmd {
     type Output = ModuleGroupResult<ReturnInfo>;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         let entries = find_returns(
             db,
             &self.pattern,

@@ -5,6 +5,7 @@ use serde::Serialize;
 
 use super::{BrowseModuleCmd, DefinitionKind};
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 use crate::queries::file::find_functions_in_module;
 use crate::queries::specs::find_specs;
 use crate::queries::types::find_types;
@@ -119,7 +120,7 @@ impl Definition {
 impl Execute for BrowseModuleCmd {
     type Output = BrowseModuleResult;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         let mut definitions = Vec::new();
 
         // Determine what to query based on kind filter

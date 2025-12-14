@@ -4,6 +4,7 @@
 //! - `Outgoing`: Find modules that the matched module depends ON (imports/calls into)
 //! - `Incoming`: Find modules that depend on (are depended BY) the matched module
 
+use crate::db::DatabaseBackend;
 use std::error::Error;
 
 use cozo::DataValue;
@@ -58,7 +59,7 @@ impl DependencyDirection {
 ///
 /// Self-references (calls within the same module) are excluded.
 pub fn find_dependencies(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     direction: DependencyDirection,
     module_pattern: &str,
     project: &str,

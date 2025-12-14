@@ -1,3 +1,4 @@
+use crate::db::DatabaseBackend;
 use std::collections::HashMap;
 use std::error::Error;
 
@@ -34,7 +35,7 @@ pub struct CallPath {
 
 #[allow(clippy::too_many_arguments)]
 pub fn find_paths(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     from_module: &str,
     from_function: &str,
     _from_arity: Option<i64>,

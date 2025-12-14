@@ -1,3 +1,4 @@
+use crate::db::DatabaseBackend;
 use std::error::Error;
 
 use cozo::DataValue;
@@ -41,7 +42,7 @@ pub struct FieldInfo {
 }
 
 pub fn find_struct_fields(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     module_pattern: &str,
     project: &str,
     use_regex: bool,

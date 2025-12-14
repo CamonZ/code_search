@@ -1,3 +1,4 @@
+use crate::db::DatabaseBackend;
 use std::error::Error;
 
 use cozo::DataValue;
@@ -40,7 +41,7 @@ const GENERATED_PATTERNS: &[&str] = &[
 ];
 
 pub fn find_unused_functions(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     module_pattern: Option<&str>,
     project: &str,
     use_regex: bool,

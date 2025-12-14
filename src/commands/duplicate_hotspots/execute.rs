@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use super::DuplicateHotspotsCmd;
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 use crate::queries::duplicates::find_duplicates;
 
 /// Result structure for duplicate-hotspots command - ranked by module
@@ -33,7 +34,7 @@ pub struct DuplicateSummary {
 impl Execute for DuplicateHotspotsCmd {
     type Output = DuplicateHotspotsResult;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         let functions = find_duplicates(
             db,
             &self.common.project,

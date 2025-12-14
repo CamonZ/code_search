@@ -5,6 +5,7 @@ use serde::Serialize;
 
 use super::DependedByCmd;
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 use crate::queries::depended_by::find_dependents;
 use crate::types::{Call, ModuleGroupResult, ModuleGroup};
 
@@ -113,7 +114,7 @@ impl ModuleGroupResult<DependentCaller> {
 impl Execute for DependedByCmd {
     type Output = ModuleGroupResult<DependentCaller>;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         let calls = find_dependents(
             db,
             &self.module,

@@ -5,9 +5,9 @@ mod output;
 use std::error::Error;
 
 use clap::Args;
-use cozo::DbInstance;
 
 use crate::commands::{CommandRunner, Execute};
+use crate::db::DatabaseBackend;
 use crate::output::{OutputFormat, Outputable};
 
 /// Display detailed documentation about available commands
@@ -23,7 +23,7 @@ pub struct DescribeCmd {
 }
 
 impl CommandRunner for DescribeCmd {
-    fn run(self, _db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>> {
+    fn run(self, _db: &dyn DatabaseBackend, format: OutputFormat) -> Result<String, Box<dyn Error>> {
         let result = self.execute(_db)?;
         Ok(result.format(format))
     }

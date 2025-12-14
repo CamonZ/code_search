@@ -3,6 +3,7 @@
 //! Returns calls between different modules (no self-calls).
 //! Clusters are computed in Rust by grouping modules by namespace.
 
+use crate::db::DatabaseBackend;
 use std::error::Error;
 
 use cozo::DataValue;
@@ -20,7 +21,7 @@ pub struct ModuleCall {
 ///
 /// Returns calls where caller_module != callee_module.
 /// These are used to compute internal vs external connectivity per namespace cluster.
-pub fn get_module_calls(db: &cozo::DbInstance, project: &str) -> Result<Vec<ModuleCall>, Box<dyn Error>> {
+pub fn get_module_calls(db: &dyn DatabaseBackend, project: &str) -> Result<Vec<ModuleCall>, Box<dyn Error>> {
     let script = r#"
         ?[caller_module, callee_module] :=
             *calls{project, caller_module, callee_module},

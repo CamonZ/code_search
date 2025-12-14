@@ -7,9 +7,9 @@ use std::error::Error;
 use std::path::PathBuf;
 
 use clap::Args;
-use cozo::DbInstance;
 
 use crate::commands::{CommandRunner, Execute};
+use crate::db::DatabaseBackend;
 use crate::output::{OutputFormat, Outputable};
 
 const DEFAULT_PROJECT: &str = "default";
@@ -43,7 +43,7 @@ pub struct ImportCmd {
 }
 
 impl CommandRunner for ImportCmd {
-    fn run(self, db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>> {
+    fn run(self, db: &dyn DatabaseBackend, format: OutputFormat) -> Result<String, Box<dyn Error>> {
         let result = self.execute(db)?;
         Ok(result.format(format))
     }

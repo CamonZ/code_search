@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use super::AcceptsCmd;
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 use crate::queries::accepts::{find_accepts, AcceptsEntry};
 use crate::types::ModuleGroupResult;
 
@@ -50,7 +51,7 @@ impl ModuleGroupResult<AcceptsInfo> {
 impl Execute for AcceptsCmd {
     type Output = ModuleGroupResult<AcceptsInfo>;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         let entries = find_accepts(
             db,
             &self.pattern,

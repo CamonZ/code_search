@@ -1,3 +1,4 @@
+use crate::db::DatabaseBackend;
 use std::error::Error;
 
 use cozo::DataValue;
@@ -27,7 +28,7 @@ pub struct SpecDef {
 }
 
 pub fn find_specs(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     module_pattern: &str,
     function_pattern: Option<&str>,
     kind_filter: Option<&str>,

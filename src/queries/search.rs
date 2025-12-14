@@ -1,3 +1,4 @@
+use crate::db::DatabaseBackend;
 use std::error::Error;
 
 use cozo::DataValue;
@@ -31,7 +32,7 @@ pub struct FunctionResult {
 }
 
 pub fn search_modules(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     pattern: &str,
     project: &str,
     limit: u32,
@@ -70,7 +71,7 @@ pub fn search_modules(
 }
 
 pub fn search_functions(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     pattern: &str,
     project: &str,
     limit: u32,

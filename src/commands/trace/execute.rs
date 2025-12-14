@@ -3,6 +3,7 @@ use std::error::Error;
 
 use super::TraceCmd;
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 use crate::queries::trace::trace_calls;
 use crate::types::{Call, TraceDirection, TraceEntry, TraceResult};
 
@@ -145,7 +146,7 @@ impl TraceResult {
 impl Execute for TraceCmd {
     type Output = TraceResult;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         let calls = trace_calls(
             db,
             &self.module,

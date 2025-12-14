@@ -3,13 +3,14 @@
 //! This is a convenience wrapper around [`super::calls::find_calls`] with
 //! [`CallDirection::From`](super::calls::CallDirection::From).
 
+use crate::db::DatabaseBackend;
 use std::error::Error;
 
 use super::calls::{find_calls, CallDirection};
 use crate::types::Call;
 
 pub fn find_calls_from(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     module_pattern: &str,
     function_pattern: Option<&str>,
     arity: Option<i64>,

@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use super::FunctionCmd;
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 use crate::queries::function::{find_functions, FunctionSignature};
 use crate::types::ModuleGroupResult;
 
@@ -53,7 +54,7 @@ impl ModuleGroupResult<FuncSig> {
 impl Execute for FunctionCmd {
     type Output = ModuleGroupResult<FuncSig>;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         let signatures = find_functions(
             db,
             &self.module,

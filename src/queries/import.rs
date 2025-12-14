@@ -1,6 +1,7 @@
+use crate::db::DatabaseBackend;
 use std::error::Error;
 
-use cozo::{DataValue, DbInstance};
+use cozo::DataValue;
 use serde::Serialize;
 use thiserror::Error;
 
@@ -51,7 +52,7 @@ pub struct SchemaResult {
     pub already_existed: Vec<String>,
 }
 
-pub fn create_schema(db: &DbInstance) -> Result<SchemaResult, Box<dyn Error>> {
+pub fn create_schema(db: &dyn DatabaseBackend) -> Result<SchemaResult, Box<dyn Error>> {
     let mut result = SchemaResult::default();
 
     let schema_results = schema::create_schema(db)?;
@@ -67,7 +68,7 @@ pub fn create_schema(db: &DbInstance) -> Result<SchemaResult, Box<dyn Error>> {
     Ok(result)
 }
 
-pub fn clear_project_data(db: &DbInstance, project: &str) -> Result<(), Box<dyn Error>> {
+pub fn clear_project_data(db: &dyn DatabaseBackend, project: &str) -> Result<(), Box<dyn Error>> {
     // Delete all data for this project from each table
     // Using :rm with a query that selects rows matching the project
     let tables = [
@@ -103,7 +104,7 @@ pub fn clear_project_data(db: &DbInstance, project: &str) -> Result<(), Box<dyn 
 
 /// Import rows in chunks into a CozoDB table
 fn import_rows(
-    db: &DbInstance,
+    db: &dyn DatabaseBackend,
     rows: Vec<String>,
     columns: &str,
     table_spec: &str,
@@ -134,7 +135,7 @@ fn import_rows(
 }
 
 pub fn import_modules(
-    db: &DbInstance,
+    db: &dyn DatabaseBackend,
     project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
@@ -166,7 +167,7 @@ pub fn import_modules(
 }
 
 pub fn import_functions(
-    db: &DbInstance,
+    db: &dyn DatabaseBackend,
     project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
@@ -205,7 +206,7 @@ pub fn import_functions(
 }
 
 pub fn import_calls(
-    db: &DbInstance,
+    db: &dyn DatabaseBackend,
     project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
@@ -245,7 +246,7 @@ pub fn import_calls(
 }
 
 pub fn import_structs(
-    db: &DbInstance,
+    db: &dyn DatabaseBackend,
     project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
@@ -294,7 +295,7 @@ fn parse_function_key(key: &str) -> Option<(String, u32, u32)> {
 }
 
 pub fn import_function_locations(
-    db: &DbInstance,
+    db: &dyn DatabaseBackend,
     project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
@@ -352,7 +353,7 @@ pub fn import_function_locations(
 }
 
 pub fn import_specs(
-    db: &DbInstance,
+    db: &dyn DatabaseBackend,
     project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
@@ -399,7 +400,7 @@ pub fn import_specs(
 }
 
 pub fn import_types(
-    db: &DbInstance,
+    db: &dyn DatabaseBackend,
     project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
@@ -437,7 +438,7 @@ pub fn import_types(
 /// Creates schemas and imports all data (modules, functions, calls, structs, locations).
 /// This is the core import logic used by both the CLI command and test utilities.
 pub fn import_graph(
-    db: &DbInstance,
+    db: &dyn DatabaseBackend,
     project: &str,
     graph: &CallGraph,
 ) -> Result<ImportResult, Box<dyn Error>> {
@@ -460,7 +461,7 @@ pub fn import_graph(
 /// Convenience wrapper for tests that parses JSON and calls `import_graph`.
 #[cfg(test)]
 pub fn import_json_str(
-    db: &DbInstance,
+    db: &dyn DatabaseBackend,
     content: &str,
     project: &str,
 ) -> Result<ImportResult, Box<dyn Error>> {
@@ -578,9 +579,8 @@ mod tests {
 
         let db_file = NamedTempFile::new().expect("Failed to create temp db file");
         let backend = open_db(db_file.path()).expect("Failed to open db");
-        let db = backend.as_db_instance();
 
-        let result = import_json_str(db, json, "test_project").expect("Import should succeed");
+        let result = import_json_str(backend.as_ref(), json, "test_project").expect("Import should succeed");
 
         // Verify import succeeded
         assert_eq!(result.function_locations_imported, 1);

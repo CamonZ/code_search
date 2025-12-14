@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use super::ManyClausesCmd;
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 use crate::queries::many_clauses::find_many_clauses;
 use crate::types::ModuleCollectionResult;
 
@@ -21,7 +22,7 @@ pub struct ManyClausesEntry {
 impl Execute for ManyClausesCmd {
     type Output = ModuleCollectionResult<ManyClausesEntry>;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         let many_clauses = find_many_clauses(
             db,
             self.min_clauses,

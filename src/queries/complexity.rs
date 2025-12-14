@@ -1,3 +1,4 @@
+use crate::db::DatabaseBackend;
 use std::error::Error;
 
 use cozo::DataValue;
@@ -28,7 +29,7 @@ pub struct ComplexityMetric {
 }
 
 pub fn find_complexity_metrics(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     min_complexity: i64,
     min_depth: i64,
     module_pattern: Option<&str>,

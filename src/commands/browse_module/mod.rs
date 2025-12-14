@@ -1,9 +1,9 @@
 use std::error::Error;
 
 use clap::{Parser, ValueEnum};
-use cozo::DbInstance;
 
 use crate::commands::{CommandRunner, CommonArgs, Execute};
+use crate::db::DatabaseBackend;
 use crate::output::{OutputFormat, Outputable};
 use serde::Serialize;
 
@@ -72,7 +72,7 @@ impl std::fmt::Display for DefinitionKind {
 }
 
 impl CommandRunner for BrowseModuleCmd {
-    fn run(self, db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>> {
+    fn run(self, db: &dyn DatabaseBackend, format: OutputFormat) -> Result<String, Box<dyn Error>> {
         let result = self.execute(db)?;
         Ok(result.format(format))
     }

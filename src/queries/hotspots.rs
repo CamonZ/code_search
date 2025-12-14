@@ -1,3 +1,4 @@
+use crate::db::DatabaseBackend;
 use std::error::Error;
 
 use clap::ValueEnum;
@@ -42,7 +43,7 @@ pub struct Hotspot {
 
 /// Get function count per module
 pub fn get_function_counts(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     project: &str,
     module_pattern: Option<&str>,
     use_regex: bool,
@@ -92,7 +93,7 @@ pub fn get_function_counts(
 }
 
 pub fn find_hotspots(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     kind: HotspotKind,
     module_pattern: Option<&str>,
     project: &str,

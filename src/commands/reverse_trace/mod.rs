@@ -7,9 +7,9 @@ mod output_tests;
 use std::error::Error;
 
 use clap::Args;
-use cozo::DbInstance;
 
 use crate::commands::{CommandRunner, CommonArgs, Execute};
+use crate::db::DatabaseBackend;
 use crate::output::{OutputFormat, Outputable};
 
 /// Trace call chains backwards - who calls the callers of a target
@@ -41,7 +41,7 @@ pub struct ReverseTraceCmd {
 }
 
 impl CommandRunner for ReverseTraceCmd {
-    fn run(self, db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>> {
+    fn run(self, db: &dyn DatabaseBackend, format: OutputFormat) -> Result<String, Box<dyn Error>> {
         let result = self.execute(db)?;
         Ok(result.format(format))
     }

@@ -1,3 +1,4 @@
+use crate::db::DatabaseBackend;
 use std::error::Error;
 
 use cozo::DataValue;
@@ -31,7 +32,7 @@ pub struct FileFunctionDef {
 /// Find all functions in modules matching a pattern
 /// Returns a flat vec of functions with location info (for browse-module)
 pub fn find_functions_in_module(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     module_pattern: &str,
     project: &str,
     use_regex: bool,

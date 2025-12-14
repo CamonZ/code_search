@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use super::CallsToCmd;
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 use crate::queries::calls_to::find_calls_to;
 use crate::types::{Call, ModuleGroupResult};
 use crate::utils::group_calls;
@@ -68,7 +69,7 @@ struct CalleeFunctionKey {
 impl Execute for CallsToCmd {
     type Output = ModuleGroupResult<CalleeFunction>;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         let calls = find_calls_to(
             db,
             &self.module,

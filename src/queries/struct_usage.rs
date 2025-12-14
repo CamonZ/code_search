@@ -1,3 +1,4 @@
+use crate::db::DatabaseBackend;
 use std::error::Error;
 
 use cozo::DataValue;
@@ -25,7 +26,7 @@ pub struct StructUsageEntry {
 }
 
 pub fn find_struct_usage(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     pattern: &str,
     project: &str,
     use_regex: bool,

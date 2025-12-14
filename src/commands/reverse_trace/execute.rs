@@ -3,6 +3,7 @@ use std::error::Error;
 
 use super::ReverseTraceCmd;
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 use crate::queries::reverse_trace::{reverse_trace_calls, ReverseTraceStep};
 use crate::types::{TraceDirection, TraceEntry, TraceResult};
 
@@ -118,7 +119,7 @@ impl TraceResult {
 impl Execute for ReverseTraceCmd {
     type Output = TraceResult;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         let steps = reverse_trace_calls(
             db,
             &self.module,

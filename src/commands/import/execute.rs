@@ -1,17 +1,16 @@
 use std::error::Error;
 use std::fs;
 
-use cozo::DbInstance;
-
 use super::ImportCmd;
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 use crate::queries::import::{clear_project_data, import_graph, ImportError, ImportResult};
 use crate::queries::import_models::CallGraph;
 
 impl Execute for ImportCmd {
     type Output = ImportResult;
 
-    fn execute(self, db: &DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         // Read and parse call graph
         let content = fs::read_to_string(&self.file).map_err(|e| ImportError::FileReadFailed {
             path: self.file.display().to_string(),
@@ -128,8 +127,8 @@ mod tests {
             clear: false,
         };
         let backend = open_db(db_file.path()).expect("Failed to open db");
-        let db = backend.as_db_instance();
-        cmd.execute(db).expect("Import should succeed")
+        
+        cmd.execute(backend.as_ref()).expect("Import should succeed")
     }
 
     #[rstest]
@@ -171,8 +170,8 @@ mod tests {
             clear: false,
         };
         let backend = open_db(db_file.path()).expect("Failed to open db");
-        let db = backend.as_db_instance();
-        cmd1.execute(db)
+        
+        cmd1.execute(backend.as_ref())
             .expect("First import should succeed");
 
         // Second import with clear
@@ -182,7 +181,7 @@ mod tests {
             clear: true,
         };
         let result = cmd2
-            .execute(db)
+            .execute(backend.as_ref())
             .expect("Second import should succeed");
 
         assert!(result.cleared);
@@ -207,8 +206,8 @@ mod tests {
         };
 
         let backend = open_db(db_file.path()).expect("Failed to open db");
-        let db = backend.as_db_instance();
-        let result = cmd.execute(db).expect("Import should succeed");
+        
+        let result = cmd.execute(backend.as_ref()).expect("Import should succeed");
 
         assert_eq!(result.modules_imported, 0);
         assert_eq!(result.functions_imported, 0);
@@ -229,8 +228,8 @@ mod tests {
         };
 
         let backend = open_db(db_file.path()).expect("Failed to open db");
-        let db = backend.as_db_instance();
-        let result = cmd.execute(db);
+        
+        let result = cmd.execute(backend.as_ref());
         assert!(result.is_err());
     }
 
@@ -243,8 +242,8 @@ mod tests {
         };
 
         let backend = open_db(db_file.path()).expect("Failed to open db");
-        let db = backend.as_db_instance();
-        let result = cmd.execute(db);
+        
+        let result = cmd.execute(backend.as_ref());
         assert!(result.is_err());
     }
 }

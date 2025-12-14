@@ -1,3 +1,4 @@
+use crate::db::DatabaseBackend;
 use std::error::Error;
 
 use cozo::DataValue;
@@ -24,7 +25,7 @@ pub struct DuplicateFunction {
 }
 
 pub fn find_duplicates(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     project: &str,
     module_pattern: Option<&str>,
     use_regex: bool,

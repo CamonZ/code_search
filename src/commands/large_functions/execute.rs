@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use super::LargeFunctionsCmd;
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 use crate::queries::large_functions::find_large_functions;
 use crate::types::ModuleCollectionResult;
 
@@ -21,7 +22,7 @@ pub struct LargeFunctionEntry {
 impl Execute for LargeFunctionsCmd {
     type Output = ModuleCollectionResult<LargeFunctionEntry>;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         let large_functions = find_large_functions(
             db,
             self.min_lines,

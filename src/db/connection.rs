@@ -151,12 +151,19 @@ pub fn open_db(path: &Path) -> Result<Box<dyn DatabaseBackend>, Box<dyn Error>> 
     Ok(Box::new(CozoSqliteBackend::new(db)))
 }
 
-/// Create a raw in-memory DbInstance for test utilities.
+/// Create an in-memory database backend for test utilities.
 ///
-/// Used until Ticket #44 updates Execute trait to accept `&dyn DatabaseBackend`.
+/// Returns a boxed DatabaseBackend trait object wrapping an in-memory CozoDB instance.
+/// Used by test fixtures after Ticket #44.
 #[cfg(test)]
-pub fn open_mem_db_raw() -> DbInstance {
-    DbInstance::new("mem", "", "").expect("Failed to create in-memory DB")
+pub fn open_mem_db() -> Result<Box<dyn DatabaseBackend>, Box<dyn Error>> {
+    let db = DbInstance::new("mem", "", "").map_err(|e| {
+        Box::new(DbError::OpenFailed {
+            path: "mem".to_string(),
+            message: format!("{:?}", e),
+        }) as Box<dyn Error>
+    })?;
+    Ok(Box::new(CozoMemBackend::new(db)))
 }
 
 #[cfg(test)]

@@ -5,6 +5,7 @@ use serde::Serialize;
 
 use super::{SearchCmd, SearchKind};
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 use crate::queries::search::{search_functions, search_modules, FunctionResult as RawFunctionResult, ModuleResult};
 
 /// A function found in search results
@@ -72,7 +73,7 @@ impl SearchResult {
 impl Execute for SearchCmd {
     type Output = SearchResult;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         match self.kind {
             SearchKind::Modules => {
                 let modules = search_modules(db, &self.pattern, &self.common.project, self.common.limit, self.common.regex)?;

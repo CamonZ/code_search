@@ -3,13 +3,14 @@
 //! This is a convenience wrapper around [`super::dependencies::find_dependencies`] with
 //! [`DependencyDirection::Outgoing`](super::dependencies::DependencyDirection::Outgoing).
 
+use crate::db::DatabaseBackend;
 use std::error::Error;
 
 use super::dependencies::{find_dependencies as query_dependencies, DependencyDirection};
 use crate::types::Call;
 
 pub fn find_dependencies(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     module_pattern: &str,
     project: &str,
     use_regex: bool,

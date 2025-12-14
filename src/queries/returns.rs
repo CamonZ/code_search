@@ -1,3 +1,4 @@
+use crate::db::DatabaseBackend;
 use std::error::Error;
 
 use cozo::DataValue;
@@ -24,7 +25,7 @@ pub struct ReturnEntry {
 }
 
 pub fn find_returns(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     pattern: &str,
     project: &str,
     use_regex: bool,

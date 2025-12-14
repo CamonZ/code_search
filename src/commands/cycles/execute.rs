@@ -7,6 +7,7 @@ use serde::Serialize;
 
 use super::CyclesCmd;
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 use crate::queries::cycles::find_cycle_edges;
 
 /// A single cycle found in the module dependency graph
@@ -32,7 +33,7 @@ pub struct CyclesResult {
 impl Execute for CyclesCmd {
     type Output = CyclesResult;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         // Get cycle edges from the database
         let edges = find_cycle_edges(
             db,

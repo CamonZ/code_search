@@ -3,9 +3,9 @@ mod output;
 
 use std::error::Error;
 use clap::Args;
-use cozo::DbInstance;
 
 use crate::commands::{CommandRunner, Execute};
+use crate::db::DatabaseBackend;
 use crate::output::{OutputFormat, Outputable};
 
 /// Create database schema without importing data
@@ -26,7 +26,7 @@ pub struct SetupCmd {
 }
 
 impl CommandRunner for SetupCmd {
-    fn run(self, db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>> {
+    fn run(self, db: &dyn DatabaseBackend, format: OutputFormat) -> Result<String, Box<dyn Error>> {
         let result = self.execute(db)?;
         Ok(result.format(format))
     }

@@ -1,3 +1,4 @@
+use crate::db::DatabaseBackend;
 use std::error::Error;
 
 use cozo::DataValue;
@@ -30,7 +31,7 @@ pub struct ReverseTraceStep {
 }
 
 pub fn reverse_trace_calls(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     module_pattern: &str,
     function_pattern: &str,
     arity: Option<i64>,

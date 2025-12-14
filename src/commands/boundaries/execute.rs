@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use super::BoundariesCmd;
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 use crate::queries::hotspots::{find_hotspots, HotspotKind};
 use crate::types::{ModuleCollectionResult, ModuleGroup};
 
@@ -18,7 +19,7 @@ pub struct BoundaryEntry {
 impl Execute for BoundariesCmd {
     type Output = ModuleCollectionResult<BoundaryEntry>;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         // Use find_hotspots with Ratio kind to get modules sorted by ratio
         let hotspots = find_hotspots(
             db,

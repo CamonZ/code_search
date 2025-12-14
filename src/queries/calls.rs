@@ -4,6 +4,7 @@
 //! - `From`: Find all calls made BY the matched functions (outgoing calls)
 //! - `To`: Find all calls made TO the matched functions (incoming calls)
 
+use crate::db::DatabaseBackend;
 use std::error::Error;
 
 use cozo::DataValue;
@@ -54,7 +55,7 @@ impl CallDirection {
 /// - `From`: Returns all calls made by functions matching the pattern
 /// - `To`: Returns all calls to functions matching the pattern
 pub fn find_calls(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     direction: CallDirection,
     module_pattern: &str,
     function_pattern: Option<&str>,

@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use super::StructModulesCmd;
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 
 /// A module and its usage counts for a struct type
 #[derive(Debug, Clone, Serialize)]
@@ -26,7 +27,7 @@ pub struct StructModulesResult {
 impl Execute for StructModulesCmd {
     type Output = StructModulesResult;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         // Reuse the struct_usage query
         let entries = crate::queries::struct_usage::find_struct_usage(
             db,

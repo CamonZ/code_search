@@ -1,3 +1,4 @@
+use crate::db::DatabaseBackend;
 use std::error::Error;
 use std::rc::Rc;
 
@@ -14,7 +15,7 @@ pub enum TraceError {
 }
 
 pub fn trace_calls(
-    db: &cozo::DbInstance,
+    db: &dyn DatabaseBackend,
     module_pattern: &str,
     function_pattern: &str,
     arity: Option<i64>,

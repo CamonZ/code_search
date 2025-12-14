@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use super::StructUsageCmd;
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 use crate::queries::struct_usage::{find_struct_usage, StructUsageEntry};
 use crate::types::ModuleGroupResult;
 
@@ -50,7 +51,7 @@ impl ModuleGroupResult<UsageInfo> {
 impl Execute for StructUsageCmd {
     type Output = ModuleGroupResult<UsageInfo>;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         let entries = find_struct_usage(
             db,
             &self.pattern,

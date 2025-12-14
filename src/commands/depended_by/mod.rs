@@ -7,9 +7,9 @@ mod output_tests;
 use std::error::Error;
 
 use clap::Args;
-use cozo::DbInstance;
 
 use crate::commands::{CommandRunner, CommonArgs, Execute};
+use crate::db::DatabaseBackend;
 use crate::output::{OutputFormat, Outputable};
 
 /// Show what modules depend on a given module (incoming module dependencies)
@@ -28,7 +28,7 @@ pub struct DependedByCmd {
 }
 
 impl CommandRunner for DependedByCmd {
-    fn run(self, db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>> {
+    fn run(self, db: &dyn DatabaseBackend, format: OutputFormat) -> Result<String, Box<dyn Error>> {
         let result = self.execute(db)?;
         Ok(result.format(format))
     }

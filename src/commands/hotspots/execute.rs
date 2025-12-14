@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use super::HotspotsCmd;
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 use crate::queries::hotspots::{find_hotspots, get_function_counts, Hotspot, HotspotKind};
 use crate::types::{ModuleCollectionResult, ModuleGroup};
 
@@ -52,7 +53,7 @@ impl ModuleCollectionResult<HotspotEntry> {
 impl Execute for HotspotsCmd {
     type Output = ModuleCollectionResult<HotspotEntry>;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         let kind_str = match self.kind {
             HotspotKind::Incoming => "incoming".to_string(),
             HotspotKind::Outgoing => "outgoing".to_string(),

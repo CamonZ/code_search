@@ -4,6 +4,7 @@ use serde::Serialize;
 use super::DescribeCmd;
 use super::descriptions::{CommandDescription, get_description, descriptions_by_category};
 use crate::commands::Execute;
+use crate::db::DatabaseBackend;
 
 /// Output for listing all commands by category
 #[derive(Debug, Clone, Serialize)]
@@ -34,7 +35,7 @@ pub struct DescribeResult {
 impl Execute for DescribeCmd {
     type Output = DescribeResult;
 
-    fn execute(self, _db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, _db: &dyn DatabaseBackend) -> Result<Self::Output, Box<dyn Error>> {
         if self.commands.is_empty() {
             // List all commands grouped by category
             let categories_map = descriptions_by_category();
@@ -76,11 +77,13 @@ mod tests {
 
     #[test]
     fn test_describe_all_lists_categories() {
+        use crate::db::open_mem_db;
         let cmd = DescribeCmd {
             commands: vec![],
         };
 
-        let result = cmd.execute(&Default::default()).expect("Should succeed");
+        let db = open_mem_db().expect("Failed to create test database");
+        let result = cmd.execute(db.as_ref()).expect("Should succeed");
 
         match result.mode {
             DescribeMode::ListAll { ref categories } => {
@@ -95,11 +98,13 @@ mod tests {
 
     #[test]
     fn test_describe_specific_command() {
+        use crate::db::open_mem_db;
         let cmd = DescribeCmd {
             commands: vec!["calls-to".to_string()],
         };
 
-        let result = cmd.execute(&Default::default()).expect("Should succeed");
+        let db = open_mem_db().expect("Failed to create test database");
+        let result = cmd.execute(db.as_ref()).expect("Should succeed");
 
         match result.mode {
             DescribeMode::Specific { ref descriptions } => {
@@ -112,6 +117,7 @@ mod tests {
 
     #[test]
     fn test_describe_multiple_commands() {
+        use crate::db::open_mem_db;
         let cmd = DescribeCmd {
             commands: vec![
                 "calls-to".to_string(),
@@ -120,7 +126,8 @@ mod tests {
             ],
         };
 
-        let result = cmd.execute(&Default::default()).expect("Should succeed");
+        let db = open_mem_db().expect("Failed to create test database");
+        let result = cmd.execute(db.as_ref()).expect("Should succeed");
 
         match result.mode {
             DescribeMode::Specific { ref descriptions } => {
@@ -136,11 +143,13 @@ mod tests {
 
     #[test]
     fn test_describe_unknown_command() {
+        use crate::db::open_mem_db;
         let cmd = DescribeCmd {
             commands: vec!["nonexistent".to_string()],
         };
 
-        let result = cmd.execute(&Default::default());
+        let db = open_mem_db().expect("Failed to create test database");
+        let result = cmd.execute(db.as_ref());
         assert!(result.is_err());
     }
 }
