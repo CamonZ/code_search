@@ -36,14 +36,6 @@ pub enum DatabaseConfig {
         password: Option<String>,
         ssl: bool,
     },
-
-    /// Remote CozoDB server (future).
-    RemoteCozo {
-        host: String,
-        port: u16,
-        tls: bool,
-        auth_token: Option<String>,
-    },
 }
 
 impl DatabaseConfig {
@@ -66,9 +58,6 @@ impl DatabaseConfig {
             Self::Postgres { .. } => {
                 return Err("PostgreSQL backend not yet implemented".into());
             }
-            Self::RemoteCozo { .. } => {
-                return Err("Remote Cozo backend not yet implemented".into());
-            }
         };
 
         Ok(backend)
@@ -82,7 +71,6 @@ impl DatabaseConfig {
     /// - `:memory:` → CozoMem
     /// - `rocksdb:///path/to/db` → CozoRocksdb (future)
     /// - `postgres://user:pass@host:port/db` → Postgres (future)
-    /// - `cozo://host:port` → RemoteCozo (future)
     pub fn from_url(url: &str) -> Result<Self, Box<dyn Error>> {
         // Memory database
         if url == ":memory:" {
@@ -102,10 +90,6 @@ impl DatabaseConfig {
 
         if url.starts_with("postgres://") || url.starts_with("postgresql://") {
             return Err("PostgreSQL backend not yet implemented".into());
-        }
-
-        if url.starts_with("cozo://") || url.starts_with("cozo+tcp://") {
-            return Err("Remote Cozo backend not yet implemented".into());
         }
 
         // Default: treat as file path (CozoSqlite)
@@ -299,22 +283,6 @@ mod tests {
     }
 
     #[test]
-    fn test_connect_remote_cozo_not_implemented() {
-        let config = DatabaseConfig::RemoteCozo {
-            host: "localhost".to_string(),
-            port: 9000,
-            tls: false,
-            auth_token: None,
-        };
-        let result = config.connect();
-        assert!(result.is_err());
-        if let Err(e) = result {
-            let err_msg = format!("{}", e);
-            assert!(err_msg.contains("not yet implemented"));
-        }
-    }
-
-    #[test]
     fn test_from_env_none() {
         let _lock = test_lock().lock();
         // Remove env vars if they exist
@@ -368,7 +336,6 @@ mod tests {
             _ => panic!("Expected CozoSqlite"),
         }
     }
-
 
     #[test]
     fn test_resolve_env_fallback() {
