@@ -127,8 +127,9 @@ mod tests {
             project: "test_project".to_string(),
             clear: false,
         };
-        let db = open_db(db_file.path()).expect("Failed to open db");
-        cmd.execute(&db).expect("Import should succeed")
+        let backend = open_db(db_file.path()).expect("Failed to open db");
+        let db = backend.as_db_instance();
+        cmd.execute(db).expect("Import should succeed")
     }
 
     #[rstest]
@@ -169,8 +170,9 @@ mod tests {
             project: "test_project".to_string(),
             clear: false,
         };
-        let db = open_db(db_file.path()).expect("Failed to open db");
-        cmd1.execute(&db)
+        let backend = open_db(db_file.path()).expect("Failed to open db");
+        let db = backend.as_db_instance();
+        cmd1.execute(db)
             .expect("First import should succeed");
 
         // Second import with clear
@@ -180,7 +182,7 @@ mod tests {
             clear: true,
         };
         let result = cmd2
-            .execute(&db)
+            .execute(db)
             .expect("Second import should succeed");
 
         assert!(result.cleared);
@@ -204,8 +206,9 @@ mod tests {
             clear: false,
         };
 
-        let db = open_db(db_file.path()).expect("Failed to open db");
-        let result = cmd.execute(&db).expect("Import should succeed");
+        let backend = open_db(db_file.path()).expect("Failed to open db");
+        let db = backend.as_db_instance();
+        let result = cmd.execute(db).expect("Import should succeed");
 
         assert_eq!(result.modules_imported, 0);
         assert_eq!(result.functions_imported, 0);
@@ -225,8 +228,9 @@ mod tests {
             clear: false,
         };
 
-        let db = open_db(db_file.path()).expect("Failed to open db");
-        let result = cmd.execute(&db);
+        let backend = open_db(db_file.path()).expect("Failed to open db");
+        let db = backend.as_db_instance();
+        let result = cmd.execute(db);
         assert!(result.is_err());
     }
 
@@ -238,8 +242,9 @@ mod tests {
             clear: false,
         };
 
-        let db = open_db(db_file.path()).expect("Failed to open db");
-        let result = cmd.execute(&db);
+        let backend = open_db(db_file.path()).expect("Failed to open db");
+        let db = backend.as_db_instance();
+        let result = cmd.execute(db);
         assert!(result.is_err());
     }
 }

@@ -28,27 +28,29 @@
 //! derive macro limitations) outweighs the type safety benefit. Field names
 //! (`module`, `name`) are sufficiently clear.
 
+mod backend;
 mod connection;
 mod escape;
 mod extraction;
 mod query;
 
-// Re-export all public items for backward compatibility
+// Re-export public items
+// DatabaseBackend: Used by open_db() return type. External imports after Ticket #44.
+#[allow(unused_imports)]
+pub use backend::{DatabaseBackend, Params};
 pub use connection::open_db;
 #[cfg(test)]
-pub use connection::open_mem_db;
+pub use connection::open_mem_db_raw;
 
-pub use escape::{escape_string, escape_string_for_quote, escape_string_single};
+pub use escape::{escape_string, escape_string_single};
 
 pub use extraction::{
     extract_bool, extract_call_from_row, extract_f64, extract_i64, extract_string,
     extract_string_or, CallRowLayout,
 };
 
-pub use query::{run_query, run_query_no_params, try_create_relation, Params};
+pub use query::{run_query, run_query_no_params, try_create_relation};
 
-use std::collections::BTreeMap;
-use cozo::DataValue;
 use thiserror::Error;
 
 /// Database error types

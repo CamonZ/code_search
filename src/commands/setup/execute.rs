@@ -109,8 +109,9 @@ mod tests {
             dry_run: false,
         };
 
-        let db = open_db(db_file.path()).expect("Failed to open db");
-        let result = cmd.execute(&db).expect("Setup should succeed");
+        let backend = open_db(db_file.path()).expect("Failed to open db");
+        let db = backend.as_db_instance();
+        let result = cmd.execute(db).expect("Setup should succeed");
 
         // Should create 7 relations
         assert_eq!(result.relations.len(), 7);
@@ -126,14 +127,15 @@ mod tests {
 
     #[rstest]
     fn test_setup_idempotent(db_file: NamedTempFile) {
-        let db = open_db(db_file.path()).expect("Failed to open db");
+        let backend = open_db(db_file.path()).expect("Failed to open db");
+        let db = backend.as_db_instance();
 
         // First setup
         let cmd1 = SetupCmd {
             force: false,
             dry_run: false,
         };
-        let result1 = cmd1.execute(&db).expect("First setup should succeed");
+        let result1 = cmd1.execute(db).expect("First setup should succeed");
         assert!(result1.created_new);
 
         // Second setup should find existing relations
@@ -141,7 +143,7 @@ mod tests {
             force: false,
             dry_run: false,
         };
-        let result2 = cmd2.execute(&db).expect("Second setup should succeed");
+        let result2 = cmd2.execute(db).expect("Second setup should succeed");
 
         // Should still have 7 relations, but all already existing
         assert_eq!(result2.relations.len(), 7);
@@ -160,8 +162,9 @@ mod tests {
             dry_run: true,
         };
 
-        let db = open_db(db_file.path()).expect("Failed to open db");
-        let result = cmd.execute(&db).expect("Setup should succeed");
+        let backend = open_db(db_file.path()).expect("Failed to open db");
+        let db = backend.as_db_instance();
+        let result = cmd.execute(db).expect("Setup should succeed");
 
         assert!(result.dry_run);
         assert_eq!(result.relations.len(), 7);
@@ -183,8 +186,9 @@ mod tests {
             dry_run: true,
         };
 
-        let db = open_db(db_file.path()).expect("Failed to open db");
-        let result = cmd.execute(&db).expect("Setup should succeed");
+        let backend = open_db(db_file.path()).expect("Failed to open db");
+        let db = backend.as_db_instance();
+        let result = cmd.execute(db).expect("Setup should succeed");
 
         let relation_names: Vec<_> = result.relations.iter().map(|r| r.name.as_str()).collect();
 

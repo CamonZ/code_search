@@ -19,8 +19,9 @@ use commands::CommandRunner;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let db = db::open_db(&args.db)?;
-    let output = args.command.run(&db, args.format)?;
+    let backend = db::open_db(&args.db)?;
+    let db = backend.as_db_instance();
+    let output = args.command.run(db, args.format)?;
     println!("{}", output);
     Ok(())
 }

@@ -577,9 +577,10 @@ mod tests {
         }"#;
 
         let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let db = open_db(db_file.path()).expect("Failed to open db");
+        let backend = open_db(db_file.path()).expect("Failed to open db");
+        let db = backend.as_db_instance();
 
-        let result = import_json_str(&db, json, "test_project").expect("Import should succeed");
+        let result = import_json_str(db, json, "test_project").expect("Import should succeed");
 
         // Verify import succeeded
         assert_eq!(result.function_locations_imported, 1);
