@@ -194,27 +194,27 @@ impl DatabaseBackend for PostgresAgeBackend {
     fn execute_query(
         &self,
         script: &str,
-        _params: &Params,
+        params: &Params,
     ) -> Result<QueryResult<DataValue>, Box<dyn Error>> {
+        // Substitute parameters into the query string
+        // AGE's parameter handling via rust-postgres doesn't work well,
+        // so we inline values directly (same approach as insert_rows)
+        let cypher_query = conversion::substitute_params(script, params)?;
+
         // Acquire write lock on the client
         let mut client = self.client.write()
             .map_err(|e| format!("Failed to acquire write lock: {}", e))?;
 
-        // Execute Cypher query without parameters for now
-        // Full parameter support will be implemented in phase 2 if needed
-        let _rows = client.query_cypher::<serde_json::Value>(
-            &self.graph_name,
-            script,
-            None
-        ).map_err(|e| format!("Cypher query failed: {}", e))?;
+        // Parse the Cypher query to extract column names from RETURN clause
+        // and build the appropriate SQL wrapper
+        let (sql_query, column_count) = conversion::wrap_cypher_query(&self.graph_name, &cypher_query)?;
 
-        // Placeholder: Convert postgres::Row results to QueryResult<DataValue>
-        // Each row is a postgres::Row object with agtype column(s)
-        // For now, return empty result - full implementation in #55c
-        Ok(QueryResult {
-            headers: vec![],
-            rows: vec![],
-        })
+        // Execute the query using raw SQL
+        let rows = client.query(&sql_query, &[])
+            .map_err(|e| format!("Cypher query failed: {}. Query was: {}", e, cypher_query))?;
+
+        // Convert PostgreSQL rows to QueryResult<DataValue>
+        conversion::convert_postgres_rows_to_query_result(&rows, column_count)
     }
 
     fn backend_name(&self) -> &'static str {

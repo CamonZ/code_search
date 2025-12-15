@@ -115,41 +115,37 @@ called[module, name, arity] :=
     }
 
     fn compile_age(&self) -> Result<String, Box<dyn Error>> {
+        // AGE data model uses vertices only, not edges.
+        // FunctionLocation has: module, name, arity, kind, file, start_line
+        // Call has: callee_module, callee_function, callee_arity
+
         let mod_match = if self.use_regex { "=~" } else { "=" };
 
-        let where_clause = match &self.module_pattern {
-            Some(_) => format!("f.module {} $module_pattern", mod_match),
-            None => String::new(),
-        };
+        let mut where_conditions = vec!["f.project = $project".to_string()];
 
-        let kind_filter = if self.private_only {
-            "AND (f.kind = 'defp' OR f.kind = 'defmacrop')"
+        if let Some(_) = &self.module_pattern {
+            where_conditions.push(format!("f.module {} $module_pattern", mod_match));
+        }
+
+        if self.private_only {
+            where_conditions.push("(f.kind = 'defp' OR f.kind = 'defmacrop')".to_string());
         } else if self.public_only {
-            "AND (f.kind = 'def' OR f.kind = 'defmacro')"
-        } else {
-            ""
-        };
+            where_conditions.push("(f.kind = 'def' OR f.kind = 'defmacro')".to_string());
+        }
 
-        let where_filter = if where_clause.is_empty() && kind_filter.is_empty() {
-            String::new()
-        } else {
-            let mut parts = vec!["f.project = $project".to_string()];
-            if !where_clause.is_empty() {
-                parts.push(where_clause);
-            }
-            if !kind_filter.is_empty() {
-                parts.push(kind_filter.to_string());
-            }
-            format!("\nWHERE {}", parts.join("\n  AND "))
-        };
+        let where_clause = where_conditions.join("\n  AND ");
 
         Ok(format!(
-            r#"MATCH (f:Function)
-{where_filter}
-OPTIONAL MATCH (caller)-[:CALLS]->(f)
-WITH f, count(caller) as call_count
+            r#"MATCH (f:FunctionLocation)
+WHERE {where_clause}
+OPTIONAL MATCH (c:Call)
+WHERE c.project = $project
+  AND c.callee_module = f.module
+  AND c.callee_function STARTS WITH f.name
+  AND c.callee_arity = f.arity
+WITH f, count(c) AS call_count
 WHERE call_count = 0
-RETURN f.module, f.name, f.arity, f.kind, f.file, f.line
+RETURN f.module, f.name, f.arity, f.kind, f.file, f.start_line AS line
 ORDER BY f.module, f.name, f.arity
 LIMIT {}"#,
             self.limit
@@ -318,8 +314,10 @@ mod tests {
 
         let compiled = builder.compile_age().unwrap();
 
-        assert!(compiled.contains("MATCH"));
-        assert!(compiled.contains("OPTIONAL MATCH"));
+        // AGE queries use vertex matching, not edge relationships
+        assert!(compiled.contains("MATCH (f:FunctionLocation)"));
+        assert!(compiled.contains("OPTIONAL MATCH (c:Call)"));
+        assert!(compiled.contains("c.callee_module = f.module"));
     }
 
     #[test]

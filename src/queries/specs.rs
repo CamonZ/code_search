@@ -116,11 +116,13 @@ impl SpecsQueryBuilder {
             conditions.push("s.kind = $kind".to_string());
         }
 
+        // Note: Using "full_spec" instead of "full" because "full" is a reserved word in PostgreSQL
         Ok(format!(
             r#"MATCH (s:Spec)
 WHERE {}
-RETURN s.project, s.module, s.name, s.arity, s.kind, s.line,
-       s.inputs_string, s.return_string, s.full
+RETURN s.project AS project, s.module AS module, s.name AS name, s.arity AS arity,
+       s.kind AS kind, s.line AS line, s.inputs_string AS inputs_string,
+       s.return_string AS return_string, s.full AS full_spec
 ORDER BY s.module, s.name, s.arity
 LIMIT {}"#,
             conditions.join(" AND "),
@@ -284,7 +286,8 @@ mod tests {
         assert!(compiled.contains("MATCH (s:Spec)"));
         assert!(compiled.contains("s.module = $module_pattern"));
         assert!(compiled.contains("s.project = $project"));
-        assert!(compiled.contains("RETURN s.project, s.module, s.name"));
+        // AGE query uses explicit aliases to avoid reserved word conflicts
+        assert!(compiled.contains("RETURN s.project AS project"));
     }
 
     #[test]

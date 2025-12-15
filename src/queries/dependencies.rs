@@ -109,34 +109,42 @@ impl DependenciesQueryBuilder {
     }
 
     fn compile_age(&self) -> Result<String, Box<dyn Error>> {
+        // AGE data model uses vertices, not edges:
+        // - Call vertex: caller_module, caller_function, callee_module, callee_function, etc.
+        // - FunctionLocation vertex: module, name, arity, start_line, end_line, kind, etc.
+        // We join on properties rather than using edge relationships.
+
         let mod_match = if self.use_regex { "=~" } else { "=" };
 
         // Build WHERE conditions based on direction
         let (module_filter, order_clause) = match self.direction {
             DependencyDirection::Outgoing => {
-                ("caller.module {} $module_pattern".to_string(), "callee.module, callee.name, callee.arity")
+                (format!("c.caller_module {} $module_pattern", mod_match),
+                 "c.callee_module, c.callee_function, c.callee_arity")
             }
             DependencyDirection::Incoming => {
-                ("callee.module {} $module_pattern".to_string(), "caller.module, caller.name, caller.arity")
+                (format!("c.callee_module {} $module_pattern", mod_match),
+                 "c.caller_module, loc.name, loc.arity")
             }
         };
 
-        let where_clause = format!(
-            "callee.project = $project\n  AND {}\n  AND caller.module <> callee.module\n  AND c.line >= loc.start_line AND c.line <= loc.end_line\n  AND callee.name <> '%'",
-            module_filter.replace("{}", mod_match)
-        );
-
         Ok(format!(
-            r#"MATCH (caller:Function)-[c:CALLS]->(callee:Function),
-      (caller)-[:DEFINED_IN]->(loc:FunctionLocation)
-WHERE {where_clause}
-RETURN caller.module, caller.name, caller.arity, loc.kind,
-       loc.start_line, loc.end_line,
-       callee.module, callee.name, callee.arity,
-       c.file, c.line
-ORDER BY {order_clause}
+            r#"MATCH (c:Call), (loc:FunctionLocation)
+WHERE c.project = $project
+  AND {}
+  AND c.caller_module <> c.callee_module
+  AND c.callee_function <> '%'
+  AND loc.module = c.caller_module
+  AND c.caller_function STARTS WITH loc.name
+  AND c.line >= loc.start_line
+  AND c.line <= loc.end_line
+RETURN c.caller_module, loc.name AS caller_name, loc.arity AS caller_arity,
+       loc.kind AS caller_kind, loc.start_line AS caller_start_line, loc.end_line AS caller_end_line,
+       c.callee_module, c.callee_function, c.callee_arity,
+       c.file, c.line AS call_line
+ORDER BY {}
 LIMIT {}"#,
-            self.limit
+            module_filter, order_clause, self.limit
         ))
     }
 }
@@ -231,9 +239,10 @@ mod tests {
 
         let compiled = builder.compile_age().unwrap();
 
-        assert!(compiled.contains("MATCH"));
-        assert!(compiled.contains("CALLS"));
-        assert!(compiled.contains("caller.module <>"));
+        // AGE queries use vertex matching, not edge relationships
+        assert!(compiled.contains("MATCH (c:Call), (loc:FunctionLocation)"));
+        assert!(compiled.contains("c.caller_module =~"));
+        assert!(compiled.contains("c.caller_module <> c.callee_module"));
     }
 
     #[test]
@@ -248,8 +257,9 @@ mod tests {
 
         let compiled = builder.compile_age().unwrap();
 
-        assert!(compiled.contains("MATCH"));
-        assert!(compiled.contains("callee.module ="));
+        // AGE queries use vertex matching, not edge relationships
+        assert!(compiled.contains("MATCH (c:Call), (loc:FunctionLocation)"));
+        assert!(compiled.contains("c.callee_module = $module_pattern"));
     }
 
     #[test]

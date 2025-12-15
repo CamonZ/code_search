@@ -100,43 +100,46 @@ impl ReverseTraceQueryBuilder {
     }
 
     fn compile_age(&self) -> Result<String, Box<dyn Error>> {
+        // AGE data model uses vertices only, not edges.
+        // Variable-length reverse path traversal requires recursive execution.
+        // This simplified version returns calls to the target function (depth 1 only),
+        // and filtering/depth computation should be handled by the caller if recursive traversal is needed.
+        //
+        // Note: For proper recursive reverse trace, use the Cozo backend or implement
+        // iterative query execution in Rust.
+
         let mod_match = if self.use_regex { "=~" } else { "=" };
         let fn_match = if self.use_regex { "=~" } else { "=" };
 
-        // Build WHERE conditions for the target function
+        // Build WHERE conditions for calls TO the target function
         let mut where_conditions = vec![
-            "target.project = $project".to_string(),
-            format!("target.module {} $module_pattern", mod_match),
-            format!("target.name {} $function_pattern", fn_match),
+            "c.project = $project".to_string(),
+            format!("c.callee_module {} $module_pattern", mod_match),
+            format!("c.callee_function {} $function_pattern", fn_match),
+            "c.callee_function <> '%'".to_string(),
+            "loc.module = c.caller_module".to_string(),
+            "c.caller_function STARTS WITH loc.name".to_string(),
+            "c.line >= loc.start_line".to_string(),
+            "c.line <= loc.end_line".to_string(),
         ];
 
         // Add arity filter if present
         if self.arity.is_some() {
-            where_conditions.push("target.arity = $arity".to_string());
+            where_conditions.push("c.callee_arity = $arity".to_string());
         }
 
         let where_clause = where_conditions.join("\n  AND ");
 
         Ok(format!(
-            r#"MATCH path = (caller:Function)-[:CALLS*1..{max_depth}]->(target:Function)
+            r#"MATCH (c:Call), (loc:FunctionLocation)
 WHERE {where_clause}
-WITH path, length(path) as depth,
-     nodes(path) as funcs,
-     relationships(path) as calls
-UNWIND range(0, size(calls)-1) as idx
-WITH depth,
-     funcs[idx] as caller,
-     funcs[idx+1] as callee,
-     calls[idx] as call
-MATCH (caller)-[:DEFINED_IN]->(loc:FunctionLocation)
-RETURN depth,
-       caller.module, caller.name, caller.arity, loc.kind,
-       loc.start_line, loc.end_line,
-       callee.module, callee.name, callee.arity,
-       call.file, call.line
-ORDER BY depth, caller.module, caller.name, call.line
+RETURN 1 AS depth,
+       c.caller_module, loc.name AS caller_name, loc.arity AS caller_arity, loc.kind AS caller_kind,
+       loc.start_line AS caller_start_line, loc.end_line AS caller_end_line,
+       c.callee_module, c.callee_function, c.callee_arity,
+       c.file, c.line AS call_line
+ORDER BY c.caller_module, loc.name, c.line
 LIMIT {limit}"#,
-            max_depth = self.max_depth,
             limit = self.limit,
             where_clause = where_clause
         ))
@@ -281,9 +284,10 @@ mod tests {
 
         let compiled = builder.compile_age().unwrap();
 
-        assert!(compiled.contains("MATCH"));
-        assert!(compiled.contains("CALLS*1..5"));
-        assert!(compiled.contains("target.module")); // Filter on target
+        // AGE queries use vertex matching, not edge relationships
+        assert!(compiled.contains("MATCH (c:Call), (loc:FunctionLocation)"));
+        assert!(compiled.contains("c.callee_module = $module_pattern"));
+        assert!(compiled.contains("c.callee_function = $function_pattern"));
     }
 
     #[test]

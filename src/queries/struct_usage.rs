@@ -85,23 +85,26 @@ impl StructUsageQueryBuilder {
     }
 
     fn compile_age(&self) -> Result<String, Box<dyn Error>> {
+        // AGE data model uses vertices only, not edges.
+        // Spec vertex has: module, name, arity, inputs_string, return_string, line
+
         let pattern_op = if self.use_regex { "=~" } else { "CONTAINS" };
         let module_op = if self.use_regex { "=~" } else { "CONTAINS" };
 
         let mut conditions = vec![
-            "f.project = $project".to_string(),
+            "s.project = $project".to_string(),
             format!("(s.inputs_string {} $pattern OR s.return_string {} $pattern)", pattern_op, pattern_op),
         ];
 
         if self.module_pattern.is_some() {
-            conditions.push(format!("f.module {} $module_pattern", module_op));
+            conditions.push(format!("s.module {} $module_pattern", module_op));
         }
 
         Ok(format!(
-            r#"MATCH (f:Function)-[:HAS_SPEC]->(s:Spec)
+            r#"MATCH (s:Spec)
 WHERE {}
-RETURN f.project, f.module, f.name, f.arity, s.inputs_string, s.return_string, s.line
-ORDER BY f.module, f.name, f.arity
+RETURN s.project, s.module, s.name, s.arity, s.inputs_string, s.return_string, s.line
+ORDER BY s.module, s.name, s.arity
 LIMIT {}"#,
             conditions.join(" AND "),
             self.limit
@@ -246,9 +249,10 @@ mod tests {
 
         let compiled = builder.compile_age().unwrap();
 
-        assert!(compiled.contains("MATCH"));
-        assert!(compiled.contains("inputs_string"));
-        assert!(compiled.contains("return_string"));
+        // AGE queries use vertex matching, not edge relationships
+        assert!(compiled.contains("MATCH (s:Spec)"));
+        assert!(compiled.contains("s.inputs_string CONTAINS $pattern"));
+        assert!(compiled.contains("s.return_string CONTAINS $pattern"));
     }
 
     #[test]

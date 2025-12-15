@@ -85,31 +85,32 @@ hash_counts[{hash_field}, count(module)] :=
     }
 
     fn compile_age(&self) -> Result<String, Box<dyn Error>> {
+        // AGE data model uses vertices only, not edges.
+        // FunctionLocation has: module, name, arity, source_sha, ast_sha, line, file
+
         // Choose hash field based on exact flag
         let hash_field = if self.use_exact { "source_sha" } else { "ast_sha" };
 
         let mod_match = if self.use_regex { "=~" } else { "=" };
 
         let where_filter = match &self.module_pattern {
-            Some(_) => format!("AND f.module {} $module_pattern", mod_match),
+            Some(_) => format!("\n  AND loc2.module {} $module_pattern", mod_match),
             None => String::new(),
         };
 
+        // AGE doesn't support multi-statement queries, so we need to use subquery or collect
+        // Using a WITH pattern to first find duplicate hashes
         Ok(format!(
-            r#"-- Find hashes with duplicates
-MATCH (f:Function)-[:DEFINED_IN]->(loc:FunctionLocation)
-WHERE f.project = $project
+            r#"MATCH (loc:FunctionLocation)
+WHERE loc.project = $project
   AND loc.{hash_field} <> ''
-WITH loc.{hash_field} as hash, count(f) as cnt
+WITH loc.{hash_field} AS hash, count(loc) AS cnt
 WHERE cnt > 1
-
--- Get functions with those hashes
-MATCH (f2:Function)-[:DEFINED_IN]->(loc2:FunctionLocation)
-WHERE f2.project = $project
-  AND loc2.{hash_field} = hash
-  {where_filter}
-RETURN loc2.{hash_field} as hash, f2.module, f2.name, f2.arity, loc2.line, loc2.file
-ORDER BY hash, f2.module, f2.name, f2.arity"#,
+MATCH (loc2:FunctionLocation)
+WHERE loc2.project = $project
+  AND loc2.{hash_field} = hash{where_filter}
+RETURN loc2.{hash_field} AS hash, loc2.module, loc2.name, loc2.arity, loc2.line, loc2.file
+ORDER BY hash, loc2.module, loc2.name, loc2.arity"#,
         ))
     }
 }
@@ -236,8 +237,9 @@ mod tests {
 
         let compiled = builder.compile_age().unwrap();
 
-        assert!(compiled.contains("MATCH"));
-        assert!(compiled.contains("count"));
+        // AGE queries use vertex matching, not edge relationships
+        assert!(compiled.contains("MATCH (loc:FunctionLocation)"));
+        assert!(compiled.contains("count(loc)"));
         assert!(compiled.contains("cnt > 1"));
     }
 
@@ -252,8 +254,9 @@ mod tests {
 
         let compiled = builder.compile_age().unwrap();
 
-        assert!(compiled.contains("MATCH"));
-        assert!(compiled.contains("f.module ="));
+        // AGE queries use vertex matching, not edge relationships
+        assert!(compiled.contains("MATCH (loc:FunctionLocation)"));
+        assert!(compiled.contains("loc2.module ="));
     }
 
     #[test]
@@ -267,7 +270,7 @@ mod tests {
 
         let compiled = builder.compile_age().unwrap();
 
-        assert!(compiled.contains("f.module =~"));
+        assert!(compiled.contains("loc2.module =~"));
     }
 
     #[test]

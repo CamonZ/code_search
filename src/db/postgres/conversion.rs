@@ -28,6 +28,182 @@ pub fn convert_params_to_age(params: &Params) -> Result<Vec<JsonValue>, Box<dyn 
     Ok(param_vec)
 }
 
+/// Substitute parameters directly into a Cypher query string.
+///
+/// Since the rust-postgres driver doesn't support ToSql for AGE's agtype,
+/// we inline parameter values directly into the query string.
+///
+/// Parameters in Cypher use `$name` syntax. This function replaces them
+/// with properly escaped literal values.
+///
+/// # Arguments
+/// * `query` - The Cypher query with `$param` placeholders
+/// * `params` - Map of parameter names to values
+///
+/// # Example
+/// ```ignore
+/// let query = "MATCH (n:Module) WHERE n.name = $name RETURN n";
+/// let params = btreemap!{"name" => DataValue::Str("Test".into())};
+/// let result = substitute_params(query, &params)?;
+/// // Returns: "MATCH (n:Module) WHERE n.name = 'Test' RETURN n"
+/// ```
+pub fn substitute_params(query: &str, params: &Params) -> Result<String, Box<dyn Error>> {
+    let mut result = query.to_string();
+
+    for (name, value) in params.iter() {
+        let json_val = datavalue_to_json(value)?;
+        let literal = json_to_cypher_literal(&json_val);
+
+        // Replace $name with the literal value
+        // Handle both $name and ${name} syntax
+        let placeholder = format!("${}", name);
+        result = result.replace(&placeholder, &literal);
+    }
+
+    Ok(result)
+}
+
+/// Wrap a Cypher query in AGE's SQL function call.
+///
+/// AGE queries are executed via: `SELECT * FROM cypher('graph', $$ query $$) AS (col1 agtype, ...)`
+/// This function parses the RETURN clause to determine column names and generates the wrapper.
+/// Columns are cast to text for easier deserialization in Rust.
+///
+/// # Returns
+/// A tuple of (sql_query, column_count)
+pub fn wrap_cypher_query(graph_name: &str, cypher: &str) -> Result<(String, usize), Box<dyn Error>> {
+    // Extract column names from RETURN clause
+    let columns = extract_return_columns(cypher)?;
+    let column_count = columns.len();
+
+    // Build the AS clause with column definitions
+    let column_defs = columns.iter()
+        .map(|c| format!("{} agtype", c))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    // Build SELECT list with text casts (agtype can't be directly deserialized in rust-postgres)
+    let select_list = columns.iter()
+        .map(|c| format!("{}::text", c))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    // Wrap in AGE's cypher function with text casting
+    let sql = format!(
+        "SELECT {} FROM cypher('{}', $$ {} $$) AS ({})",
+        select_list, graph_name, cypher, column_defs
+    );
+
+    Ok((sql, column_count))
+}
+
+/// Extract column names from a Cypher RETURN clause.
+///
+/// Handles various RETURN patterns:
+/// - `RETURN a, b, c` -> ["a", "b", "c"]
+/// - `RETURN n.name, n.age` -> ["name", "age"]
+/// - `RETURN n.name AS fullname` -> ["fullname"]
+/// - `RETURN count(*) AS cnt` -> ["cnt"]
+fn extract_return_columns(cypher: &str) -> Result<Vec<String>, Box<dyn Error>> {
+    // Find the RETURN clause (case-insensitive)
+    let upper = cypher.to_uppercase();
+    let return_pos = upper.find("RETURN ")
+        .ok_or("Cypher query must have a RETURN clause")?;
+
+    // Get everything after RETURN
+    let after_return = &cypher[return_pos + 7..];
+
+    // Find where RETURN clause ends (ORDER BY, LIMIT, or end of string)
+    let end_pos = ["ORDER BY", "LIMIT", "SKIP", "UNION"]
+        .iter()
+        .filter_map(|kw| after_return.to_uppercase().find(kw))
+        .min()
+        .unwrap_or(after_return.len());
+
+    let return_clause = after_return[..end_pos].trim();
+
+    // Split by comma and extract column names
+    let mut columns = Vec::new();
+    for part in return_clause.split(',') {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+
+        // Check for AS alias
+        let upper_part = part.to_uppercase();
+        let col_name = if let Some(as_pos) = upper_part.find(" AS ") {
+            // Use the alias after AS
+            part[as_pos + 4..].trim().to_string()
+        } else if part.contains('.') {
+            // Property access like n.name -> use "name"
+            part.rsplit('.').next().unwrap_or(part).trim().to_string()
+        } else if part.contains('(') {
+            // Function call like count(*) -> generate a name
+            format!("col{}", columns.len())
+        } else {
+            // Simple variable name
+            part.to_string()
+        };
+
+        columns.push(col_name);
+    }
+
+    if columns.is_empty() {
+        return Err("RETURN clause has no columns".into());
+    }
+
+    Ok(columns)
+}
+
+/// Convert PostgreSQL rows to QueryResult<DataValue>.
+///
+/// Each row contains agtype columns which are parsed as JSON and converted to DataValue.
+pub fn convert_postgres_rows_to_query_result(
+    rows: &[postgres::Row],
+    column_count: usize,
+) -> Result<QueryResult<DataValue>, Box<dyn Error>> {
+    if rows.is_empty() {
+        // Return empty result with generated headers
+        let headers: Vec<String> = (0..column_count)
+            .map(|i| format!("col{}", i))
+            .collect();
+        return Ok(QueryResult {
+            headers,
+            rows: vec![],
+        });
+    }
+
+    // Get column names from the first row
+    let headers: Vec<String> = (0..column_count)
+        .map(|i| rows[0].columns().get(i).map(|c| c.name().to_string()).unwrap_or_else(|| format!("col{}", i)))
+        .collect();
+
+    // Convert each row
+    let mut result_rows = Vec::new();
+    for row in rows {
+        let mut values = Vec::new();
+        for i in 0..column_count {
+            // AGE returns agtype which we get as a string and parse as JSON
+            let agtype_str: String = row.try_get(i)
+                .map_err(|e| format!("Failed to get column {}: {}", i, e))?;
+
+            // Parse the agtype string as JSON
+            let json_val: JsonValue = serde_json::from_str(&agtype_str)
+                .unwrap_or(JsonValue::String(agtype_str));
+
+            // Convert JSON to DataValue
+            values.push(json_to_datavalue(&json_val));
+        }
+        result_rows.push(values);
+    }
+
+    Ok(QueryResult {
+        headers,
+        rows: result_rows,
+    })
+}
+
 /// Convert AGE query results (as JSON values) to our QueryResult<DataValue> type.
 ///
 /// AGE's query_cypher method with serde_json::Value returns results as a Vec<Row>,

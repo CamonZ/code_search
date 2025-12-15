@@ -90,17 +90,20 @@ impl LargeFunctionsQueryBuilder {
     }
 
     fn compile_age(&self) -> Result<String, Box<dyn Error>> {
+        // AGE data model uses vertices only, not edges.
+        // FunctionLocation has all the fields we need.
+
         let mod_match = if self.use_regex { "=~" } else { "=" };
 
         // Build WHERE conditions
         let mut where_conditions = vec![
-            "f.project = $project".to_string(),
+            "loc.project = $project".to_string(),
             "(loc.end_line - loc.start_line + 1) >= $min_lines".to_string(),
         ];
 
         // Add module filter if present
         if self.module_pattern.is_some() {
-            where_conditions.push(format!("f.module {} $module_pattern", mod_match));
+            where_conditions.push(format!("loc.module {} $module_pattern", mod_match));
         }
 
         // Add generated filter if needed
@@ -111,15 +114,14 @@ impl LargeFunctionsQueryBuilder {
         let where_clause = where_conditions.join("\n  AND ");
 
         Ok(format!(
-            r#"MATCH (f:Function)-[:DEFINED_IN]->(loc:FunctionLocation)
+            r#"MATCH (loc:FunctionLocation)
 WHERE {where_clause}
-WITH f.module as module, f.name as name, f.arity as arity,
-     loc.start_line as start_line, loc.end_line as end_line,
-     loc.end_line - loc.start_line + 1 as lines,
-     loc.file as file, loc.generated_by as generated_by
-ORDER BY lines DESC, module, name
-LIMIT {}
-RETURN module, name, arity, start_line, end_line, lines, file, generated_by"#,
+RETURN loc.module AS module, loc.name AS name, loc.arity AS arity,
+       loc.start_line AS start_line, loc.end_line AS end_line,
+       loc.end_line - loc.start_line + 1 AS lines,
+       loc.file AS file, loc.generated_by AS generated_by
+ORDER BY loc.end_line - loc.start_line + 1 DESC, loc.module, loc.name
+LIMIT {}"#,
             self.limit
         ))
     }
@@ -266,9 +268,11 @@ mod tests {
 
         let compiled = builder.compile_age().unwrap();
 
-        assert!(compiled.contains("MATCH"));
-        assert!(compiled.contains("end_line - loc.start_line + 1"));
-        assert!(compiled.contains("ORDER BY lines DESC"));
+        // AGE queries use vertex matching, not edge relationships
+        assert!(compiled.contains("MATCH (loc:FunctionLocation)"));
+        assert!(compiled.contains("(loc.end_line - loc.start_line + 1) >= $min_lines"));
+        // AGE requires ordering by expression, not alias
+        assert!(compiled.contains("ORDER BY loc.end_line - loc.start_line + 1 DESC"));
     }
 
     #[test]
@@ -320,7 +324,7 @@ mod tests {
 
         let compiled = builder.compile_age().unwrap();
 
-        assert!(compiled.contains("f.module =~"));
+        assert!(compiled.contains("loc.module =~"));
     }
 
     #[test]

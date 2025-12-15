@@ -73,38 +73,14 @@ impl CyclesQueryBuilder {
     }
 
     fn compile_age(&self) -> Result<String, Box<dyn Error>> {
-        Ok(r#"
-        -- Find all modules that are part of a cycle (can reach themselves)
-        WITH RECURSIVE cycle_modules AS (
-            -- Base: all edges
-            SELECT DISTINCT from_mod, to_mod
-            FROM module_deps
-            WHERE project = $project
-
-            UNION ALL
-
-            -- Recursive: paths between modules
-            SELECT m.from_mod, d.to_mod
-            FROM cycle_modules m
-            JOIN module_deps d ON m.to_mod = d.from_mod
-            WHERE d.project = $project
-        ),
-        -- Identify modules that can reach themselves
-        in_cycle AS (
-            SELECT DISTINCT from_mod as module
-            FROM cycle_modules
-            WHERE from_mod = to_mod
-        ),
-        -- Find edges between modules in cycles
-        cycle_edges AS (
-            SELECT DISTINCT d.from_mod as from, d.to_mod as to
-            FROM module_deps d
-            WHERE d.project = $project
-              AND d.from_mod IN (SELECT module FROM in_cycle)
-              AND d.to_mod IN (SELECT module FROM in_cycle)
-        )
-        SELECT from, to FROM cycle_edges ORDER BY from, to
-        "#.to_string())
+        // AGE doesn't support recursive CTEs in Cypher.
+        // Return all module dependencies; cycle detection will be done in Rust.
+        // Note: Using "from_mod" and "to_mod" instead of "from" and "to"
+        // because those are reserved words in PostgreSQL.
+        Ok(r#"MATCH (c:Call)
+WHERE c.project = $project
+  AND c.caller_module <> c.callee_module
+RETURN DISTINCT c.caller_module AS from_mod, c.callee_module AS to_mod"#.to_string())
     }
 }
 
@@ -116,49 +92,104 @@ pub fn find_cycle_edges(
     project: &str,
     module_pattern: Option<&str>,
 ) -> Result<Vec<CycleEdge>, Box<dyn Error>> {
+    use crate::queries::builder::CompiledQuery;
+
     let builder = CyclesQueryBuilder {
         project: project.to_string(),
         module_pattern: module_pattern.map(|s| s.to_string()),
     };
 
-    let compiled_script = builder.compile(db)?;
-    let params = builder.parameters();
-
-    let rows = run_query(db, &compiled_script, params)?;
+    let compiled = CompiledQuery::from_builder(&builder, db)?;
+    let rows = run_query(db, &compiled.script, compiled.params)?;
 
     // Parse results
-    let mut edges = Vec::new();
+    let mut all_edges = Vec::new();
 
-    // Find column indices
+    // Find column indices - AGE uses from_mod/to_mod, Cozo uses from/to
     let from_idx = rows
         .headers
         .iter()
-        .position(|h| h == "from")
-        .ok_or("Missing 'from' column")?;
+        .position(|h| h == "from" || h == "from_mod")
+        .ok_or("Missing 'from' or 'from_mod' column")?;
     let to_idx = rows
         .headers
         .iter()
-        .position(|h| h == "to")
-        .ok_or("Missing 'to' column")?;
+        .position(|h| h == "to" || h == "to_mod")
+        .ok_or("Missing 'to' or 'to_mod' column")?;
 
     for row in &rows.rows {
         if let (Some(DataValue::Str(from)), Some(DataValue::Str(to))) =
             (row.get(from_idx), row.get(to_idx))
         {
-            // Apply module pattern filter if provided
-            if let Some(pattern) = module_pattern {
-                if !from.contains(pattern) && !to.contains(pattern) {
-                    continue;
-                }
-            }
-            edges.push(CycleEdge {
-                from: from.to_string(),
-                to: to.to_string(),
-            });
+            all_edges.push((from.to_string(), to.to_string()));
         }
     }
 
+    // For AGE backend, we need to detect cycles in Rust
+    // For Cozo, the query already returns only cycle edges
+    let cycle_edges = if db.backend_name() == "PostgresAge" {
+        detect_cycles_in_edges(&all_edges)
+    } else {
+        all_edges
+    };
+
+    // Apply module pattern filter and convert to CycleEdge
+    let mut edges = Vec::new();
+    for (from, to) in cycle_edges {
+        if let Some(pattern) = module_pattern {
+            if !from.contains(pattern) && !to.contains(pattern) {
+                continue;
+            }
+        }
+        edges.push(CycleEdge { from, to });
+    }
+
     Ok(edges)
+}
+
+/// Detect cycles in a set of edges using DFS
+/// Returns only edges that are part of at least one cycle
+fn detect_cycles_in_edges(edges: &[(String, String)]) -> Vec<(String, String)> {
+    use std::collections::{HashMap, HashSet};
+
+    // Build adjacency list
+    let mut adj: HashMap<&str, Vec<&str>> = HashMap::new();
+    for (from, to) in edges {
+        adj.entry(from.as_str()).or_default().push(to.as_str());
+    }
+
+    // Find all modules that are reachable from themselves (part of a cycle)
+    let mut in_cycle: HashSet<&str> = HashSet::new();
+
+    for start in adj.keys() {
+        // DFS to check if we can reach 'start' from 'start'
+        let mut visited: HashSet<&str> = HashSet::new();
+        let mut stack = vec![*start];
+
+        while let Some(current) = stack.pop() {
+            if current == *start && !visited.is_empty() {
+                // Found a cycle back to start
+                in_cycle.insert(*start);
+                break;
+            }
+            if visited.contains(current) {
+                continue;
+            }
+            visited.insert(current);
+            if let Some(neighbors) = adj.get(current) {
+                for neighbor in neighbors {
+                    stack.push(*neighbor);
+                }
+            }
+        }
+    }
+
+    // Return edges where both endpoints are in a cycle
+    edges
+        .iter()
+        .filter(|(from, to)| in_cycle.contains(from.as_str()) && in_cycle.contains(to.as_str()))
+        .cloned()
+        .collect()
 }
 
 #[cfg(test)]
@@ -207,9 +238,10 @@ mod tests {
 
         let compiled = builder.compile_age().unwrap();
 
-        assert!(compiled.contains("MATCH") || compiled.contains("WITH"));
-        // AGE cycle detection pattern - should mention cycles or recursion
-        assert!(compiled.contains("cycle"));
+        // AGE version returns all edges; cycle detection is done in Rust
+        assert!(compiled.contains("MATCH (c:Call)"));
+        assert!(compiled.contains("c.caller_module <> c.callee_module"));
+        assert!(compiled.contains("RETURN DISTINCT"));
     }
 
     #[test]

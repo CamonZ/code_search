@@ -126,24 +126,42 @@ impl CallsQueryBuilder {
     }
 
     fn compile_age(&self) -> Result<String, Box<dyn Error>> {
+        // AGE data model uses vertices, not edges:
+        // - Call vertex: caller_module, caller_function, callee_module, callee_function, etc.
+        // - FunctionLocation vertex: module, function, arity, start_line, end_line, etc.
+        // We join on properties rather than using edge relationships.
+
         let mod_match = if self.use_regex { "=~" } else { "=" };
         let fn_match = if self.use_regex { "=~" } else { "=" };
 
+        // Determine which fields to filter on based on direction
+        // Note: FunctionLocation uses 'name' for function name, not 'function'
+        let (module_field, function_field, arity_field) = match self.direction {
+            CallDirection::From => ("c.caller_module", "loc.name", "loc.arity"),
+            CallDirection::To => ("c.callee_module", "c.callee_function", "c.callee_arity"),
+        };
+
         // Build WHERE conditions
         let mut where_conditions = vec![
-            format!("caller.project = $project"),
-            format!("caller.module {} $module_pattern", mod_match),
-            "callee.name <> '%'".to_string(),
+            "c.project = $project".to_string(),
+            format!("{} {} $module_pattern", module_field, mod_match),
+            "c.callee_function <> '%'".to_string(),
+            // Join Call with FunctionLocation on caller
+            // caller_function in Call includes arity like "render/2", so use STARTS WITH
+            "loc.module = c.caller_module".to_string(),
+            "c.caller_function STARTS WITH loc.name".to_string(),
+            "c.line >= loc.start_line".to_string(),
+            "c.line <= loc.end_line".to_string(),
         ];
 
         // Add function filter if present
         if self.function_pattern.is_some() {
-            where_conditions.push(format!("caller.name {} $function_pattern", fn_match));
+            where_conditions.push(format!("{} {} $function_pattern", function_field, fn_match));
         }
 
         // Add arity filter if present
         if self.arity.is_some() {
-            where_conditions.push("caller.arity = $arity".to_string());
+            where_conditions.push(format!("{} = $arity", arity_field));
         }
 
         let where_clause = where_conditions.join("\n  AND ");
@@ -151,22 +169,20 @@ impl CallsQueryBuilder {
         // Order clause depends on direction
         let order_clause = match self.direction {
             CallDirection::From => {
-                "caller.module, caller.name, caller.arity, c.line"
+                "c.caller_module, loc.name, loc.arity, c.line"
             }
             CallDirection::To => {
-                "callee.module, callee.name, callee.arity, caller.module, caller.name"
+                "c.callee_module, c.callee_function, c.callee_arity, c.caller_module, loc.name"
             }
         };
 
         Ok(format!(
-            r#"MATCH (caller:Function)-[c:CALLS]->(callee:Function),
-      (caller)-[:DEFINED_IN]->(loc:FunctionLocation)
+            r#"MATCH (c:Call), (loc:FunctionLocation)
 WHERE {where_clause}
-  AND c.line >= loc.start_line AND c.line <= loc.end_line
-RETURN caller.module, caller.name, caller.arity, loc.kind,
-       loc.start_line, loc.end_line,
-       callee.module, callee.name, callee.arity,
-       c.file, c.line, c.call_type
+RETURN c.caller_module, loc.name AS caller_name, loc.arity AS caller_arity,
+       loc.kind AS caller_kind, loc.start_line AS caller_start_line, loc.end_line AS caller_end_line,
+       c.callee_module, c.callee_function, c.callee_arity,
+       c.file, c.line AS call_line, c.call_type
 ORDER BY {order_clause}
 LIMIT {}"#,
             self.limit
@@ -273,9 +289,10 @@ mod tests {
 
         let compiled = builder.compile_age().unwrap();
 
-        assert!(compiled.contains("MATCH"));
-        assert!(compiled.contains("CALLS"));
-        assert!(compiled.contains("caller.module =~"));
+        // AGE queries use vertex matching, not edge relationships
+        assert!(compiled.contains("MATCH (c:Call), (loc:FunctionLocation)"));
+        assert!(compiled.contains("c.caller_module =~"));
+        assert!(compiled.contains("c.callee_function <> '%'"));
     }
 
     #[test]
@@ -366,9 +383,10 @@ mod tests {
 
         let compiled = builder.compile_age().unwrap();
 
-        assert!(compiled.contains("MATCH"));
-        assert!(compiled.contains("caller.name = $function_pattern"));
-        assert!(compiled.contains("caller.arity = $arity"));
+        // AGE queries use vertex matching for "To" direction
+        assert!(compiled.contains("MATCH (c:Call), (loc:FunctionLocation)"));
+        assert!(compiled.contains("c.callee_function = $function_pattern"));
+        assert!(compiled.contains("c.callee_arity = $arity"));
     }
 
     #[test]

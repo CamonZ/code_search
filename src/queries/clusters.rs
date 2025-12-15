@@ -50,10 +50,12 @@ impl ClustersQueryBuilder {
     }
 
     fn compile_age(&self) -> Result<String, Box<dyn Error>> {
-        Ok(r#"MATCH (caller:Function)-[:CALLS]->(callee:Function)
-WHERE caller.project = $project
-  AND caller.module <> callee.module
-RETURN DISTINCT caller.module as caller_module, callee.module as callee_module"#
+        // AGE data model uses vertices only, not edges.
+        // Call vertex has: caller_module, callee_module
+        Ok(r#"MATCH (c:Call)
+WHERE c.project = $project
+  AND c.caller_module <> c.callee_module
+RETURN DISTINCT c.caller_module AS caller_module, c.callee_module AS callee_module"#
             .to_string())
     }
 }
@@ -63,17 +65,14 @@ RETURN DISTINCT caller.module as caller_module, callee.module as callee_module"#
 /// Returns calls where caller_module != callee_module.
 /// These are used to compute internal vs external connectivity per namespace cluster.
 pub fn get_module_calls(db: &dyn DatabaseBackend, project: &str) -> Result<Vec<ModuleCall>, Box<dyn Error>> {
-    let script = r#"
-        ?[caller_module, callee_module] :=
-            *calls{project, caller_module, callee_module},
-            project == $project,
-            caller_module != callee_module
-    "#;
+    use crate::queries::builder::CompiledQuery;
 
-    let mut params = Params::new();
-    params.insert("project".to_string(), DataValue::Str(project.into()));
+    let builder = ClustersQueryBuilder {
+        project: project.to_string(),
+    };
 
-    let rows = run_query(db, script, params)?;
+    let compiled = CompiledQuery::from_builder(&builder, db)?;
+    let rows = run_query(db, &compiled.script, compiled.params)?;
 
     let caller_idx = rows.headers.iter().position(|h| h == "caller_module")
         .ok_or("Missing caller_module column")?;
@@ -127,9 +126,9 @@ mod tests {
 
         let compiled = builder.compile_age().unwrap();
 
-        assert!(compiled.contains("MATCH"));
-        assert!(compiled.contains("CALLS"));
-        assert!(compiled.contains("caller.module <> callee.module"));
+        // AGE queries use vertex matching, not edge relationships
+        assert!(compiled.contains("MATCH (c:Call)"));
+        assert!(compiled.contains("c.caller_module <> c.callee_module"));
     }
 
     #[test]

@@ -90,38 +90,36 @@ impl ManyClausesQueryBuilder {
     }
 
     fn compile_age(&self) -> Result<String, Box<dyn Error>> {
+        // AGE data model uses vertices only, not edges.
+        // FunctionLocation has all the fields we need.
+
         let mod_match = if self.use_regex { "=~" } else { "=" };
 
-        let where_clause = match &self.module_pattern {
-            Some(_) => format!("f.module {} $module_pattern", mod_match),
-            None => String::new(),
-        };
+        let mut where_conditions = vec!["loc.project = $project".to_string()];
 
-        let where_filter = if where_clause.is_empty() {
-            String::new()
-        } else {
-            format!("\nAND {}", where_clause)
-        };
+        if let Some(_) = &self.module_pattern {
+            where_conditions.push(format!("loc.module {} $module_pattern", mod_match));
+        }
 
-        let generated_filter = if self.include_generated {
-            String::new()
-        } else {
-            "\nAND loc.generated_by = ''".to_string()
-        };
+        if !self.include_generated {
+            where_conditions.push("loc.generated_by = ''".to_string());
+        }
+
+        let where_clause = where_conditions.join("\n  AND ");
 
         Ok(format!(
-            r#"MATCH (f:Function)-[:DEFINED_IN]->(loc:FunctionLocation)
-WHERE f.project = $project{where_filter}{generated_filter}
-WITH f.module as module, f.name as name, f.arity as arity,
-     count(loc) as clauses,
-     min(loc.start_line) as first_line,
-     max(loc.end_line) as last_line,
-     collect(loc.file)[0] as file,
-     collect(loc.generated_by)[0] as generated_by
+            r#"MATCH (loc:FunctionLocation)
+WHERE {where_clause}
+WITH loc.module AS module, loc.name AS name, loc.arity AS arity,
+     count(loc) AS clauses,
+     min(loc.start_line) AS first_line,
+     max(loc.end_line) AS last_line,
+     collect(loc.file)[0] AS file,
+     collect(loc.generated_by)[0] AS generated_by
 WHERE clauses >= $min_clauses
+RETURN module, name, arity, clauses, first_line, last_line, file, generated_by
 ORDER BY clauses DESC, module, name
-LIMIT {}
-RETURN module, name, arity, clauses, first_line, last_line, file, generated_by"#,
+LIMIT {}"#,
             self.limit
         ))
     }
@@ -270,10 +268,11 @@ mod tests {
 
         let compiled = builder.compile_age().unwrap();
 
-        assert!(compiled.contains("MATCH"));
-        assert!(compiled.contains("count("));
-        assert!(compiled.contains("min("));
-        assert!(compiled.contains("max("));
+        // AGE queries use vertex matching, not edge relationships
+        assert!(compiled.contains("MATCH (loc:FunctionLocation)"));
+        assert!(compiled.contains("count(loc)"));
+        assert!(compiled.contains("min(loc.start_line)"));
+        assert!(compiled.contains("max(loc.end_line)"));
     }
 
     #[test]

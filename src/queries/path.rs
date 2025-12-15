@@ -105,29 +105,34 @@ impl PathQueryBuilder {
     }
 
     fn compile_age(&self) -> Result<String, Box<dyn Error>> {
+        // AGE data model uses vertices only, not edges.
+        // Variable-length path queries require recursive execution.
+        // This simplified version returns all calls in the project,
+        // and path reconstruction is handled by the Rust DFS in find_paths().
+        //
+        // Note: This is less efficient than the Cozo recursive query because
+        // it returns more data than needed. For better performance, use the Cozo backend.
+
+        let to_arity_cond = if self.to_arity.is_some() {
+            "\n  AND (c.callee_arity = $to_arity OR TRUE)"  // placeholder for when checking target
+        } else {
+            ""
+        };
+
         Ok(format!(
-            r#"MATCH path = (source:Function)-[:CALLS*1..{max_depth}]->(target:Function)
-WHERE source.module = $from_module
-  AND source.name = $from_function
-  AND source.project = $project
-  AND target.module = $to_module
-  AND target.name = $to_function
-  AND ($to_arity IS NULL OR target.arity = $to_arity)
-WITH path, length(path) as depth,
-     nodes(path) as funcs,
-     relationships(path) as calls
-UNWIND range(0, size(calls)-1) as idx
-RETURN depth,
-       funcs[idx].module as caller_module,
-       funcs[idx].name as caller_function,
-       funcs[idx+1].module as callee_module,
-       funcs[idx+1].name as callee_function,
-       funcs[idx+1].arity as callee_arity,
-       calls[idx].file as file,
-       calls[idx].line as line
-ORDER BY depth, caller_module, caller_function
+            r#"MATCH (c:Call), (loc:FunctionLocation)
+WHERE c.project = $project
+  AND c.callee_function <> '%'
+  AND loc.module = c.caller_module
+  AND c.caller_function STARTS WITH loc.name
+  AND c.line >= loc.start_line
+  AND c.line <= loc.end_line{to_arity_cond}
+RETURN 1 AS depth,
+       c.caller_module AS caller_module, c.caller_function AS caller_function,
+       c.callee_module AS callee_module, c.callee_function AS callee_function,
+       c.callee_arity AS callee_arity, c.file AS file, c.line AS line
+ORDER BY c.caller_module, c.caller_function
 LIMIT {limit}"#,
-            max_depth = self.max_depth,
             limit = self.limit
         ))
     }
@@ -375,10 +380,10 @@ mod tests {
 
         let compiled = builder.compile_age().unwrap();
 
-        assert!(compiled.contains("MATCH"));
-        assert!(compiled.contains("CALLS*1..5"));
-        assert!(compiled.contains("source.module"));
-        assert!(compiled.contains("target.module"));
+        // AGE queries use vertex matching, not edge relationships
+        assert!(compiled.contains("MATCH (c:Call), (loc:FunctionLocation)"));
+        assert!(compiled.contains("c.caller_module"));
+        assert!(compiled.contains("c.callee_module"));
     }
 
     #[test]
