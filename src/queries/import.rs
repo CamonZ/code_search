@@ -4,9 +4,9 @@ use cozo::{DataValue, DbInstance};
 use serde::Serialize;
 use thiserror::Error;
 
+use crate::db::{escape_string, escape_string_single, run_query, run_query_no_params, Params};
 use crate::queries::import_models::CallGraph;
 use crate::queries::schema;
-use crate::db::{escape_string, escape_string_single, run_query, run_query_no_params, Params};
 
 /// Chunk size for batch database imports
 const IMPORT_CHUNK_SIZE: usize = 500;
@@ -180,7 +180,7 @@ pub fn import_functions(
             let (return_type, args) = spec
                 .clauses
                 .first()
-                .map(|c| (c.return_string.clone(), c.inputs_string.join(", ")))
+                .map(|c| (c.return_strings.join(" | "), c.input_strings.join(", ")))
                 .unwrap_or_default();
 
             rows.push(format!(
@@ -367,8 +367,8 @@ pub fn import_specs(
                 .first()
                 .map(|c| {
                     (
-                        c.inputs_string.join(", "),
-                        c.return_string.clone(),
+                        c.input_strings.join(", "),
+                        c.return_strings.join(" | "),
                         c.full.clone(),
                     )
                 })

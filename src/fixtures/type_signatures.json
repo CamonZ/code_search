@@ -5,19 +5,172 @@
   "type_signatures": {},
   "specs": {
     "MyApp.Accounts": [
-      {"arity": 1, "name": "get_user", "line": 10, "kind": "spec", "clauses": [{"full": "@spec get_user(integer()) :: User.t() | nil", "inputs_string": ["integer()"], "return_string": "User.t() | nil"}]},
-      {"arity": 2, "name": "get_user", "line": 15, "kind": "spec", "clauses": [{"full": "@spec get_user(integer(), keyword()) :: User.t() | nil", "inputs_string": ["integer()", "keyword()"], "return_string": "User.t() | nil"}]},
-      {"arity": 0, "name": "list_users", "line": 20, "kind": "spec", "clauses": [{"full": "@spec list_users() :: [User.t()]", "inputs_string": [], "return_string": "[User.t()]"}]},
-      {"arity": 1, "name": "create_user", "line": 25, "kind": "spec", "clauses": [{"full": "@spec create_user(map()) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}", "inputs_string": ["map()"], "return_string": "{:ok, User.t()} | {:error, Ecto.Changeset.t()}"}]}
+      {
+        "arity": 1,
+        "name": "get_user",
+        "line": 10,
+        "kind": "spec",
+        "clauses": [
+          {
+            "full": "@spec get_user(integer()) :: User.t() | nil",
+            "input_strings": [
+              "integer()"
+            ],
+            "return_strings": [
+              "User.t()",
+              "nil"
+            ]
+          }
+        ]
+      },
+      {
+        "arity": 2,
+        "name": "get_user",
+        "line": 15,
+        "kind": "spec",
+        "clauses": [
+          {
+            "full": "@spec get_user(integer(), keyword()) :: User.t() | nil",
+            "input_strings": [
+              "integer()",
+              "keyword()"
+            ],
+            "return_strings": [
+              "User.t()",
+              "nil"
+            ]
+          }
+        ]
+      },
+      {
+        "arity": 0,
+        "name": "list_users",
+        "line": 20,
+        "kind": "spec",
+        "clauses": [
+          {
+            "full": "@spec list_users() :: [User.t()]",
+            "input_strings": [],
+            "return_strings": [
+              "[User.t()]"
+            ]
+          }
+        ]
+      },
+      {
+        "arity": 1,
+        "name": "create_user",
+        "line": 25,
+        "kind": "spec",
+        "clauses": [
+          {
+            "full": "@spec create_user(map()) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}",
+            "input_strings": [
+              "map()"
+            ],
+            "return_strings": [
+              "{:ok, User.t()}",
+              "{:error, Ecto.Changeset.t()}"
+            ]
+          }
+        ]
+      }
     ],
     "MyApp.Users": [
-      {"arity": 1, "name": "get_by_email", "line": 10, "kind": "spec", "clauses": [{"full": "@spec get_by_email(String.t()) :: User.t() | nil", "inputs_string": ["String.t()"], "return_string": "User.t() | nil"}]},
-      {"arity": 2, "name": "authenticate", "line": 15, "kind": "spec", "clauses": [{"full": "@spec authenticate(String.t(), String.t()) :: {:ok, User.t()} | {:error, atom()}", "inputs_string": ["String.t()", "String.t()"], "return_string": "{:ok, User.t()} | {:error, atom()}"}]}
+      {
+        "arity": 1,
+        "name": "get_by_email",
+        "line": 10,
+        "kind": "spec",
+        "clauses": [
+          {
+            "full": "@spec get_by_email(String.t()) :: User.t() | nil",
+            "input_strings": [
+              "String.t()"
+            ],
+            "return_strings": [
+              "User.t()",
+              "nil"
+            ]
+          }
+        ]
+      },
+      {
+        "arity": 2,
+        "name": "authenticate",
+        "line": 15,
+        "kind": "spec",
+        "clauses": [
+          {
+            "full": "@spec authenticate(String.t(), String.t()) :: {:ok, User.t()} | {:error, atom()}",
+            "input_strings": [
+              "String.t()",
+              "String.t()"
+            ],
+            "return_strings": [
+              "{:ok, User.t()}",
+              "{:error, atom()}"
+            ]
+          }
+        ]
+      }
     ],
     "MyApp.Repo": [
-      {"arity": 2, "name": "get", "line": 10, "kind": "spec", "clauses": [{"full": "@spec get(module(), integer()) :: struct() | nil", "inputs_string": ["module()", "integer()"], "return_string": "struct() | nil"}]},
-      {"arity": 1, "name": "all", "line": 15, "kind": "spec", "clauses": [{"full": "@spec all(Ecto.Queryable.t()) :: [struct()]", "inputs_string": ["Ecto.Queryable.t()"], "return_string": "[struct()]"}]},
-      {"arity": 2, "name": "insert", "line": 20, "kind": "spec", "clauses": [{"full": "@spec insert(struct(), keyword()) :: {:ok, struct()} | {:error, Ecto.Changeset.t()}", "inputs_string": ["struct()", "keyword()"], "return_string": "{:ok, struct()} | {:error, Ecto.Changeset.t()}"}]}
+      {
+        "arity": 2,
+        "name": "get",
+        "line": 10,
+        "kind": "spec",
+        "clauses": [
+          {
+            "full": "@spec get(module(), integer()) :: struct() | nil",
+            "input_strings": [
+              "module()",
+              "integer()"
+            ],
+            "return_strings": [
+              "struct()",
+              "nil"
+            ]
+          }
+        ]
+      },
+      {
+        "arity": 1,
+        "name": "all",
+        "line": 15,
+        "kind": "spec",
+        "clauses": [
+          {
+            "full": "@spec all(Ecto.Queryable.t()) :: [struct()]",
+            "input_strings": [
+              "Ecto.Queryable.t()"
+            ],
+            "return_strings": [
+              "[struct()]"
+            ]
+          }
+        ]
+      },
+      {
+        "arity": 2,
+        "name": "insert",
+        "line": 20,
+        "kind": "spec",
+        "clauses": [
+          {
+            "full": "@spec insert(struct(), keyword()) :: {:ok, struct()} | {:error, Ecto.Changeset.t()}",
+            "input_strings": [
+              "struct()",
+              "keyword()"
+            ],
+            "return_strings": [
+              "{:ok, struct()}",
+              "{:error, Ecto.Changeset.t()}"
+            ]
+          }
+        ]
+      }
     ]
   }
 }

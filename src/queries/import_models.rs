@@ -117,8 +117,8 @@ pub struct Spec {
 #[derive(Debug, Deserialize)]
 pub struct SpecClause {
     pub full: String,
-    pub inputs_string: Vec<String>,
-    pub return_string: String,
+    pub input_strings: Vec<String>,
+    pub return_strings: Vec<String>,
 }
 
 /// A @type, @typep, or @opaque definition.

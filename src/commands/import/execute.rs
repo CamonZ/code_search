@@ -95,7 +95,7 @@ mod tests {
                         "line": 9,
                         "kind": "spec",
                         "clauses": [
-                            {"full": "@spec get_user(integer()) :: dynamic()", "inputs_string": ["integer()"], "return_string": "dynamic()"}
+                            {"full": "@spec get_user(integer()) :: dynamic()", "input_strings": ["integer()"], "return_strings": ["dynamic()"]}
                         ]
                     }
                 ]
