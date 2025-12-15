@@ -115,6 +115,9 @@ impl Execute for SetupCmd {
             // TODO: Implement drop_schema if needed for true drop+recreate
         }
 
+        // Perform backend-specific setup (e.g., create PostgreSQL AGE graph)
+        db.setup_backend()?;
+
         // Run migrations to ensure schema is initialized
         // Migrations are idempotent, so this is safe to call multiple times
         run_migrations(db)?;

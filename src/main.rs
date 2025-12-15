@@ -1,25 +1,10 @@
 use clap::Parser;
 
-mod cli;
-mod commands;
-mod config;
-mod db;
-mod dedup;
-pub mod output;
-mod queries;
-pub mod types;
-mod utils;
-#[macro_use]
-mod test_macros;
-#[cfg(test)]
-pub mod fixtures;
-#[cfg(test)]
-pub mod test_utils;
-use cli::Args;
-use commands::CommandRunner;
-use commands::Command;
-use db::DatabaseConfig;
-use db::schema::get_current_version;
+use code_search::cli::Args;
+use code_search::commands::CommandRunner;
+use code_search::commands::Command;
+use code_search::db::DatabaseConfig;
+use code_search::db::schema::get_current_version;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();

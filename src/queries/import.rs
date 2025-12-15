@@ -5,14 +5,10 @@ use cozo::DataValue;
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::queries::import_models::CallGraph;
 use crate::db::schema::{
-    ALL_RELATIONS, MODULES, FUNCTIONS, CALLS,
-    STRUCT_FIELDS, FUNCTION_LOCATIONS, SPECS, TYPES
+    ALL_RELATIONS, CALLS, FUNCTIONS, FUNCTION_LOCATIONS, MODULES, SPECS, STRUCT_FIELDS, TYPES,
 };
-
-/// Chunk size for batch database imports
-const IMPORT_CHUNK_SIZE: usize = 500;
+use crate::queries::import_models::CallGraph;
 
 #[derive(Error, Debug)]
 pub enum ImportError {
@@ -49,14 +45,14 @@ pub struct ImportResult {
 pub fn clear_project_data(db: &dyn DatabaseBackend, project: &str) -> Result<(), Box<dyn Error>> {
     // Delete all data for this project from each table using the generic interface
     for relation in ALL_RELATIONS {
-        db.delete_by_project(relation, project).map_err(|e| ImportError::ClearFailed {
-            message: format!("Failed to clear {}: {}", relation.name, e),
-        })?;
+        db.delete_by_project(relation, project)
+            .map_err(|e| ImportError::ClearFailed {
+                message: format!("Failed to clear {}: {}", relation.name, e),
+            })?;
     }
 
     Ok(())
 }
-
 
 pub fn import_modules(
     db: &dyn DatabaseBackend,
@@ -74,10 +70,10 @@ pub fn import_modules(
         .iter()
         .map(|m| {
             vec![
-                DataValue::Str(project.into()),       // project
-                DataValue::Str(m.clone().into()),     // name
-                DataValue::Str("".into()),            // file
-                DataValue::Str("unknown".into()),     // source
+                DataValue::Str(project.into()),   // project
+                DataValue::Str(m.clone().into()), // name
+                DataValue::Str("".into()),        // file
+                DataValue::Str("unknown".into()), // source
             ]
         })
         .collect();
@@ -130,18 +126,18 @@ pub fn import_calls(
             let callee_args = call.callee.args.as_deref().unwrap_or("");
 
             vec![
-                DataValue::Str(project.into()),                                    // project
-                DataValue::Str(call.caller.module.clone().into()),                 // caller_module
+                DataValue::Str(project.into()),                    // project
+                DataValue::Str(call.caller.module.clone().into()), // caller_module
                 DataValue::Str(call.caller.function.clone().unwrap_or_default().into()), // caller_function
-                DataValue::Str(call.callee.module.clone().into()),                 // callee_module
-                DataValue::Str(call.callee.function.clone().into()),               // callee_function
-                DataValue::from(call.callee.arity as i64),                         // callee_arity
-                DataValue::Str(call.caller.file.clone().into()),                   // file
-                DataValue::from(call.caller.line.unwrap_or(0) as i64),             // line
-                DataValue::from(call.caller.column.unwrap_or(0) as i64),           // column
-                DataValue::Str(call.call_type.clone().into()),                     // call_type
-                DataValue::Str(caller_kind.into()),                                // caller_kind
-                DataValue::Str(callee_args.into()),                                // callee_args
+                DataValue::Str(call.callee.module.clone().into()), // callee_module
+                DataValue::Str(call.callee.function.clone().into()), // callee_function
+                DataValue::from(call.callee.arity as i64),         // callee_arity
+                DataValue::Str(call.caller.file.clone().into()),   // file
+                DataValue::from(call.caller.line.unwrap_or(0) as i64), // line
+                DataValue::from(call.caller.column.unwrap_or(0) as i64), // column
+                DataValue::Str(call.call_type.clone().into()),     // call_type
+                DataValue::Str(caller_kind.into()),                // caller_kind
+                DataValue::Str(callee_args.into()),                // callee_args
             ]
         })
         .collect();
@@ -160,12 +156,12 @@ pub fn import_structs(
         for field in &def.fields {
             let inferred_type = field.inferred_type.as_deref().unwrap_or("");
             rows.push(vec![
-                DataValue::Str(project.into()),                    // project
-                DataValue::Str(module.clone().into()),             // module
-                DataValue::Str(field.field.clone().into()),        // field
-                DataValue::Str(field.default.clone().into()),      // default_value
-                DataValue::Bool(field.required),                   // required
-                DataValue::Str(inferred_type.into()),              // inferred_type
+                DataValue::Str(project.into()),               // project
+                DataValue::Str(module.clone().into()),        // module
+                DataValue::Str(field.field.clone().into()),   // field
+                DataValue::Str(field.default.clone().into()), // default_value
+                DataValue::Bool(field.required),              // required
+                DataValue::Str(inferred_type.into()),         // inferred_type
             ]);
         }
     }
@@ -214,25 +210,25 @@ pub fn import_function_locations(
             let macro_source = loc.macro_source.as_deref().unwrap_or("");
 
             rows.push(vec![
-                DataValue::Str(project.into()),                          // project
-                DataValue::Str(module.clone().into()),                   // module
-                DataValue::Str(name.into()),                             // name
-                DataValue::from(arity as i64),                           // arity
-                DataValue::from(line as i64),                            // line
+                DataValue::Str(project.into()),                           // project
+                DataValue::Str(module.clone().into()),                    // module
+                DataValue::Str(name.into()),                              // name
+                DataValue::from(arity as i64),                            // arity
+                DataValue::from(line as i64),                             // line
                 DataValue::Str(loc.file.as_deref().unwrap_or("").into()), // file
-                DataValue::Str(source_file_absolute.into()),             // source_file_absolute
-                DataValue::from(loc.column.unwrap_or(0) as i64),         // column
-                DataValue::Str(loc.kind.clone().into()),                 // kind
-                DataValue::from(loc.start_line as i64),                  // start_line
-                DataValue::from(loc.end_line as i64),                    // end_line
-                DataValue::Str(pattern.into()),                          // pattern
-                DataValue::Str(guard.into()),                            // guard
-                DataValue::Str(source_sha.into()),                       // source_sha
-                DataValue::Str(ast_sha.into()),                          // ast_sha
-                DataValue::from(loc.complexity as i64),                  // complexity
-                DataValue::from(loc.max_nesting_depth as i64),           // max_nesting_depth
-                DataValue::Str(generated_by.into()),                     // generated_by
-                DataValue::Str(macro_source.into()),                     // macro_source
+                DataValue::Str(source_file_absolute.into()),              // source_file_absolute
+                DataValue::from(loc.column.unwrap_or(0) as i64),          // column
+                DataValue::Str(loc.kind.clone().into()),                  // kind
+                DataValue::from(loc.start_line as i64),                   // start_line
+                DataValue::from(loc.end_line as i64),                     // end_line
+                DataValue::Str(pattern.into()),                           // pattern
+                DataValue::Str(guard.into()),                             // guard
+                DataValue::Str(source_sha.into()),                        // source_sha
+                DataValue::Str(ast_sha.into()),                           // ast_sha
+                DataValue::from(loc.complexity as i64),                   // complexity
+                DataValue::from(loc.max_nesting_depth as i64),            // max_nesting_depth
+                DataValue::Str(generated_by.into()),                      // generated_by
+                DataValue::Str(macro_source.into()),                      // macro_source
             ]);
         }
     }
@@ -291,12 +287,12 @@ pub fn import_types(
             let params = type_def.params.join(", ");
 
             rows.push(vec![
-                DataValue::Str(project.into()),           // project
-                DataValue::Str(module.clone().into()),    // module
-                DataValue::Str(type_def.name.clone().into()), // name
-                DataValue::Str(type_def.kind.clone().into()), // kind
-                DataValue::Str(params.into()),            // params
-                DataValue::from(type_def.line as i64),    // line
+                DataValue::Str(project.into()),                     // project
+                DataValue::Str(module.clone().into()),              // module
+                DataValue::Str(type_def.name.clone().into()),       // name
+                DataValue::Str(type_def.kind.clone().into()),       // kind
+                DataValue::Str(params.into()),                      // params
+                DataValue::from(type_def.line as i64),              // line
                 DataValue::Str(type_def.definition.clone().into()), // definition
             ]);
         }
@@ -450,7 +446,8 @@ mod tests {
 
         let backend = open_mem_db(true).expect("Failed to open db");
 
-        let result = import_json_str(backend.as_ref(), json, "test_project").expect("Import should succeed");
+        let result =
+            import_json_str(backend.as_ref(), json, "test_project").expect("Import should succeed");
 
         // Verify import succeeded
         assert_eq!(result.function_locations_imported, 1);

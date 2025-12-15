@@ -424,29 +424,6 @@ pub const TYPES: SchemaRelation = SchemaRelation {
     relationships: &[],
 };
 
-/// Schema migrations relation: tracks which schema versions have been applied
-///
-/// Key fields: version
-/// Value fields: description
-pub const SCHEMA_MIGRATIONS: SchemaRelation = SchemaRelation {
-    name: "schema_versions",
-    key_fields: &[
-        SchemaField {
-            name: "version",
-            data_type: DataType::Int,
-            default: None,
-        },
-    ],
-    value_fields: &[
-        SchemaField {
-            name: "description",
-            data_type: DataType::String,
-            default: Some(""),
-        },
-    ],
-    relationships: &[],
-};
-
 /// All relations for easy iteration.
 ///
 /// Contains references to all 7 database relations.
@@ -650,7 +627,15 @@ mod tests {
 
     #[test]
     fn test_all_relations_findable_by_name() {
-        let names = vec!["modules", "functions", "calls", "struct_fields", "function_locations", "specs", "types"];
+        let names = vec![
+            "modules",
+            "functions",
+            "calls",
+            "struct_fields",
+            "function_locations",
+            "specs",
+            "types",
+        ];
         for name in names {
             let found = ALL_RELATIONS.iter().any(|r| r.name == name);
             assert!(found, "Relation {} not found in ALL_RELATIONS", name);

@@ -7,7 +7,9 @@ use cozo::{DataValue, DbInstance, NamedRows, ScriptMutability};
 
 use super::backend::{DatabaseBackend, Params, QueryResult};
 use super::escape::escape_string;
-use super::schema::{run_migrations, SchemaRelation, CozoCompiler};
+use super::schema::{SchemaRelation, CozoCompiler};
+#[cfg(test)]
+use super::schema::run_migrations;
 use super::DbError;
 
 /// Format a row of DataValues as a Cozo array literal.
@@ -21,7 +23,7 @@ use super::DbError;
 /// - List: `[item1, item2, ...]` (nested, with items formatted recursively)
 ///
 /// # Example
-/// ```rust
+/// ```ignore
 /// let row = vec![
 ///     DataValue::Str("MyApp".into()),
 ///     DataValue::Num(cozo::Num::Int(42)),
@@ -77,25 +79,21 @@ impl DatabaseBackend for CozoSqliteBackend {
     }
 
     fn relation_exists(&self, name: &str) -> Result<bool, Box<dyn Error>> {
-        // Try to query the relation - if it doesn't exist, Cozo will error
-        // We accept any error that suggests the relation doesn't exist
-        let script = format!("?[x] := *{}{{x}}", name);
-        match self.execute_query_no_params(&script) {
-            Ok(_) => Ok(true),
-            Err(e) => {
-                let err_str = e.to_string();
-                // Accept various error messages that indicate relation doesn't exist
-                if err_str.contains("not found")
-                    || err_str.contains("NoSuchRelation")
-                    || err_str.contains("does not exist")
-                    || err_str.contains("no binding for")
-                {
-                    Ok(false)
-                } else {
-                    Err(e)
+        // Use the ::relations system command to list all relations
+        // and check if the target relation exists
+        let result = self.execute_query_no_params("::relations")?;
+
+        // The ::relations command returns rows with relation names
+        // Check if any row contains our relation name
+        for row in &result.rows {
+            if let Some(DataValue::Str(relation_name)) = row.first() {
+                let relation_str: &str = relation_name.as_ref();
+                if relation_str == name {
+                    return Ok(true);
                 }
             }
         }
+        Ok(false)
     }
 
     fn try_create_relation(&self, schema: &str) -> Result<bool, Box<dyn Error>> {
@@ -193,25 +191,21 @@ impl DatabaseBackend for CozoMemBackend {
     }
 
     fn relation_exists(&self, name: &str) -> Result<bool, Box<dyn Error>> {
-        // Try to query the relation - if it doesn't exist, Cozo will error
-        // We accept any error that suggests the relation doesn't exist
-        let script = format!("?[x] := *{}{{x}}", name);
-        match self.execute_query_no_params(&script) {
-            Ok(_) => Ok(true),
-            Err(e) => {
-                let err_str = e.to_string();
-                // Accept various error messages that indicate relation doesn't exist
-                if err_str.contains("not found")
-                    || err_str.contains("NoSuchRelation")
-                    || err_str.contains("does not exist")
-                    || err_str.contains("no binding for")
-                {
-                    Ok(false)
-                } else {
-                    Err(e)
+        // Use the ::relations system command to list all relations
+        // and check if the target relation exists
+        let result = self.execute_query_no_params("::relations")?;
+
+        // The ::relations command returns rows with relation names
+        // Check if any row contains our relation name
+        for row in &result.rows {
+            if let Some(DataValue::Str(relation_name)) = row.first() {
+                let relation_str: &str = relation_name.as_ref();
+                if relation_str == name {
+                    return Ok(true);
                 }
             }
         }
+        Ok(false)
     }
 
     fn try_create_relation(&self, schema: &str) -> Result<bool, Box<dyn Error>> {

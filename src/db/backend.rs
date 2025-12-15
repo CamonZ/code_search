@@ -107,6 +107,21 @@ pub trait DatabaseBackend: Send + Sync {
     /// Get the underlying DbInstance for use with existing query functions.
     /// This provides a migration path during the transition to the trait-based API.
     fn as_db_instance(&self) -> &cozo::DbInstance;
+
+    /// Perform backend-specific setup/initialization.
+    ///
+    /// This is called by the `setup` command before `run_migrations()` to
+    /// perform any backend-specific initialization that needs to happen
+    /// before schema creation.
+    ///
+    /// # Default Implementation
+    /// Returns Ok(()) for backends that don't need special initialization.
+    ///
+    /// # PostgreSQL AGE
+    /// Creates the AGE graph if it doesn't exist.
+    fn setup_backend(&self) -> Result<(), Box<dyn Error>> {
+        Ok(())
+    }
 }
 
 /// Type alias for query parameters.

@@ -8,7 +8,7 @@
 
 use std::error::Error;
 use crate::db::backend::DatabaseBackend;
-use crate::db::schema::compilers::CozoCompiler;
+use crate::db::schema::compilers::{AgeCompiler, CozoCompiler};
 use crate::db::schema::relations::ALL_RELATIONS;
 
 /// A single migration that can be applied to the database.
@@ -109,9 +109,10 @@ pub fn update_version(_backend: &dyn DatabaseBackend, _version: u32, _descriptio
 /// version > current_version in order. Each migration creates its relations.
 ///
 /// Migrations are idempotent - safe to call multiple times.
+/// Works with both CozoDB and PostgreSQL AGE backends.
 pub fn run_migrations(backend: &dyn DatabaseBackend) -> Result<(), Box<dyn Error>> {
-    let db = backend.as_db_instance();
     let current_version = get_current_version(backend)?;
+    let is_postgres = backend.backend_name() == "PostgresAge";
 
     // Find migrations to run (version > current_version)
     let migrations_to_run: Vec<_> = MIGRATION_SETS
@@ -128,22 +129,18 @@ pub fn run_migrations(backend: &dyn DatabaseBackend) -> Result<(), Box<dyn Error
                 .find(|r| r.name == *relation_name)
                 .ok_or(format!("Unknown relation: {}", relation_name))?;
 
-            // Compile the relation to Cozo DDL
-            let ddl = CozoCompiler::compile_relation(relation);
+            // Compile the relation to the appropriate DDL for this backend
+            let ddl = if is_postgres {
+                // For PostgreSQL AGE, use the vertex label name
+                AgeCompiler::relation_to_vertex_label(relation.name)
+            } else {
+                // For CozoDB, use the full DDL
+                CozoCompiler::compile_relation(relation)
+            };
 
-            // Execute the DDL (idempotent - ignore conflict errors)
-            match db.run_script(&ddl, Default::default(), cozo::ScriptMutability::Mutable) {
-                Ok(_) => {} // Relation created successfully
-                Err(e) => {
-                    // If it's a conflict error (relation already exists), that's OK
-                    let err_str = e.to_string();
-                    if !err_str.contains("conflicts") && !err_str.contains("AlreadyExists") {
-                        // If it's not a conflict error, propagate the error
-                        return Err(err_str.into());
-                    }
-                    // Otherwise, continue - the relation already exists
-                }
-            }
+            // Use try_create_relation which is backend-agnostic and idempotent
+            // Returns Ok(true) if created, Ok(false) if already exists
+            backend.try_create_relation(&ddl)?;
         }
 
         // Update version after successful migration

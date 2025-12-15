@@ -3,7 +3,7 @@
 //! This module provides pre-built query builders for common patterns like
 //! simple SELECT queries and recursive traversal queries.
 
-use super::{compilers::get_compiler, QueryBuilder};
+use super::QueryBuilder;
 use crate::db::{DatabaseBackend, Params};
 use std::error::Error;
 

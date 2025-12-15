@@ -90,7 +90,7 @@ impl CozoCompiler {
     /// * `row_literals` - Pre-formatted row strings like `["val1", "val2", 3]`
     ///
     /// # Example
-    /// ```rust
+    /// ```ignore
     /// let rows = vec![
     ///     r#"["proj", "MyApp", "", "unknown"]"#.to_string(),
     ///     r#"["proj", "MyApp.User", "", "unknown"]"#.to_string(),
@@ -143,7 +143,7 @@ impl CozoCompiler {
     /// * `relation` - The schema relation definition
     ///
     /// # Example
-    /// ```rust
+    /// ```ignore
     /// let script = CozoCompiler::compile_delete_by_project(&MODULES);
     /// // Returns:
     /// // ?[project, name] := *modules{project: $project, project, name}

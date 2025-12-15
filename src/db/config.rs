@@ -4,7 +4,6 @@
 //! Supports multiple database backends (currently only CozoDB/SQLite and in-memory for tests).
 
 use std::error::Error;
-use std::fs;
 use std::path::PathBuf;
 
 use super::backend::DatabaseBackend;
@@ -279,6 +278,7 @@ impl DatabaseConfig {
 mod tests {
     use super::*;
     use crate::test_utils;
+    use std::fs;
 
     #[test]
     fn test_from_url_file_path() {

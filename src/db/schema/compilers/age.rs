@@ -124,7 +124,7 @@ impl AgeCompiler {
     /// - types -> Type
     /// - struct_fields -> StructField
     /// - function_locations -> FunctionLocation
-    fn relation_to_vertex_label(relation_name: &str) -> String {
+    pub fn relation_to_vertex_label(relation_name: &str) -> String {
         let singular = match relation_name {
             "modules" => "Module",
             "functions" => "Function",
@@ -153,7 +153,7 @@ impl AgeCompiler {
     /// * `relation` - The schema relation definition
     ///
     /// # Example
-    /// ```rust
+    /// ```ignore
     /// let script = AgeCompiler::compile_batch_insert(&MODULES);
     /// // Returns:
     /// // UNWIND $rows AS row
@@ -188,7 +188,7 @@ impl AgeCompiler {
     /// * `relation` - The schema relation definition
     ///
     /// # Example
-    /// ```rust
+    /// ```ignore
     /// let script = AgeCompiler::compile_delete_by_project(&MODULES);
     /// // Returns:
     /// // MATCH (n:Module)
@@ -219,7 +219,7 @@ impl AgeCompiler {
     /// * `relation` - The schema relation definition
     ///
     /// # Example
-    /// ```rust
+    /// ```ignore
     /// let script = AgeCompiler::compile_upsert(&MODULES);
     /// // Returns:
     /// // UNWIND $rows AS row

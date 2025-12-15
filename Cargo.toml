@@ -3,6 +3,14 @@ name = "code_search"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "code_search"
+path = "src/lib.rs"
+
+[[bin]]
+name = "code_search"
+path = "src/main.rs"
+
 [dependencies]
 apache_age = { version = "0.6", features = ["sync"] }
 clap = { version = "4", features = ["derive"] }
@@ -18,4 +26,8 @@ postgres = "0.19"
 [dev-dependencies]
 tempfile = "3"
 rstest = "0.23"
+
+[features]
+# Integration tests with PostgreSQL (requires local PostgreSQL instance)
+postgres-tests = []
 
