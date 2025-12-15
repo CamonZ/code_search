@@ -36,6 +36,42 @@ pub struct PostgresAgeBackend {
 unsafe impl Sync for PostgresAgeBackend {}
 
 impl PostgresAgeBackend {
+    /// Ensure the AGE extension is installed in the database.
+    ///
+    /// This should be called from the `setup` command BEFORE calling `new()`.
+    /// Uses a regular PostgreSQL connection to create the extension if it doesn't exist.
+    ///
+    /// # Arguments
+    /// * `connection_string` - PostgreSQL connection string
+    ///
+    /// # Returns
+    /// * `Ok(true)` if the extension was created
+    /// * `Ok(false)` if the extension already existed
+    ///
+    /// # Errors
+    /// Returns an error if the connection fails or the extension cannot be created.
+    pub fn ensure_extension_installed(connection_string: &str) -> Result<bool, Box<dyn Error>> {
+        use postgres::{Client, NoTls};
+
+        let mut client = Client::connect(connection_string, NoTls)
+            .map_err(|e| format!("Failed to connect to PostgreSQL: {}", e))?;
+
+        // Check if extension exists
+        let rows = client.query(
+            "SELECT 1 FROM pg_extension WHERE extname = 'age'",
+            &[],
+        )?;
+
+        if !rows.is_empty() {
+            return Ok(false); // Already installed
+        }
+
+        // Create extension
+        client.execute("CREATE EXTENSION IF NOT EXISTS age", &[])?;
+
+        Ok(true) // Extension was created
+    }
+
     /// Create a new PostgreSQL AGE backend.
     ///
     /// # Arguments
@@ -50,9 +86,15 @@ impl PostgresAgeBackend {
     /// # Note
     /// This constructor only connects to the database and verifies AGE is available.
     /// To create the graph and initialize the schema, use the `setup` command.
+    /// If the AGE extension might not be installed, call `ensure_extension_installed()`
+    /// first (typically from the setup command).
     ///
     /// # Example
     /// ```no_run
+    /// // In setup command:
+    /// PostgresAgeBackend::ensure_extension_installed(conn_str)?;
+    ///
+    /// // Then connect:
     /// let backend = PostgresAgeBackend::new(
     ///     "postgres://user:pass@localhost:5432/code_search",
     ///     "call_graph"
@@ -120,6 +162,21 @@ impl PostgresAgeBackend {
     /// Get the graph name for this backend.
     pub fn graph_name(&self) -> &str {
         &self.graph_name
+    }
+
+    /// Initialize the schema (creates version table and labels).
+    ///
+    /// This should be called from the `setup` command after `create_graph_if_not_exists()`.
+    ///
+    /// # Returns
+    /// The schema version after initialization
+    ///
+    /// # Errors
+    /// Returns an error if schema initialization fails
+    pub fn initialize_schema(&self) -> Result<i32, Box<dyn Error>> {
+        let mut client = self.client.write()
+            .map_err(|e| format!("Failed to acquire write lock: {}", e))?;
+        schema::initialize_schema(&mut client, &self.graph_name)
     }
 }
 

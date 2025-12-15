@@ -401,6 +401,7 @@ dependencies = [
  "clap",
  "cozo",
  "enum_dispatch",
+ "postgres",
  "rstest",
  "serde",
  "serde_json",
