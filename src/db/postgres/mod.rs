@@ -90,7 +90,7 @@ impl PostgresAgeBackend {
     /// first (typically from the setup command).
     ///
     /// # Example
-    /// ```no_run
+    /// ```ignore
     /// // In setup command:
     /// PostgresAgeBackend::ensure_extension_installed(conn_str)?;
     ///
@@ -155,8 +155,11 @@ impl PostgresAgeBackend {
             "SELECT 1 FROM ag_catalog.ag_graph WHERE name = '{}'",
             graph_name
         );
-        let rows = client.simple_query(&query)?;
-        Ok(!rows.is_empty())
+        let messages = client.simple_query(&query)?;
+        let has_rows = messages.iter().any(|msg| {
+            matches!(msg, postgres::SimpleQueryMessage::Row(_))
+        });
+        Ok(has_rows)
     }
 
     /// Get the graph name for this backend.
@@ -219,18 +222,26 @@ impl DatabaseBackend for PostgresAgeBackend {
     }
 
     fn relation_exists(&self, name: &str) -> Result<bool, Box<dyn Error>> {
+        // Convert relation name (e.g., "modules") to vertex label (e.g., "Module")
+        let label_name = crate::db::schema::compilers::AgeCompiler::relation_to_vertex_label(name);
+
         // In AGE, we check if a vertex label exists in the ag_catalog
         let query = format!(
             "SELECT 1 FROM ag_catalog.ag_label WHERE name = '{}' AND graph = \
              (SELECT graphid FROM ag_catalog.ag_graph WHERE name = '{}')",
-            name, self.graph_name
+            label_name, self.graph_name
         );
 
         let mut client = self.client.write()
             .map_err(|e| format!("Failed to acquire write lock: {}", e))?;
 
-        let rows = client.simple_query(&query)?;
-        Ok(!rows.is_empty())
+        // simple_query returns SimpleQueryMessage which includes CommandComplete
+        // We need to check for actual Row messages
+        let messages = client.simple_query(&query)?;
+        let has_rows = messages.iter().any(|msg| {
+            matches!(msg, postgres::SimpleQueryMessage::Row(_))
+        });
+        Ok(has_rows)
     }
 
     fn try_create_relation(&self, schema: &str) -> Result<bool, Box<dyn Error>> {
@@ -258,8 +269,13 @@ impl DatabaseBackend for PostgresAgeBackend {
             label_name, self.graph_name
         );
 
-        let rows = client.simple_query(&exists_query)?;
-        if !rows.is_empty() {
+        // simple_query returns SimpleQueryMessage which includes CommandComplete
+        // We need to check for actual Row messages
+        let messages = client.simple_query(&exists_query)?;
+        let has_rows = messages.iter().any(|msg| {
+            matches!(msg, postgres::SimpleQueryMessage::Row(_))
+        });
+        if has_rows {
             return Ok(false); // Already exists
         }
 
@@ -300,20 +316,21 @@ impl DatabaseBackend for PostgresAgeBackend {
         const CHUNK_SIZE: usize = 500;
 
         for chunk in rows.chunks(CHUNK_SIZE) {
-            // Build UNWIND query for batch insert
-            let cypher = crate::db::schema::compilers::AgeCompiler::compile_batch_insert(relation);
+            // Convert rows to Cypher literal format (not JSON)
+            // Cypher uses: [{key: 'value'}] not [{"key": "value"}]
+            let rows_cypher = conversion::rows_to_cypher_literal(relation, chunk)?;
 
-            // Convert rows to JSON array for UNWIND
-            let rows_json = conversion::convert_rows_to_json(relation, chunk)?;
+            // Build Cypher query with inlined data (no parameters)
+            // AGE driver doesn't support ToSql for agtype, so we inline the data
+            let cypher = conversion::compile_batch_insert_with_data(relation, &rows_cypher);
 
-            // Execute the batch insert
             let query = format!(
-                "SELECT * FROM cypher('{}', $$ {} $$, $1) AS (result agtype)",
+                "SELECT * FROM cypher('{}', $$ {} $$) AS (result agtype)",
                 self.graph_name, cypher
             );
 
-            // Use parameterized query with rows as JSON
-            client.execute(&query, &[&rows_json])?;
+            // Execute without parameters - data is inlined in the query
+            client.execute(&query, &[])?;
 
             total_inserted += chunk.len();
         }
@@ -329,16 +346,22 @@ impl DatabaseBackend for PostgresAgeBackend {
         let mut client = self.client.write()
             .map_err(|e| format!("Failed to acquire write lock: {}", e))?;
 
-        // Use the AGE compiler to generate the delete query
-        let cypher = crate::db::schema::compilers::AgeCompiler::compile_delete_by_project(relation);
+        // Inline the project value with escaping rather than using parameters
+        // This avoids agtype conversion issues with the AGE driver
+        let vertex_label = crate::db::schema::compilers::AgeCompiler::relation_to_vertex_label(relation.name);
+        let escaped_project = project.replace('\'', "''");
+        let cypher = format!(
+            "MATCH (n:{})\nWHERE n.project = '{}'\nDETACH DELETE n",
+            vertex_label, escaped_project
+        );
 
         let query = format!(
-            "SELECT * FROM cypher('{}', $$ {} $$, $1) AS (result agtype)",
+            "SELECT * FROM cypher('{}', $$ {} $$) AS (result agtype)",
             self.graph_name, cypher
         );
 
-        // Execute with project as parameter
-        let result = client.execute(&query, &[&project])?;
+        // Execute without parameters - value is inlined
+        let result = client.execute(&query, &[])?;
 
         // PostgreSQL returns rows affected
         Ok(result as usize)
@@ -360,17 +383,20 @@ impl DatabaseBackend for PostgresAgeBackend {
         const CHUNK_SIZE: usize = 500;
 
         for chunk in rows.chunks(CHUNK_SIZE) {
-            // Use MERGE for upsert semantics
-            let cypher = crate::db::schema::compilers::AgeCompiler::compile_upsert(relation);
+            // Convert rows to Cypher literal format (not JSON)
+            let rows_cypher = conversion::rows_to_cypher_literal(relation, chunk)?;
 
-            let rows_json = conversion::convert_rows_to_json(relation, chunk)?;
+            // Build Cypher MERGE query with inlined data (no parameters)
+            // AGE driver doesn't support ToSql for agtype, so we inline the data
+            let cypher = conversion::compile_upsert_with_data(relation, &rows_cypher);
 
             let query = format!(
-                "SELECT * FROM cypher('{}', $$ {} $$, $1) AS (result agtype)",
+                "SELECT * FROM cypher('{}', $$ {} $$) AS (result agtype)",
                 self.graph_name, cypher
             );
 
-            client.execute(&query, &[&rows_json])?;
+            // Execute without parameters - data is inlined in the query
+            client.execute(&query, &[])?;
             total_upserted += chunk.len();
         }
 
@@ -380,5 +406,11 @@ impl DatabaseBackend for PostgresAgeBackend {
     fn as_db_instance(&self) -> &DbInstance {
         panic!("PostgresAgeBackend does not have a Cozo DbInstance. \
                 Use execute_query() instead.")
+    }
+
+    fn setup_backend(&self) -> Result<(), Box<dyn Error>> {
+        // Create the AGE graph if it doesn't exist
+        self.create_graph_if_not_exists()?;
+        Ok(())
     }
 }

@@ -129,6 +129,149 @@ pub fn json_to_datavalue(val: &JsonValue) -> DataValue {
     }
 }
 
+use crate::db::schema::compilers::AgeCompiler;
+
+/// Convert a JSON value to Cypher literal syntax.
+///
+/// Cypher uses different syntax than JSON:
+/// - Property names are unquoted identifiers
+/// - String values use single quotes
+/// - Arrays use square brackets
+/// - Maps use curly braces
+///
+/// # Examples
+/// - JSON: `{"name": "test", "count": 42}`
+/// - Cypher: `{name: 'test', count: 42}`
+pub fn json_to_cypher_literal(value: &JsonValue) -> String {
+    match value {
+        JsonValue::Null => "null".to_string(),
+        JsonValue::Bool(b) => b.to_string(),
+        JsonValue::Number(n) => n.to_string(),
+        JsonValue::String(s) => {
+            // Escape single quotes by doubling them
+            let escaped = s.replace('\'', "''");
+            format!("'{}'", escaped)
+        }
+        JsonValue::Array(arr) => {
+            let items: Vec<String> = arr.iter()
+                .map(json_to_cypher_literal)
+                .collect();
+            format!("[{}]", items.join(", "))
+        }
+        JsonValue::Object(obj) => {
+            let props: Vec<String> = obj.iter()
+                .map(|(k, v)| format!("{}: {}", k, json_to_cypher_literal(v)))
+                .collect();
+            format!("{{{}}}", props.join(", "))
+        }
+    }
+}
+
+/// Convert rows to Cypher literal format for UNWIND.
+///
+/// Takes a slice of rows and returns a Cypher array literal string
+/// suitable for direct embedding in a Cypher query.
+///
+/// # Example Output
+/// ```cypher
+/// [{project: 'test', name: 'MyModule', file: 'lib/mod.ex'}]
+/// ```
+pub fn rows_to_cypher_literal(
+    relation: &SchemaRelation,
+    rows: &[Vec<DataValue>],
+) -> Result<String, Box<dyn Error>> {
+    let fields = relation.all_fields().collect::<Vec<_>>();
+    let mut cypher_rows = Vec::new();
+
+    for row in rows {
+        if row.len() != fields.len() {
+            return Err(format!(
+                "Row has {} values but relation {} expects {} fields",
+                row.len(),
+                relation.name,
+                fields.len()
+            ).into());
+        }
+
+        let mut props = Vec::new();
+        for (i, field) in fields.iter().enumerate() {
+            let json_val = datavalue_to_json(&row[i])?;
+            let cypher_val = json_to_cypher_literal(&json_val);
+            props.push(format!("{}: {}", field.name, cypher_val));
+        }
+
+        cypher_rows.push(format!("{{{}}}", props.join(", ")));
+    }
+
+    Ok(format!("[{}]", cypher_rows.join(", ")))
+}
+
+/// Generate Cypher batch insert with inlined data.
+///
+/// Since the rust-postgres driver doesn't support `ToSql` for AGE's `agtype`,
+/// we inline the JSON data directly into the Cypher query as a literal.
+///
+/// # Arguments
+/// * `relation` - The schema relation definition
+/// * `rows_json` - JSON array string of row objects (e.g., `[{"project":"test",...}]`)
+///
+/// # Returns
+/// A Cypher query string like:
+/// ```cypher
+/// UNWIND [{"project":"test","name":"Mod"}] AS row
+/// CREATE (n:Module { project: row.project, name: row.name, ... })
+/// ```
+pub fn compile_batch_insert_with_data(relation: &SchemaRelation, rows_json: &str) -> String {
+    let vertex_label = AgeCompiler::relation_to_vertex_label(relation.name);
+
+    let props = relation.all_fields()
+        .map(|f| format!("{}: row.{}", f.name, f.name))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    format!(
+        "UNWIND {} AS row\nCREATE (n:{} {{ {} }})",
+        rows_json, vertex_label, props
+    )
+}
+
+/// Generate Cypher MERGE (upsert) with inlined data.
+///
+/// Since the rust-postgres driver doesn't support `ToSql` for AGE's `agtype`,
+/// we inline the JSON data directly into the Cypher query as a literal.
+///
+/// # Arguments
+/// * `relation` - The schema relation definition
+/// * `rows_json` - JSON array string of row objects
+///
+/// # Returns
+/// A Cypher query string using MERGE for upsert semantics
+pub fn compile_upsert_with_data(relation: &SchemaRelation, rows_json: &str) -> String {
+    let vertex_label = AgeCompiler::relation_to_vertex_label(relation.name);
+
+    let key_props = relation.key_fields.iter()
+        .map(|f| format!("{}: row.{}", f.name, f.name))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let value_sets = relation.value_fields.iter()
+        .map(|f| format!("n.{} = row.{}", f.name, f.name))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    if value_sets.is_empty() {
+        format!(
+            "UNWIND {} AS row\nMERGE (n:{} {{ {} }})",
+            rows_json, vertex_label, key_props
+        )
+    } else {
+        format!(
+            "UNWIND {} AS row\nMERGE (n:{} {{ {} }})\nSET {}",
+            rows_json, vertex_label, key_props, value_sets
+        )
+    }
+}
+
 /// Convert rows to JSON format for batch operations (UNWIND).
 ///
 /// Takes a slice of rows (Vec<Vec<DataValue>>) and converts them to a JSON
@@ -664,5 +807,167 @@ mod tests {
         let result = convert_age_rows_to_query_result(rows).unwrap();
         assert_eq!(result.rows.len(), 1);
         assert_eq!(result.rows[0].len(), 2);
+    }
+
+    // ==================== json_to_cypher_literal tests ====================
+
+    #[test]
+    fn test_cypher_literal_null() {
+        let result = json_to_cypher_literal(&JsonValue::Null);
+        assert_eq!(result, "null");
+    }
+
+    #[test]
+    fn test_cypher_literal_bool() {
+        assert_eq!(json_to_cypher_literal(&JsonValue::Bool(true)), "true");
+        assert_eq!(json_to_cypher_literal(&JsonValue::Bool(false)), "false");
+    }
+
+    #[test]
+    fn test_cypher_literal_number() {
+        assert_eq!(json_to_cypher_literal(&json!(42)), "42");
+        assert_eq!(json_to_cypher_literal(&json!(3.14)), "3.14");
+    }
+
+    #[test]
+    fn test_cypher_literal_string() {
+        assert_eq!(json_to_cypher_literal(&json!("hello")), "'hello'");
+    }
+
+    #[test]
+    fn test_cypher_literal_string_with_quotes() {
+        // Single quotes should be escaped by doubling
+        assert_eq!(json_to_cypher_literal(&json!("it's")), "'it''s'");
+        assert_eq!(json_to_cypher_literal(&json!("say 'hello'")), "'say ''hello'''");
+    }
+
+    #[test]
+    fn test_cypher_literal_array() {
+        let arr = json!([1, 2, 3]);
+        assert_eq!(json_to_cypher_literal(&arr), "[1, 2, 3]");
+    }
+
+    #[test]
+    fn test_cypher_literal_array_mixed() {
+        let arr = json!(["test", 42, true]);
+        assert_eq!(json_to_cypher_literal(&arr), "['test', 42, true]");
+    }
+
+    #[test]
+    fn test_cypher_literal_object() {
+        let obj = json!({"name": "test"});
+        // Note: object key order may vary, so we check contains
+        let result = json_to_cypher_literal(&obj);
+        assert!(result.contains("name: 'test'"));
+        assert!(result.starts_with('{'));
+        assert!(result.ends_with('}'));
+    }
+
+    #[test]
+    fn test_cypher_literal_object_multiple_fields() {
+        let obj = json!({"a": 1, "b": "two"});
+        let result = json_to_cypher_literal(&obj);
+        assert!(result.contains("a: 1"));
+        assert!(result.contains("b: 'two'"));
+    }
+
+    #[test]
+    fn test_cypher_literal_nested() {
+        let nested = json!({"items": [1, 2], "flag": true});
+        let result = json_to_cypher_literal(&nested);
+        assert!(result.contains("items: [1, 2]"));
+        assert!(result.contains("flag: true"));
+    }
+
+    // ==================== rows_to_cypher_literal tests ====================
+
+    #[test]
+    fn test_rows_to_cypher_literal_empty() {
+        use crate::db::schema::MODULES;
+        let result = rows_to_cypher_literal(&MODULES, &[]).unwrap();
+        assert_eq!(result, "[]");
+    }
+
+    #[test]
+    fn test_rows_to_cypher_literal_single_row() {
+        use crate::db::schema::MODULES;
+        let rows = vec![
+            vec![
+                DataValue::Str("test_project".into()),
+                DataValue::Str("MyModule".into()),
+                DataValue::Str("lib/my_module.ex".into()),
+                DataValue::Str("source".into()),
+            ],
+        ];
+        let result = rows_to_cypher_literal(&MODULES, &rows).unwrap();
+
+        // Should be a Cypher array literal with one map
+        assert!(result.starts_with("[{"));
+        assert!(result.ends_with("}]"));
+        assert!(result.contains("project: 'test_project'"));
+        assert!(result.contains("name: 'MyModule'"));
+        assert!(result.contains("file: 'lib/my_module.ex'"));
+        assert!(result.contains("source: 'source'"));
+    }
+
+    #[test]
+    fn test_rows_to_cypher_literal_multiple_rows() {
+        use crate::db::schema::MODULES;
+        let rows = vec![
+            vec![
+                DataValue::Str("proj".into()),
+                DataValue::Str("Mod1".into()),
+                DataValue::Str("file1.ex".into()),
+                DataValue::Str("src".into()),
+            ],
+            vec![
+                DataValue::Str("proj".into()),
+                DataValue::Str("Mod2".into()),
+                DataValue::Str("file2.ex".into()),
+                DataValue::Str("src".into()),
+            ],
+        ];
+        let result = rows_to_cypher_literal(&MODULES, &rows).unwrap();
+
+        // Should contain two map literals separated by comma
+        assert!(result.starts_with("[{"));
+        assert!(result.ends_with("}]"));
+        assert!(result.contains("}, {"));
+        assert!(result.contains("name: 'Mod1'"));
+        assert!(result.contains("name: 'Mod2'"));
+    }
+
+    #[test]
+    fn test_rows_to_cypher_literal_with_integers() {
+        use crate::db::schema::FUNCTIONS;
+        let rows = vec![
+            vec![
+                DataValue::Str("proj".into()),        // project
+                DataValue::Str("MyModule".into()),    // module
+                DataValue::Str("my_func".into()),     // name
+                DataValue::from(2i64),                // arity (integer)
+                DataValue::Str("term()".into()),      // return_type
+                DataValue::Str("a, b".into()),        // args
+                DataValue::Str("source".into()),      // source
+            ],
+        ];
+        let result = rows_to_cypher_literal(&FUNCTIONS, &rows).unwrap();
+
+        // Integer should be unquoted
+        assert!(result.contains("arity: 2"));
+        // Strings should be quoted
+        assert!(result.contains("name: 'my_func'"));
+    }
+
+    #[test]
+    fn test_rows_to_cypher_literal_wrong_field_count() {
+        use crate::db::schema::MODULES;
+        let rows = vec![
+            vec![
+                DataValue::Str("only_one".into()),
+            ],
+        ];
+        let result = rows_to_cypher_literal(&MODULES, &rows);
+        assert!(result.is_err());
     }
 }
