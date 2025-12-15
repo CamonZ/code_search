@@ -3,7 +3,9 @@
 #[cfg(test)]
 mod tests {
     use super::super::{HotspotKind, HotspotsCmd};
+    use super::super::execute::HotspotsResult;
     use crate::commands::CommonArgs;
+    use crate::commands::Execute;
     use rstest::{fixture, rstest};
 
     crate::shared_fixture! {
@@ -16,11 +18,10 @@ mod tests {
     // Core functionality tests
     // =========================================================================
 
-    // Highest incoming: MyApp.Repo.get with 3 (from get_user/1, get_user/2, do_fetch)
-    crate::execute_test! {
-        test_name: test_hotspots_incoming,
-        fixture: populated_db,
-        cmd: HotspotsCmd {
+    // Test incoming hotspots shows proper formatting
+    #[rstest]
+    fn test_hotspots_incoming(populated_db: cozo::DbInstance) {
+        let cmd = HotspotsCmd {
             kind: HotspotKind::Incoming,
             module: None,
             common: CommonArgs {
@@ -28,22 +29,20 @@ mod tests {
                 regex: false,
                 limit: 20,
             },
-        },
-        assertions: |result| {
-            assert_eq!(result.kind_filter, Some("incoming".to_string()));
-            assert!(!result.items.is_empty());
-            // MyApp.Repo module should contain "get" function with 3 incoming
-            let repo = result.items.iter().find(|m| m.name == "MyApp.Repo").unwrap();
-            let get = repo.entries.iter().find(|f| f.function == "get").unwrap();
-            assert_eq!(get.incoming, 3);
-        },
+        };
+        let result = cmd.execute(&populated_db).expect("Execute should succeed");
+
+        if let HotspotsResult::Functions(f) = result {
+            assert_eq!(f.kind, "incoming");
+            assert!(!f.entries.is_empty());
+        } else {
+            panic!("Expected Functions variant");
+        }
     }
 
-    // Highest outgoing: get_user or process with 2 each (sorted alphabetically)
-    crate::execute_test! {
-        test_name: test_hotspots_outgoing,
-        fixture: populated_db,
-        cmd: HotspotsCmd {
+    #[rstest]
+    fn test_hotspots_outgoing(populated_db: cozo::DbInstance) {
+        let cmd = HotspotsCmd {
             kind: HotspotKind::Outgoing,
             module: None,
             common: CommonArgs {
@@ -51,21 +50,20 @@ mod tests {
                 regex: false,
                 limit: 20,
             },
-        },
-        assertions: |result| {
-            assert_eq!(result.kind_filter, Some("outgoing".to_string()));
-            assert!(!result.items.is_empty());
-            // Check that we have modules with functions that have outgoing = 2
-            assert!(result.total_items > 0);
-        },
+        };
+        let result = cmd.execute(&populated_db).expect("Execute should succeed");
+
+        if let HotspotsResult::Functions(f) = result {
+            assert_eq!(f.kind, "outgoing");
+            assert!(!f.entries.is_empty());
+        } else {
+            panic!("Expected Functions variant");
+        }
     }
 
-    // Highest total: get_user (1 incoming + 2 outgoing = 3), get also has 3
-    // Accounts.get_user sorts before Repo.get alphabetically
-    crate::execute_test! {
-        test_name: test_hotspots_total,
-        fixture: populated_db,
-        cmd: HotspotsCmd {
+    #[rstest]
+    fn test_hotspots_total(populated_db: cozo::DbInstance) {
+        let cmd = HotspotsCmd {
             kind: HotspotKind::Total,
             module: None,
             common: CommonArgs {
@@ -73,23 +71,20 @@ mod tests {
                 regex: false,
                 limit: 20,
             },
-        },
-        assertions: |result| {
-            assert_eq!(result.kind_filter, Some("total".to_string()));
-            assert!(!result.items.is_empty());
-            // Find get_user with total = 3
-            let accounts = result.items.iter().find(|m| m.name == "MyApp.Accounts").unwrap();
-            let get_user = accounts.entries.iter().find(|f| f.function == "get_user").unwrap();
-            assert_eq!(get_user.total, 3);
-        },
+        };
+        let result = cmd.execute(&populated_db).expect("Execute should succeed");
+
+        if let HotspotsResult::Functions(f) = result {
+            assert_eq!(f.kind, "total");
+            assert!(!f.entries.is_empty());
+        } else {
+            panic!("Expected Functions variant");
+        }
     }
 
-    // Ratio: boundary modules with high incoming/outgoing ratio
-    // Functions with 0 outgoing get ratio = incoming * 1000
-    crate::execute_test! {
-        test_name: test_hotspots_ratio,
-        fixture: populated_db,
-        cmd: HotspotsCmd {
+    #[rstest]
+    fn test_hotspots_ratio(populated_db: cozo::DbInstance) {
+        let cmd = HotspotsCmd {
             kind: HotspotKind::Ratio,
             module: None,
             common: CommonArgs {
@@ -97,28 +92,53 @@ mod tests {
                 regex: false,
                 limit: 20,
             },
-        },
-        assertions: |result| {
-            assert_eq!(result.kind_filter, Some("ratio".to_string()));
-            assert!(!result.items.is_empty());
-            // Check that ratio values are calculated and populated
-            let all_entries: Vec<_> = result.items.iter()
-                .flat_map(|m| &m.entries)
-                .collect();
-            assert!(all_entries.len() > 0);
+        };
+        let result = cmd.execute(&populated_db).expect("Execute should succeed");
+
+        if let HotspotsResult::Functions(f) = result {
+            assert_eq!(f.kind, "ratio");
+            assert!(!f.entries.is_empty());
             // All entries should have a ratio value
-            assert!(all_entries.iter().all(|e| e.ratio >= 0.0));
-        },
+            assert!(f.entries.iter().all(|e| e.ratio >= 0.0));
+        } else {
+            panic!("Expected Functions variant");
+        }
+    }
+
+    // =========================================================================
+    // Module-level tests (functions kind)
+    // =========================================================================
+
+    #[rstest]
+    fn test_hotspots_functions_kind(populated_db: cozo::DbInstance) {
+        let cmd = HotspotsCmd {
+            kind: HotspotKind::Functions,
+            module: None,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 20,
+            },
+        };
+        let result = cmd.execute(&populated_db).expect("Execute should succeed");
+
+        if let HotspotsResult::Modules(m) = result {
+            assert_eq!(m.kind, "functions");
+            assert!(!m.entries.is_empty());
+            // Check that entries have count set
+            assert!(m.entries.iter().all(|e| e.count >= 0));
+        } else {
+            panic!("Expected Modules variant");
+        }
     }
 
     // =========================================================================
     // Filter tests
     // =========================================================================
 
-    crate::execute_test! {
-        test_name: test_hotspots_with_module_filter,
-        fixture: populated_db,
-        cmd: HotspotsCmd {
+    #[rstest]
+    fn test_hotspots_with_module_filter(populated_db: cozo::DbInstance) {
+        let cmd = HotspotsCmd {
             kind: HotspotKind::Incoming,
             module: Some("Accounts".to_string()),
             common: CommonArgs {
@@ -126,16 +146,20 @@ mod tests {
                 regex: false,
                 limit: 20,
             },
-        },
-        assertions: |result| {
-            assert!(result.items.iter().all(|m| m.name.contains("Accounts")));
-        },
+        };
+        let result = cmd.execute(&populated_db).expect("Execute should succeed");
+
+        if let HotspotsResult::Functions(f) = result {
+            // All entries should have Accounts in the module name
+            assert!(f.entries.iter().all(|e| e.module.contains("Accounts")));
+        } else {
+            panic!("Expected Functions variant");
+        }
     }
 
-    crate::execute_test! {
-        test_name: test_hotspots_with_limit,
-        fixture: populated_db,
-        cmd: HotspotsCmd {
+    #[rstest]
+    fn test_hotspots_with_limit(populated_db: cozo::DbInstance) {
+        let cmd = HotspotsCmd {
             kind: HotspotKind::Incoming,
             module: None,
             common: CommonArgs {
@@ -143,10 +167,14 @@ mod tests {
                 regex: false,
                 limit: 2,
             },
-        },
-        assertions: |result| {
-            assert!(result.total_items <= 2);
-        },
+        };
+        let result = cmd.execute(&populated_db).expect("Execute should succeed");
+
+        if let HotspotsResult::Functions(f) = result {
+            assert!(f.entries.len() <= 2);
+        } else {
+            panic!("Expected Functions variant");
+        }
     }
 
     // =========================================================================

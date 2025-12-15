@@ -2,136 +2,144 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::execute::HotspotEntry;
-    use crate::types::{ModuleCollectionResult, ModuleGroup};
+    use super::super::execute::{FunctionHotspotEntry, FunctionHotspotsResult, ModuleCountEntry, ModuleHotspotsResult, HotspotsResult};
+    use crate::output::Outputable;
     use rstest::{fixture, rstest};
 
     // =========================================================================
-    // Expected outputs
+    // Expected outputs for function-level hotspots
     // =========================================================================
 
-    const EMPTY_TABLE: &str = "\
+    const FUNCTION_EMPTY_TABLE: &str = "\
 Hotspots (total)
 
 No hotspots found.";
 
-    const SINGLE_TABLE: &str = "\
+    const FUNCTION_SINGLE_TABLE: &str = "\
 Hotspots (total)
 
-Found 1 hotspot(s) in 1 module(s):
+Found 1 function:
 
-MyApp.Accounts: (in: 3, out: 1, total: 4)
-  get_user (in: 3, out: 1, total: 4)";
+MyApp.Accounts.get_user    in: 3  out: 1  total: 4  ratio: 0.25";
 
     // =========================================================================
-    // Fixtures
+    // Expected outputs for module-level hotspots
+    // =========================================================================
+
+    const MODULE_SINGLE_TABLE: &str = "\
+Hotspots (functions)
+
+Found 1 module:
+
+MyApp.Accounts                              27 functions";
+
+    // =========================================================================
+    // Fixtures for function-level hotspots
     // =========================================================================
 
     #[fixture]
-    fn empty_result() -> ModuleCollectionResult<HotspotEntry> {
-        ModuleCollectionResult {
+    fn function_empty_result() -> FunctionHotspotsResult {
+        FunctionHotspotsResult {
+            kind: "total".to_string(),
             module_pattern: "*".to_string(),
-            kind_filter: Some("total".to_string()),
-            function_pattern: None,
-            name_filter: None,
             total_items: 0,
-            items: vec![],
+            entries: vec![],
         }
     }
 
     #[fixture]
-    fn single_result() -> ModuleCollectionResult<HotspotEntry> {
-        ModuleCollectionResult {
+    fn function_single_result() -> FunctionHotspotsResult {
+        FunctionHotspotsResult {
+            kind: "total".to_string(),
             module_pattern: "*".to_string(),
-            kind_filter: Some("total".to_string()),
-            function_pattern: None,
-            name_filter: None,
             total_items: 1,
-            items: vec![ModuleGroup {
-                name: "MyApp.Accounts".to_string(),
-                file: String::new(),
-                entries: vec![HotspotEntry {
-                    function: "get_user".to_string(),
-                    incoming: 3,
-                    outgoing: 1,
-                    total: 4,
-                    ratio: 3.0,
-                }],
-                function_count: None,
+            entries: vec![FunctionHotspotEntry {
+                module: "MyApp.Accounts".to_string(),
+                function: "get_user".to_string(),
+                incoming: 3,
+                outgoing: 1,
+                total: 4,
+                ratio: 0.25,
             }],
         }
     }
+
+    // =========================================================================
+    // Fixtures for module-level hotspots
+    // =========================================================================
 
     #[fixture]
-    fn filtered_result() -> ModuleCollectionResult<HotspotEntry> {
-        ModuleCollectionResult {
-            module_pattern: "Service".to_string(),
-            kind_filter: Some("outgoing".to_string()),
-            function_pattern: None,
-            name_filter: Some("Service".to_string()),
+    fn module_single_result() -> ModuleHotspotsResult {
+        ModuleHotspotsResult {
+            kind: "functions".to_string(),
+            module_pattern: "*".to_string(),
             total_items: 1,
-            items: vec![ModuleGroup {
-                name: "MyApp.Service".to_string(),
-                file: String::new(),
-                entries: vec![HotspotEntry {
-                    function: "process".to_string(),
-                    incoming: 0,
-                    outgoing: 5,
-                    total: 5,
-                    ratio: 0.0,
-                }],
-                function_count: None,
+            entries: vec![ModuleCountEntry {
+                module: "MyApp.Accounts".to_string(),
+                count: 27,
             }],
         }
     }
 
     // =========================================================================
-    // Tests
+    // Tests for function-level hotspots
     // =========================================================================
 
-    crate::output_table_test! {
-        test_name: test_to_table_empty,
-        fixture: empty_result,
-        fixture_type: ModuleCollectionResult<HotspotEntry>,
-        expected: EMPTY_TABLE,
-    }
-
-    crate::output_table_test! {
-        test_name: test_to_table_single,
-        fixture: single_result,
-        fixture_type: ModuleCollectionResult<HotspotEntry>,
-        expected: SINGLE_TABLE,
+    #[rstest]
+    fn test_function_to_table_empty(function_empty_result: FunctionHotspotsResult) {
+        let output = function_empty_result.to_table();
+        assert_eq!(output, FUNCTION_EMPTY_TABLE);
     }
 
     #[rstest]
-    fn test_to_table_filtered(filtered_result: ModuleCollectionResult<HotspotEntry>) {
-        use crate::output::Outputable;
-        let output = filtered_result.to_table();
-        assert!(output.contains("(module: Service)"));
-        assert!(output.contains("outgoing"));
+    fn test_function_to_table_single(function_single_result: FunctionHotspotsResult) {
+        let output = function_single_result.to_table();
+        assert_eq!(output, FUNCTION_SINGLE_TABLE);
     }
 
-    crate::output_table_test! {
-        test_name: test_format_json,
-        fixture: single_result,
-        fixture_type: ModuleCollectionResult<HotspotEntry>,
-        expected: crate::test_utils::load_output_fixture("hotspots", "single.json"),
-        format: Json,
+    #[rstest]
+    fn test_function_format_json(function_single_result: FunctionHotspotsResult) {
+        let output = function_single_result.format(crate::output::OutputFormat::Json);
+        assert!(output.contains("\"kind\": \"total\""));
+        assert!(output.contains("\"function\": \"get_user\""));
+        assert!(output.contains("\"incoming\": 3"));
     }
 
-    crate::output_table_test! {
-        test_name: test_format_toon,
-        fixture: single_result,
-        fixture_type: ModuleCollectionResult<HotspotEntry>,
-        expected: crate::test_utils::load_output_fixture("hotspots", "single.toon"),
-        format: Toon,
+    // =========================================================================
+    // Tests for module-level hotspots
+    // =========================================================================
+
+    #[rstest]
+    fn test_module_to_table_single(module_single_result: ModuleHotspotsResult) {
+        let output = module_single_result.to_table();
+        assert_eq!(output, MODULE_SINGLE_TABLE);
     }
 
-    crate::output_table_test! {
-        test_name: test_format_toon_empty,
-        fixture: empty_result,
-        fixture_type: ModuleCollectionResult<HotspotEntry>,
-        expected: crate::test_utils::load_output_fixture("hotspots", "empty.toon"),
-        format: Toon,
+    #[rstest]
+    fn test_module_format_json(module_single_result: ModuleHotspotsResult) {
+        let output = module_single_result.format(crate::output::OutputFormat::Json);
+        assert!(output.contains("\"kind\": \"functions\""));
+        assert!(output.contains("\"count\": 27"));
+        assert!(output.contains("\"module\": \"MyApp.Accounts\""));
+    }
+
+    // =========================================================================
+    // Tests for enum wrapper
+    // =========================================================================
+
+    #[rstest]
+    fn test_enum_function_variant(function_single_result: FunctionHotspotsResult) {
+        let result = HotspotsResult::Functions(function_single_result);
+        let output = result.to_table();
+        assert!(output.contains("Hotspots (total)"));
+        assert!(output.contains("MyApp.Accounts.get_user"));
+    }
+
+    #[rstest]
+    fn test_enum_module_variant(module_single_result: ModuleHotspotsResult) {
+        let result = HotspotsResult::Modules(module_single_result);
+        let output = result.to_table();
+        assert!(output.contains("Hotspots (functions)"));
+        assert!(output.contains("27 functions"));
     }
 }

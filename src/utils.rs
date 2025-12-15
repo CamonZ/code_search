@@ -254,8 +254,6 @@ where
     EF: Fn(K, Vec<Call>) -> E,
     FF: Fn(&str, &BTreeMap<K, Vec<Call>>) -> String,
 {
-    let total_items = calls.len();
-
     // Group by module -> key -> calls
     let mut by_module: BTreeMap<String, BTreeMap<K, Vec<Call>>> = BTreeMap::new();
     for call in calls {
@@ -264,13 +262,15 @@ where
         by_module.entry(module).or_default().entry(key).or_default().push(call);
     }
 
-    // Convert to ModuleGroups with sort/dedup
+    // Convert to ModuleGroups with sort/dedup, counting total after dedup
+    let mut total_items = 0;
     let items = by_module.into_iter().map(|(module_name, mut functions_map)| {
         let file = file_fn(&module_name, &functions_map);
 
         // Sort and deduplicate each function's calls
         for calls in functions_map.values_mut() {
             sort_and_deduplicate(calls, sort_cmp.clone(), dedup_key.clone());
+            total_items += calls.len();
         }
 
         let entries: Vec<E> = functions_map.into_iter()

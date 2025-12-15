@@ -16,7 +16,8 @@ mod tests {
     // Core functionality tests
     // =========================================================================
 
-    // MyApp.Accounts has 3 outgoing calls: get_user/1→Repo.get, get_user/2→Repo.get, list_users→Repo.all
+    // MyApp.Accounts has 3 call records: get_user/1→Repo.get, get_user/2→Repo.get, list_users→Repo.all
+    // Per-function deduplication: each function keeps its unique callees = 3 calls displayed
     crate::execute_test! {
         test_name: test_calls_from_module,
         fixture: populated_db,
@@ -32,11 +33,12 @@ mod tests {
         },
         assertions: |result| {
             assert_eq!(result.total_items, 3,
-                "Expected 3 total calls from MyApp.Accounts");
+                "Expected 3 displayed calls from MyApp.Accounts (1 per caller function)");
         },
     }
 
     // get_user functions (both arities) call Repo.get
+    // Per-function deduplication: get_user/1 has 1 call, get_user/2 has 1 call = 2 displayed
     crate::execute_test! {
         test_name: test_calls_from_function,
         fixture: populated_db,
@@ -51,7 +53,8 @@ mod tests {
             },
         },
         assertions: |result| {
-            assert_eq!(result.total_items, 2);
+            assert_eq!(result.total_items, 2,
+                "Expected 2 displayed calls (1 from each get_user arity)");
             // Check that all calls target MyApp.Repo.get
             for module in &result.items {
                 for func in &module.entries {
@@ -65,6 +68,7 @@ mod tests {
     }
 
     // All 11 calls in the fixture are from MyApp.* modules
+    // Per-function deduplication: each caller keeps unique callees = 11 displayed
     crate::execute_test! {
         test_name: test_calls_from_regex_module,
         fixture: populated_db,
@@ -80,7 +84,7 @@ mod tests {
         },
         assertions: |result| {
             assert_eq!(result.total_items, 11,
-                "Expected 11 total calls from MyApp.* modules");
+                "Expected 11 displayed calls from MyApp.* modules");
         },
     }
 

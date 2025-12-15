@@ -116,37 +116,67 @@ pub fn find_hotspots(
 
     // Query to find hotspots by counting incoming and outgoing calls
     // We need to combine:
-    // 1. Functions as callers (outgoing)
-    // 2. Functions as callees (incoming)
+    // 1. Functions as callers (outgoing) - count unique callees
+    // 2. Functions as callees (incoming) - count unique callers
+    // Note: caller_function may have arity suffix (e.g., "format/1") while callee_function doesn't ("format")
+    // We use callee_function as canonical name and match callers via starts_with
+    // Excludes recursive calls and deduplicates via intermediate relations
     let script = format!(
         r#"
-        # Count outgoing calls per function (as caller)
-        outgoing_counts[module, function, count(callee_function)] :=
-            *calls{{project, caller_module, caller_function, callee_function}},
-            project == $project,
-            module = caller_module,
-            function = caller_function
-
-        # Count incoming calls per function (as callee)
-        incoming_counts[module, function, count(caller_function)] :=
-            *calls{{project, caller_function, callee_module, callee_function}},
+        # Get canonical function names (callee_function format, no arity suffix)
+        # A function's canonical name is how it appears as a callee
+        canonical[module, function] :=
+            *calls{{project, callee_module, callee_function}},
             project == $project,
             module = callee_module,
             function = callee_function
 
-        # Get all unique module+function combinations
-        all_functions[module, function] := outgoing_counts[module, function, _]
-        all_functions[module, function] := incoming_counts[module, function, _]
+        # Distinct outgoing calls: match caller to canonical name
+        # caller_function is either "name" or "name/N", canonical_name is "name"
+        # Match: caller equals canonical OR starts with "canonical/"
+        distinct_outgoing[caller_module, canonical_name, callee_module, callee_function] :=
+            *calls{{project, caller_module, caller_function, callee_module, callee_function}},
+            canonical[caller_module, canonical_name],
+            project == $project,
+            (caller_function == canonical_name or starts_with(caller_function, concat(canonical_name, "/")))
 
-        # Combine counts with defaults of 0 and calculate ratio
+        # Count unique outgoing calls per function
+        outgoing_counts[module, function, count(callee_function)] :=
+            distinct_outgoing[module, function, callee_module, callee_function]
+
+        # Distinct incoming calls
+        distinct_incoming[callee_module, callee_function, caller_module, caller_function] :=
+            *calls{{project, caller_module, caller_function, callee_module, callee_function}},
+            project == $project
+
+        # Count unique incoming calls per function
+        incoming_counts[module, function, count(caller_function)] :=
+            distinct_incoming[module, function, caller_module, caller_function]
+
+        # Final query - functions with both incoming and outgoing
         ?[module, function, incoming, outgoing, total, ratio] :=
-            all_functions[module, function],
-            incoming_counts[module, function, inc] or inc = 0,
-            outgoing_counts[module, function, out] or out = 0,
-            incoming = inc,
-            outgoing = out,
-            total = inc + out,
-            ratio = if(out == 0, inc * 1000.0, inc / out)
+            incoming_counts[module, function, incoming],
+            outgoing_counts[module, function, outgoing],
+            total = incoming + outgoing,
+            ratio = if(total == 0, 0.0, outgoing / total)
+            {module_filter}
+
+        # Functions with only incoming (no outgoing)
+        ?[module, function, incoming, outgoing, total, ratio] :=
+            incoming_counts[module, function, incoming],
+            not outgoing_counts[module, function, _],
+            outgoing = 0,
+            total = incoming,
+            ratio = 0.0
+            {module_filter}
+
+        # Functions with only outgoing (no incoming)
+        ?[module, function, incoming, outgoing, total, ratio] :=
+            outgoing_counts[module, function, outgoing],
+            not incoming_counts[module, function, _],
+            incoming = 0,
+            total = outgoing,
+            ratio = 1.0
             {module_filter}
 
         :order -{order_by}, module, function
