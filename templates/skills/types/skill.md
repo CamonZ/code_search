@@ -1,48 +1,42 @@
-# types
+# types - Examples
 
-Show @type, @typep, and @opaque definitions.
-
-## Purpose
-
-Display custom type definitions in a module. Shows the full type definition including parameters.
-
-## Usage
+## All Types in a Module
 
 ```bash
-code_search --format toon types <MODULE> [OPTIONS]
+code_search --format toon types Phoenix.Socket
 ```
 
-## Required Arguments
-
-| Argument | Description |
-|----------|-------------|
-| `<MODULE>` | Module name (positional argument) |
-
-## Optional Flags
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `-n, --name <NAME>` | Filter by type name | all |
-| `-k, --kind <KIND>` | Filter by kind: `type`, `typep`, `opaque` | all |
-| `-r, --regex` | Treat names as regex | false |
-| `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |
-
-## Output Fields (toon format)
-
+Output:
 ```
-types[N]{definition,kind,line,module,name,params,project}:
-  "@type t() :: %{__struct__: Phoenix.Socket, ...}",type,273,Phoenix.Socket,t,"[]",default
+types[5]{definition,kind,line,module,name,params,project}:
+  "@type t() :: %{__struct__: Phoenix.Socket, assigns: map(), channel: atom(), ...}",type,273,Phoenix.Socket,t,"[]",default
+  "@type t() :: %{__struct__: Phoenix.Socket.Broadcast, event: term(), payload: term(), topic: term()}",type,83,Phoenix.Socket.Broadcast,t,"[]",default
+  "@type t() :: %{__struct__: Phoenix.Socket.Message, ...}",type,16,Phoenix.Socket.Message,t,"[]",default
+  "@type t() :: %{__struct__: Phoenix.Socket.Reply, ...}",type,67,Phoenix.Socket.Reply,t,"[]",default
+  "@type state() :: term()",type,99,Phoenix.Socket.Transport,state,"[]",default
+module: Phoenix.Socket
 ```
 
-## When to Use
+## Filter by Type Name
 
-- Understanding custom types in a module
-- Finding type definitions for documentation
-- Exploring the type system of a codebase
+```bash
+code_search --format toon types Phoenix.Socket --name t
+```
 
-## See Also
+## Only Opaque Types
 
-- [examples.md](examples.md) for detailed usage examples
-- `specs` - See @spec definitions that use these types
-- `struct` - See struct field definitions
+```bash
+code_search --format toon types MyApp --kind opaque
+```
+
+## Only Private Types
+
+```bash
+code_search --format toon types MyApp --kind typep
+```
+
+## Understanding Type Kinds
+
+- `type` - Public type, visible outside the module
+- `typep` - Private type, only visible within the module
+- `opaque` - Public but implementation hidden (abstract type)

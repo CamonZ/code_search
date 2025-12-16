@@ -1,49 +1,53 @@
-# location
+# location - Examples
 
-Find where a function is defined (file, line range, pattern, guard).
-
-## Purpose
-
-Locate function definitions with clause-level detail. Shows file path, line numbers, function patterns, and guards for each clause of a function.
-
-## Usage
+## Find All Definitions of a Function
 
 ```bash
-code_search --format toon location --function <NAME> [OPTIONS]
+code_search --format toon location --function render
 ```
 
-## Required Options
-
-| Option | Description |
-|--------|-------------|
-| `-f, --function <NAME>` | Function name to find |
-
-## Optional Flags
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `-m, --module <MODULE>` | Filter to specific module | all |
-| `-a, --arity <N>` | Filter by arity | all |
-| `-r, --regex` | Treat names as regex | false |
-| `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |
-
-## Output Fields (toon format)
-
+Output:
 ```
-locations[N]{arity,end_line,file,guard,kind,module,name,pattern,project,start_line}:
+locations[15]{arity,end_line,file,guard,kind,module,name,pattern,project,start_line}:
   2,873,lib/phoenix/controller.ex,"is_binary(template) or is_atom(template)",def,Phoenix.Controller,render,"conn, template",default,872
+  2,877,lib/phoenix/controller.ex,"",def,Phoenix.Controller,render,"conn, assigns",default,876
+  3,951,lib/phoenix/controller.ex,"is_atom(template) and (is_map(assigns) or is_list(assigns))",def,Phoenix.Controller,render,"conn, template, assigns",default,944
+  ...
+function_pattern: render
+module_pattern: null
 ```
 
-## When to Use
+## Find in Specific Module
 
-- Finding source file for a function
-- Understanding function clause patterns and guards
-- Navigating to specific function definitions
-- Seeing all clauses of a multi-clause function
+```bash
+code_search --format toon location --module Phoenix.Channel --function reply
+```
 
-## See Also
+Output:
+```
+locations[2]{arity,end_line,file,guard,kind,module,name,pattern,project,start_line}:
+  2,675,lib/phoenix/channel.ex,"is_atom(status)",def,Phoenix.Channel,reply,"socket_ref, status",default,674
+  2,679,lib/phoenix/channel.ex,"",def,Phoenix.Channel,reply,"{transport_pid, serializer, topic, ref, join_ref}, {status, payload}",default,678
+function_pattern: reply
+module_pattern: Phoenix.Channel
+```
 
-- [examples.md](examples.md) for detailed usage examples
-- `function` - See type signature (args, return type)
-- `specs` - See @spec definitions
+## Find with Specific Arity
+
+```bash
+code_search --format toon location --module Phoenix.Controller --function render --arity 3
+```
+
+## Regex Pattern for Multiple Functions
+
+```bash
+code_search --format toon location --function 'handle_.*' --regex --limit 20
+```
+
+## Understanding the Output
+
+Each location shows:
+- `pattern`: The function head arguments (e.g., `socket_ref, status`)
+- `guard`: The `when` clause if present (e.g., `is_atom(status)`)
+- `kind`: `def`, `defp`, `defmacro`, `defmacrop`
+- `start_line:end_line`: Line range of the clause

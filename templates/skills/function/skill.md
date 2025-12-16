@@ -1,48 +1,42 @@
-# function
+# function - Examples
 
-Show function signature (args, return type).
-
-## Purpose
-
-Display the type signature of a function, including argument types and return type. This information comes from @spec definitions in the source code.
-
-## Usage
+## Get Function Signature
 
 ```bash
-code_search --format toon function --module <MODULE> --function <NAME> [OPTIONS]
+code_search --format toon function --module Phoenix.Controller --function render
 ```
 
-## Required Options
-
-| Option | Description |
-|--------|-------------|
-| `-m, --module <MODULE>` | Module name |
-| `-f, --function <NAME>` | Function name |
-
-## Optional Flags
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `-a, --arity <N>` | Filter by arity | all |
-| `-r, --regex` | Treat names as regex | false |
-| `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |
-
-## Output Fields (toon format)
-
+Output:
 ```
-functions[N]{args,arity,module,name,project,return_type}:
+functions[2]{args,arity,module,name,project,return_type}:
+  "Plug.Conn.t(), Keyword.t() | map() | binary() | atom()",2,Phoenix.Controller,render,default,"Plug.Conn.t()"
+  "Plug.Conn.t(), binary() | atom(), Keyword.t() | map()",3,Phoenix.Controller,render,default,"Plug.Conn.t()"
+function_pattern: render
+module_pattern: Phoenix.Controller
+```
+
+## Filter by Arity
+
+```bash
+code_search --format toon function --module Phoenix.Controller --function render --arity 2
+```
+
+Output:
+```
+functions[1]{args,arity,module,name,project,return_type}:
   "Plug.Conn.t(), Keyword.t() | map() | binary() | atom()",2,Phoenix.Controller,render,default,"Plug.Conn.t()"
 ```
 
-## When to Use
+## Regex Search for Multiple Functions
 
-- Understanding function input/output types
-- Quick reference for API signatures
-- Checking type compatibility before calling
+```bash
+code_search --format toon function --module Phoenix.Controller --function 'put_.*' --regex
+```
 
-## See Also
+## Understanding the Output
 
-- [examples.md](examples.md) for detailed usage examples
-- `specs` - See full @spec definitions with all clauses
-- `location` - See where functions are defined
+- `args`: Comma-separated argument types from @spec
+- `return_type`: Return type from @spec
+- `arity`: Number of arguments
+
+Note: This data comes from @spec definitions. Functions without specs won't appear.

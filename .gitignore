@@ -25,3 +25,6 @@ INPUT_FORMAT.md
 docs/tickets
 .claude
 scratch
+/AGENTS.md
+/.mcp.json
+/opencode.jsonc

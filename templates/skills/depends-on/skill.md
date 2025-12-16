@@ -1,48 +1,39 @@
-# depends-on
+# depends-on - Examples
 
-Show what modules a given module depends on (outgoing module dependencies).
-
-## Purpose
-
-Find all modules that a given module calls into. This is a module-level view of dependencies, aggregating all function calls.
-
-## Usage
+## Find Module Dependencies
 
 ```bash
-code_search --format toon depends-on --module <MODULE> [OPTIONS]
+code_search --format toon depends-on --module Phoenix.Channel
 ```
 
-## Required Options
-
-| Option | Description |
-|--------|-------------|
-| `-m, --module <MODULE>` | Module to analyze |
-
-## Optional Flags
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `-r, --regex` | Treat module as regex | false |
-| `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |
-
-## Output Fields (toon format)
-
+Output:
 ```
-dependencies[N]{call_count,module,project}:
+dependencies[1]{call_count,module,project}:
   6,Phoenix.Channel.Server,default
-  2,Phoenix.PubSub,default
+module_pattern: Phoenix.Channel
 ```
 
-## When to Use
+## Find Dependencies of Multiple Modules
 
-- Understanding module coupling
-- Finding external dependencies
-- Analyzing architecture: what does this module rely on?
-- Identifying tightly coupled modules
+```bash
+code_search --format toon depends-on --module 'Phoenix\.Controller.*' --regex
+```
 
-## See Also
+## Understanding the Output
 
-- [examples.md](examples.md) for detailed usage examples
-- `depended-by` - Reverse: who depends on this module
-- `calls-from` - Function-level outgoing calls
+- `module`: The module being depended on
+- `call_count`: Number of calls from source to this module
+
+Higher call counts indicate stronger coupling.
+
+## Use Case: Architecture Analysis
+
+Check what a core module depends on:
+```bash
+code_search --format toon depends-on --module MyApp.Accounts
+```
+
+This reveals:
+- Database access patterns (Repo calls)
+- External service integrations
+- Shared utility usage

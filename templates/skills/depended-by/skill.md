@@ -1,48 +1,45 @@
-# depended-by
+# depended-by - Examples
 
-Show what modules depend on a given module (incoming module dependencies).
-
-## Purpose
-
-Find all modules that call into a given module. This shows who relies on this module, useful for impact analysis.
-
-## Usage
+## Find Dependents of a Module
 
 ```bash
-code_search --format toon depended-by --module <MODULE> [OPTIONS]
+code_search --format toon depended-by --module Phoenix.Controller
 ```
 
-## Required Options
-
-| Option | Description |
-|--------|-------------|
-| `-m, --module <MODULE>` | Module to analyze |
-
-## Optional Flags
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `-r, --regex` | Treat module as regex | false |
-| `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |
-
-## Output Fields (toon format)
-
+Output:
 ```
-dependents[N]{call_count,module,project}:
+dependents[3]{call_count,module,project}:
   11,Phoenix.Endpoint.RenderErrors,default
   5,Phoenix.ConnTest,default
+  1,Phoenix.Token,default
+module_pattern: Phoenix.Controller
 ```
 
-## When to Use
+## Find Dependents with Regex
 
-- Impact analysis: who will be affected by changes
-- Finding consumers of a module
-- Understanding how widely used a module is
-- Architecture review: identifying core vs peripheral modules
+```bash
+code_search --format toon depended-by --module 'Ecto\..*' --regex
+```
 
-## See Also
+## Understanding the Output
 
-- [examples.md](examples.md) for detailed usage examples
-- `depends-on` - Reverse: what does this module depend on
-- `calls-to` - Function-level incoming calls
+- `module`: The module that depends on the target
+- `call_count`: Number of calls from that module to target
+
+## Use Case: Impact Analysis
+
+Before changing `Phoenix.Controller`:
+```bash
+code_search --format toon depended-by --module Phoenix.Controller
+```
+
+Shows 3 modules with 17 total calls would be affected.
+
+## Use Case: Finding Core Modules
+
+Modules with many dependents are core infrastructure:
+```bash
+code_search --format toon depended-by --module MyApp.Repo
+```
+
+If many modules depend on Repo, it's a central piece of the architecture.

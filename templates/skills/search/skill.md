@@ -1,45 +1,62 @@
-# search
+# search - Examples
 
-Search for modules or functions by name pattern.
-
-## Purpose
-
-Find modules or functions matching a pattern. Use this as a starting point to discover what's in the codebase before drilling down with other commands.
-
-## Usage
+## Find Modules by Name
 
 ```bash
-code_search --format toon search --pattern <PATTERN> [OPTIONS]
+code_search --format toon search --pattern Phoenix
 ```
 
-## Required Options
+Output:
+```
+modules[69]{name,project}:
+  Inspect.Phoenix.Socket.Message,default
+  Mix.Phoenix,default
+  Phoenix,default
+  Phoenix.Channel,default
+  Phoenix.Controller,default
+  ...
+pattern: Phoenix
+```
 
-| Option | Description |
-|--------|-------------|
-| `-p, --pattern <PATTERN>` | Search pattern (substring match, or regex with `-r`) |
+## Find Functions by Pattern
 
-## Optional Flags
+```bash
+code_search --format toon search --pattern render --kind functions
+```
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `-k, --kind <KIND>` | What to search: `modules` or `functions` | `modules` |
-| `-r, --regex` | Treat pattern as regex | false |
-| `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |
+Output:
+```
+functions[12]{args,module,name,project,return_type}:
+  "Plug.Conn.t(), Keyword.t() | map() | binary() | atom()",Phoenix.Controller,render/2,default,"Plug.Conn.t()"
+  "Plug.Conn.t(), binary() | atom(), Keyword.t() | map()",Phoenix.Controller,render/3,default,"Plug.Conn.t()"
+  ...
+kind: functions
+pattern: render
+```
 
-## Output Fields (toon format)
+## Regex Search for Module Prefix
 
-- **modules**: `modules[N]{name,project}: ...`
-- **functions**: `functions[N]{args,module,name,project,return_type}: ...`
+```bash
+code_search --format toon search --pattern '^Phoenix\.Channel' --regex
+```
 
-## When to Use
+Output:
+```
+modules[3]{name,project}:
+  Phoenix.Channel,default
+  Phoenix.Channel.Server,default
+  Phoenix.ChannelTest,default
+pattern: ^Phoenix\.Channel
+```
 
-- Discovering module names in an unfamiliar codebase
-- Finding functions by naming convention (e.g., `get_`, `handle_`)
-- Initial exploration before using `calls-to` or `calls-from`
+## Search with Limit
 
-## See Also
+```bash
+code_search --format toon search --pattern Controller --limit 5
+```
 
-- [examples.md](examples.md) for detailed usage examples
-- `location` - Find where functions are defined
-- `specs` - See function type specifications
+## Search in Specific Project
+
+```bash
+code_search --format toon search --pattern User --project my_app
+```

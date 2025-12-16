@@ -1,49 +1,49 @@
-# specs
+# specs - Examples
 
-Show @spec and @callback definitions.
-
-## Purpose
-
-Display full @spec and @callback definitions for functions in a module. Shows the complete type specification including all clauses.
-
-## Usage
+## All Specs in a Module
 
 ```bash
-code_search --format toon specs <MODULE> [OPTIONS]
+code_search --format toon specs Phoenix.Controller
 ```
 
-## Required Arguments
-
-| Argument | Description |
-|----------|-------------|
-| `<MODULE>` | Module name (positional argument) |
-
-## Optional Flags
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `-f, --function <NAME>` | Filter to specific function | all |
-| `-k, --kind <KIND>` | Filter by kind: `spec` or `callback` | all |
-| `-r, --regex` | Treat names as regex | false |
-| `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |
-
-## Output Fields (toon format)
-
+Output:
 ```
-specs[N]{arity,definition,kind,line,module,name,project}:
-  2,"@spec render(Plug.Conn.t(), ...) :: Plug.Conn.t()",spec,869,Phoenix.Controller,render,default
+specs[27]{arity,definition,kind,line,module,name,project}:
+  1,"@spec __info__(:attributes | :compile | :functions | ...) :: any()",spec,1,Phoenix.Controller,__info__,default
+  2,"@spec accepts(Plug.Conn.t(), [binary()]) :: Plug.Conn.t()",spec,1520,Phoenix.Controller,accepts,default
+  1,"@spec action_name(Plug.Conn.t()) :: atom()",spec,321,Phoenix.Controller,action_name,default
+  2,"@spec json(Plug.Conn.t(), term()) :: Plug.Conn.t()",spec,362,Phoenix.Controller,json,default
+  ...
+module: Phoenix.Controller
 ```
 
-## When to Use
+## Filter by Function Name
 
-- Understanding complete type specifications
-- Finding callback definitions for behaviours
-- Reviewing API contracts
-- Documentation reference
+```bash
+code_search --format toon specs Phoenix.Controller --function render
+```
 
-## See Also
+Output:
+```
+specs[2]{arity,definition,kind,line,module,name,project}:
+  2,"@spec render(Plug.Conn.t(), Keyword.t() | map() | binary() | atom()) :: Plug.Conn.t()",spec,869,Phoenix.Controller,render,default
+  3,"@spec render(Plug.Conn.t(), binary() | atom(), Keyword.t() | map()) :: Plug.Conn.t()",spec,943,Phoenix.Controller,render,default
+```
 
-- [examples.md](examples.md) for detailed usage examples
-- `function` - Simplified signature view
-- `types` - See @type definitions
+## Only Callbacks
+
+```bash
+code_search --format toon specs Phoenix.Channel --kind callback
+```
+
+## Regex Search Across Modules
+
+```bash
+code_search --format toon specs 'Phoenix\..*' --regex --limit 50
+```
+
+## Understanding Output
+
+- `definition`: Full @spec or @callback text
+- `kind`: `spec` or `callback`
+- `line`: Line number where the spec is defined

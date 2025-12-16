@@ -1,51 +1,57 @@
-# path
+# path - Examples
 
-Find a call path between two functions.
-
-## Purpose
-
-Discover if and how one function can reach another through the call graph. Returns the shortest path(s) connecting the source to the target.
-
-## Usage
+## Find Path Between Two Functions
 
 ```bash
-code_search --format toon path --from-module <MOD> --from-function <FN> --to-module <MOD> --to-function <FN> [OPTIONS]
+code_search --format toon path \
+  --from-module MyApp.Web.UserController \
+  --from-function create \
+  --to-module Ecto.Repo \
+  --to-function insert
 ```
 
-## Required Options
-
-| Option | Description |
-|--------|-------------|
-| `--from-module <MODULE>` | Source module name |
-| `--from-function <NAME>` | Source function name |
-| `--to-module <MODULE>` | Target module name |
-| `--to-function <NAME>` | Target function name |
-
-## Optional Flags
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--from-arity <N>` | Source function arity | all |
-| `--to-arity <N>` | Target function arity | all |
-| `--depth <N>` | Max search depth (1-20) | 10 |
-| `-l, --limit <N>` | Max paths to return (1-100) | 10 |
-| `--project <NAME>` | Project to search in | `default` |
-
-## Output Fields (toon format)
-
+Output (if path exists):
 ```
-paths[N]{path}: [["Module.A", "func1", 1], ["Module.B", "func2", 2], ...]
+paths[1]{path}:
+  [["MyApp.Web.UserController","create",2],["MyApp.Accounts","create_user",1],["MyApp.Repo","insert",2]]
+from_arity: null
+from_function: create
+from_module: MyApp.Web.UserController
+to_arity: null
+to_function: insert
+to_module: Ecto.Repo
 ```
 
-## When to Use
+## No Path Found
 
-- Verifying if two functions are connected
-- Finding how execution flows between components
-- Understanding indirect dependencies
-- Debugging: "how does X end up calling Y?"
+```bash
+code_search --format toon path \
+  --from-module Phoenix.Channel \
+  --from-function join \
+  --to-module Mix.Tasks.Compile \
+  --to-function run
+```
 
-## See Also
+Output:
+```
+paths[0]{path}:
+...
+```
 
-- [examples.md](examples.md) for detailed usage examples
-- `trace` - Forward traversal from a starting point
-- `reverse-trace` - Backward traversal to a target
+Empty results means no path exists within the search depth.
+
+## With Specific Arities
+
+```bash
+code_search --format toon path \
+  --from-module MyApp.API --from-function handle --from-arity 2 \
+  --to-module MyApp.Repo --to-function get --to-arity 2 \
+  --depth 15
+```
+
+## Understanding Paths
+
+Each path is a list of `[module, function, arity]` tuples showing the call chain:
+1. Source function
+2. Intermediate functions (in order)
+3. Target function

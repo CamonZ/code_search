@@ -1,44 +1,53 @@
-# unused
+# unused - Examples
 
-Find functions that are never called.
-
-## Purpose
-
-Identify dead code - functions that exist but are never called from anywhere in the codebase. Helps with code cleanup and maintenance.
-
-## Usage
+## Find All Unused Functions
 
 ```bash
-code_search --format toon unused [OPTIONS]
+code_search --format toon unused
 ```
 
-## Optional Flags
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `-m, --module <MODULE>` | Filter to specific module | all |
-| `-p, --private-only` | Only show private functions (defp) | false |
-| `-P, --public-only` | Only show public functions (def) | false |
-| `-x, --exclude-generated` | Exclude __struct__, __using__, etc. | false |
-| `-r, --regex` | Treat module as regex | false |
-| `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |
-
-## Output Fields (toon format)
-
+Output:
 ```
-functions[N]{arity,file,kind,line,module,name,project}:
-  1,lib/my_module.ex,def,42,MyApp.Utils,unused_helper,default
+functions[10]{arity,file,kind,line,module,name,project}:
+  1,lib/phoenix/socket/message.ex,def,39,Inspect.Phoenix.Socket.Message,__impl__,default
+  2,lib/phoenix/socket/message.ex,def,40,Inspect.Phoenix.Socket.Message,inspect,default
+  1,lib/mix/phoenix.ex,def,377,Mix.Phoenix,to_text,default
+  2,lib/mix/phoenix.ex,def,268,Mix.Phoenix,web_test_path,default
+  ...
 ```
 
-## When to Use
+## Find Unused Public Functions
 
-- Code cleanup: finding dead code to remove
-- Finding orphan private functions
-- Identifying potential entry points (public but uncalled)
-- Code review: checking for forgotten implementations
+```bash
+code_search --format toon unused --public-only
+```
 
-## See Also
+These are potential entry points or dead API surface.
 
-- [examples.md](examples.md) for detailed usage examples
-- `hotspots` - Find most-used functions (opposite of unused)
+## Find Orphan Private Functions
+
+```bash
+code_search --format toon unused --private-only
+```
+
+Private functions that are never called are definitely dead code.
+
+## Exclude Generated Functions
+
+```bash
+code_search --format toon unused --public-only --exclude-generated
+```
+
+Filters out `__struct__`, `__using__`, `__before_compile__`, etc.
+
+## Filter to Specific Module
+
+```bash
+code_search --format toon unused --module MyApp.Accounts
+```
+
+## Understanding Results
+
+- `kind: def` - Public function, might be called externally
+- `kind: defp` - Private function, definitely unused if listed
+- `kind: defmacro/defmacrop` - Macros, might be compile-time only

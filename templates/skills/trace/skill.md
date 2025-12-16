@@ -1,52 +1,47 @@
-# trace
+# trace - Examples
 
-Trace call chains from a starting function (forward traversal).
-
-## Purpose
-
-Follow the call graph forward from a starting point to see what functions get called, and what those functions call, up to a specified depth. Useful for understanding execution flow.
-
-## Usage
+## Basic Forward Trace
 
 ```bash
-code_search --format toon trace --module <MODULE> --function <NAME> [OPTIONS]
+code_search --format toon trace --module Phoenix.Endpoint.RenderErrors --function "__catch__" --depth 3
 ```
 
-## Required Options
-
-| Option | Description |
-|--------|-------------|
-| `-m, --module <MODULE>` | Starting module name |
-| `-f, --function <NAME>` | Starting function name |
-
-## Optional Flags
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `-a, --arity <N>` | Filter by arity | all |
-| `--depth <N>` | Max traversal depth (1-20) | 5 |
-| `-r, --regex` | Treat names as regex | false |
-| `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |
-
-## Output Fields (toon format)
-
+Output:
 ```
 calls[N]{callee_arity,callee_function,callee_module,caller_function,caller_kind,caller_module,depth,file,line,project}:
-  2,helper,MyModule,main/0,def,MyModule,1,lib/my_module.ex,10,default
-  1,format,String,helper/2,defp,MyModule,2,lib/my_module.ex,25,default
+  5,instrument_render_and_send,Phoenix.Endpoint.RenderErrors,__catch__/5,def,Phoenix.Endpoint.RenderErrors,1,lib/endpoint/render_errors.ex,62,default
+  6,render,Phoenix.Endpoint.RenderErrors,instrument_render_and_send/5,defp,Phoenix.Endpoint.RenderErrors,2,lib/endpoint/render_errors.ex,85,default
+  3,render,Phoenix.Controller,render/6,defp,Phoenix.Endpoint.RenderErrors,3,lib/endpoint/render_errors.ex,124,default
+  ...
+depth: 3
+function_pattern: __catch__
+module_pattern: Phoenix.Endpoint.RenderErrors
 ```
 
-## When to Use
+## Deeper Traversal
 
-- Understanding what code runs when a function is called
-- Tracing execution paths forward
-- Finding all transitive dependencies of a function
-- Exploring unfamiliar code flow
+```bash
+code_search --format toon trace --module MyApp.Web --function index --depth 10
+```
 
-## See Also
+## Trace with Arity Filter
 
-- [examples.md](examples.md) for detailed usage examples
-- `reverse-trace` - Trace callers backward
-- `calls-from` - Single-level forward calls
-- `path` - Find specific path between two functions
+```bash
+code_search --format toon trace --module Phoenix.Controller --function render --arity 2 --depth 3
+```
+
+## Understanding Depth
+
+- `depth: 1` - Direct calls from the starting function
+- `depth: 2` - Calls from those callees
+- `depth: 3` - And so on...
+
+Each level shows what gets called at that depth in the call chain.
+
+## Use Case: Understanding Error Handling
+
+```bash
+code_search --format toon trace --module Phoenix.Endpoint.RenderErrors --function "__catch__" --depth 5
+```
+
+This reveals the full error handling pipeline: catch → instrument → render → controller.

@@ -1,47 +1,48 @@
-# struct
+# struct - Examples
 
-Show struct fields, defaults, and types.
-
-## Purpose
-
-Display the fields of a struct including default values, whether fields are required, and inferred types.
-
-## Usage
+## Show Struct Definition
 
 ```bash
-code_search --format toon struct --module <MODULE> [OPTIONS]
+code_search --format toon struct --module Phoenix.Socket
 ```
 
-## Required Options
-
-| Option | Description |
-|--------|-------------|
-| `-m, --module <MODULE>` | Module name containing the struct |
-
-## Optional Flags
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `-r, --regex` | Treat module as regex | false |
-| `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |
-
-## Output Fields (toon format)
-
+Output:
 ```
-structs[N]{default,field,inferred_type,module,project,required}:
+structs[15]{default,field,inferred_type,module,project,required}:
   "%{}",assigns,"",Phoenix.Socket,default,false
   nil,channel,"",Phoenix.Socket,default,false
+  nil,channel_pid,"",Phoenix.Socket,default,false
+  nil,endpoint,"",Phoenix.Socket,default,false
+  nil,handler,"",Phoenix.Socket,default,false
+  nil,id,"",Phoenix.Socket,default,false
+  nil,join_ref,"",Phoenix.Socket,default,false
+  false,joined,"",Phoenix.Socket,default,false
+  "%{}",private,"",Phoenix.Socket,default,false
+  nil,pubsub_server,"",Phoenix.Socket,default,false
+  nil,ref,"",Phoenix.Socket,default,false
+  nil,serializer,"",Phoenix.Socket,default,false
+  nil,topic,"",Phoenix.Socket,default,false
+  nil,transport,"",Phoenix.Socket,default,false
+  nil,transport_pid,"",Phoenix.Socket,default,false
+module_pattern: Phoenix.Socket
 ```
 
-## When to Use
+## Find All Structs in Namespace
 
-- Understanding struct shape and fields
-- Finding default values for struct fields
-- Checking which fields are required vs optional
-- Exploring data structures in unfamiliar code
+```bash
+code_search --format toon struct --module 'Phoenix\.Socket\.' --regex
+```
 
-## See Also
+## Understanding the Output
 
-- [examples.md](examples.md) for detailed usage examples
-- `types` - See @type definitions for the struct
+- `field`: Field name
+- `default`: Default value (e.g., `nil`, `%{}`, `[]`, `false`)
+- `required`: Whether the field must be provided
+- `inferred_type`: Type inferred from usage (when available)
+
+## Common Patterns
+
+- `%{}` - Empty map default
+- `[]` - Empty list default
+- `nil` - No default (effectively optional)
+- `true`/`false` - Boolean defaults
