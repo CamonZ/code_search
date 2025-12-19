@@ -13,8 +13,14 @@ pub struct ClusterInfo {
     pub namespace: String,
     pub module_count: usize,
     pub internal_calls: i64,
-    pub external_calls: i64,
+    pub outgoing_calls: i64,
+    pub incoming_calls: i64,
+    /// Cohesion: internal / (internal + outgoing + incoming)
+    /// Range 0-1, higher = more self-contained
     pub cohesion: f64,
+    /// Instability: outgoing / (incoming + outgoing)
+    /// Range 0-1, 0 = stable (depended upon), 1 = unstable (depends on others)
+    pub instability: f64,
 }
 
 /// A cross-namespace dependency edge
@@ -70,29 +76,46 @@ impl Execute for ClustersCmd {
                 .insert(module.clone());
         }
 
-        // Count internal and external calls per namespace
+        // Count internal, outgoing, and incoming calls per namespace
         let mut internal_calls: HashMap<String, i64> = HashMap::new();
-        let mut external_calls: HashMap<String, i64> = HashMap::new();
+        let mut outgoing_calls: HashMap<String, i64> = HashMap::new();
+        let mut incoming_calls: HashMap<String, i64> = HashMap::new();
         let mut cross_deps: HashMap<(String, String), i64> = HashMap::new();
 
         for call in calls {
             let caller_ns = extract_namespace(&call.caller_module, self.depth);
             let callee_ns = extract_namespace(&call.callee_module, self.depth);
 
-            // Only count if both modules are in our filtered set
-            if filtered_modules.contains(&call.caller_module) && filtered_modules.contains(&call.callee_module) {
-                if caller_ns == callee_ns {
-                    // Internal call
-                    *internal_calls.entry(caller_ns).or_insert(0) += 1;
-                } else {
-                    // External call
-                    *external_calls.entry(caller_ns.clone()).or_insert(0) += 1;
-                    *external_calls.entry(callee_ns.clone()).or_insert(0) += 1;
+            let caller_in_filter = filtered_modules.contains(&call.caller_module);
+            let callee_in_filter = filtered_modules.contains(&call.callee_module);
 
-                    // Track cross-dependencies
+            // Skip calls where neither module is in our filtered set
+            if !caller_in_filter && !callee_in_filter {
+                continue;
+            }
+
+            if caller_ns == callee_ns && caller_in_filter && callee_in_filter {
+                // Internal call (same namespace, both in filter)
+                *internal_calls.entry(caller_ns).or_insert(0) += 1;
+            } else if caller_ns != callee_ns {
+                // Cross-namespace call
+                // Count as outgoing for caller namespace (if in filter)
+                if caller_in_filter {
+                    *outgoing_calls.entry(caller_ns.clone()).or_insert(0) += 1;
+                }
+                // Count as incoming for callee namespace (if in filter)
+                if callee_in_filter {
+                    *incoming_calls.entry(callee_ns.clone()).or_insert(0) += 1;
+                }
+
+                // Track cross-dependencies (from caller's perspective)
+                if caller_in_filter {
                     let key = (caller_ns, callee_ns);
                     *cross_deps.entry(key).or_insert(0) += 1;
                 }
+            } else if caller_in_filter && !callee_in_filter {
+                // Same namespace but callee outside filter - count as outgoing
+                *outgoing_calls.entry(caller_ns.clone()).or_insert(0) += 1;
             }
         }
 
@@ -100,10 +123,22 @@ impl Execute for ClustersCmd {
         let mut clusters = Vec::new();
         for (namespace, modules) in namespace_modules {
             let internal = internal_calls.get(&namespace).copied().unwrap_or(0);
-            let external = external_calls.get(&namespace).copied().unwrap_or(0);
-            let total = internal + external;
-            let cohesion = if total > 0 {
-                internal as f64 / total as f64
+            let outgoing = outgoing_calls.get(&namespace).copied().unwrap_or(0);
+            let incoming = incoming_calls.get(&namespace).copied().unwrap_or(0);
+
+            // Cohesion: internal / (internal + outgoing + incoming)
+            let total_interactions = internal + outgoing + incoming;
+            let cohesion = if total_interactions > 0 {
+                internal as f64 / total_interactions as f64
+            } else {
+                0.0
+            };
+
+            // Instability: outgoing / (incoming + outgoing)
+            // 0 = stable (depended upon), 1 = unstable (depends on others)
+            let external_total = incoming + outgoing;
+            let instability = if external_total > 0 {
+                outgoing as f64 / external_total as f64
             } else {
                 0.0
             };
@@ -112,12 +147,14 @@ impl Execute for ClustersCmd {
                 namespace,
                 module_count: modules.len(),
                 internal_calls: internal,
-                external_calls: external,
+                outgoing_calls: outgoing,
+                incoming_calls: incoming,
                 cohesion,
+                instability,
             });
         }
 
-        // Sort by cohesion descending
+        // Sort by cohesion descending, then by internal calls
         clusters.sort_by(|a, b| {
             b.cohesion
                 .partial_cmp(&a.cohesion)
@@ -194,8 +231,9 @@ mod tests {
     fn test_cohesion_calculation_all_internal() {
         // If all calls are internal, cohesion should be 1.0
         let internal = 10;
-        let external = 0;
-        let total = internal + external;
+        let outgoing = 0;
+        let incoming = 0;
+        let total = internal + outgoing + incoming;
         let cohesion = if total > 0 {
             internal as f64 / total as f64
         } else {
@@ -206,10 +244,11 @@ mod tests {
 
     #[test]
     fn test_cohesion_calculation_all_external() {
-        // If all calls are external, cohesion should be 0.0
+        // If all calls are external (outgoing + incoming), cohesion should be 0.0
         let internal = 0;
-        let external = 10;
-        let total = internal + external;
+        let outgoing = 5;
+        let incoming = 5;
+        let total = internal + outgoing + incoming;
         let cohesion = if total > 0 {
             internal as f64 / total as f64
         } else {
@@ -220,16 +259,60 @@ mod tests {
 
     #[test]
     fn test_cohesion_calculation_mixed() {
-        // Mixed internal/external: 45/(45+12) ≈ 0.79
+        // Mixed: internal=45, outgoing=8, incoming=4 → 45/(45+8+4) = 45/57 ≈ 0.79
         let internal = 45;
-        let external = 12;
-        let total = internal + external;
+        let outgoing = 8;
+        let incoming = 4;
+        let total = internal + outgoing + incoming;
         let cohesion = if total > 0 {
             internal as f64 / total as f64
         } else {
             0.0
         };
         assert!((cohesion - 0.79).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_instability_calculation() {
+        // Instability = outgoing / (incoming + outgoing)
+        // outgoing=8, incoming=4 → 8/12 ≈ 0.67 (unstable, depends on others)
+        let outgoing = 8;
+        let incoming = 4;
+        let external_total = incoming + outgoing;
+        let instability = if external_total > 0 {
+            outgoing as f64 / external_total as f64
+        } else {
+            0.0
+        };
+        assert!((instability - 0.67).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_instability_stable_namespace() {
+        // A namespace with only incoming calls is stable (instability = 0)
+        let outgoing = 0;
+        let incoming = 10;
+        let external_total = incoming + outgoing;
+        let instability = if external_total > 0 {
+            outgoing as f64 / external_total as f64
+        } else {
+            0.0
+        };
+        assert_eq!(instability, 0.0);
+    }
+
+    #[test]
+    fn test_instability_unstable_namespace() {
+        // A namespace with only outgoing calls is unstable (instability = 1)
+        let outgoing = 10;
+        let incoming = 0;
+        let external_total = incoming + outgoing;
+        let instability = if external_total > 0 {
+            outgoing as f64 / external_total as f64
+        } else {
+            0.0
+        };
+        assert_eq!(instability, 1.0);
     }
 
     #[test]
@@ -290,14 +373,18 @@ mod tests {
             namespace: "MyApp.Accounts".to_string(),
             module_count: 5,
             internal_calls: 45,
-            external_calls: 12,
+            outgoing_calls: 8,
+            incoming_calls: 4,
             cohesion: 0.79,
+            instability: 0.67,
         };
 
         assert_eq!(cluster.namespace, "MyApp.Accounts");
         assert_eq!(cluster.module_count, 5);
         assert_eq!(cluster.internal_calls, 45);
-        assert_eq!(cluster.external_calls, 12);
+        assert_eq!(cluster.outgoing_calls, 8);
+        assert_eq!(cluster.incoming_calls, 4);
         assert!((cluster.cohesion - 0.79).abs() < 0.001);
+        assert!((cluster.instability - 0.67).abs() < 0.001);
     }
 }

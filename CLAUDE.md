@@ -5,10 +5,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Test Commands
 
 ```bash
-cargo build              # Build the project
-cargo test               # Run all tests
-cargo test <test_name>   # Run a single test by name
-cargo run -- --help      # Show CLI help
+cargo build                      # Build the project
+cargo test                       # Run all tests
+cargo test <test_name>           # Run a single test by name
+cargo nextest run                # Alternative test runner (faster)
+cargo run -- --help              # Show CLI help
+cargo run -- describe            # Show detailed command documentation
 ```
 
 ## Architecture
@@ -18,13 +20,15 @@ This is a Rust CLI tool for querying call graph data stored in a CozoDB SQLite d
 **Code organization:**
 - `src/main.rs` - Entry point, module declarations
 - `src/cli.rs` - Top-level CLI structure with global `--db` and `--format` flags
-- `src/commands/mod.rs` - `Command` enum, `Execute` trait, dispatch via `run()` method
+- `src/commands/mod.rs` - `Command` enum, `Execute` trait, `CommonArgs`, dispatch via enum_dispatch
 - `src/commands/<name>/` - Individual command modules (directory structure)
+- `src/queries/<name>.rs` - CozoScript queries and result parsing (separate from command logic)
 - `src/db.rs` - Database connection and query utilities
 - `src/output.rs` - `OutputFormat` enum, `Outputable` and `TableFormatter` traits
 - `src/dedup.rs` - Deduplication utilities (`sort_and_deduplicate`, `DeduplicationFilter`)
 - `src/utils.rs` - Module grouping helpers (`group_by_module`, `convert_to_module_groups`)
 - `src/types/` - Shared types (`ModuleGroupResult`, `ModuleGroup`, `Call`, etc.)
+- `src/test_macros.rs` - Declarative test macros for CLI, execute, and output tests
 
 **Command module structure:**
 Each command is a directory module with these files:
@@ -71,11 +75,29 @@ When refactoring output, ensure all three formats remain consistent:
 main.rs → Args::parse() → Command::run(db_path, format) → cmd.execute() → result.format()
 ```
 
+**Key traits:**
+- `Execute` - Core execution trait: `execute(self, db) -> Result<Self::Output>`
+- `CommandRunner` - Auto-generated via `enum_dispatch` macro for all Command variants
+- `Outputable` - Output formatting: `to_table()` + automatic `format(OutputFormat)`
+- `TableFormatter` - Customizable table layout for module-grouped results
+
+**CommonArgs pattern:**
+Commands share common arguments via `#[command(flatten)]`:
+```rust
+pub struct MyCmd {
+    pub module: String,
+    #[command(flatten)]
+    pub common: CommonArgs,  // Adds --project, --regex, --limit
+}
+```
+
 **Testing pattern:**
 - Uses `rstest` with `#[fixture]` for shared test data
 - Uses `tempfile` for filesystem-based tests
 - Tests live alongside implementation in each module
 - Output tests use expected string constants for clarity
+- Test macros in `src/test_macros.rs` reduce boilerplate (see `docs/TESTING_STRATEGY.md`)
+- Shared fixtures in `src/fixtures/` for database and output tests
 - Run with `cargo test` or `cargo nextest run`
 
 **Adding new commands:**

@@ -410,7 +410,13 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
             "clusters",
             "Analyze module connectivity using namespace-based clustering",
             CommandCategory::Module,
-            "Groups modules into clusters based on their namespace structure and interdependencies.",
+            "Groups modules into clusters based on their namespace structure and interdependencies.\n\n\
+             Output columns:\n\
+             - Internal: calls between modules within the same namespace\n\
+             - Out: calls from this namespace to other namespaces\n\
+             - In: calls from other namespaces into this one\n\
+             - Cohesion: internal / (internal + out + in) — higher = more self-contained\n\
+             - Instab: out / (in + out) — 0 = stable (depended upon), 1 = unstable (depends on others)",
             "code_search clusters [OPTIONS]",
         )
         .with_examples(vec![
