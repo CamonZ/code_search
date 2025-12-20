@@ -328,7 +328,7 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
             Example::new("Browse a module", "code_search browse-module -m MyApp.Accounts"),
             Example::new("Browse with limit", "code_search browse-module -m MyApp.Accounts --limit 50"),
         ])
-        .with_related(vec!["search", "location", "struct-modules"]),
+        .with_related(vec!["search", "location", "struct-usage"]),
 
         // Type Search Commands
         CommandDescription::new(
@@ -336,11 +336,11 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
             "Find functions accepting a specific type pattern",
             CommandCategory::Type,
             "Finds all functions that have a parameter matching a type pattern. Useful for finding consumers of a type.",
-            "code_search accepts -p <PATTERN> [OPTIONS]",
+            "code_search accepts <PATTERN> [OPTIONS]",
         )
         .with_examples(vec![
-            Example::new("Find functions accepting a type", "code_search accepts -p User"),
-            Example::new("Use regex for type pattern", "code_search accepts -p 'Result\\(.*\\)' -r"),
+            Example::new("Find functions accepting a type", "code_search accepts User.t"),
+            Example::new("Use regex for type pattern", "code_search accepts 'list\\(.*\\)' -r"),
         ])
         .with_related(vec!["returns", "struct-usage", "function"]),
 
@@ -349,11 +349,11 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
             "Find functions returning a specific type pattern",
             CommandCategory::Type,
             "Finds all functions that return a type matching a pattern. Useful for finding providers of a type.",
-            "code_search returns -p <PATTERN> [OPTIONS]",
+            "code_search returns <PATTERN> [OPTIONS]",
         )
         .with_examples(vec![
-            Example::new("Find functions returning a type", "code_search returns -p ':ok"),
-            Example::new("Use regex for type pattern", "code_search returns -p 'Ok\\(.*\\)' -r"),
+            Example::new("Find functions returning a type", "code_search returns ':ok'"),
+            Example::new("Use regex for type pattern", "code_search returns 'tuple\\(.*\\)' -r"),
         ])
         .with_related(vec!["accepts", "struct-usage", "function"]),
 
@@ -361,25 +361,14 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
             "struct-usage",
             "Find functions that work with a given struct type",
             CommandCategory::Type,
-            "Finds all functions that accept or return a specific struct type. Shows all code that interacts with a type.",
-            "code_search struct-usage -p <PATTERN> [OPTIONS]",
+            "Lists functions that accept or return a specific type pattern. Use --by-module to aggregate counts per module.",
+            "code_search struct-usage <PATTERN> [OPTIONS]",
         )
         .with_examples(vec![
-            Example::new("Find all functions using a struct", "code_search struct-usage -p User"),
+            Example::new("Find all functions using a struct", "code_search struct-usage User.t"),
+            Example::new("Summarize by module", "code_search struct-usage User.t --by-module"),
         ])
-        .with_related(vec!["accepts", "returns", "struct-modules"]),
-
-        CommandDescription::new(
-            "struct-modules",
-            "Show which modules work with a given struct type",
-            CommandCategory::Type,
-            "Lists all modules that have functions accepting or returning a specific struct. Shows module responsibilities.",
-            "code_search struct-modules -p <PATTERN> [OPTIONS]",
-        )
-        .with_examples(vec![
-            Example::new("Find modules working with a struct", "code_search struct-modules -p User"),
-        ])
-        .with_related(vec!["struct-usage", "browse-module", "hotspots"]),
+        .with_related(vec!["accepts", "returns", "browse-module"]),
 
         // Module Commands
         CommandDescription::new(
