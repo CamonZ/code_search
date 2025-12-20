@@ -14,23 +14,34 @@ Find all functions that work with a specific struct type, either as input parame
 ## Usage
 
 ```bash
-code_search --format toon struct-usage --struct <STRUCT_NAME> [OPTIONS]
+code_search --format toon struct-usage <PATTERN> [MODULE] [OPTIONS]
 ```
 
-## Required Options
+## Arguments
 
-| Option | Description |
-|--------|-------------|
-| `-s, --struct <STRUCT_NAME>` | Struct name to analyze |
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `<PATTERN>` | Type pattern to search for in both inputs and returns | required |
+| `[MODULE]` | Module filter pattern | all modules |
 
 ## Optional Flags
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-m, --module <PATTERN>` | Module pattern to filter | all |
+| `--by-module` | Aggregate results by module (show counts instead of function details) | false |
 | `-r, --regex` | Treat patterns as regex | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
 | `--project <NAME>` | Project to search in | `default` |
+
+## Examples
+
+```bash
+code_search struct-usage "User.t"             # Find functions using User.t
+code_search struct-usage "Changeset.t"        # Find functions using Changeset.t
+code_search struct-usage "User.t" MyApp       # Filter to module MyApp
+code_search struct-usage "User.t" --by-module # Summarize by module
+code_search struct-usage -r ".*\.t"           # Regex pattern matching
+```
 
 ## Output Fields (toon format)
 
@@ -50,7 +61,5 @@ total_items: 2
 
 ## See Also
 
-- [examples.md](examples.md) for detailed usage examples
-- `struct-modules` - Find modules using specific structs
 - `accepts` - Find functions accepting any type
 - `returns` - Find functions returning any type

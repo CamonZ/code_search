@@ -14,17 +14,33 @@ Find circular dependencies in the module graph that can cause compilation issues
 ## Usage
 
 ```bash
-code_search --format toon cycles [OPTIONS]
+code_search --format toon cycles [MODULE] [OPTIONS]
 ```
+
+## Arguments
+
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `[MODULE]` | Module filter pattern (substring match by default, regex with --regex) | all modules |
 
 ## Optional Flags
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-m, --module <PATTERN>` | Module pattern to filter | all |
+| `--max-length <N>` | Maximum cycle length to find | none |
+| `--involving <MODULE>` | Only show cycles involving this module (substring match) | none |
 | `-r, --regex` | Treat patterns as regex | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
 | `--project <NAME>` | Project to search in | `default` |
+
+## Examples
+
+```bash
+code_search cycles                            # Find all cycles
+code_search cycles MyApp.Core                 # Filter to MyApp.Core namespace
+code_search cycles --max-length 3             # Only show cycles of length <= 3
+code_search cycles --involving MyApp.Accounts # Only cycles involving Accounts
+```
 
 ## Output Fields (toon format)
 
@@ -43,6 +59,5 @@ cycles[N]{cycle_length,modules[N]{name}}:
 
 ## See Also
 
-- [examples.md](examples.md) for detailed usage examples
 - `depends-on` - See module dependencies
 - `clusters` - Analyze module connectivity patterns

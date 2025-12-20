@@ -19,7 +19,7 @@ functions[10]{arity,file,kind,line,module,name,project}:
 ## Find Unused Public Functions
 
 ```bash
-code_search --format toon unused --public-only
+code_search --format toon unused -P
 ```
 
 These are potential entry points or dead API surface.
@@ -27,7 +27,7 @@ These are potential entry points or dead API surface.
 ## Find Orphan Private Functions
 
 ```bash
-code_search --format toon unused --private-only
+code_search --format toon unused -p
 ```
 
 Private functions that are never called are definitely dead code.
@@ -35,7 +35,7 @@ Private functions that are never called are definitely dead code.
 ## Exclude Generated Functions
 
 ```bash
-code_search --format toon unused --public-only --exclude-generated
+code_search --format toon unused -Px
 ```
 
 Filters out `__struct__`, `__using__`, `__before_compile__`, etc.
@@ -43,7 +43,7 @@ Filters out `__struct__`, `__using__`, `__before_compile__`, etc.
 ## Filter to Specific Module
 
 ```bash
-code_search --format toon unused --module MyApp.Accounts
+code_search --format toon unused MyApp.Accounts
 ```
 
 ## Understanding Results
@@ -51,3 +51,15 @@ code_search --format toon unused --module MyApp.Accounts
 - `kind: def` - Public function, might be called externally
 - `kind: defp` - Private function, definitely unused if listed
 - `kind: defmacro/defmacrop` - Macros, might be compile-time only
+
+## Options Reference
+
+| Argument/Option | Description | Default |
+|-----------------|-------------|---------|
+| `[MODULE]` | Module pattern to filter results (substring or regex with -r) | all modules |
+| `-p, --private-only` | Only show private functions (defp, defmacrop) - likely dead code | false |
+| `-P, --public-only` | Only show public functions (def, defmacro) - potential entry points | false |
+| `-x, --exclude-generated` | Exclude compiler-generated functions (__struct__, __info__, etc.) | false |
+| `-r, --regex` | Treat patterns as regular expressions | false |
+| `-l, --limit <N>` | Max results (1-1000) | 100 |
+| `--project <NAME>` | Project to search in | `default` |

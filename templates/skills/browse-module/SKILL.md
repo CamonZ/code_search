@@ -1,6 +1,6 @@
 ---
 name: browse-module
-description: Browse all definitions in a module or file. Use to get a complete overview of functions, structs, and definitions.
+description: Browse all definitions in a module or file. Use to get a complete overview of functions, specs, types, and structs.
 ---
 
 # browse-module
@@ -9,25 +9,27 @@ Browse all definitions in a module or file.
 
 ## Purpose
 
-Get a complete overview of all functions, structs, and definitions in a specific module or file. Use this to understand what a module provides and explore its complete interface.
+Get a complete overview of all functions, specs, types, and structs in a specific module or file. Use this to understand what a module provides and explore its complete interface.
 
 ## Usage
 
 ```bash
-code_search --format toon browse-module --module <MODULE> [OPTIONS]
+code_search --format toon browse-module <MODULE_OR_FILE> [OPTIONS]
 ```
 
-## Required Options
+## Arguments
 
-| Option | Description |
-|--------|-------------|
-| `-m, --module <MODULE>` | Module name to browse |
+| Argument | Description |
+|----------|-------------|
+| `<MODULE_OR_FILE>` | Module name, pattern, or file path to browse. Can be: module name ("MyApp.Accounts"), file path ("lib/accounts.ex"), or pattern with --regex |
 
 ## Optional Flags
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-r, --regex` | Treat module as regex | false |
+| `-k, --kind <KIND>` | Filter by definition type: `functions`, `specs`, `types`, `structs` | all types |
+| `-n, --name <NAME>` | Filter by definition name (substring or regex with --regex) | none |
+| `-r, --regex` | Treat patterns as regular expressions | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
 | `--project <NAME>` | Project to search in | `default` |
 
@@ -49,10 +51,10 @@ structs[N]{fields[N]{default,field,inferred_type,required},name}:
 - Exploring module interfaces and APIs
 - Finding all functions in a specific module
 - Getting an overview of module structure
+- Filtering to specific definition types (functions only, types only, etc.)
 
 ## See Also
 
-- [examples.md](examples.md) for detailed usage examples
 - `function` - Get detailed function signatures
 - `search` - Find modules or functions by pattern
 - `location` - Find where functions are defined

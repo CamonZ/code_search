@@ -15,8 +15,6 @@ hotspots[20]{function,incoming,module,outgoing,total}:
   json_library,14,Phoenix,0,14
   eval_from,12,Mix.Phoenix,0,12
   ...
-kind: incoming
-module_filter: null
 ```
 
 ## Find Functions with High Fan-Out
@@ -33,10 +31,18 @@ Functions that call many other functions - potential god functions to refactor.
 code_search --format toon hotspots --kind total
 ```
 
+## Find Boundary Functions
+
+```bash
+code_search --format toon hotspots --kind ratio
+```
+
+Functions with high incoming/outgoing ratio - these are API boundaries.
+
 ## Filter to Specific Module Namespace
 
 ```bash
-code_search --format toon hotspots --module Phoenix.Router
+code_search --format toon hotspots Phoenix.Router
 ```
 
 ## Understanding the Output
@@ -49,15 +55,31 @@ code_search --format toon hotspots --module Phoenix.Router
 
 **Find Core Utilities:**
 ```bash
-code_search --format toon hotspots --kind incoming --limit 10
+code_search --format toon hotspots --kind incoming -l 10
 ```
 
 **Find Complex Functions (high fan-out):**
 ```bash
-code_search --format toon hotspots --kind outgoing --limit 10
+code_search --format toon hotspots --kind outgoing -l 10
 ```
 
 **Find Coupling Hotspots:**
 ```bash
-code_search --format toon hotspots --kind total --limit 10
+code_search --format toon hotspots --kind total -l 10
 ```
+
+**Find Boundary Functions:**
+```bash
+code_search --format toon hotspots --kind ratio -l 10
+```
+
+## Options Reference
+
+| Argument/Option | Description | Default |
+|-----------------|-------------|---------|
+| `[MODULE]` | Module pattern to filter results (substring or regex with -r) | all modules |
+| `-k, --kind <KIND>` | Type of hotspots: `incoming`, `outgoing`, `total`, `ratio` | `incoming` |
+| `--exclude-generated` | Exclude macro-generated functions | false |
+| `-r, --regex` | Treat patterns as regular expressions | false |
+| `-l, --limit <N>` | Max results (1-1000) | 100 |
+| `--project <NAME>` | Project to search in | `default` |

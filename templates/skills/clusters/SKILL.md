@@ -14,17 +14,34 @@ Group modules by their namespace/prefix to understand how different parts of the
 ## Usage
 
 ```bash
-code_search --format toon clusters [OPTIONS]
+code_search --format toon clusters [MODULE] [OPTIONS]
 ```
+
+## Arguments
+
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `[MODULE]` | Module filter pattern (substring match by default, regex with --regex) | all modules |
 
 ## Optional Flags
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-m, --module <PATTERN>` | Module pattern to filter | all |
+| `--depth <N>` | Namespace depth for clustering | 2 |
+| `--show-dependencies` | Show cross-namespace dependencies | false |
 | `-r, --regex` | Treat patterns as regex | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
 | `--project <NAME>` | Project to search in | `default` |
+
+## Examples
+
+```bash
+code_search clusters                      # Show all namespace clusters
+code_search clusters MyApp.Core           # Filter to MyApp.Core namespace
+code_search clusters --depth 2            # Cluster at depth 2 (e.g., MyApp.Accounts)
+code_search clusters --depth 3            # Cluster at depth 3 (e.g., MyApp.Accounts.Auth)
+code_search clusters --show-dependencies  # Include cross-namespace call counts
+```
 
 ## Output Fields (toon format)
 
@@ -43,7 +60,6 @@ clusters[N]{cluster_name,module_count,total_connections,modules[N]{incoming,outg
 
 ## See Also
 
-- [examples.md](examples.md) for detailed usage examples
 - `depends-on` - See module dependencies
 - `hotspots` - Find high-connectivity functions
 - `boundaries` - Find architectural boundary modules

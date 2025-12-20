@@ -14,17 +14,36 @@ Identify modules that violate single responsibility principle by having too many
 ## Usage
 
 ```bash
-code_search --format toon god-modules [OPTIONS]
+code_search --format toon god-modules [MODULE] [OPTIONS]
 ```
+
+## Arguments
+
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `[MODULE]` | Module filter pattern (substring or regex with -r) | all modules |
 
 ## Optional Flags
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-m, --module <PATTERN>` | Module pattern to filter | all |
+| `--min-functions <N>` | Minimum function count to be considered a god module | 20 |
+| `--min-loc <N>` | Minimum lines of code to be considered a god module | 0 |
+| `--min-total <N>` | Minimum total connectivity (incoming + outgoing) | 10 |
 | `-r, --regex` | Treat patterns as regex | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
 | `--project <NAME>` | Project to search in | `default` |
+
+## Examples
+
+```bash
+code_search god-modules                         # Find all god modules
+code_search god-modules MyApp.Core              # Filter to MyApp.Core namespace
+code_search god-modules --min-functions 30      # With minimum 30 functions
+code_search god-modules --min-loc 500           # With minimum 500 lines of code
+code_search god-modules --min-total 15          # With minimum 15 total connectivity
+code_search god-modules -l 20                   # Show top 20 god modules
+```
 
 ## Output Fields (toon format)
 
@@ -44,7 +63,5 @@ total_items: 2
 
 ## See Also
 
-- [examples.md](examples.md) for detailed usage examples
 - `hotspots` - Find high-connectivity functions
-- `duplicate-hotspots` - Find modules with duplication
 - `large-functions` - Find individual large functions

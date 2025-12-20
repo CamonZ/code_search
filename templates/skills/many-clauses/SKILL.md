@@ -14,17 +14,34 @@ Identify functions with many pattern matching clauses that may be complex or har
 ## Usage
 
 ```bash
-code_search --format toon many-clauses [OPTIONS]
+code_search --format toon many-clauses [MODULE] [OPTIONS]
 ```
+
+## Arguments
+
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `[MODULE]` | Module filter pattern (substring or regex with -r) | all modules |
 
 ## Optional Flags
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-m, --module <PATTERN>` | Module pattern to filter | all |
+| `--min-clauses <N>` | Minimum clauses to be considered | 5 |
+| `--include-generated` | Include macro-generated functions (excluded by default) | false |
 | `-r, --regex` | Treat patterns as regex | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
 | `--project <NAME>` | Project to search in | `default` |
+
+## Examples
+
+```bash
+code_search many-clauses                     # Find functions with 5+ clauses
+code_search many-clauses MyApp.Web           # Filter to MyApp.Web namespace
+code_search many-clauses --min-clauses 10    # Find functions with 10+ clauses
+code_search many-clauses --include-generated # Include macro-generated functions
+code_search many-clauses -l 20               # Show top 20 functions with most clauses
+```
 
 ## Output Fields (toon format)
 
@@ -44,7 +61,6 @@ total_items: 2
 
 ## See Also
 
-- [examples.md](examples.md) for detailed usage examples
 - `complexity` - Find functions by logic complexity
 - `large-functions` - Find functions by line count
 - `duplicates` - Find duplicated implementations
