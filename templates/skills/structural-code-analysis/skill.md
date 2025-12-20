@@ -20,11 +20,13 @@ Use structural code analysis when you need to:
 ## Prerequisites
 
 The codebase must have a call graph extracted and imported:
-```bash
-# 1. Extract call graph from Elixir project (using code_intelligence_tracer)
-# 2. Import into database
-code_search import --file call_graph.json
-```
+
+1. **Extract call graph** using [ex_ast](https://github.com/CamonZ/ex_ast) - an Elixir library that extracts structural information from Elixir codebases including function definitions, calls, specs, types, and structs.
+
+2. **Import into database**:
+   ```bash
+   code_search import --file call_graph.json
+   ```
 
 ## Core Concepts
 
