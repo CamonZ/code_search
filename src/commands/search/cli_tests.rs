@@ -8,22 +8,24 @@ mod tests {
     use rstest::rstest;
 
     // =========================================================================
-    // Tests using macros
+    // Required argument tests
     // =========================================================================
 
-    // Required argument test
     crate::cli_required_arg_test! {
         command: "search",
         test_name: test_search_requires_pattern,
-        required_arg: "--pattern",
+        required_arg: "<PATTERN>",
     }
 
-    // Option tests (all require --pattern as a prerequisite)
+    // =========================================================================
+    // Option tests
+    // =========================================================================
+
     crate::cli_option_test! {
         command: "search",
         variant: Search,
         test_name: test_search_with_pattern,
-        args: ["--pattern", "User"],
+        args: ["User"],
         field: pattern,
         expected: "User",
     }
@@ -32,7 +34,7 @@ mod tests {
         command: "search",
         variant: Search,
         test_name: test_search_with_project_filter,
-        args: ["--pattern", "User", "--project", "my_app"],
+        args: ["User", "--project", "my_app"],
         field: common.project,
         expected: "my_app",
     }
@@ -41,16 +43,19 @@ mod tests {
         command: "search",
         variant: Search,
         test_name: test_search_with_limit,
-        args: ["--pattern", "User", "--limit", "50"],
+        args: ["User", "--limit", "50"],
         field: common.limit,
         expected: 50,
     }
 
+    // =========================================================================
     // Limit validation tests
+    // =========================================================================
+
     crate::cli_limit_tests! {
         command: "search",
         variant: Search,
-        required_args: ["--pattern", "User"],
+        required_args: ["User"],
         limit: {
             field: common.limit,
             default: 100,
@@ -64,7 +69,7 @@ mod tests {
 
     #[rstest]
     fn test_search_kind_default_is_modules() {
-        let args = Args::try_parse_from(["code_search", "search", "--pattern", "test"]).unwrap();
+        let args = Args::try_parse_from(["code_search", "search", "test"]).unwrap();
         match args.command {
             crate::commands::Command::Search(cmd) => {
                 assert!(matches!(cmd.kind, SearchKind::Modules));
@@ -75,15 +80,8 @@ mod tests {
 
     #[rstest]
     fn test_search_kind_functions() {
-        let args = Args::try_parse_from([
-            "code_search",
-            "search",
-            "--pattern",
-            "get_",
-            "--kind",
-            "functions",
-        ])
-        .unwrap();
+        let args =
+            Args::try_parse_from(["code_search", "search", "get_", "--kind", "functions"]).unwrap();
         match args.command {
             crate::commands::Command::Search(cmd) => {
                 assert!(matches!(cmd.kind, SearchKind::Functions));

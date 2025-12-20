@@ -308,12 +308,12 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
             "Search for modules or functions by name pattern",
             CommandCategory::Search,
             "Finds modules or functions matching a given pattern. Use this as a starting point for other analyses.",
-            "code_search search -p <PATTERN> -k [modules|functions] [OPTIONS]",
+            "code_search search <PATTERN> [-k modules|functions] [OPTIONS]",
         )
         .with_examples(vec![
-            Example::new("Find modules containing 'User'", "code_search search -p User"),
-            Example::new("Find functions starting with 'get_'", "code_search search -p get_ -k functions"),
-            Example::new("Use regex pattern", "code_search search -p '^MyApp\\.API' -r"),
+            Example::new("Find modules containing 'User'", "code_search search User"),
+            Example::new("Find functions starting with 'get_'", "code_search search get_ -k functions"),
+            Example::new("Use regex pattern", "code_search search -r '^MyApp\\.API'"),
         ])
         .with_related(vec!["location", "function", "browse-module"]),
 
