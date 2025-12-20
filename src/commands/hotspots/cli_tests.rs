@@ -2,8 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::commands::hotspots::HotspotKind;
     use crate::cli::Args;
+    use crate::queries::hotspots::HotspotKind;
     use clap::Parser;
     use rstest::rstest;
 
@@ -20,15 +20,16 @@ mod tests {
             common.project: "default",
             common.regex: false,
             common.limit: 100,
+            exclude_generated: false,
         },
     }
 
-    // Test individual options
+    // Test positional module argument
     crate::cli_option_test! {
         command: "hotspots",
         variant: Hotspots,
         test_name: test_with_module,
-        args: ["--module", "MyApp"],
+        args: ["MyApp"],
         field: module,
         expected: Some("MyApp".to_string()),
     }
@@ -46,7 +47,7 @@ mod tests {
         command: "hotspots",
         variant: Hotspots,
         test_name: test_with_regex,
-        args: ["--module", "MyApp\\..*", "--regex"],
+        args: ["MyApp\\..*", "--regex"],
         field: common.regex,
         expected: true,
     }
@@ -58,6 +59,15 @@ mod tests {
         args: ["--limit", "50"],
         field: common.limit,
         expected: 50,
+    }
+
+    crate::cli_option_test! {
+        command: "hotspots",
+        variant: Hotspots,
+        test_name: test_with_exclude_generated,
+        args: ["--exclude-generated"],
+        field: exclude_generated,
+        expected: true,
     }
 
     // Test limit validation
@@ -73,7 +83,7 @@ mod tests {
     }
 
     // =========================================================================
-    // Edge case tests (require matches! macro for enum variant matching)
+    // Kind option tests
     // =========================================================================
 
     #[rstest]

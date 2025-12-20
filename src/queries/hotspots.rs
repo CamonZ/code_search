@@ -17,10 +17,8 @@ pub enum HotspotKind {
     Outgoing,
     /// Functions with highest total (incoming + outgoing)
     Total,
-    /// Functions with highest ratio of incoming to outgoing calls (boundary modules)
+    /// Functions with highest ratio of incoming to outgoing calls (boundary functions)
     Ratio,
-    /// Modules with most functions (god modules)
-    Functions,
 }
 
 #[derive(Error, Debug)]
@@ -98,6 +96,7 @@ pub fn find_hotspots(
     project: &str,
     use_regex: bool,
     limit: u32,
+    exclude_generated: bool,
 ) -> Result<Vec<Hotspot>, Box<dyn Error>> {
     // Build optional module filter
     let module_filter = match module_pattern {
@@ -106,12 +105,18 @@ pub fn find_hotspots(
         None => String::new(),
     };
 
+    // Build optional generated filter
+    let generated_filter = if exclude_generated {
+        ", generated_by == \"\"".to_string()
+    } else {
+        String::new()
+    };
+
     let order_by = match kind {
         HotspotKind::Incoming => "incoming",
         HotspotKind::Outgoing => "outgoing",
         HotspotKind::Total => "total",
         HotspotKind::Ratio => "ratio",
-        HotspotKind::Functions => "incoming", // Functions uses incoming count for sorting
     };
 
     // Query to find hotspots by counting incoming and outgoing calls
@@ -125,11 +130,14 @@ pub fn find_hotspots(
         r#"
         # Get canonical function names (callee_function format, no arity suffix)
         # A function's canonical name is how it appears as a callee
+        # Join with function_locations to filter generated functions
         canonical[module, function] :=
             *calls{{project, callee_module, callee_function}},
+            *function_locations{{project, module: callee_module, name: callee_function, generated_by}},
             project == $project,
             module = callee_module,
             function = callee_function
+            {generated_filter}
 
         # Distinct outgoing calls: match caller to canonical name
         # caller_function is either "name" or "name/N", canonical_name is "name"
@@ -147,6 +155,7 @@ pub fn find_hotspots(
         # Distinct incoming calls
         distinct_incoming[callee_module, callee_function, caller_module, caller_function] :=
             *calls{{project, caller_module, caller_function, callee_module, callee_function}},
+            canonical[callee_module, callee_function],
             project == $project
 
         # Count unique incoming calls per function

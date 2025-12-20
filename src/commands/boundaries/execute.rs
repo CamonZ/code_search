@@ -27,6 +27,7 @@ impl Execute for BoundariesCmd {
             &self.common.project,
             self.common.regex,
             self.common.limit,
+            false, // Don't exclude generated functions
         )?;
 
         // Group by module and filter by thresholds
@@ -58,6 +59,7 @@ impl Execute for BoundariesCmd {
             &self.common.project,
             self.common.regex,
             self.common.limit,
+            false, // Don't exclude generated functions
         )? {
             if hotspot.incoming >= self.min_incoming && hotspot.ratio >= self.min_ratio {
                 if !items.iter().any(|m: &ModuleGroup<BoundaryEntry>| m.name == hotspot.module) {

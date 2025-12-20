@@ -153,14 +153,19 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
         // Analysis Commands
         CommandDescription::new(
             "hotspots",
-            "Find high-connectivity functions and modules",
+            "Find high-connectivity functions",
             CommandCategory::Analysis,
-            "Identifies functions and modules with the most incoming or outgoing calls. These are high-impact areas that affect many other parts of the codebase.",
-            "code_search hotspots [OPTIONS]",
+            "Identifies functions with the most incoming or outgoing calls. \
+             Use -k incoming (default) for most-called functions, -k outgoing for functions that call many others, \
+             -k total for highest combined connectivity, or -k ratio for boundary functions.",
+            "code_search hotspots [MODULE] [OPTIONS]",
         )
         .with_examples(vec![
-            Example::new("Find all hotspots", "code_search hotspots"),
-            Example::new("Find top 20 hotspots", "code_search hotspots --limit 20"),
+            Example::new("Most called functions", "code_search hotspots"),
+            Example::new("Functions calling many others", "code_search hotspots -k outgoing"),
+            Example::new("Highest total connections", "code_search hotspots -k total"),
+            Example::new("Boundary functions (high ratio)", "code_search hotspots -k ratio"),
+            Example::new("Filter to namespace", "code_search hotspots MyApp -l 20"),
         ])
         .with_related(vec!["god-modules", "boundaries", "complexity"]),
 
