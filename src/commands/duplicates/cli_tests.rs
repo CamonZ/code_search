@@ -15,6 +15,8 @@ mod tests {
             common.project: "default",
             common.regex: false,
             exact: false,
+            by_module: false,
+            exclude_generated: false,
             common.limit: 100,
         },
     }
@@ -23,18 +25,9 @@ mod tests {
         command: "duplicates",
         variant: Duplicates,
         test_name: test_with_module,
-        args: ["--module", "MyApp"],
+        args: ["MyApp"],
         field: module,
         expected: Some("MyApp".to_string()),
-    }
-
-    crate::cli_option_test! {
-        command: "duplicates",
-        variant: Duplicates,
-        test_name: test_with_module_short,
-        args: ["-m", "MyApp.User"],
-        field: module,
-        expected: Some("MyApp.User".to_string()),
     }
 
     crate::cli_option_test! {
@@ -49,8 +42,26 @@ mod tests {
     crate::cli_option_test! {
         command: "duplicates",
         variant: Duplicates,
+        test_name: test_with_by_module,
+        args: ["--by-module"],
+        field: by_module,
+        expected: true,
+    }
+
+    crate::cli_option_test! {
+        command: "duplicates",
+        variant: Duplicates,
+        test_name: test_with_exclude_generated,
+        args: ["--exclude-generated"],
+        field: exclude_generated,
+        expected: true,
+    }
+
+    crate::cli_option_test! {
+        command: "duplicates",
+        variant: Duplicates,
         test_name: test_with_regex,
-        args: ["--regex"],
+        args: ["MyApp.*", "--regex"],
         field: common.regex,
         expected: true,
     }

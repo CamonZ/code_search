@@ -210,26 +210,20 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
             "duplicates",
             "Find functions with identical or near-identical implementations",
             CommandCategory::Analysis,
-            "Identifies duplicate code that could be consolidated into reusable functions.",
-            "code_search duplicates [OPTIONS]",
+            "Identifies duplicate code that could be consolidated into reusable functions. \
+             Uses AST matching by default; use --exact for source-level matching. \
+             Use --by-module to rank modules by duplication count. \
+             Use --exclude-generated to filter out macro-generated functions.",
+            "code_search duplicates [MODULE] [OPTIONS]",
         )
         .with_examples(vec![
             Example::new("Find all duplicate functions", "code_search duplicates"),
-            Example::new("Find duplicates in a module", "code_search duplicates -m MyApp.Utils"),
+            Example::new("Find duplicates in a module", "code_search duplicates MyApp.Utils"),
+            Example::new("Use exact source matching", "code_search duplicates --exact"),
+            Example::new("Rank modules by duplication", "code_search duplicates --by-module"),
+            Example::new("Exclude generated functions", "code_search duplicates --exclude-generated"),
         ])
-        .with_related(vec!["duplicate-hotspots", "unused", "large-functions"]),
-
-        CommandDescription::new(
-            "duplicate-hotspots",
-            "Find modules with the most duplicated functions",
-            CommandCategory::Analysis,
-            "Identifies modules that have high levels of code duplication, indicating refactoring opportunities.",
-            "code_search duplicate-hotspots [OPTIONS]",
-        )
-        .with_examples(vec![
-            Example::new("Find modules with most duplicates", "code_search duplicate-hotspots"),
-        ])
-        .with_related(vec!["duplicates", "hotspots", "large-functions"]),
+        .with_related(vec!["unused", "large-functions", "hotspots"]),
 
         CommandDescription::new(
             "complexity",

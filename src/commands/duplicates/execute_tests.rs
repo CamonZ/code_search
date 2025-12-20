@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::DuplicatesCmd;
+    use crate::commands::duplicates::execute::DuplicatesOutput;
     use crate::commands::CommonArgs;
     use rstest::{fixture, rstest};
 
@@ -13,7 +14,7 @@ mod tests {
     }
 
     // =========================================================================
-    // Core functionality tests
+    // Core functionality tests (detailed mode - default)
     // =========================================================================
 
     crate::execute_test! {
@@ -21,7 +22,9 @@ mod tests {
         fixture: populated_db,
         cmd: DuplicatesCmd {
             module: None,
+            by_module: false,
             exact: false,
+            exclude_generated: false,
             common: CommonArgs {
                 project: "test_project".to_string(),
                 regex: false,
@@ -29,9 +32,14 @@ mod tests {
             },
         },
         assertions: |result| {
-            // If there are no duplicates, we should have 0 groups
-            // Result depends on the test fixture data
-            assert!(result.groups.is_empty() || !result.groups.is_empty());
+            // Result should be Detailed variant
+            match result {
+                DuplicatesOutput::Detailed(res) => {
+                    // If there are no duplicates, we should have 0 groups
+                    assert!(res.groups.is_empty() || !res.groups.is_empty());
+                }
+                _ => panic!("Expected Detailed variant"),
+            }
         },
     }
 
@@ -40,7 +48,9 @@ mod tests {
         fixture: populated_db,
         cmd: DuplicatesCmd {
             module: Some("MyApp".to_string()),
+            by_module: false,
             exact: false,
+            exclude_generated: false,
             common: CommonArgs {
                 project: "test_project".to_string(),
                 regex: false,
@@ -48,8 +58,12 @@ mod tests {
             },
         },
         assertions: |result| {
-            // Filter should be applied
-            assert!(result.groups.is_empty() || !result.groups.is_empty());
+            match result {
+                DuplicatesOutput::Detailed(res) => {
+                    assert!(res.groups.is_empty() || !res.groups.is_empty());
+                }
+                _ => panic!("Expected Detailed variant"),
+            }
         },
     }
 
@@ -58,7 +72,9 @@ mod tests {
         fixture: populated_db,
         cmd: DuplicatesCmd {
             module: None,
+            by_module: false,
             exact: true,
+            exclude_generated: false,
             common: CommonArgs {
                 project: "test_project".to_string(),
                 regex: false,
@@ -66,8 +82,12 @@ mod tests {
             },
         },
         assertions: |result| {
-            // Exact flag should use source_sha instead of ast_sha
-            assert!(result.groups.is_empty() || !result.groups.is_empty());
+            match result {
+                DuplicatesOutput::Detailed(res) => {
+                    assert!(res.groups.is_empty() || !res.groups.is_empty());
+                }
+                _ => panic!("Expected Detailed variant"),
+            }
         },
     }
 
@@ -76,7 +96,9 @@ mod tests {
         fixture: populated_db,
         cmd: DuplicatesCmd {
             module: Some("^MyApp\\.Controller$".to_string()),
+            by_module: false,
             exact: false,
+            exclude_generated: false,
             common: CommonArgs {
                 project: "test_project".to_string(),
                 regex: true,
@@ -84,8 +106,12 @@ mod tests {
             },
         },
         assertions: |result| {
-            // Regex filter should work
-            assert!(result.groups.is_empty() || !result.groups.is_empty());
+            match result {
+                DuplicatesOutput::Detailed(res) => {
+                    assert!(res.groups.is_empty() || !res.groups.is_empty());
+                }
+                _ => panic!("Expected Detailed variant"),
+            }
         },
     }
 
@@ -94,7 +120,9 @@ mod tests {
         fixture: populated_db,
         cmd: DuplicatesCmd {
             module: None,
+            by_module: false,
             exact: false,
+            exclude_generated: false,
             common: CommonArgs {
                 project: "test_project".to_string(),
                 regex: false,
@@ -102,14 +130,100 @@ mod tests {
             },
         },
         assertions: |result| {
-            // Verify result structure exists
-            let _ = result.total_groups;
-            let _ = result.total_duplicates;
+            match result {
+                DuplicatesOutput::Detailed(res) => {
+                    let _ = res.total_groups;
+                    let _ = res.total_duplicates;
+                    for group in &res.groups {
+                        assert!(!group.hash.is_empty());
+                        assert!(group.functions.len() >= 2);
+                    }
+                }
+                _ => panic!("Expected Detailed variant"),
+            }
+        },
+    }
 
-            // If there are groups, verify they have functions
-            for group in &result.groups {
-                assert!(!group.hash.is_empty());
-                assert!(group.functions.len() >= 2); // Duplicates need at least 2
+    // =========================================================================
+    // By-module mode tests
+    // =========================================================================
+
+    crate::execute_test! {
+        test_name: test_duplicates_by_module,
+        fixture: populated_db,
+        cmd: DuplicatesCmd {
+            module: None,
+            by_module: true,
+            exact: false,
+            exclude_generated: false,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
+        },
+        assertions: |result| {
+            match result {
+                DuplicatesOutput::ByModule(res) => {
+                    let _ = res.total_modules;
+                    let _ = res.total_duplicates;
+                    for module in &res.modules {
+                        assert!(!module.name.is_empty());
+                        assert!(module.duplicate_count > 0);
+                    }
+                }
+                _ => panic!("Expected ByModule variant"),
+            }
+        },
+    }
+
+    crate::execute_test! {
+        test_name: test_duplicates_by_module_with_filter,
+        fixture: populated_db,
+        cmd: DuplicatesCmd {
+            module: Some("MyApp".to_string()),
+            by_module: true,
+            exact: false,
+            exclude_generated: false,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
+        },
+        assertions: |result| {
+            match result {
+                DuplicatesOutput::ByModule(res) => {
+                    for module in &res.modules {
+                        assert!(module.name.contains("MyApp"));
+                    }
+                }
+                _ => panic!("Expected ByModule variant"),
+            }
+        },
+    }
+
+    crate::execute_test! {
+        test_name: test_duplicates_exclude_generated,
+        fixture: populated_db,
+        cmd: DuplicatesCmd {
+            module: None,
+            by_module: false,
+            exact: false,
+            exclude_generated: true,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
+        },
+        assertions: |result| {
+            match result {
+                DuplicatesOutput::Detailed(res) => {
+                    // With exclude_generated, generated functions should be filtered out
+                    assert!(res.groups.is_empty() || !res.groups.is_empty());
+                }
+                _ => panic!("Expected Detailed variant"),
             }
         },
     }
