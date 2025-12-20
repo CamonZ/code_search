@@ -26,7 +26,7 @@ pub fn trace_calls(
     // Build the starting conditions for the recursive query using helpers
     let module_cond = crate::utils::ConditionBuilder::new("caller_module", "module_pattern").build(use_regex);
     let function_cond = crate::utils::ConditionBuilder::new("caller_name", "function_pattern").build(use_regex);
-    let arity_cond = crate::utils::OptionalConditionBuilder::new("callee_arity", "arity")
+    let arity_cond = crate::utils::OptionalConditionBuilder::new("caller_arity", "arity")
         .when_none("true")
         .build(arity.is_some());
 

@@ -121,7 +121,7 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
         )
         .with_examples(vec![
             Example::new("Trace all calls from a function", "code_search trace -m MyApp.API -f create_user"),
-            Example::new("Limit trace depth to 3 levels", "code_search trace -m MyApp.API -f create_user -d 3"),
+            Example::new("Limit trace depth to 3 levels", "code_search trace -m MyApp.API -f create_user --depth 3"),
         ])
         .with_related(vec!["calls-from", "reverse-trace", "path"]),
 
@@ -134,7 +134,7 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
         )
         .with_examples(vec![
             Example::new("Find all paths leading to a function", "code_search reverse-trace -m MyApp.API -f validate_token"),
-            Example::new("Limit trace depth to 2 levels", "code_search reverse-trace -m MyApp.API -f validate_token -d 2"),
+            Example::new("Limit trace depth to 2 levels", "code_search reverse-trace -m MyApp.API -f validate_token --depth 2"),
         ])
         .with_related(vec!["calls-to", "trace", "path"]),
 
