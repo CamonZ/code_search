@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::error::Error;
 
 use serde::Serialize;
@@ -5,7 +6,7 @@ use serde::Serialize;
 use super::ManyClausesCmd;
 use crate::commands::Execute;
 use crate::queries::many_clauses::find_many_clauses;
-use crate::types::ModuleCollectionResult;
+use crate::types::{ModuleCollectionResult, ModuleGroup};
 
 /// A single function with many clauses entry
 #[derive(Debug, Clone, Serialize)]
@@ -34,8 +35,11 @@ impl Execute for ManyClausesCmd {
 
         let total_items = many_clauses.len();
 
-        // Group by module
-        let items = crate::utils::group_by_module(many_clauses, |func| {
+        // Group by module while preserving sort order (most clauses first)
+        let mut module_order: Vec<String> = Vec::new();
+        let mut module_map: HashMap<String, (String, Vec<ManyClausesEntry>)> = HashMap::new();
+
+        for func in many_clauses {
             let entry = ManyClausesEntry {
                 name: func.name,
                 arity: func.arity,
@@ -44,8 +48,29 @@ impl Execute for ManyClausesCmd {
                 last_line: func.last_line,
                 file: func.file.clone(),
             };
-            (func.module, entry)
-        });
+
+            if !module_map.contains_key(&func.module) {
+                module_order.push(func.module.clone());
+            }
+
+            module_map
+                .entry(func.module)
+                .or_insert_with(|| (func.file, Vec::new()))
+                .1
+                .push(entry);
+        }
+
+        let items: Vec<ModuleGroup<ManyClausesEntry>> = module_order
+            .into_iter()
+            .filter_map(|name| {
+                module_map.remove(&name).map(|(file, entries)| ModuleGroup {
+                    name,
+                    file,
+                    entries,
+                    function_count: None,
+                })
+            })
+            .collect();
 
         Ok(ModuleCollectionResult {
             module_pattern: self.module.clone().unwrap_or_else(|| "*".to_string()),

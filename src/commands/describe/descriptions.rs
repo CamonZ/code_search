@@ -271,11 +271,15 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
             "many-clauses",
             "Find functions with many pattern-matched heads",
             CommandCategory::Analysis,
-            "Identifies functions that have many clauses/definitions, suggesting they may be doing too much.",
-            "code_search many-clauses [OPTIONS]",
+            "Identifies functions with many clauses/definitions (5+ by default), sorted by clause count descending. \
+             Use --min-clauses to adjust the threshold. Generated functions are excluded by default.",
+            "code_search many-clauses [MODULE] [OPTIONS]",
         )
         .with_examples(vec![
             Example::new("Find functions with many clauses", "code_search many-clauses"),
+            Example::new("Filter to a namespace", "code_search many-clauses MyApp.Web"),
+            Example::new("Find functions with 10+ clauses", "code_search many-clauses --min-clauses 10"),
+            Example::new("Include generated functions", "code_search many-clauses --include-generated"),
         ])
         .with_related(vec!["complexity", "large-functions", "hotspots"]),
 
