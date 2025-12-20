@@ -16,13 +16,16 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search large-functions                   # Find functions with 50+ lines
-  code_search large-functions --min-lines 100   # Find functions with 100+ lines
-  code_search large-functions -m MyApp.Web      # Filter to MyApp.Web namespace
+  code_search large-functions                     # Find functions with 50+ lines
+  code_search large-functions MyApp.Web           # Filter to MyApp.Web namespace
+  code_search large-functions --min-lines 100     # Find functions with 100+ lines
   code_search large-functions --include-generated # Include macro-generated functions
-  code_search large-functions -l 20             # Show top 20 largest functions
+  code_search large-functions -l 20               # Show top 20 largest functions
 ")]
 pub struct LargeFunctionsCmd {
+    /// Module filter pattern (substring match by default, regex with --regex)
+    pub module: Option<String>,
+
     /// Minimum lines to be considered large
     #[arg(long, default_value = "50")]
     pub min_lines: i64,
@@ -30,10 +33,6 @@ pub struct LargeFunctionsCmd {
     /// Include macro-generated functions (excluded by default)
     #[arg(long)]
     pub include_generated: bool,
-
-    /// Module filter pattern (substring match by default, regex with --regex)
-    #[arg(short, long)]
-    pub module: Option<String>,
 
     #[command(flatten)]
     pub common: CommonArgs,

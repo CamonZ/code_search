@@ -255,12 +255,15 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
             "large-functions",
             "Find large functions that may need refactoring",
             CommandCategory::Analysis,
-            "Identifies functions that are large by line count, suggesting they may need to be broken down.",
-            "code_search large-functions [OPTIONS]",
+            "Identifies functions that are large by line count (50+ lines by default), sorted by size descending. \
+             Use --min-lines to adjust the threshold. Generated functions are excluded by default.",
+            "code_search large-functions [MODULE] [OPTIONS]",
         )
         .with_examples(vec![
             Example::new("Find all large functions", "code_search large-functions"),
-            Example::new("Show top 30 largest functions", "code_search large-functions --limit 30"),
+            Example::new("Filter to a namespace", "code_search large-functions MyApp.Web"),
+            Example::new("Find functions with 100+ lines", "code_search large-functions --min-lines 100"),
+            Example::new("Include generated functions", "code_search large-functions --include-generated"),
         ])
         .with_related(vec!["complexity", "many-clauses", "hotspots"]),
 
