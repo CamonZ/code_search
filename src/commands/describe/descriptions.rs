@@ -117,11 +117,11 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
             "Forward call trace from a function",
             CommandCategory::Query,
             "Traces call chains forward from a starting function. Shows the full path of calls that can be reached from a given function.",
-            "code_search trace -m <MODULE> -f <FUNCTION> [OPTIONS]",
+            "code_search trace <MODULE> <FUNCTION> [OPTIONS]",
         )
         .with_examples(vec![
-            Example::new("Trace all calls from a function", "code_search trace -m MyApp.API -f create_user"),
-            Example::new("Limit trace depth to 3 levels", "code_search trace -m MyApp.API -f create_user --depth 3"),
+            Example::new("Trace all calls from a function", "code_search trace MyApp.API create_user"),
+            Example::new("Limit trace depth to 3 levels", "code_search trace MyApp.API create_user --depth 3"),
         ])
         .with_related(vec!["calls-from", "reverse-trace", "path"]),
 
@@ -130,11 +130,11 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
             "Backward call trace to a function",
             CommandCategory::Query,
             "Traces call chains backward to a target function. Shows all code paths that can lead to a given function.",
-            "code_search reverse-trace -m <MODULE> -f <FUNCTION> [OPTIONS]",
+            "code_search reverse-trace <MODULE> <FUNCTION> [OPTIONS]",
         )
         .with_examples(vec![
-            Example::new("Find all paths leading to a function", "code_search reverse-trace -m MyApp.API -f validate_token"),
-            Example::new("Limit trace depth to 2 levels", "code_search reverse-trace -m MyApp.API -f validate_token --depth 2"),
+            Example::new("Find all paths leading to a function", "code_search reverse-trace MyApp.API validate_token"),
+            Example::new("Limit trace depth to 2 levels", "code_search reverse-trace MyApp.API validate_token --depth 2"),
         ])
         .with_related(vec!["calls-to", "trace", "path"]),
 
@@ -242,12 +242,15 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
             "complexity",
             "Display complexity metrics for functions",
             CommandCategory::Analysis,
-            "Shows complexity metrics like number of clauses, arguments, and lines for each function.",
-            "code_search complexity [OPTIONS]",
+            "Shows cyclomatic complexity and nesting depth for functions. \
+             Use --min and --min-depth to filter by thresholds. Generated functions are excluded by default.",
+            "code_search complexity [MODULE] [OPTIONS]",
         )
         .with_examples(vec![
-            Example::new("Show complexity for all functions", "code_search complexity"),
-            Example::new("Show top 50 most complex functions", "code_search complexity --limit 50"),
+            Example::new("Show all functions with complexity >= 1", "code_search complexity"),
+            Example::new("Filter to a namespace", "code_search complexity MyApp.Accounts"),
+            Example::new("Find highly complex functions", "code_search complexity --min 10"),
+            Example::new("Find deeply nested functions", "code_search complexity --min-depth 3"),
         ])
         .with_related(vec!["large-functions", "many-clauses", "hotspots"]),
 
@@ -287,11 +290,15 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
             "cycles",
             "Detect circular dependencies between modules",
             CommandCategory::Analysis,
-            "Finds circular dependencies in the module dependency graph, which indicate architectural issues.",
-            "code_search cycles [OPTIONS]",
+            "Finds circular dependencies in the module dependency graph, which indicate architectural issues. \
+             Use --max-length to limit cycle size and --involving to find cycles containing a specific module.",
+            "code_search cycles [MODULE] [OPTIONS]",
         )
         .with_examples(vec![
             Example::new("Find all circular dependencies", "code_search cycles"),
+            Example::new("Filter to a namespace", "code_search cycles MyApp.Core"),
+            Example::new("Find short cycles only", "code_search cycles --max-length 3"),
+            Example::new("Find cycles involving a module", "code_search cycles --involving MyApp.Accounts"),
         ])
         .with_related(vec!["depends-on", "depended-by", "boundaries"]),
 
@@ -328,10 +335,10 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
             "Show function signature",
             CommandCategory::Search,
             "Displays the full signature of a function including arguments, return type, and metadata.",
-            "code_search function -m <MODULE> -f <FUNCTION> [OPTIONS]",
+            "code_search function <MODULE> <FUNCTION> [OPTIONS]",
         )
         .with_examples(vec![
-            Example::new("Show function signature", "code_search function -m MyApp.Repo -f get -a 2"),
+            Example::new("Show function signature", "code_search function MyApp.Repo get -a 2"),
         ])
         .with_related(vec!["search", "location", "accepts"]),
 
@@ -424,10 +431,13 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
              - In: calls from other namespaces into this one\n\
              - Cohesion: internal / (internal + out + in) — higher = more self-contained\n\
              - Instab: out / (in + out) — 0 = stable (depended upon), 1 = unstable (depends on others)",
-            "code_search clusters [OPTIONS]",
+            "code_search clusters [MODULE] [OPTIONS]",
         )
         .with_examples(vec![
-            Example::new("Show module clusters", "code_search clusters"),
+            Example::new("Show all namespace clusters", "code_search clusters"),
+            Example::new("Filter to a namespace", "code_search clusters MyApp.Core"),
+            Example::new("Cluster at depth 3", "code_search clusters --depth 3"),
+            Example::new("Show cross-namespace dependencies", "code_search clusters --show-dependencies"),
         ])
         .with_related(vec!["god-modules", "boundaries", "depends-on"]),
 

@@ -33,16 +33,7 @@ mod tests {
         command: "struct-usage",
         variant: StructUsage,
         test_name: test_with_module,
-        args: ["User.t", "--module", "MyApp.Accounts"],
-        field: module,
-        expected: Some("MyApp.Accounts".to_string()),
-    }
-
-    crate::cli_option_test! {
-        command: "struct-usage",
-        variant: StructUsage,
-        test_name: test_with_module_short,
-        args: ["User.t", "-m", "MyApp.Accounts"],
+        args: ["User.t", "MyApp.Accounts"],
         field: module,
         expected: Some("MyApp.Accounts".to_string()),
     }

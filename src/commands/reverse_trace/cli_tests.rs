@@ -7,26 +7,30 @@ mod tests {
     use rstest::rstest;
 
     // =========================================================================
-    // Macro-generated tests (standard patterns)
+    // Required argument tests
     // =========================================================================
 
     crate::cli_required_arg_test! {
         command: "reverse-trace",
         test_name: test_requires_module,
-        required_arg: "--module",
+        required_arg: "<MODULE>",
     }
 
     crate::cli_required_arg_test! {
         command: "reverse-trace",
         test_name: test_requires_function,
-        required_arg: "--function",
+        required_arg: "<FUNCTION>",
     }
+
+    // =========================================================================
+    // Option tests
+    // =========================================================================
 
     crate::cli_option_test! {
         command: "reverse-trace",
         variant: ReverseTrace,
         test_name: test_with_module_and_function,
-        args: ["--module", "MyApp.Repo", "--function", "get"],
+        args: ["MyApp.Repo", "get"],
         field: module,
         expected: "MyApp.Repo",
     }
@@ -35,7 +39,7 @@ mod tests {
         command: "reverse-trace",
         variant: ReverseTrace,
         test_name: test_function_name,
-        args: ["--module", "MyApp.Repo", "--function", "get"],
+        args: ["MyApp.Repo", "get"],
         field: function,
         expected: "get",
     }
@@ -44,7 +48,7 @@ mod tests {
         command: "reverse-trace",
         variant: ReverseTrace,
         test_name: test_with_depth,
-        args: ["--module", "MyApp", "--function", "foo", "--depth", "10"],
+        args: ["MyApp", "foo", "--depth", "10"],
         field: depth,
         expected: 10,
     }
@@ -53,15 +57,19 @@ mod tests {
         command: "reverse-trace",
         variant: ReverseTrace,
         test_name: test_with_limit,
-        args: ["--module", "MyApp", "--function", "foo", "--limit", "50"],
+        args: ["MyApp", "foo", "--limit", "50"],
         field: common.limit,
         expected: 50,
     }
 
+    // =========================================================================
+    // Limit validation tests
+    // =========================================================================
+
     crate::cli_limit_tests! {
         command: "reverse-trace",
         variant: ReverseTrace,
-        required_args: ["--module", "MyApp", "--function", "foo"],
+        required_args: ["MyApp", "foo"],
         limit: {
             field: common.limit,
             default: 100,
@@ -75,15 +83,8 @@ mod tests {
 
     #[rstest]
     fn test_depth_default() {
-        let args = Args::try_parse_from([
-            "code_search",
-            "reverse-trace",
-            "--module",
-            "MyApp.Repo",
-            "--function",
-            "get",
-        ])
-        .unwrap();
+        let args = Args::try_parse_from(["code_search", "reverse-trace", "MyApp.Repo", "get"])
+            .unwrap();
         match args.command {
             crate::commands::Command::ReverseTrace(cmd) => {
                 assert_eq!(cmd.depth, 5);
@@ -94,16 +95,8 @@ mod tests {
 
     #[rstest]
     fn test_depth_zero_rejected() {
-        let result = Args::try_parse_from([
-            "code_search",
-            "reverse-trace",
-            "--module",
-            "MyApp",
-            "--function",
-            "foo",
-            "--depth",
-            "0",
-        ]);
+        let result =
+            Args::try_parse_from(["code_search", "reverse-trace", "MyApp", "foo", "--depth", "0"]);
         assert!(result.is_err());
     }
 
@@ -112,9 +105,7 @@ mod tests {
         let result = Args::try_parse_from([
             "code_search",
             "reverse-trace",
-            "--module",
             "MyApp",
-            "--function",
             "foo",
             "--depth",
             "21",

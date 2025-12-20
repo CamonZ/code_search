@@ -20,17 +20,17 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search struct-usage \"User.t\"            # Find functions using User.t
-  code_search struct-usage \"Changeset.t\"       # Find functions using Changeset.t
-  code_search struct-usage \"User.t\" -m MyApp   # Filter to module MyApp
+  code_search struct-usage \"User.t\"             # Find functions using User.t
+  code_search struct-usage \"Changeset.t\"        # Find functions using Changeset.t
+  code_search struct-usage \"User.t\" MyApp       # Filter to module MyApp
   code_search struct-usage \"User.t\" --by-module # Summarize by module
-  code_search struct-usage -r \".*\\.t\"         # Regex pattern matching")]
+  code_search struct-usage -r \".*\\.t\"          # Regex pattern matching
+")]
 pub struct StructUsageCmd {
     /// Type pattern to search for in both inputs and returns
     pub pattern: String,
 
     /// Module filter pattern
-    #[arg(short, long)]
     pub module: Option<String>,
 
     /// Aggregate results by module (show counts instead of function details)

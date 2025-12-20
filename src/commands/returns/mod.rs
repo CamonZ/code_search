@@ -15,14 +15,14 @@ use crate::output::{OutputFormat, Outputable};
 Examples:
   code_search returns \"User.t\"              # Find functions returning User.t
   code_search returns \"nil\"                 # Find functions returning nil
-  code_search returns \"{:error\" -m MyApp    # Filter to module MyApp
-  code_search returns -r \"list\\(.*\\)\"     # Regex pattern matching")]
+  code_search returns \"{:error\" MyApp       # Filter to module MyApp
+  code_search returns -r \"list\\(.*\\)\"     # Regex pattern matching
+")]
 pub struct ReturnsCmd {
     /// Type pattern to search for in return types
     pub pattern: String,
 
     /// Module filter pattern
-    #[arg(short, long)]
     pub module: Option<String>,
 
     #[command(flatten)]

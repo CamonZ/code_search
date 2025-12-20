@@ -17,12 +17,15 @@ use crate::output::{OutputFormat, Outputable};
 #[command(after_help = "\
 Examples:
   code_search clusters                      # Show all namespace clusters
+  code_search clusters MyApp.Core           # Filter to MyApp.Core namespace
   code_search clusters --depth 2            # Cluster at depth 2 (e.g., MyApp.Accounts)
   code_search clusters --depth 3            # Cluster at depth 3 (e.g., MyApp.Accounts.Auth)
-  code_search clusters -m MyApp.Core        # Filter to MyApp.Core namespace
   code_search clusters --show-dependencies  # Include cross-namespace call counts
 ")]
 pub struct ClustersCmd {
+    /// Module filter pattern (substring match by default, regex with --regex)
+    pub module: Option<String>,
+
     /// Namespace depth for clustering (default: 2)
     #[arg(long, default_value = "2")]
     pub depth: usize,
@@ -30,10 +33,6 @@ pub struct ClustersCmd {
     /// Show cross-namespace dependencies
     #[arg(long)]
     pub show_dependencies: bool,
-
-    /// Module filter pattern (substring match by default, regex with --regex)
-    #[arg(short, long)]
-    pub module: Option<String>,
 
     #[command(flatten)]
     pub common: CommonArgs,
