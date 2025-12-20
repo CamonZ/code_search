@@ -13,14 +13,14 @@ mod tests {
     crate::cli_required_arg_test! {
         command: "calls-to",
         test_name: test_requires_module,
-        required_arg: "--module",
+        required_arg: "<MODULE>",
     }
 
     crate::cli_option_test! {
         command: "calls-to",
         variant: CallsTo,
         test_name: test_with_module,
-        args: ["--module", "MyApp.Repo"],
+        args: ["MyApp.Repo"],
         field: module,
         expected: "MyApp.Repo",
     }
@@ -29,7 +29,7 @@ mod tests {
         command: "calls-to",
         variant: CallsTo,
         test_name: test_with_function,
-        args: ["--module", "MyApp.Repo", "--function", "get"],
+        args: ["MyApp.Repo", "get"],
         field: function,
         expected: Some("get".to_string()),
     }
@@ -38,7 +38,7 @@ mod tests {
         command: "calls-to",
         variant: CallsTo,
         test_name: test_with_arity,
-        args: ["--module", "MyApp.Repo", "--function", "get", "--arity", "2"],
+        args: ["MyApp.Repo", "get", "2"],
         field: arity,
         expected: Some(2),
     }
@@ -47,7 +47,7 @@ mod tests {
         command: "calls-to",
         variant: CallsTo,
         test_name: test_with_regex,
-        args: ["--module", "MyApp\\.Repo", "--regex"],
+        args: ["MyApp\\.Repo", "--regex"],
         field: common.regex,
         expected: true,
     }
@@ -56,7 +56,7 @@ mod tests {
         command: "calls-to",
         variant: CallsTo,
         test_name: test_with_limit,
-        args: ["--module", "MyApp.Repo", "--limit", "25"],
+        args: ["MyApp.Repo", "--limit", "25"],
         field: common.limit,
         expected: 25,
     }
@@ -64,7 +64,7 @@ mod tests {
     crate::cli_limit_tests! {
         command: "calls-to",
         variant: CallsTo,
-        required_args: ["--module", "MyApp.Repo"],
+        required_args: ["MyApp.Repo"],
         limit: {
             field: common.limit,
             default: 100,

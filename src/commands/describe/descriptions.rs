@@ -91,11 +91,11 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
             "Find callers of a given function",
             CommandCategory::Query,
             "Finds all functions that call a specific function. Use this to answer: 'Who calls this function?'",
-            "code_search calls-to -m <MODULE> -f <FUNCTION> [OPTIONS]",
+            "code_search calls-to <MODULE> [FUNCTION] [ARITY] [OPTIONS]",
         )
         .with_examples(vec![
-            Example::new("Find all callers of MyApp.Repo.get/2", "code_search calls-to -m MyApp.Repo -f get -a 2"),
-            Example::new("Find callers of any function named 'validate'", "code_search calls-to -m \"MyApp\\..*\" -f validate -r"),
+            Example::new("Find all callers of MyApp.Repo.get/2", "code_search calls-to MyApp.Repo get 2"),
+            Example::new("Find callers of any function in a module", "code_search calls-to MyApp.Repo"),
         ])
         .with_related(vec!["calls-from", "trace", "path"]),
 
@@ -104,11 +104,11 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
             "Find what a function calls",
             CommandCategory::Query,
             "Finds all functions that are called by a specific function. Use this to answer: 'What does this function call?'",
-            "code_search calls-from -m <MODULE> -f <FUNCTION> [OPTIONS]",
+            "code_search calls-from <MODULE> [FUNCTION] [ARITY] [OPTIONS]",
         )
         .with_examples(vec![
-            Example::new("Find all functions called by MyApp.Repo.get/2", "code_search calls-from -m MyApp.Repo -f get -a 2"),
-            Example::new("Find what a module calls", "code_search calls-from -m MyApp.Accounts"),
+            Example::new("Find all functions called by MyApp.Repo.get/2", "code_search calls-from MyApp.Repo get 2"),
+            Example::new("Find what a module calls", "code_search calls-from MyApp.Accounts"),
         ])
         .with_related(vec!["calls-to", "trace", "path"]),
 
