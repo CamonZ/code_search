@@ -14,18 +14,35 @@ Identify code duplication to find opportunities for refactoring and consolidatio
 ## Usage
 
 ```bash
-code_search --format toon duplicates [OPTIONS]
+code_search --format toon duplicates [MODULE] [OPTIONS]
 ```
+
+## Arguments
+
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `[MODULE]` | Module filter pattern (substring or regex with -r) | all modules |
 
 ## Optional Flags
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-m, --module <PATTERN>` | Module pattern to filter | all |
-| `-x, --exact` | Use exact source matching | false |
+| `--exact` | Use exact source matching instead of AST matching | false |
+| `--by-module` | Aggregate results by module (show which modules have most duplicates) | false |
+| `--exclude-generated` | Exclude macro-generated functions | false |
 | `-r, --regex` | Treat patterns as regex | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
 | `--project <NAME>` | Project to search in | `default` |
+
+## Examples
+
+```bash
+code_search duplicates                       # Find all duplicate functions
+code_search duplicates MyApp                 # Filter to specific module
+code_search duplicates --by-module           # Rank modules by duplication
+code_search duplicates --exact               # Use exact source matching
+code_search duplicates --exclude-generated   # Exclude macro-generated functions
+```
 
 ## Output Fields (toon format)
 
@@ -44,7 +61,5 @@ duplicates[N]{duplicate_functions[N]{arity,file,line,module,name},hash}:
 
 ## See Also
 
-- [examples.md](examples.md) for detailed usage examples
-- `duplicate-hotspots` - Find modules with most duplicates
 - `complexity` - Find complex functions
 - `unused` - Find unused functions

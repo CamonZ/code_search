@@ -14,17 +14,34 @@ Identify modules that act as architectural boundaries - modules that are heavily
 ## Usage
 
 ```bash
-code_search --format toon boundaries [OPTIONS]
+code_search --format toon boundaries [MODULE] [OPTIONS]
 ```
+
+## Arguments
+
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `[MODULE]` | Module filter pattern (substring or regex with -r) | all modules |
 
 ## Optional Flags
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-m, --module <PATTERN>` | Module pattern to filter | all |
+| `--min-incoming <N>` | Minimum incoming calls to be considered a boundary module | 1 |
+| `--min-ratio <N>` | Minimum ratio (incoming/outgoing) to be considered a boundary | 2.0 |
 | `-r, --regex` | Treat patterns as regex | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
 | `--project <NAME>` | Project to search in | `default` |
+
+## Examples
+
+```bash
+code_search boundaries                          # Find all boundary modules
+code_search boundaries MyApp.Web                # Filter to MyApp.Web namespace
+code_search boundaries --min-incoming 5         # With minimum 5 incoming calls
+code_search boundaries --min-ratio 2.0          # With minimum 2.0 ratio
+code_search boundaries -l 20                    # Show top 20 boundary modules
+```
 
 ## Output Fields (toon format)
 
@@ -43,7 +60,6 @@ total_items: 2
 
 ## See Also
 
-- [examples.md](examples.md) for detailed usage examples
 - `hotspots` - Find high-connectivity functions
 - `depends-on` - See module dependencies
 - `depended-by` - See modules that depend on others

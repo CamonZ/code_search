@@ -14,23 +14,32 @@ Find functions that take certain types as input parameters. Use this to understa
 ## Usage
 
 ```bash
-code_search --format toon accepts --type <TYPE_PATTERN> [OPTIONS]
+code_search --format toon accepts <PATTERN> [MODULE] [OPTIONS]
 ```
 
-## Required Options
+## Arguments
 
-| Option | Description |
-|--------|-------------|
-| `-t, --type <TYPE_PATTERN>` | Type pattern to search for |
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `<PATTERN>` | Type pattern to search for in input types | required |
+| `[MODULE]` | Module filter pattern | all modules |
 
 ## Optional Flags
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-m, --module <PATTERN>` | Module pattern to filter | all |
 | `-r, --regex` | Treat patterns as regex | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
 | `--project <NAME>` | Project to search in | `default` |
+
+## Examples
+
+```bash
+code_search accepts "User.t"              # Find functions accepting User.t
+code_search accepts "map()"               # Find functions accepting maps
+code_search accepts "User.t" MyApp        # Filter to module MyApp
+code_search accepts -r "list\(.*\)"       # Regex pattern matching
+```
 
 ## Output Fields (toon format)
 

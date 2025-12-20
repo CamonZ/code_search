@@ -14,23 +14,32 @@ Find functions that return values of certain types. Use this to understand what 
 ## Usage
 
 ```bash
-code_search --format toon returns --type <TYPE_PATTERN> [OPTIONS]
+code_search --format toon returns <PATTERN> [MODULE] [OPTIONS]
 ```
 
-## Required Options
+## Arguments
 
-| Option | Description |
-|--------|-------------|
-| `-t, --type <TYPE_PATTERN>` | Type pattern to search for |
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `<PATTERN>` | Type pattern to search for in return types | required |
+| `[MODULE]` | Module filter pattern | all modules |
 
 ## Optional Flags
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-m, --module <PATTERN>` | Module pattern to filter | all |
 | `-r, --regex` | Treat patterns as regex | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
 | `--project <NAME>` | Project to search in | `default` |
+
+## Examples
+
+```bash
+code_search returns "User.t"              # Find functions returning User.t
+code_search returns "nil"                 # Find functions returning nil
+code_search returns "{:error" MyApp       # Filter to module MyApp
+code_search returns -r "list\(.*\)"       # Regex pattern matching
+```
 
 ## Output Fields (toon format)
 
@@ -50,7 +59,6 @@ total_items: 2
 
 ## See Also
 
-- [examples.md](examples.md) for detailed usage examples
 - `accepts` - Find functions accepting specific types
 - `struct-usage` - Find usage of struct types
 - `function` - Get detailed function signatures

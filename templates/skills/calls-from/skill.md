@@ -8,7 +8,7 @@ description: Show what a module/function calls (outgoing edges). Use to understa
 ## All Calls from a Module
 
 ```bash
-code_search --format toon calls-from --module Phoenix.Endpoint.RenderErrors
+code_search --format toon calls-from Phoenix.Endpoint.RenderErrors
 ```
 
 Output:
@@ -19,20 +19,18 @@ calls[22]{call_type,callee_arity,callee_function,callee_module,caller_function,c
   remote,3,render,Phoenix.Controller,render/6,defp,Phoenix.Endpoint.RenderErrors,lib/endpoint/render_errors.ex,124,default
   local,5,instrument_render_and_send,Phoenix.Endpoint.RenderErrors,__catch__/5,def,Phoenix.Endpoint.RenderErrors,lib/endpoint/render_errors.ex,62,default
   ...
-function_pattern: ""
-module_pattern: Phoenix.Endpoint.RenderErrors
 ```
 
 ## Calls from a Specific Function
 
 ```bash
-code_search --format toon calls-from --module Phoenix.Controller --function render
+code_search --format toon calls-from Phoenix.Controller render
 ```
 
 ## With Specific Arity
 
 ```bash
-code_search --format toon calls-from --module Phoenix.Controller --function render --arity 3
+code_search --format toon calls-from Phoenix.Controller render 3
 ```
 
 ## Understanding Call Types
@@ -43,7 +41,18 @@ code_search --format toon calls-from --module Phoenix.Controller --function rend
 ## Tracing Error Handling Flow
 
 ```bash
-code_search --format toon calls-from --module Phoenix.Endpoint.RenderErrors --function "__catch__"
+code_search --format toon calls-from Phoenix.Endpoint.RenderErrors "__catch__"
 ```
 
 This shows what happens when an error is caught - the error handling chain.
+
+## Options Reference
+
+| Argument/Option | Description | Default |
+|-----------------|-------------|---------|
+| `<MODULE>` | Module name (exact match or pattern with --regex) | required |
+| `[FUNCTION]` | Function name (optional, shows all module calls if not specified) | none |
+| `[ARITY]` | Function arity (optional) | all arities |
+| `-r, --regex` | Treat patterns as regular expressions | false |
+| `-l, --limit <N>` | Max results (1-1000) | 100 |
+| `--project <NAME>` | Project to search in | `default` |

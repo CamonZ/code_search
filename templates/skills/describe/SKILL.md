@@ -14,14 +14,22 @@ List all available commands or get detailed documentation for specific commands.
 ## Usage
 
 ```bash
-code_search --format toon describe [COMMAND...]
+code_search --format toon describe [COMMANDS]...
 ```
 
-## Optional Arguments
+## Arguments
 
-| Option | Description |
-|--------|-------------|
-| `COMMAND` | Command(s) to describe (if empty, lists all) |
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `[COMMANDS]...` | Command(s) to describe (if empty, lists all) | all commands |
+
+## Examples
+
+```bash
+code_search describe                             # List all available commands
+code_search describe calls-to                    # Detailed info about calls-to command
+code_search describe calls-to calls-from trace   # Describe multiple commands
+```
 
 ## Output Fields (toon format)
 
@@ -36,10 +44,10 @@ For specific command details:
 ```
 description: Find callers of a given function
 examples[N]{command,description}:
-  code_search calls-to -m MyApp.Repo -f get,Find all callers
+  code_search calls-to MyApp.Repo get,Find all callers
 name: calls-to
 related[N]: calls-from
-usage: code_search calls-to -m <MODULE> -f <FUNCTION>
+usage: code_search calls-to <MODULE> [FUNCTION] [ARITY]
 ```
 
 ## When to Use
@@ -52,4 +60,3 @@ usage: code_search calls-to -m <MODULE> -f <FUNCTION>
 ## See Also
 
 - Individual command documentation (e.g., `calls-to`, `hotspots`)
-- [examples.md](examples.md) for detailed usage examples
