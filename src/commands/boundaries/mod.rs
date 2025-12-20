@@ -18,12 +18,15 @@ use crate::output::{OutputFormat, Outputable};
 #[command(after_help = "\
 Examples:
   code_search boundaries                          # Find all boundary modules
+  code_search boundaries MyApp.Web                # Filter to MyApp.Web namespace
   code_search boundaries --min-incoming 5         # With minimum 5 incoming calls
   code_search boundaries --min-ratio 2.0          # With minimum 2.0 ratio
-  code_search boundaries -m MyApp.Web             # Filter to MyApp.Web namespace
   code_search boundaries -l 20                    # Show top 20 boundary modules
 ")]
 pub struct BoundariesCmd {
+    /// Module filter pattern (substring match by default, regex with --regex)
+    pub module: Option<String>,
+
     /// Minimum incoming calls to be considered a boundary module
     #[arg(long, default_value = "1")]
     pub min_incoming: i64,
@@ -31,10 +34,6 @@ pub struct BoundariesCmd {
     /// Minimum ratio (incoming/outgoing) to be considered a boundary module
     #[arg(long, default_value = "2.0")]
     pub min_ratio: f64,
-
-    /// Module filter pattern (substring match by default, regex with --regex)
-    #[arg(short, long)]
-    pub module: Option<String>,
 
     #[command(flatten)]
     pub common: CommonArgs,

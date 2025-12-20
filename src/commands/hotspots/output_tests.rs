@@ -20,15 +20,15 @@ Hotspots (total)
 
 Found 1 function:
 
-MyApp.Accounts.get_user  3 in  1 out  4 total  0.25 ratio";
+MyApp.Accounts.get_user  3 in  1 out  4 total    0.25 ratio";
 
     const MULTIPLE_TABLE: &str = "\
 Hotspots (incoming)
 
 Found 2 functions:
 
-MyApp.Accounts.get_user  10 in  2 out  12 total  0.17 ratio
-MyApp.Users.create        5 in  3 out   8 total  0.38 ratio";
+MyApp.Accounts.get_user  10 in  2 out  12 total    0.17 ratio
+MyApp.Users.create        5 in  3 out   8 total    0.38 ratio";
 
     // =========================================================================
     // Fixtures

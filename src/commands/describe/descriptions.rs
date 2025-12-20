@@ -203,11 +203,15 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
             "boundaries",
             "Find boundary modules with high fan-in but low fan-out",
             CommandCategory::Analysis,
-            "Identifies modules that many others depend on but have few dependencies. These are key integration points.",
-            "code_search boundaries [OPTIONS]",
+            "Identifies modules that many others depend on but have few dependencies. These are key integration points. \
+             Use --min-incoming to set a threshold for incoming calls and --min-ratio for the fan-in/fan-out ratio.",
+            "code_search boundaries [MODULE] [OPTIONS]",
         )
         .with_examples(vec![
             Example::new("Find all boundary modules", "code_search boundaries"),
+            Example::new("Filter to a namespace", "code_search boundaries MyApp.Web"),
+            Example::new("Set minimum incoming calls", "code_search boundaries --min-incoming 5"),
+            Example::new("Set minimum ratio threshold", "code_search boundaries --min-ratio 3.0"),
         ])
         .with_related(vec!["god-modules", "hotspots", "depends-on"]),
 

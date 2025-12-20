@@ -74,13 +74,18 @@ impl Outputable for HotspotsResult {
 
         for entry in &self.entries {
             let name = format!("{}.{}", entry.module, entry.function);
+            let ratio_str = if entry.ratio >= 9999.0 {
+                "∞".to_string()
+            } else {
+                format!("{:.2}", entry.ratio)
+            };
             lines.push(format!(
-                "{:<name_width$}  {:>in_width$} in  {:>out_width$} out  {:>total_width$} total  {:.2} ratio",
+                "{:<name_width$}  {:>in_width$} in  {:>out_width$} out  {:>total_width$} total  {:>6} ratio",
                 name,
                 entry.incoming,
                 entry.outgoing,
                 entry.total,
-                entry.ratio,
+                ratio_str,
                 name_width = name_width,
                 in_width = in_width,
                 out_width = out_width,
@@ -104,6 +109,7 @@ impl Execute for HotspotsCmd {
             self.common.regex,
             self.common.limit,
             self.exclude_generated,
+            false, // Don't require outgoing calls
         )?;
 
         let kind_str = match self.kind {

@@ -37,6 +37,7 @@ impl Execute for GodModulesCmd {
             self.common.regex,
             u32::MAX, // Get all hotspots to aggregate connectivity
             false,    // Don't exclude generated functions
+            false,    // Don't require outgoing calls
         )?;
 
         // Aggregate connectivity (incoming/outgoing) per module

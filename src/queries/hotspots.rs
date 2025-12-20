@@ -97,6 +97,7 @@ pub fn find_hotspots(
     use_regex: bool,
     limit: u32,
     exclude_generated: bool,
+    require_outgoing: bool,
 ) -> Result<Vec<Hotspot>, Box<dyn Error>> {
     // Build optional module filter
     let module_filter = match module_pattern {
@@ -108,6 +109,13 @@ pub fn find_hotspots(
     // Build optional generated filter
     let generated_filter = if exclude_generated {
         ", generated_by == \"\"".to_string()
+    } else {
+        String::new()
+    };
+
+    // Build optional outgoing filter (for boundaries - exclude leaf nodes)
+    let outgoing_filter = if require_outgoing {
+        ", outgoing > 0".to_string()
     } else {
         String::new()
     };
@@ -163,21 +171,25 @@ pub fn find_hotspots(
             distinct_incoming[module, function, caller_module, caller_function]
 
         # Final query - functions with both incoming and outgoing
+        # Ratio = incoming / outgoing (high ratio = many callers, few dependencies = boundary)
         ?[module, function, incoming, outgoing, total, ratio] :=
             incoming_counts[module, function, incoming],
             outgoing_counts[module, function, outgoing],
             total = incoming + outgoing,
-            ratio = if(total == 0, 0.0, outgoing / total)
+            ratio = if(outgoing == 0, 9999.0, incoming / outgoing)
             {module_filter}
+            {outgoing_filter}
 
-        # Functions with only incoming (no outgoing)
+        # Functions with only incoming (no outgoing) - leaf nodes
+        # Excluded when require_outgoing is set
         ?[module, function, incoming, outgoing, total, ratio] :=
             incoming_counts[module, function, incoming],
             not outgoing_counts[module, function, _],
             outgoing = 0,
             total = incoming,
-            ratio = 0.0
+            ratio = 9999.0
             {module_filter}
+            {outgoing_filter}
 
         # Functions with only outgoing (no incoming)
         ?[module, function, incoming, outgoing, total, ratio] :=
@@ -185,7 +197,7 @@ pub fn find_hotspots(
             not incoming_counts[module, function, _],
             incoming = 0,
             total = outgoing,
-            ratio = 1.0
+            ratio = 0.0
             {module_filter}
 
         :order -{order_by}, module, function
