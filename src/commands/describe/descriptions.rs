@@ -188,14 +188,18 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
 
         CommandDescription::new(
             "god-modules",
-            "Find god modules - modules with high function count and connectivity",
+            "Find god modules - modules with high function count, LoC, and connectivity",
             CommandCategory::Analysis,
-            "Identifies modules that are overly large or have too much responsibility. These are candidates for refactoring.",
-            "code_search god-modules [OPTIONS]",
+            "Identifies modules that are overly large or have too much responsibility. \
+             Use --min-functions, --min-loc, and --min-total to set thresholds for function count, \
+             lines of code, and connectivity respectively.",
+            "code_search god-modules [MODULE] [OPTIONS]",
         )
         .with_examples(vec![
             Example::new("Find all god modules", "code_search god-modules"),
-            Example::new("Show top 10 god modules", "code_search god-modules --limit 10"),
+            Example::new("Filter to a namespace", "code_search god-modules MyApp.Core"),
+            Example::new("With minimum 500 LoC", "code_search god-modules --min-loc 500"),
+            Example::new("With minimum 30 functions", "code_search god-modules --min-functions 30"),
         ])
         .with_related(vec!["hotspots", "boundaries", "complexity"]),
 

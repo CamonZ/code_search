@@ -38,6 +38,58 @@ pub struct Hotspot {
     pub ratio: f64,
 }
 
+/// Get lines of code per module (sum of function line counts)
+pub fn get_module_loc(
+    db: &cozo::DbInstance,
+    project: &str,
+    module_pattern: Option<&str>,
+    use_regex: bool,
+) -> Result<std::collections::HashMap<String, i64>, Box<dyn Error>> {
+    let module_filter = match module_pattern {
+        Some(_) if use_regex => ", regex_matches(module, $module_pattern)".to_string(),
+        Some(_) => ", str_includes(module, $module_pattern)".to_string(),
+        None => String::new(),
+    };
+
+    let script = format!(
+        r#"
+        # Calculate lines per function and sum by module
+        module_loc[module, sum(lines)] :=
+            *function_locations{{project, module, start_line, end_line}},
+            project == $project,
+            lines = end_line - start_line + 1
+            {module_filter}
+
+        ?[module, loc] :=
+            module_loc[module, loc]
+
+        :order -loc
+        "#,
+    );
+
+    let mut params = Params::new();
+    params.insert("project".to_string(), DataValue::Str(project.into()));
+    if let Some(pattern) = module_pattern {
+        params.insert("module_pattern".to_string(), DataValue::Str(pattern.into()));
+    }
+
+    let rows = run_query(db, &script, params).map_err(|e| HotspotsError::QueryFailed {
+        message: e.to_string(),
+    })?;
+
+    let mut loc_map = std::collections::HashMap::new();
+    for row in rows.rows {
+        if row.len() >= 2 {
+            if let Some(module) = extract_string(&row[0]) {
+                let loc = extract_i64(&row[1], 0);
+                loc_map.insert(module, loc);
+            }
+        }
+    }
+
+    Ok(loc_map)
+}
+
 /// Get function count per module
 pub fn get_function_counts(
     db: &cozo::DbInstance,
