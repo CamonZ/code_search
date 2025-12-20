@@ -29,7 +29,7 @@ mod tests {
         command: "unused",
         variant: Unused,
         test_name: test_with_module,
-        args: ["--module", "MyApp"],
+        args: ["MyApp"],
         field: module,
         expected: Some("MyApp".to_string()),
     }
@@ -47,7 +47,7 @@ mod tests {
         command: "unused",
         variant: Unused,
         test_name: test_with_regex,
-        args: ["--module", "MyApp\\..*", "--regex"],
+        args: ["MyApp\\..*", "--regex"],
         field: common.regex,
         expected: true,
     }

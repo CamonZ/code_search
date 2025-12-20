@@ -168,12 +168,16 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
             "unused",
             "Find functions that are never called",
             CommandCategory::Analysis,
-            "Identifies functions that have no incoming calls. These may be dead code, internal helpers, or entry points.",
-            "code_search unused [OPTIONS]",
+            "Identifies functions with no incoming calls. Use -p to find dead code (unused private functions) \
+             or -P to find entry points (public functions not called internally). Use -x to exclude \
+             compiler-generated functions like __struct__, __info__, etc.",
+            "code_search unused [MODULE] [OPTIONS]",
         )
         .with_examples(vec![
             Example::new("Find all unused functions", "code_search unused"),
-            Example::new("Find unused functions in a module", "code_search unused -m MyApp.Utils"),
+            Example::new("Filter to a specific module", "code_search unused MyApp.Utils"),
+            Example::new("Find dead code (unused private)", "code_search unused -p"),
+            Example::new("Find entry points (unused public)", "code_search unused -Px"),
         ])
         .with_related(vec!["hotspots", "duplicates", "large-functions"]),
 
