@@ -16,16 +16,15 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search function -m MyApp.Accounts -f get_user      # Show signature
-  code_search function -m MyApp -f get_user -a 1          # Specific arity
-  code_search function -m 'MyApp\\..*' -f 'get_.*' -r     # Regex matching")]
+  code_search function MyApp.Accounts get_user       # Show signature
+  code_search function MyApp.Accounts get_user -a 1  # Specific arity
+  code_search function -r 'MyApp\\..*' 'get_.*'      # Regex matching
+")]
 pub struct FunctionCmd {
     /// Module name (exact match or pattern with --regex)
-    #[arg(short, long)]
     pub module: String,
 
     /// Function name (exact match or pattern with --regex)
-    #[arg(short = 'f', long)]
     pub function: String,
 
     /// Function arity (optional, matches all arities if not specified)

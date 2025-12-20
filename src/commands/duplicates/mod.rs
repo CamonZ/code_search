@@ -17,17 +17,25 @@ use crate::output::{OutputFormat, Outputable};
 #[command(after_help = "\
 Examples:
   code_search duplicates                  # Find all duplicate functions
-  code_search duplicates -m MyApp         # Filter to specific module
+  code_search duplicates MyApp            # Filter to specific module
+  code_search duplicates --by-module      # Rank modules by duplication
   code_search duplicates --exact          # Use exact source matching
-  code_search duplicates -m 'App' --regex # Match module with regex")]
+  code_search duplicates --exclude-generated  # Exclude macro-generated functions")]
 pub struct DuplicatesCmd {
-    /// Module filter pattern (substring match by default, regex with --regex)
-    #[arg(short, long)]
+    /// Module filter pattern (substring match by default, regex with -r)
     pub module: Option<String>,
+
+    /// Aggregate results by module (show which modules have most duplicates)
+    #[arg(long)]
+    pub by_module: bool,
 
     /// Use exact source matching instead of AST matching
     #[arg(long)]
     pub exact: bool,
+
+    /// Exclude macro-generated functions
+    #[arg(long)]
+    pub exclude_generated: bool,
 
     #[command(flatten)]
     pub common: CommonArgs,

@@ -7,20 +7,24 @@ mod tests {
     use rstest::rstest;
 
     // =========================================================================
-    // Macro-generated tests (standard patterns)
+    // Required argument tests
     // =========================================================================
 
     crate::cli_required_arg_test! {
         command: "location",
         test_name: test_requires_function,
-        required_arg: "--function",
+        required_arg: "<FUNCTION>",
     }
+
+    // =========================================================================
+    // Option tests
+    // =========================================================================
 
     crate::cli_option_test! {
         command: "location",
         variant: Location,
         test_name: test_with_function_only,
-        args: ["--function", "get_user"],
+        args: ["get_user"],
         field: function,
         expected: "get_user",
     }
@@ -29,7 +33,7 @@ mod tests {
         command: "location",
         variant: Location,
         test_name: test_with_module,
-        args: ["--module", "MyApp.Accounts", "--function", "get_user"],
+        args: ["get_user", "MyApp.Accounts"],
         field: module,
         expected: Some("MyApp.Accounts".to_string()),
     }
@@ -38,7 +42,7 @@ mod tests {
         command: "location",
         variant: Location,
         test_name: test_with_arity,
-        args: ["--module", "MyApp.Accounts", "--function", "get_user", "--arity", "1"],
+        args: ["get_user", "MyApp.Accounts", "--arity", "1"],
         field: arity,
         expected: Some(1),
     }
@@ -47,7 +51,7 @@ mod tests {
         command: "location",
         variant: Location,
         test_name: test_with_regex,
-        args: ["--module", "MyApp.*", "--function", "get_.*", "--regex"],
+        args: ["get_.*", "MyApp.*", "--regex"],
         field: common.regex,
         expected: true,
     }
@@ -56,7 +60,7 @@ mod tests {
         command: "location",
         variant: Location,
         test_name: test_with_project,
-        args: ["--module", "MyApp.Accounts", "--function", "get_user", "--project", "my_app"],
+        args: ["get_user", "MyApp.Accounts", "--project", "my_app"],
         field: common.project,
         expected: "my_app",
     }
@@ -65,15 +69,19 @@ mod tests {
         command: "location",
         variant: Location,
         test_name: test_with_limit,
-        args: ["--function", "get_user", "--limit", "10"],
+        args: ["get_user", "--limit", "10"],
         field: common.limit,
         expected: 10,
     }
 
+    // =========================================================================
+    // Limit validation tests
+    // =========================================================================
+
     crate::cli_limit_tests! {
         command: "location",
         variant: Location,
-        required_args: ["--function", "get_user"],
+        required_args: ["get_user"],
         limit: {
             field: common.limit,
             default: 100,

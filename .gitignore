@@ -28,3 +28,4 @@ scratch
 /AGENTS.md
 /.mcp.json
 /opencode.jsonc
+src/fixtures/test.db

@@ -360,6 +360,7 @@ dependencies = [
  "clap",
  "cozo",
  "enum_dispatch",
+ "regex",
  "rstest",
  "serde",
  "serde_json",

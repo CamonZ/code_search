@@ -15,15 +15,14 @@ use crate::output::{OutputFormat, Outputable};
 Examples:
   code_search accepts \"User.t\"              # Find functions accepting User.t
   code_search accepts \"map()\"               # Find functions accepting maps
-  code_search accepts \"Changeset.t\"         # Find functions accepting Ecto changesets
+  code_search accepts \"User.t\" MyApp        # Filter to module MyApp
   code_search accepts -r \"list\\(.*\\)\"     # Regex pattern matching
-  code_search accepts \"User.t\" -m MyApp    # Filter to module MyApp")]
+")]
 pub struct AcceptsCmd {
     /// Type pattern to search for in input types
     pub pattern: String,
 
     /// Module filter pattern
-    #[arg(short, long)]
     pub module: Option<String>,
 
     #[command(flatten)]

@@ -82,6 +82,73 @@ mod tests {
     }
 
     // =========================================================================
+    // Arity filtering tests
+    // =========================================================================
+
+    // Controller.show/2 -> Accounts.get_user/1 -> Repo.get (with from_arity)
+    crate::execute_test! {
+        test_name: test_path_with_from_arity,
+        fixture: populated_db,
+        cmd: PathCmd {
+            from_module: "MyApp.Controller".to_string(),
+            from_function: "show".to_string(),
+            from_arity: Some(2),
+            to_module: "MyApp.Repo".to_string(),
+            to_function: "get".to_string(),
+            to_arity: None,
+            project: "test_project".to_string(),
+            depth: 10,
+            limit: 10,
+        },
+        assertions: |result| {
+            // Should find paths via get_user/1 and get_user/2
+            assert!(!result.paths.is_empty());
+            // First step caller should be show/2
+            assert!(result.paths[0].steps[0].caller_function.starts_with("show"));
+        },
+    }
+
+    // Controller.index/2 -> Accounts.list_users/0 (with from_arity exact match)
+    crate::execute_test! {
+        test_name: test_path_with_from_arity_exact,
+        fixture: populated_db,
+        cmd: PathCmd {
+            from_module: "MyApp.Controller".to_string(),
+            from_function: "index".to_string(),
+            from_arity: Some(2),
+            to_module: "MyApp.Accounts".to_string(),
+            to_function: "list_users".to_string(),
+            to_arity: None,
+            project: "test_project".to_string(),
+            depth: 10,
+            limit: 10,
+        },
+        assertions: |result| {
+            assert_eq!(result.paths.len(), 1);
+            // caller_function is just the name (no arity suffix in calls table)
+            assert_eq!(result.paths[0].steps[0].caller_function, "index");
+        },
+    }
+
+    // Wrong arity should find no paths
+    crate::execute_no_match_test! {
+        test_name: test_path_with_wrong_from_arity,
+        fixture: populated_db,
+        cmd: PathCmd {
+            from_module: "MyApp.Controller".to_string(),
+            from_function: "index".to_string(),
+            from_arity: Some(99),  // Wrong arity - index is /2
+            to_module: "MyApp.Accounts".to_string(),
+            to_function: "list_users".to_string(),
+            to_arity: None,
+            project: "test_project".to_string(),
+            depth: 10,
+            limit: 10,
+        },
+        empty_field: paths,
+    }
+
+    // =========================================================================
     // No match / empty result tests
     // =========================================================================
 

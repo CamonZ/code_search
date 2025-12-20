@@ -39,25 +39,13 @@ pub fn reverse_trace_calls(
     max_depth: u32,
     limit: u32,
 ) -> Result<Vec<ReverseTraceStep>, Box<dyn Error>> {
-    // Build the starting condition for the recursive query
+    // Build the starting conditions for the recursive query using helpers
     // For reverse trace, we match on the callee (target)
-    let module_cond = if use_regex {
-        "regex_matches(callee_module, $module_pattern)"
-    } else {
-        "callee_module == $module_pattern"
-    };
-
-    let function_cond = if use_regex {
-        "regex_matches(callee_function, $function_pattern)"
-    } else {
-        "callee_function == $function_pattern"
-    };
-
-    let arity_cond = if arity.is_some() {
-        "callee_arity == $arity"
-    } else {
-        "true"  // No-op condition when arity not specified
-    };
+    let module_cond = crate::utils::ConditionBuilder::new("callee_module", "module_pattern").build(use_regex);
+    let function_cond = crate::utils::ConditionBuilder::new("callee_function", "function_pattern").build(use_regex);
+    let arity_cond = crate::utils::OptionalConditionBuilder::new("callee_arity", "arity")
+        .when_none("true")
+        .build(arity.is_some());
 
     // Recursive query to trace call chains backwards, joined with function_locations for caller metadata
     // Base case: calls TO the target function

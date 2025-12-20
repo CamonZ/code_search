@@ -4,13 +4,14 @@ use serde::Serialize;
 
 use super::GodModulesCmd;
 use crate::commands::Execute;
-use crate::queries::hotspots::{find_hotspots, get_function_counts, HotspotKind};
+use crate::queries::hotspots::{find_hotspots, get_function_counts, get_module_loc, HotspotKind};
 use crate::types::{ModuleCollectionResult, ModuleGroup};
 
 /// A single god module entry
 #[derive(Debug, Clone, Serialize)]
 pub struct GodModuleEntry {
     pub function_count: i64,
+    pub loc: i64,
     pub incoming: i64,
     pub outgoing: i64,
     pub total: i64,
@@ -28,6 +29,14 @@ impl Execute for GodModulesCmd {
             self.common.regex,
         )?;
 
+        // Get lines of code per module
+        let module_loc = get_module_loc(
+            db,
+            &self.common.project,
+            self.module.as_deref(),
+            self.common.regex,
+        )?;
+
         // Get hotspot data (incoming/outgoing calls per function)
         let hotspots = find_hotspots(
             db,
@@ -36,6 +45,8 @@ impl Execute for GodModulesCmd {
             &self.common.project,
             self.common.regex,
             u32::MAX, // Get all hotspots to aggregate connectivity
+            false,    // Don't exclude generated functions
+            false,    // Don't require outgoing calls
         )?;
 
         // Aggregate connectivity (incoming/outgoing) per module
@@ -46,16 +57,25 @@ impl Execute for GodModulesCmd {
             let entry = module_connectivity
                 .entry(hotspot.module)
                 .or_insert((0, 0));
-            entry.0 += hotspot.incoming; // incoming
-            entry.1 += hotspot.outgoing; // outgoing
+            entry.0 += hotspot.incoming;
+            entry.1 += hotspot.outgoing;
         }
 
         // Build god modules: filter by thresholds and sort by total connectivity
-        let mut god_modules: Vec<(String, i64, i64, i64)> = Vec::new();
+        // Tuple: (module_name, func_count, loc, incoming, outgoing)
+        let mut god_modules: Vec<(String, i64, i64, i64, i64)> = Vec::new();
 
         for (module_name, func_count) in func_counts {
             // Apply function count threshold
             if func_count < self.min_functions {
+                continue;
+            }
+
+            // Get LoC for this module
+            let loc = module_loc.get(&module_name).copied().unwrap_or(0);
+
+            // Apply LoC threshold if set
+            if loc < self.min_loc {
                 continue;
             }
 
@@ -71,13 +91,13 @@ impl Execute for GodModulesCmd {
                 continue;
             }
 
-            god_modules.push((module_name, func_count, incoming, outgoing));
+            god_modules.push((module_name, func_count, loc, incoming, outgoing));
         }
 
         // Sort by total connectivity (descending)
         god_modules.sort_by(|a, b| {
-            let total_a = a.2 + a.3;
-            let total_b = b.2 + b.3;
+            let total_a = a.3 + a.4;
+            let total_b = b.3 + b.4;
             total_b.cmp(&total_a)
         });
 
@@ -89,13 +109,14 @@ impl Execute for GodModulesCmd {
         let total_items = god_modules.len();
         let items: Vec<ModuleGroup<GodModuleEntry>> = god_modules
             .into_iter()
-            .map(|(module_name, func_count, incoming, outgoing)| {
+            .map(|(module_name, func_count, loc, incoming, outgoing)| {
                 let total = incoming + outgoing;
                 ModuleGroup {
                     name: module_name,
                     file: String::new(),
                     entries: vec![GodModuleEntry {
                         function_count: func_count,
+                        loc,
                         incoming,
                         outgoing,
                         total,
@@ -125,6 +146,7 @@ mod tests {
         // Test that GodModulesCmd is created correctly
         let cmd = GodModulesCmd {
             min_functions: 30,
+            min_loc: 500,
             min_total: 15,
             module: Some("MyApp".to_string()),
             common: crate::commands::CommonArgs {
@@ -135,6 +157,7 @@ mod tests {
         };
 
         assert_eq!(cmd.min_functions, 30);
+        assert_eq!(cmd.min_loc, 500);
         assert_eq!(cmd.min_total, 15);
         assert_eq!(cmd.module, Some("MyApp".to_string()));
     }

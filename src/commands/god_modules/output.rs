@@ -31,8 +31,8 @@ impl TableFormatter for ModuleCollectionResult<GodModuleEntry> {
     ) -> String {
         if let Some(entry) = entries.first() {
             format!(
-                "{}: (funcs: {}, in: {}, out: {}, total: {})",
-                module_name, entry.function_count, entry.incoming, entry.outgoing, entry.total
+                "{}: (funcs: {}, loc: {}, in: {}, out: {}, total: {})",
+                module_name, entry.function_count, entry.loc, entry.incoming, entry.outgoing, entry.total
             )
         } else {
             format!("{}:", module_name)

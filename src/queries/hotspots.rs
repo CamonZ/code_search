@@ -17,10 +17,8 @@ pub enum HotspotKind {
     Outgoing,
     /// Functions with highest total (incoming + outgoing)
     Total,
-    /// Functions with highest ratio of incoming to outgoing calls (boundary modules)
+    /// Functions with highest ratio of incoming to outgoing calls (boundary functions)
     Ratio,
-    /// Modules with most functions (god modules)
-    Functions,
 }
 
 #[derive(Error, Debug)]
@@ -38,6 +36,58 @@ pub struct Hotspot {
     pub outgoing: i64,
     pub total: i64,
     pub ratio: f64,
+}
+
+/// Get lines of code per module (sum of function line counts)
+pub fn get_module_loc(
+    db: &cozo::DbInstance,
+    project: &str,
+    module_pattern: Option<&str>,
+    use_regex: bool,
+) -> Result<std::collections::HashMap<String, i64>, Box<dyn Error>> {
+    let module_filter = match module_pattern {
+        Some(_) if use_regex => ", regex_matches(module, $module_pattern)".to_string(),
+        Some(_) => ", str_includes(module, $module_pattern)".to_string(),
+        None => String::new(),
+    };
+
+    let script = format!(
+        r#"
+        # Calculate lines per function and sum by module
+        module_loc[module, sum(lines)] :=
+            *function_locations{{project, module, start_line, end_line}},
+            project == $project,
+            lines = end_line - start_line + 1
+            {module_filter}
+
+        ?[module, loc] :=
+            module_loc[module, loc]
+
+        :order -loc
+        "#,
+    );
+
+    let mut params = Params::new();
+    params.insert("project".to_string(), DataValue::Str(project.into()));
+    if let Some(pattern) = module_pattern {
+        params.insert("module_pattern".to_string(), DataValue::Str(pattern.into()));
+    }
+
+    let rows = run_query(db, &script, params).map_err(|e| HotspotsError::QueryFailed {
+        message: e.to_string(),
+    })?;
+
+    let mut loc_map = std::collections::HashMap::new();
+    for row in rows.rows {
+        if row.len() >= 2 {
+            if let Some(module) = extract_string(&row[0]) {
+                let loc = extract_i64(&row[1], 0);
+                loc_map.insert(module, loc);
+            }
+        }
+    }
+
+    Ok(loc_map)
 }
 
 /// Get function count per module
@@ -98,6 +148,8 @@ pub fn find_hotspots(
     project: &str,
     use_regex: bool,
     limit: u32,
+    exclude_generated: bool,
+    require_outgoing: bool,
 ) -> Result<Vec<Hotspot>, Box<dyn Error>> {
     // Build optional module filter
     let module_filter = match module_pattern {
@@ -106,12 +158,25 @@ pub fn find_hotspots(
         None => String::new(),
     };
 
+    // Build optional generated filter
+    let generated_filter = if exclude_generated {
+        ", generated_by == \"\"".to_string()
+    } else {
+        String::new()
+    };
+
+    // Build optional outgoing filter (for boundaries - exclude leaf nodes)
+    let outgoing_filter = if require_outgoing {
+        ", outgoing > 0".to_string()
+    } else {
+        String::new()
+    };
+
     let order_by = match kind {
         HotspotKind::Incoming => "incoming",
         HotspotKind::Outgoing => "outgoing",
         HotspotKind::Total => "total",
         HotspotKind::Ratio => "ratio",
-        HotspotKind::Functions => "incoming", // Functions uses incoming count for sorting
     };
 
     // Query to find hotspots by counting incoming and outgoing calls
@@ -125,11 +190,14 @@ pub fn find_hotspots(
         r#"
         # Get canonical function names (callee_function format, no arity suffix)
         # A function's canonical name is how it appears as a callee
+        # Join with function_locations to filter generated functions
         canonical[module, function] :=
             *calls{{project, callee_module, callee_function}},
+            *function_locations{{project, module: callee_module, name: callee_function, generated_by}},
             project == $project,
             module = callee_module,
             function = callee_function
+            {generated_filter}
 
         # Distinct outgoing calls: match caller to canonical name
         # caller_function is either "name" or "name/N", canonical_name is "name"
@@ -147,6 +215,7 @@ pub fn find_hotspots(
         # Distinct incoming calls
         distinct_incoming[callee_module, callee_function, caller_module, caller_function] :=
             *calls{{project, caller_module, caller_function, callee_module, callee_function}},
+            canonical[callee_module, callee_function],
             project == $project
 
         # Count unique incoming calls per function
@@ -154,21 +223,25 @@ pub fn find_hotspots(
             distinct_incoming[module, function, caller_module, caller_function]
 
         # Final query - functions with both incoming and outgoing
+        # Ratio = incoming / outgoing (high ratio = many callers, few dependencies = boundary)
         ?[module, function, incoming, outgoing, total, ratio] :=
             incoming_counts[module, function, incoming],
             outgoing_counts[module, function, outgoing],
             total = incoming + outgoing,
-            ratio = if(total == 0, 0.0, outgoing / total)
+            ratio = if(outgoing == 0, 9999.0, incoming / outgoing)
             {module_filter}
+            {outgoing_filter}
 
-        # Functions with only incoming (no outgoing)
+        # Functions with only incoming (no outgoing) - leaf nodes
+        # Excluded when require_outgoing is set
         ?[module, function, incoming, outgoing, total, ratio] :=
             incoming_counts[module, function, incoming],
             not outgoing_counts[module, function, _],
             outgoing = 0,
             total = incoming,
-            ratio = 0.0
+            ratio = 9999.0
             {module_filter}
+            {outgoing_filter}
 
         # Functions with only outgoing (no incoming)
         ?[module, function, incoming, outgoing, total, ratio] :=
@@ -176,7 +249,7 @@ pub fn find_hotspots(
             not incoming_counts[module, function, _],
             incoming = 0,
             total = outgoing,
-            ratio = 1.0
+            ratio = 0.0
             {module_filter}
 
         :order -{order_by}, module, function

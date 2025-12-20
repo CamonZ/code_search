@@ -16,31 +16,25 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search unused                         # Find all unused functions
-  code_search unused --public-only           # Find unused public API
-  code_search unused -m MyApp.Accounts       # Filter to specific module
-  code_search unused -Px                     # Public only, exclude generated
-  code_search unused -m 'Accounts' --regex   # Match module with regex
-
-  # Find orphan functions (private, never called internally):
-  code_search unused --private-only
-
-  # Find entry points (public functions not called internally):
-  code_search unused --public-only -x        # Add -x to exclude __struct__ etc.")]
+  code_search unused                       # Find all unused functions
+  code_search unused MyApp.Accounts        # Filter to specific module
+  code_search unused -P                    # Unused public functions (entry points)
+  code_search unused -p                    # Unused private functions (dead code)
+  code_search unused -Px                   # Public only, exclude generated
+  code_search unused 'Accounts.*' -r       # Match module with regex")]
 pub struct UnusedCmd {
-    /// Module pattern to filter results (substring match by default, regex with --regex)
-    #[arg(short, long)]
+    /// Module pattern to filter results (substring match by default, regex with -r)
     pub module: Option<String>,
 
-    /// Only show private functions (defp, defmacrop)
+    /// Only show private functions (defp, defmacrop) - likely dead code
     #[arg(short, long, default_value_t = false, conflicts_with = "public_only")]
     pub private_only: bool,
 
-    /// Only show public functions (def, defmacro)
+    /// Only show public functions (def, defmacro) - potential entry points
     #[arg(short = 'P', long, default_value_t = false, conflicts_with = "private_only")]
     pub public_only: bool,
 
-    /// Exclude compiler-generated functions (__struct__, __using__, __before_compile__, etc.)
+    /// Exclude compiler-generated functions (__struct__, __info__, etc.)
     #[arg(short = 'x', long, default_value_t = false)]
     pub exclude_generated: bool,
 

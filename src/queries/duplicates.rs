@@ -29,6 +29,7 @@ pub fn find_duplicates(
     module_pattern: Option<&str>,
     use_regex: bool,
     use_exact: bool,
+    exclude_generated: bool,
 ) -> Result<Vec<DuplicateFunction>, Box<dyn Error>> {
     // Choose hash field based on exact flag
     let hash_field = if use_exact { "source_sha" } else { "ast_sha" };
@@ -40,22 +41,31 @@ pub fn find_duplicates(
         None => String::new(),
     };
 
+    // Build optional generated filter
+    let generated_filter = if exclude_generated {
+        ", generated_by == \"\"".to_string()
+    } else {
+        String::new()
+    };
+
     // Query to find duplicate hashes and their functions
     let script = format!(
         r#"
         # Find hashes that appear more than once (count unique functions per hash)
         hash_counts[{hash_field}, count(module)] :=
-            *function_locations{{project, module, name, arity, {hash_field}}},
+            *function_locations{{project, module, name, arity, {hash_field}, generated_by}},
             project == $project,
             {hash_field} != ""
+            {generated_filter}
 
         # Get all functions with duplicate hashes
         ?[{hash_field}, module, name, arity, line, file] :=
-            *function_locations{{project, module, name, arity, line, file, {hash_field}}},
+            *function_locations{{project, module, name, arity, line, file, {hash_field}, generated_by}},
             hash_counts[{hash_field}, cnt],
             cnt > 1,
             project == $project
             {module_filter}
+            {generated_filter}
 
         :order {hash_field}, module, name, arity
         "#,

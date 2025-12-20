@@ -42,7 +42,6 @@ mod cycles;
 mod depended_by;
 mod depends_on;
 mod describe;
-mod duplicate_hotspots;
 mod duplicates;
 mod function;
 mod god_modules;
@@ -56,7 +55,6 @@ mod returns;
 mod reverse_trace;
 mod search;
 pub mod setup;
-mod struct_modules;
 mod struct_usage;
 mod trace;
 mod unused;
@@ -72,7 +70,6 @@ pub use cycles::CyclesCmd;
 pub use depended_by::DependedByCmd;
 pub use depends_on::DependsOnCmd;
 pub use describe::DescribeCmd;
-pub use duplicate_hotspots::DuplicateHotspotsCmd;
 pub use duplicates::DuplicatesCmd;
 pub use function::FunctionCmd;
 pub use god_modules::GodModulesCmd;
@@ -86,7 +83,6 @@ pub use returns::ReturnsCmd;
 pub use reverse_trace::ReverseTraceCmd;
 pub use search::SearchCmd;
 pub use setup::SetupCmd;
-pub use struct_modules::StructModulesCmd;
 pub use struct_usage::StructUsageCmd;
 pub use trace::TraceCmd;
 pub use unused::UnusedCmd;
@@ -170,9 +166,6 @@ pub enum Command {
     /// Find functions that accept or return a specific type pattern
     StructUsage(StructUsageCmd),
 
-    /// Show which modules work with a given struct type
-    StructModules(StructModulesCmd),
-
     /// Show what modules a given module depends on (outgoing module dependencies)
     DependsOn(DependsOnCmd),
 
@@ -184,9 +177,6 @@ pub enum Command {
 
     /// Find functions with identical or near-identical implementations
     Duplicates(DuplicatesCmd),
-
-    /// Find modules with the most duplicated functions
-    DuplicateHotspots(DuplicateHotspotsCmd),
 
     /// Find functions with the most incoming/outgoing calls
     Hotspots(HotspotsCmd),

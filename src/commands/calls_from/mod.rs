@@ -16,20 +16,17 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search calls-from -m MyApp.Accounts           # All calls from module
-  code_search calls-from -m MyApp -f get_user        # Calls from specific function
-  code_search calls-from -m MyApp -f get_user -a 1   # With specific arity")]
+  code_search calls-from MyApp.Accounts              # All calls from module
+  code_search calls-from MyApp.Accounts get_user     # Calls from specific function
+  code_search calls-from MyApp.Accounts get_user 1   # With specific arity")]
 pub struct CallsFromCmd {
     /// Module name (exact match or pattern with --regex)
-    #[arg(short, long)]
     pub module: String,
 
     /// Function name (optional, if not specified shows all calls from module)
-    #[arg(short = 'f', long)]
     pub function: Option<String>,
 
     /// Function arity (optional, matches all arities if not specified)
-    #[arg(short, long)]
     pub arity: Option<i64>,
 
     #[command(flatten)]

@@ -19,7 +19,6 @@ impl Execute for BoundariesCmd {
     type Output = ModuleCollectionResult<BoundaryEntry>;
 
     fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
-        // Use find_hotspots with Ratio kind to get modules sorted by ratio
         let hotspots = find_hotspots(
             db,
             HotspotKind::Ratio,
@@ -27,58 +26,39 @@ impl Execute for BoundariesCmd {
             &self.common.project,
             self.common.regex,
             self.common.limit,
+            false,
+            true, // require_outgoing: exclude leaf nodes
         )?;
 
-        // Group by module and filter by thresholds
-        let mut modules: std::collections::HashMap<String, BoundaryEntry> =
-            std::collections::HashMap::new();
+        // Build module groups, filtering by thresholds and deduplicating by module
+        let mut seen_modules = std::collections::HashSet::new();
+        let mut items = Vec::new();
 
         for hotspot in hotspots {
-            // Apply thresholds
-            if hotspot.incoming < self.min_incoming || hotspot.ratio < self.min_ratio {
-                continue;
-            }
-
-            // Keep the best entry for each module (hotspots are already sorted by ratio)
-            modules
-                .entry(hotspot.module)
-                .or_insert_with(|| BoundaryEntry {
-                    incoming: hotspot.incoming,
-                    outgoing: hotspot.outgoing,
-                    ratio: hotspot.ratio,
+            // Boundaries must have both incoming AND outgoing calls
+            // (leaf modules with only incoming calls are not boundaries)
+            if hotspot.incoming >= self.min_incoming
+                && hotspot.outgoing >= 1
+                && hotspot.ratio >= self.min_ratio
+                && seen_modules.insert(hotspot.module.clone())
+            {
+                items.push(ModuleGroup {
+                    name: hotspot.module,
+                    file: String::new(),
+                    entries: vec![BoundaryEntry {
+                        incoming: hotspot.incoming,
+                        outgoing: hotspot.outgoing,
+                        ratio: hotspot.ratio,
+                    }],
+                    function_count: None,
                 });
-        }
-
-        // Build module groups, maintaining sort order
-        let mut items = Vec::new();
-        for hotspot in find_hotspots(
-            db,
-            HotspotKind::Ratio,
-            self.module.as_deref(),
-            &self.common.project,
-            self.common.regex,
-            self.common.limit,
-        )? {
-            if hotspot.incoming >= self.min_incoming && hotspot.ratio >= self.min_ratio {
-                if !items.iter().any(|m: &ModuleGroup<BoundaryEntry>| m.name == hotspot.module) {
-                    items.push(ModuleGroup {
-                        name: hotspot.module,
-                        file: String::new(),
-                        entries: vec![BoundaryEntry {
-                            incoming: hotspot.incoming,
-                            outgoing: hotspot.outgoing,
-                            ratio: hotspot.ratio,
-                        }],
-                        function_count: None,
-                    });
-                }
             }
         }
 
         let total_items = items.len();
 
         Ok(ModuleCollectionResult {
-            module_pattern: self.module.clone().unwrap_or_else(|| "*".to_string()),
+            module_pattern: self.module.unwrap_or_else(|| "*".to_string()),
             function_pattern: None,
             kind_filter: Some("boundary".to_string()),
             name_filter: None,

@@ -16,18 +16,17 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search location -f get_user           # Find all get_user functions
-  code_search location -m MyApp -f get_user  # In specific module
-  code_search location -f get_user -a 1      # With specific arity
-  code_search location -f 'get_.*' -r        # Regex pattern matching")]
+  code_search location get_user              # Find all get_user functions
+  code_search location get_user MyApp        # In specific module
+  code_search location get_user -a 1         # With specific arity
+  code_search location -r 'get_.*'           # Regex pattern matching
+")]
 pub struct LocationCmd {
-    /// Module name (exact match or pattern with --regex). If not specified, searches all modules.
-    #[arg(short, long)]
-    pub module: Option<String>,
-
     /// Function name (exact match or pattern with --regex)
-    #[arg(short = 'f', long)]
     pub function: String,
+
+    /// Module name (exact match or pattern with --regex). If not specified, searches all modules.
+    pub module: Option<String>,
 
     /// Function arity (optional, matches all arities if not specified)
     #[arg(short, long)]

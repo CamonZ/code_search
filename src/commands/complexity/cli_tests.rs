@@ -56,18 +56,9 @@ mod tests {
         command: "complexity",
         variant: Complexity,
         test_name: test_with_module,
-        args: ["-m", "MyApp.Accounts"],
+        args: ["MyApp.Accounts"],
         field: module,
         expected: Some("MyApp.Accounts".to_string()),
-    }
-
-    crate::cli_option_test! {
-        command: "complexity",
-        variant: Complexity,
-        test_name: test_with_module_long,
-        args: ["--module", "MyApp.Service"],
-        field: module,
-        expected: Some("MyApp.Service".to_string()),
     }
 
     crate::cli_option_test! {
@@ -83,7 +74,7 @@ mod tests {
         command: "complexity",
         variant: Complexity,
         test_name: test_with_regex,
-        args: ["--module", "MyApp\\..*", "--regex"],
+        args: ["MyApp\\..*", "--regex"],
         field: common.regex,
         expected: true,
     }
@@ -121,7 +112,7 @@ mod tests {
         command: "complexity",
         variant: Complexity,
         test_name: test_combined_options,
-        args: ["--min", "15", "--min-depth", "2", "-m", "MyApp", "--exclude-generated", "-l", "30"],
+        args: ["MyApp", "--min", "15", "--min-depth", "2", "--exclude-generated", "-l", "30"],
         field: min,
         expected: 15,
     }
