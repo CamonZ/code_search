@@ -322,11 +322,11 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
             "Find where a function is defined",
             CommandCategory::Search,
             "Shows the file path and line numbers where a function is defined. Useful for quickly navigating to code.",
-            "code_search location -m <MODULE> -f <FUNCTION> [OPTIONS]",
+            "code_search location <FUNCTION> [MODULE] [OPTIONS]",
         )
         .with_examples(vec![
-            Example::new("Find location of a function", "code_search location -m MyApp.Repo -f get"),
-            Example::new("Find any function named 'validate'", "code_search location -f validate"),
+            Example::new("Find any function named 'validate'", "code_search location validate"),
+            Example::new("Find location of a function in a module", "code_search location get MyApp.Repo"),
         ])
         .with_related(vec!["search", "function", "browse-module"]),
 
