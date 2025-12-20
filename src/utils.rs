@@ -1,6 +1,7 @@
 //! Utility functions for code search operations.
 
 use std::collections::BTreeMap;
+use regex::Regex;
 use crate::types::{ModuleGroup, Call};
 use crate::dedup::sort_and_deduplicate;
 
@@ -341,10 +342,260 @@ where
         .collect()
 }
 
+// =============================================================================
+// Type Formatting Utilities
+// =============================================================================
+
+/// Formats an Elixir type definition for display.
+///
+/// Transforms struct type definitions from the internal representation:
+/// `@type t() :: %{__struct__: ModuleName, field1: type1, field2: type2}`
+///
+/// To the more readable Elixir syntax:
+/// ```text
+/// @type t() :: %ModuleName{
+///   field1: type1,
+///   field2: type2
+/// }
+/// ```
+///
+/// # Arguments
+/// * `definition` - The raw type definition string from the database
+///
+/// # Returns
+/// The formatted type definition string
+pub fn format_type_definition(definition: &str) -> String {
+    // Check if this is a struct type definition
+    if let Some(formatted) = try_format_struct_type(definition) {
+        return formatted;
+    }
+
+    // Return as-is if no transformation needed
+    definition.to_string()
+}
+
+/// Attempts to format a struct type definition.
+///
+/// Returns `Some(formatted_string)` if the definition contains a struct pattern,
+/// otherwise returns `None`.
+fn try_format_struct_type(definition: &str) -> Option<String> {
+    // Pattern to match: %{__struct__: ModuleName} or %{__struct__: ModuleName, ...}
+    // This captures the struct module name and optionally the remaining fields
+    let struct_pattern = Regex::new(
+        r"%\{\s*__struct__:\s*([A-Za-z][A-Za-z0-9_.]*(?:\.[A-Za-z][A-Za-z0-9_]*)*)\s*(?:,\s*(.*))?\}"
+    ).ok()?;
+
+    if let Some(caps) = struct_pattern.captures(definition) {
+        let module_name = caps.get(1)?.as_str();
+        let fields_str = caps.get(2).map(|m| m.as_str().trim()).unwrap_or("");
+
+        // Parse the fields
+        let fields = parse_type_fields(fields_str);
+
+        if fields.is_empty() {
+            // Empty struct
+            let formatted_struct = format!("%{}{{}}", module_name);
+            return Some(definition.replace(caps.get(0)?.as_str(), &formatted_struct));
+        }
+
+        // Format with multi-line for readability
+        let formatted_fields = fields
+            .iter()
+            .map(|(name, typ)| format!("  {}: {}", name, typ))
+            .collect::<Vec<_>>()
+            .join(",\n");
+
+        let formatted_struct = format!("%{}{{\n{}\n}}", module_name, formatted_fields);
+
+        // Replace the struct pattern in the original definition
+        Some(definition.replace(caps.get(0)?.as_str(), &formatted_struct))
+    } else {
+        None
+    }
+}
+
+/// Parses a comma-separated list of type fields.
+///
+/// Handles nested types with parentheses, braces, and brackets.
+/// For example: `name: String.t(), list: list(integer()), map: map()`
+///
+/// # Arguments
+/// * `fields_str` - The raw fields string without outer braces
+///
+/// # Returns
+/// A vector of (field_name, field_type) tuples
+fn parse_type_fields(fields_str: &str) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    let mut current_field = String::new();
+    let mut depth = 0; // Track nesting depth for (), {}, []
+
+    for ch in fields_str.chars() {
+        match ch {
+            '(' | '{' | '[' => {
+                depth += 1;
+                current_field.push(ch);
+            }
+            ')' | '}' | ']' => {
+                depth -= 1;
+                current_field.push(ch);
+            }
+            ',' if depth == 0 => {
+                // Top-level comma - this is a field separator
+                if let Some((name, typ)) = parse_single_field(&current_field) {
+                    fields.push((name, typ));
+                }
+                current_field.clear();
+            }
+            _ => {
+                current_field.push(ch);
+            }
+        }
+    }
+
+    // Don't forget the last field
+    if let Some((name, typ)) = parse_single_field(&current_field) {
+        fields.push((name, typ));
+    }
+
+    fields
+}
+
+/// Parses a single field definition like "name: String.t()" or "count: integer()".
+///
+/// # Arguments
+/// * `field_str` - A single field definition string
+///
+/// # Returns
+/// `Some((field_name, field_type))` if parsing succeeds, `None` otherwise
+fn parse_single_field(field_str: &str) -> Option<(String, String)> {
+    let trimmed = field_str.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    // Find the first colon that separates field name from type
+    let colon_pos = trimmed.find(':')?;
+    let name = trimmed[..colon_pos].trim().to_string();
+    let typ = trimmed[colon_pos + 1..].trim().to_string();
+
+    if name.is_empty() || typ.is_empty() {
+        return None;
+    }
+
+    Some((name, typ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    // Type formatting tests
+    #[test]
+    fn test_format_simple_struct_type() {
+        let input = "@type t() :: %{__struct__: MyApp.User, name: String.t(), age: integer()}";
+        let result = format_type_definition(input);
+
+        assert!(result.contains("%MyApp.User{"));
+        assert!(result.contains("name: String.t()"));
+        assert!(result.contains("age: integer()"));
+    }
+
+    #[test]
+    fn test_format_struct_with_nested_types() {
+        let input = "@type t() :: %{__struct__: TradeGym.DataImporter, executions: list(), open_positions: list(), reason: String.t() | nil, status: :ok | :error}";
+        let result = format_type_definition(input);
+
+        assert!(result.contains("%TradeGym.DataImporter{"));
+        assert!(result.contains("executions: list()"));
+        assert!(result.contains("open_positions: list()"));
+        assert!(result.contains("reason: String.t() | nil"));
+        assert!(result.contains("status: :ok | :error"));
+    }
+
+    #[test]
+    fn test_format_empty_struct() {
+        let input = "@type t() :: %{__struct__: MyApp.Empty}";
+        let result = format_type_definition(input);
+
+        // Empty struct should remain compact
+        assert!(result.contains("%MyApp.Empty{}"));
+    }
+
+    #[test]
+    fn test_non_struct_type_unchanged() {
+        let input = "@type user_id() :: integer()";
+        let result = format_type_definition(input);
+
+        assert_eq!(result, input);
+    }
+
+    #[test]
+    fn test_map_type_unchanged() {
+        let input = "@type options() :: %{name: String.t(), age: integer()}";
+        let result = format_type_definition(input);
+
+        // Regular maps (without __struct__) should remain unchanged
+        assert_eq!(result, input);
+    }
+
+    #[test]
+    fn test_format_struct_with_complex_types() {
+        let input = "@type t() :: %{__struct__: MyApp.State, callbacks: list({atom(), function()}), data: map()}";
+        let result = format_type_definition(input);
+
+        assert!(result.contains("%MyApp.State{"));
+        assert!(result.contains("callbacks: list({atom(), function()})"));
+        assert!(result.contains("data: map()"));
+    }
+
+    #[test]
+    fn test_parse_type_fields_simple() {
+        let input = "name: String.t(), age: integer()";
+        let fields = parse_type_fields(input);
+
+        assert_eq!(fields.len(), 2);
+        assert_eq!(fields[0], ("name".to_string(), "String.t()".to_string()));
+        assert_eq!(fields[1], ("age".to_string(), "integer()".to_string()));
+    }
+
+    #[test]
+    fn test_parse_type_fields_with_nested_parens() {
+        let input = "list: list(integer()), map: map()";
+        let fields = parse_type_fields(input);
+
+        assert_eq!(fields.len(), 2);
+        assert_eq!(fields[0], ("list".to_string(), "list(integer())".to_string()));
+        assert_eq!(fields[1], ("map".to_string(), "map()".to_string()));
+    }
+
+    #[test]
+    fn test_parse_type_fields_with_union_types() {
+        let input = "status: :ok | :error, reason: String.t() | nil";
+        let fields = parse_type_fields(input);
+
+        assert_eq!(fields.len(), 2);
+        assert_eq!(fields[0], ("status".to_string(), ":ok | :error".to_string()));
+        assert_eq!(fields[1], ("reason".to_string(), "String.t() | nil".to_string()));
+    }
+
+    #[test]
+    fn test_opaque_type_unchanged() {
+        let input = "@opaque state() :: %{internal: map()}";
+        let result = format_type_definition(input);
+
+        assert_eq!(result, input);
+    }
+
+    #[test]
+    fn test_typep_with_struct() {
+        let input = "@typep t() :: %{__struct__: MyApp.Internal, data: term()}";
+        let result = format_type_definition(input);
+
+        assert!(result.contains("%MyApp.Internal{"));
+        assert!(result.contains("data: term()"));
+    }
+
+    // Grouping tests
     #[test]
     fn test_group_by_module_empty() {
         let items: Vec<(String, i32)> = vec![];

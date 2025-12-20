@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use super::execute::{BrowseModuleResult, Definition};
 use crate::output::Outputable;
+use crate::utils::format_type_definition;
 
 impl Outputable for BrowseModuleResult {
     fn to_table(&self) -> String {
@@ -87,7 +88,15 @@ impl Outputable for BrowseModuleResult {
                     } => {
                         output.push_str(&format!("    L{:<3}  [{}] {}\n", line, kind, name));
                         if !definition.is_empty() {
-                            output.push_str(&format!("           {}\n", definition));
+                            let formatted = format_type_definition(definition);
+                            // Indent multi-line definitions properly
+                            for (i, def_line) in formatted.lines().enumerate() {
+                                if i == 0 {
+                                    output.push_str(&format!("           {}\n", def_line));
+                                } else {
+                                    output.push_str(&format!("           {}\n", def_line));
+                                }
+                            }
                         }
                     }
 
