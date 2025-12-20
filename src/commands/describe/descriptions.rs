@@ -376,10 +376,10 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
             "Show what modules a given module depends on",
             CommandCategory::Module,
             "Lists all modules that a given module calls or depends on. Shows outgoing module dependencies.",
-            "code_search depends-on -m <MODULE> [OPTIONS]",
+            "code_search depends-on <MODULE> [OPTIONS]",
         )
         .with_examples(vec![
-            Example::new("Find module dependencies", "code_search depends-on -m MyApp.API"),
+            Example::new("Find module dependencies", "code_search depends-on MyApp.API"),
         ])
         .with_related(vec!["depended-by", "cycles", "boundaries"]),
 
@@ -388,10 +388,10 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
             "Show what modules depend on a given module",
             CommandCategory::Module,
             "Lists all modules that call or depend on a given module. Shows incoming module dependencies.",
-            "code_search depended-by -m <MODULE> [OPTIONS]",
+            "code_search depended-by <MODULE> [OPTIONS]",
         )
         .with_examples(vec![
-            Example::new("Find modules that depend on this one", "code_search depended-by -m MyApp.Repo"),
+            Example::new("Find modules that depend on this one", "code_search depended-by MyApp.Repo"),
         ])
         .with_related(vec!["depends-on", "cycles", "boundaries"]),
 

@@ -16,11 +16,10 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search depends-on -m MyApp.Accounts       # What does Accounts depend on?
-  code_search depends-on -m 'MyApp\\.Web.*' -r   # Dependencies of Web modules")]
+  code_search depends-on MyApp.Accounts       # What does Accounts depend on?
+  code_search depends-on 'MyApp\\.Web.*' -r   # Dependencies of Web modules")]
 pub struct DependsOnCmd {
     /// Module name (exact match or pattern with --regex)
-    #[arg(short, long)]
     pub module: String,
 
     #[command(flatten)]

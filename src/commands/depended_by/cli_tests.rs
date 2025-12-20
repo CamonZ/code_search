@@ -13,14 +13,14 @@ mod tests {
     crate::cli_required_arg_test! {
         command: "depended-by",
         test_name: test_requires_module,
-        required_arg: "--module",
+        required_arg: "<MODULE>",
     }
 
     crate::cli_option_test! {
         command: "depended-by",
         variant: DependedBy,
         test_name: test_with_module,
-        args: ["--module", "MyApp.Repo"],
+        args: ["MyApp.Repo"],
         field: module,
         expected: "MyApp.Repo",
     }
@@ -29,7 +29,7 @@ mod tests {
         command: "depended-by",
         variant: DependedBy,
         test_name: test_with_regex,
-        args: ["--module", "MyApp\\..*", "--regex"],
+        args: ["MyApp\\..*", "--regex"],
         field: common.regex,
         expected: true,
     }
@@ -38,7 +38,7 @@ mod tests {
         command: "depended-by",
         variant: DependedBy,
         test_name: test_with_limit,
-        args: ["--module", "MyApp.Repo", "--limit", "50"],
+        args: ["MyApp.Repo", "--limit", "50"],
         field: common.limit,
         expected: 50,
     }
@@ -46,7 +46,7 @@ mod tests {
     crate::cli_limit_tests! {
         command: "depended-by",
         variant: DependedBy,
-        required_args: ["--module", "MyApp.Repo"],
+        required_args: ["MyApp.Repo"],
         limit: {
             field: common.limit,
             default: 100,
