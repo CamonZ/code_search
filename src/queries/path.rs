@@ -37,7 +37,7 @@ pub fn find_paths(
     db: &cozo::DbInstance,
     from_module: &str,
     from_function: &str,
-    _from_arity: Option<i64>,
+    from_arity: Option<i64>,
     to_module: &str,
     to_function: &str,
     to_arity: Option<i64>,
@@ -45,44 +45,49 @@ pub fn find_paths(
     max_depth: u32,
     limit: u32,
 ) -> Result<Vec<CallPath>, Box<dyn Error>> {
-    let project_cond = ", project == $project";
+    // Build conditions using the ConditionBuilder utilities
+    let from_arity_cond = crate::utils::OptionalConditionBuilder::new("caller_arity", "from_arity")
+        .when_none("true")
+        .build(from_arity.is_some());
 
-    let to_arity_cond = if to_arity.is_some() {
-        ", callee_arity == $to_arity"
-    } else {
-        ""
-    };
+    let to_arity_cond = crate::utils::OptionalConditionBuilder::new("callee_arity", "to_arity")
+        .when_none("true")
+        .build(to_arity.is_some());
 
     // Simpler approach: trace forward from source to find all reachable calls,
     // then filter to paths that end at the target.
     // Returns edges on valid paths (may include multiple paths if they exist).
+    // Joins with function_locations to get caller arity for filtering.
     let script = format!(
         r#"
         # Base case: direct calls from the source function
+        # Join with function_locations to get caller arity
+        # Uses starts_with to handle both "func" and "func/2" formats in caller_function
         trace[depth, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line] :=
             *calls{{project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line}},
+            *function_locations{{project, module: caller_module, name: caller_name, arity: caller_arity}},
+            starts_with(caller_function, caller_name),
             caller_module == $from_module,
-            caller_function == $from_function
-            {project_cond},
+            starts_with(caller_function, $from_function),
+            {from_arity_cond},
+            project == $project,
             depth = 1
 
         # Recursive case: continue from callees we've found
-        # Note: caller_function has arity suffix (e.g., "foo/2") but callee_function doesn't (e.g., "foo")
-        # So we use starts_with to match caller_function starting with prev_callee_function
         trace[depth, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line] :=
             trace[prev_depth, _, _, prev_callee_module, prev_callee_function, _, _, _],
             *calls{{project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line}},
             caller_module == prev_callee_module,
             starts_with(caller_function, prev_callee_function),
             prev_depth < {max_depth},
-            depth = prev_depth + 1
-            {project_cond}
+            depth = prev_depth + 1,
+            project == $project
 
         # Find the depth at which we reach the target
         target_depth[d] :=
             trace[d, _, _, callee_module, callee_function, callee_arity, _, _],
             callee_module == $to_module,
-            callee_function == $to_function
+            starts_with(callee_function, $to_function),
             {to_arity_cond}
 
         # Only return edges at depths <= minimum target depth (edges on valid paths)
@@ -101,6 +106,9 @@ pub fn find_paths(
     params.insert("from_function".to_string(), DataValue::Str(from_function.into()));
     params.insert("to_module".to_string(), DataValue::Str(to_module.into()));
     params.insert("to_function".to_string(), DataValue::Str(to_function.into()));
+    if let Some(a) = from_arity {
+        params.insert("from_arity".to_string(), DataValue::from(a));
+    }
     if let Some(a) = to_arity {
         params.insert("to_arity".to_string(), DataValue::from(a));
     }

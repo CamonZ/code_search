@@ -143,10 +143,10 @@ pub fn all_descriptions() -> Vec<CommandDescription> {
             "Find a call path between two functions",
             CommandCategory::Query,
             "Finds one or more call paths connecting two functions. Useful for understanding how code flows from a source to a target.",
-            "code_search path -m <MODULE> -f <FUNCTION> --target-module <MODULE> --target-function <FUNCTION>",
+            "code_search path --from-module <MODULE> --from-function <FUNCTION> --to-module <MODULE> --to-function <FUNCTION>",
         )
         .with_examples(vec![
-            Example::new("Find call path between two functions", "code_search path -m MyApp.API -f create_user --target-module MyApp.DB -f insert"),
+            Example::new("Find call path between two functions", "code_search path --from-module MyApp.API --from-function create_user --to-module MyApp.DB --to-function insert"),
         ])
         .with_related(vec!["trace", "reverse-trace", "calls-from"]),
 
