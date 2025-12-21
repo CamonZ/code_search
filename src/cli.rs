@@ -13,7 +13,7 @@ use crate::output::OutputFormat;
 #[command(author, version, about, long_about = None)]
 pub struct Args {
     /// Path to the CozoDB SQLite database file
-    #[arg(short, long, default_value = "./cozo.sqlite", global = true)]
+    #[arg(long, default_value = "./cozo.sqlite", global = true)]
     pub db: PathBuf,
 
     /// Output format
