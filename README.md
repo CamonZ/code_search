@@ -143,7 +143,7 @@ Most commands support these options:
 - `-l, --limit <N>`: Maximum results to return (default: 100, max: 1000)
 - `-r, --regex`: Treat patterns as regular expressions
 - `--project <NAME>`: Filter to a specific project (default: "default")
-- `-d, --db <PATH>`: Database file path (default: ./cozo.sqlite)
+- `--db <PATH>`: Database file path (default: ./cozo.sqlite)
 - `-o, --format <FORMAT>`: Output format (table, json, toon)
 
 ## Examples
