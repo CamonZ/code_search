@@ -33,9 +33,11 @@ pub struct StructField {
 /// Function location with clause-level detail.
 ///
 /// The new format stores each function clause as a separate entry keyed by `function/arity:line`.
-/// Fields `name` and `arity` are parsed from the key during deserialization.
+/// Fields `name` and `arity` are deserialized directly from the JSON.
 #[derive(Debug, Deserialize)]
 pub struct FunctionLocation {
+    pub name: String,
+    pub arity: u32,
     /// Relative file path (accepts either "file" or "source_file" from JSON)
     #[serde(alias = "source_file")]
     pub file: Option<String>,

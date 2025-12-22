@@ -57,6 +57,8 @@ mod tests {
             "function_locations": {
                 "MyApp.Accounts": {
                     "get_user/1:10": {
+                        "name": "get_user",
+                        "arity": 1,
                         "file": "lib/my_app/accounts.ex",
                         "column": 7,
                         "kind": "def",
