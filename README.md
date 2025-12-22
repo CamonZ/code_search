@@ -1,5 +1,7 @@
 # code_search
 
+![CI](https://github.com/CamonZ/code_search/actions/workflows/ci.yml/badge.svg)
+
 A CLI tool for querying Elixir/Erlang call graph data stored in CozoDB. Designed for LLMs to efficiently explore and understand codebases without consuming context windows by reading source files directly.
 
 ## Why?
