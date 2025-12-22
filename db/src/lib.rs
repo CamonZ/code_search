@@ -2,6 +2,7 @@
 
 pub mod db;
 pub mod types;
+pub mod query_builders;
 
 // Re-export commonly used items
 pub use db::{open_db, run_query, run_query_no_params, DbError, Params};
@@ -14,3 +15,5 @@ pub use types::{
     ModuleCollectionResult, TraceResult, TraceEntry,
     TraceDirection, SharedStr
 };
+
+pub use query_builders::{ConditionBuilder, OptionalConditionBuilder};
