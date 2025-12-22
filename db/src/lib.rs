@@ -3,6 +3,7 @@
 pub mod db;
 pub mod types;
 pub mod query_builders;
+pub mod queries;
 
 // Re-export commonly used items
 pub use db::{open_db, run_query, run_query_no_params, DbError, Params};
