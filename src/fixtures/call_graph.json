@@ -12,7 +12,9 @@
         "pattern": "conn, params",
         "guard": null,
         "source_sha": "",
-        "ast_sha": ""
+        "ast_sha": "",
+        "name": "index",
+        "arity": 2
       },
       "show/2:12": {
         "file": "lib/my_app/controller.ex",
@@ -24,7 +26,9 @@
         "pattern": "conn, params",
         "guard": null,
         "source_sha": "",
-        "ast_sha": ""
+        "ast_sha": "",
+        "name": "show",
+        "arity": 2
       },
       "create/2:20": {
         "file": "lib/my_app/controller.ex",
@@ -36,7 +40,9 @@
         "pattern": "conn, params",
         "guard": null,
         "source_sha": "",
-        "ast_sha": ""
+        "ast_sha": "",
+        "name": "create",
+        "arity": 2
       }
     },
     "MyApp.Accounts": {
@@ -50,7 +56,9 @@
         "pattern": "id",
         "guard": null,
         "source_sha": "",
-        "ast_sha": ""
+        "ast_sha": "",
+        "name": "get_user",
+        "arity": 1
       },
       "get_user/2:17": {
         "file": "lib/my_app/accounts.ex",
@@ -62,7 +70,9 @@
         "pattern": "id, opts",
         "guard": null,
         "source_sha": "",
-        "ast_sha": ""
+        "ast_sha": "",
+        "name": "get_user",
+        "arity": 2
       },
       "list_users/0:24": {
         "file": "lib/my_app/accounts.ex",
@@ -74,7 +84,9 @@
         "pattern": "",
         "guard": null,
         "source_sha": "",
-        "ast_sha": ""
+        "ast_sha": "",
+        "name": "list_users",
+        "arity": 0
       },
       "validate_email/1:30": {
         "file": "lib/my_app/accounts.ex",
@@ -86,7 +98,9 @@
         "pattern": "email",
         "guard": null,
         "source_sha": "",
-        "ast_sha": ""
+        "ast_sha": "",
+        "name": "validate_email",
+        "arity": 1
       }
     },
     "MyApp.Service": {
@@ -100,7 +114,9 @@
         "pattern": "data",
         "guard": null,
         "source_sha": "",
-        "ast_sha": ""
+        "ast_sha": "",
+        "name": "process",
+        "arity": 1
       },
       "fetch/1:17": {
         "file": "lib/my_app/service.ex",
@@ -112,7 +128,9 @@
         "pattern": "id",
         "guard": null,
         "source_sha": "",
-        "ast_sha": ""
+        "ast_sha": "",
+        "name": "fetch",
+        "arity": 1
       },
       "do_fetch/2:27": {
         "file": "lib/my_app/service.ex",
@@ -124,7 +142,9 @@
         "pattern": "id, opts",
         "guard": null,
         "source_sha": "",
-        "ast_sha": ""
+        "ast_sha": "",
+        "name": "do_fetch",
+        "arity": 2
       }
     },
     "MyApp.Repo": {
@@ -138,7 +158,9 @@
         "pattern": "schema, id",
         "guard": null,
         "source_sha": "",
-        "ast_sha": ""
+        "ast_sha": "",
+        "name": "get",
+        "arity": 2
       },
       "all/1:17": {
         "file": "lib/my_app/repo.ex",
@@ -150,7 +172,9 @@
         "pattern": "query",
         "guard": null,
         "source_sha": "",
-        "ast_sha": ""
+        "ast_sha": "",
+        "name": "all",
+        "arity": 1
       },
       "insert/2:24": {
         "file": "lib/my_app/repo.ex",
@@ -162,7 +186,9 @@
         "pattern": "struct, opts",
         "guard": null,
         "source_sha": "",
-        "ast_sha": ""
+        "ast_sha": "",
+        "name": "insert",
+        "arity": 2
       }
     },
     "MyApp.Notifier": {
@@ -176,7 +202,9 @@
         "pattern": "user",
         "guard": null,
         "source_sha": "",
-        "ast_sha": ""
+        "ast_sha": "",
+        "name": "notify",
+        "arity": 1
       },
       "send_email/2:14": {
         "file": "lib/my_app/notifier.ex",
@@ -188,7 +216,9 @@
         "pattern": "to, body",
         "guard": null,
         "source_sha": "",
-        "ast_sha": ""
+        "ast_sha": "",
+        "name": "send_email",
+        "arity": 2
       }
     }
   },

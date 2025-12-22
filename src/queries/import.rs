@@ -276,23 +276,6 @@ pub fn import_structs(
     )
 }
 
-/// Parse function key in format "name/arity:line" into (name, arity, line).
-///
-/// Returns None if the key doesn't match the expected format.
-fn parse_function_key(key: &str) -> Option<(String, u32, u32)> {
-    // Format: "function_name/arity:line"
-    // Example: "keep_values/2:224"
-    let colon_pos = key.rfind(':')?;
-    let line: u32 = key[colon_pos + 1..].parse().ok()?;
-
-    let before_colon = &key[..colon_pos];
-    let slash_pos = before_colon.rfind('/')?;
-    let arity: u32 = before_colon[slash_pos + 1..].parse().ok()?;
-
-    let name = before_colon[..slash_pos].to_string();
-    Some((name, arity, line))
-}
-
 pub fn import_function_locations(
     db: &DbInstance,
     project: &str,
@@ -302,12 +285,11 @@ pub fn import_function_locations(
     let mut rows = Vec::new();
 
     for (module, functions) in &graph.function_locations {
-        for (func_key, loc) in functions {
-            // Parse name, arity, line from key (new format: "func/arity:line")
-            let (name, arity, line) = parse_function_key(func_key).unwrap_or_else(|| {
-                // Fallback: use loc.line if key parsing fails
-                (func_key.clone(), 0, loc.line)
-            });
+        for (_func_key, loc) in functions {
+            // Use deserialized fields directly from the JSON
+            let name = &loc.name;
+            let arity = loc.arity;
+            let line = loc.line;
 
             let source_file_absolute = loc.source_file_absolute.as_deref().unwrap_or("");
             let pattern = loc.pattern.as_deref().unwrap_or("");
@@ -482,6 +464,8 @@ mod tests {
     #[test]
     fn test_function_location_deserialize_with_new_fields() {
         let json = r#"{
+            "name": "test_func",
+            "arity": 2,
             "kind": "def",
             "line": 10,
             "start_line": 10,
@@ -501,10 +485,12 @@ mod tests {
         assert_eq!(result.macro_source, Some("ecto/schema.ex".to_string()));
     }
 
-    // Test deserialization without new fields (backward compatibility)
+    // Test deserialization without optional fields (backward compatibility)
     #[test]
     fn test_function_location_deserialize_without_new_fields() {
         let json = r#"{
+            "name": "test_func",
+            "arity": 2,
             "kind": "def",
             "line": 10,
             "start_line": 10,
@@ -525,6 +511,8 @@ mod tests {
     #[test]
     fn test_function_location_deserialize_empty_strings() {
         let json = r#"{
+            "name": "test_func",
+            "arity": 2,
             "kind": "def",
             "line": 10,
             "start_line": 10,
@@ -554,6 +542,8 @@ mod tests {
             "function_locations": {
                 "MyApp.Accounts": {
                     "process_data/2:20": {
+                        "name": "process_data",
+                        "arity": 2,
                         "file": "lib/accounts.ex",
                         "column": 5,
                         "kind": "def",
