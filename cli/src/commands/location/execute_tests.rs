@@ -1,0 +1,320 @@
+//! Execute tests for location command.
+
+#[cfg(test)]
+mod tests {
+    use super::super::LocationCmd;
+    use crate::commands::CommonArgs;
+    use rstest::{fixture, rstest};
+
+    crate::shared_fixture! {
+        fixture_name: populated_db,
+        fixture_type: call_graph,
+        project: "test_project",
+    }
+
+    // =========================================================================
+    // Core functionality tests
+    // =========================================================================
+
+    crate::execute_test! {
+        test_name: test_location_exact_match,
+        fixture: populated_db,
+        cmd: LocationCmd {
+            module: Some("MyApp.Accounts".to_string()),
+            function: "get_user".to_string(),
+            arity: Some(1),
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
+        },
+        assertions: |result| {
+            assert_eq!(result.modules.len(), 1);
+            assert_eq!(result.modules[0].functions.len(), 1);
+            let func = &result.modules[0].functions[0];
+            assert_eq!(func.file, "lib/my_app/accounts.ex");
+            assert_eq!(func.clauses[0].start_line, 10);
+            assert_eq!(func.clauses[0].end_line, 15);
+        },
+    }
+
+    // get_user exists in Accounts with arities 1 and 2
+    crate::execute_test! {
+        test_name: test_location_without_module,
+        fixture: populated_db,
+        cmd: LocationCmd {
+            module: None,
+            function: "get_user".to_string(),
+            arity: None,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
+        },
+        assertions: |result| {
+            // 2 functions (get_user/1 and get_user/2) in 1 module
+            assert_eq!(result.total_clauses, 2);
+            assert_eq!(result.modules.len(), 1);
+            assert_eq!(result.modules[0].name, "MyApp.Accounts");
+            assert_eq!(result.modules[0].functions.len(), 2);
+        },
+    }
+
+    // Functions with "user" in name: get_user/1, get_user/2, list_users = 3
+    crate::execute_test! {
+        test_name: test_location_without_module_multiple_matches,
+        fixture: populated_db,
+        cmd: LocationCmd {
+            module: None,
+            function: ".*user.*".to_string(),
+            arity: None,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 100,
+            },
+        },
+        assertions: |result| {
+            assert_eq!(result.total_clauses, 3);
+        },
+    }
+
+    // get_user has two arities in Accounts
+    crate::execute_test! {
+        test_name: test_location_without_arity,
+        fixture: populated_db,
+        cmd: LocationCmd {
+            module: Some("MyApp.Accounts".to_string()),
+            function: "get_user".to_string(),
+            arity: None,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
+        },
+        assertions: |result| {
+            assert_eq!(result.total_clauses, 2);
+        },
+    }
+
+    crate::execute_test! {
+        test_name: test_location_with_regex,
+        fixture: populated_db,
+        cmd: LocationCmd {
+            module: Some("MyApp\\..*".to_string()),
+            function: ".*user.*".to_string(),
+            arity: None,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 100,
+            },
+        },
+        assertions: |result| {
+            assert_eq!(result.total_clauses, 3);
+        },
+    }
+
+    crate::execute_test! {
+        test_name: test_location_format,
+        fixture: populated_db,
+        cmd: LocationCmd {
+            module: Some("MyApp.Accounts".to_string()),
+            function: "get_user".to_string(),
+            arity: Some(1),
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
+        },
+        assertions: |result| {
+            let func = &result.modules[0].functions[0];
+            assert_eq!(
+                format!("{}:{}:{}", func.file, func.clauses[0].start_line, func.clauses[0].end_line),
+                "lib/my_app/accounts.ex:10:15"
+            );
+        },
+    }
+
+    // =========================================================================
+    // No match / empty result tests
+    // =========================================================================
+
+    crate::execute_no_match_test! {
+        test_name: test_location_no_match,
+        fixture: populated_db,
+        cmd: LocationCmd {
+            module: Some("NonExistent".to_string()),
+            function: "foo".to_string(),
+            arity: None,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
+        },
+        empty_field: modules,
+    }
+
+    crate::execute_no_match_test! {
+        test_name: test_location_nonexistent_project,
+        fixture: populated_db,
+        cmd: LocationCmd {
+            module: None,
+            function: "get_user".to_string(),
+            arity: None,
+            common: CommonArgs {
+                project: "nonexistent_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
+        },
+        empty_field: modules,
+    }
+
+    // =========================================================================
+    // Filter tests
+    // =========================================================================
+
+    crate::execute_test! {
+        test_name: test_location_with_project_filter,
+        fixture: populated_db,
+        cmd: LocationCmd {
+            module: Some("MyApp.Accounts".to_string()),
+            function: "get_user".to_string(),
+            arity: Some(1),
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
+        },
+        assertions: |result| {
+            assert_eq!(result.modules.len(), 1);
+            assert_eq!(result.modules[0].functions.len(), 1);
+        },
+    }
+
+    // 6 functions with arity 1: get_user/1, validate_email, process, fetch, all, notify
+    crate::execute_test! {
+        test_name: test_location_arity_filter_without_module,
+        fixture: populated_db,
+        cmd: LocationCmd {
+            module: None,
+            function: ".*".to_string(),
+            arity: Some(1),
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 100,
+            },
+        },
+        assertions: |result| {
+            let total_funcs: usize = result.modules.iter().map(|m| m.functions.len()).sum();
+            assert_eq!(total_funcs, 6);
+            // All functions should have arity 1
+            for module in &result.modules {
+                for func in &module.functions {
+                    assert_eq!(func.arity, 1);
+                }
+            }
+        },
+    }
+
+    crate::execute_test! {
+        test_name: test_location_project_filter_without_module,
+        fixture: populated_db,
+        cmd: LocationCmd {
+            module: None,
+            function: "get_user".to_string(),
+            arity: None,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
+        },
+        assertions: |result| {
+            assert_eq!(result.total_clauses, 2);
+        },
+    }
+
+    // Accounts has get_user/1, get_user/2, list_users matching ".*user.*" = 3
+    crate::execute_test! {
+        test_name: test_location_function_regex_with_exact_module,
+        fixture: populated_db,
+        cmd: LocationCmd {
+            module: Some("MyApp.Accounts".to_string()),
+            function: ".*user.*".to_string(),
+            arity: None,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 100,
+            },
+        },
+        assertions: |result| {
+            assert_eq!(result.total_clauses, 3);
+        },
+    }
+
+    crate::execute_test! {
+        test_name: test_location_arity_zero,
+        fixture: populated_db,
+        cmd: LocationCmd {
+            module: None,
+            function: "list_users".to_string(),
+            arity: Some(0),
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
+        },
+        assertions: |result| {
+            assert_eq!(result.total_clauses, 1);
+            assert_eq!(result.modules[0].functions[0].arity, 0);
+        },
+    }
+
+    crate::execute_test! {
+        test_name: test_location_with_limit,
+        fixture: populated_db,
+        cmd: LocationCmd {
+            module: None,
+            function: ".*user.*".to_string(),
+            arity: None,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 1,
+            },
+        },
+        assertions: |result| {
+            // Limit applies to raw results before grouping
+            assert_eq!(result.total_clauses, 1);
+        },
+    }
+
+    // =========================================================================
+    // Error handling tests
+    // =========================================================================
+
+    crate::execute_empty_db_test! {
+        cmd_type: LocationCmd,
+        cmd: LocationCmd {
+            module: Some("MyApp".to_string()),
+            function: "foo".to_string(),
+            arity: None,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
+        },
+    }
+}
