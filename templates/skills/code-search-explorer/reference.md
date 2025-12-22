@@ -50,7 +50,7 @@ code_search struct-usage <struct>         # Where is struct used?
 ## Global Flags
 
 ```bash
---db <path>                # Database location (default: ./cozo.sqlite)
+--db <path>                # Database location (auto-resolves: .code_search/, ./, ~/.code_search/)
 --format <fmt>             # Output format: table|json|toon
 ```
 
@@ -152,14 +152,14 @@ code_search hotspots --kind total --limit 15
 ## Setup & Import
 
 ```bash
-# Create database schema
-code_search setup --db ./cozo.sqlite
+# Create database schema (creates .code_search/cozo.sqlite)
+code_search setup
 
 # Import call graph data (from ex_ast)
-code_search import --db ./cozo.sqlite --file call_graph.json
+code_search import --file call_graph.json
 
 # Verify import
-code_search --db ./cozo.sqlite describe
+code_search describe
 ```
 
 ## Need More Help?

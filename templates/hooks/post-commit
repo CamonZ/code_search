@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+#
+# Post-commit hook for incremental database updates
+#
+# This hook runs after each commit to update the CozoDB database with changes
+# from the last commit. It:
+# 1. Ensures the project is compiled with debug info
+# 2. Extracts AST data for changed files using ex_ast --git-diff
+# 3. Imports the data into the database using code_search import
+#
+# Installation:
+#   cp hooks/post-commit .git/hooks/post-commit
+#   chmod +x .git/hooks/post-commit
+#
+# Configuration (via git config, all optional):
+#   git config code-search.project-name <name>   # Project name (for multi-project databases)
+#   git config code-search.mix-env <env>         # Mix environment (default: dev)
+#
+# Database path is auto-resolved to .code_search/cozo.sqlite in the project root
+#
+
+# Get configuration from git config (all optional)
+PROJECT_NAME=$(git config code-search.project-name || echo "")
+MIX_ENV=$(git config code-search.mix-env || echo "dev")
+
+# Color output helpers
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+info() {
+    echo -e "${GREEN}[code-search]${NC} ${1}"
+}
+
+warn() {
+    echo -e "${YELLOW}[code-search]${NC} ${1}"
+}
+
+error() {
+    echo -e "${RED}[code-search]${NC} ${1}"
+}
+
+# Check if we're in an Elixir project
+if [ ! -f "mix.exs" ]; then
+    warn "No mix.exs found, skipping database update"
+    exit 0
+fi
+
+# Check if ex_ast is available
+if ! command -v ex_ast &> /dev/null; then
+    warn "ex_ast not found in PATH, skipping database update"
+    warn "Install from: https://github.com/CamonZ/ex_ast"
+    exit 0
+fi
+
+# Check if code_search is available
+if ! command -v code_search &> /dev/null; then
+    warn "code_search not found in PATH, skipping database update"
+    exit 0
+fi
+
+info "Updating code graph database for last commit..."
+
+# Determine git reference for comparison
+# On the first commit, HEAD~1 doesn't exist, so we compare against an empty tree
+if git rev-parse --verify HEAD~1 &>/dev/null; then
+    GIT_REF="HEAD~1"
+else
+    # First commit in repository - compare against empty tree
+    info "First commit detected - analyzing all files"
+    GIT_REF="4b825dc642cb6eb9a060e54bf8d69288fbee4904"  # Git's empty tree SHA
+fi
+
+# Step 1: Ensure project is compiled with debug info
+info "Ensuring project is compiled with debug info..."
+if ! MIX_ENV="${MIX_ENV}" mix compile --debug-info 2>&1; then
+    error "Compilation failed - changed files in the last commit don't compile"
+    error "Database update skipped"
+    exit 1
+fi
+
+# Step 2: Extract AST data for changed files
+TEMP_JSON=$(mktemp /tmp/ex_ast_XXXXXX.json)
+trap "rm -f ${TEMP_JSON}" EXIT
+
+info "Extracting AST data for changed files (git diff ${GIT_REF})..."
+if ! ex_ast --git-diff "${GIT_REF}" --env "${MIX_ENV}" --format json --output "${TEMP_JSON}" 2>&1; then
+    error "AST extraction failed"
+    error "Database update skipped"
+    exit 1
+fi
+
+# Check if we got any data (file should be non-empty and not just "{}")
+if [ ! -s "${TEMP_JSON}" ]; then
+    info "No changes to import (empty extraction)"
+    exit 0
+fi
+
+# Check if the JSON contains actual data (using POSIX character classes)
+if grep -q '"function_locations":[[:space:]]*{}.*"calls":[[:space:]]*\[\].*"specs":[[:space:]]*{}' "${TEMP_JSON}"; then
+    info "No changes to import (no function/call data)"
+    exit 0
+fi
+
+# Step 3: Import data into database (will upsert existing records)
+# Database path will be auto-resolved to .code_search/cozo.sqlite
+if [ -n "${PROJECT_NAME}" ]; then
+    info "Importing data (project: ${PROJECT_NAME})..."
+    if code_search import --file "${TEMP_JSON}" --project "${PROJECT_NAME}" 2>&1; then
+        info "Database updated successfully!"
+    else
+        error "Database import failed"
+        exit 1
+    fi
+else
+    info "Importing data..."
+    if code_search import --file "${TEMP_JSON}" 2>&1; then
+        info "Database updated successfully!"
+    else
+        error "Database import failed"
+        exit 1
+    fi
+fi

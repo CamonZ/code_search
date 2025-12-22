@@ -131,6 +131,59 @@ impl Outputable for SetupResult {
             output.push_str("\nTemplates installed to .claude/\n");
         }
 
+        // Add git hooks installation results if present
+        if let Some(ref hooks) = self.hooks {
+            output.push_str("\nGit Hooks Installation:\n");
+
+            // Hooks summary
+            let total_hooks = hooks.hooks_installed + hooks.hooks_skipped + hooks.hooks_overwritten;
+            if total_hooks > 0 {
+                output.push_str(&format!(
+                    "\n  Installed: {}, Skipped: {}, Overwritten: {}\n",
+                    hooks.hooks_installed, hooks.hooks_skipped, hooks.hooks_overwritten
+                ));
+
+                // Show hooks by status
+                let installed: Vec<_> = hooks
+                    .hooks
+                    .iter()
+                    .filter(|f| matches!(f.status, TemplateFileState::Installed))
+                    .collect();
+                let overwritten: Vec<_> = hooks
+                    .hooks
+                    .iter()
+                    .filter(|f| matches!(f.status, TemplateFileState::Overwritten))
+                    .collect();
+
+                if !installed.is_empty() {
+                    for file in installed {
+                        output.push_str(&format!("    ✓ {}\n", file.path));
+                    }
+                }
+
+                if !overwritten.is_empty() {
+                    for file in overwritten {
+                        output.push_str(&format!("    ⟳ {}\n", file.path));
+                    }
+                }
+            }
+
+            // Git config
+            if !hooks.git_config.is_empty() {
+                output.push_str("\n  Git Configuration:\n");
+                for config in &hooks.git_config {
+                    let symbol = if config.set { "✓" } else { "✗" };
+                    output.push_str(&format!(
+                        "    {} {} = {}\n",
+                        symbol, config.key, config.value
+                    ));
+                }
+            }
+
+            output.push_str("\nGit hooks installed to .git/hooks/\n");
+            output.push_str("Run 'git config --get-regexp code-search' to view configuration.\n");
+        }
+
         output
     }
 }

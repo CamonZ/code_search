@@ -19,7 +19,14 @@ use commands::CommandRunner;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let db = db::open_db(&args.db)?;
+    let db_path = cli::resolve_db_path(args.db);
+
+    // Create .code_search directory if using default path
+    if db_path == std::path::PathBuf::from(".code_search/cozo.sqlite") {
+        std::fs::create_dir_all(".code_search").ok();
+    }
+
+    let db = db::open_db(&db_path)?;
     let output = args.command.run(&db, args.format)?;
     println!("{}", output);
     Ok(())

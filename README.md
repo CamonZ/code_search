@@ -25,12 +25,20 @@ cargo build --release
 ### 1. Set up the database
 
 ```bash
-# Create database schema
+# Create database schema in .code_search/cozo.sqlite
 code_search setup
 
 # Or, create schema AND install Claude Code templates (skills + agents)
 code_search setup --install-skills
+
+# Or, install git hooks for automatic incremental updates after each commit
+code_search setup --install-hooks
+
+# Or, install everything (skills + hooks)
+code_search setup --install-skills --install-hooks
 ```
+
+The database is automatically created at `.code_search/cozo.sqlite` in your project root.
 
 ### 2. Import call graph data
 
@@ -127,13 +135,16 @@ Use `code_search describe` to see detailed documentation, or `code_search descri
 
 | Command | Usage | Description |
 |---------|-------|-------------|
-| `setup` | `setup [--install-skills] [--force] [--dry-run]` | Create database schema, optionally install templates |
+| `setup` | `setup [--install-skills] [--install-hooks] [--force]` | Create database schema, install templates and/or git hooks |
 | `import` | `import --file <FILE>` | Import call graph JSON |
 | `describe` | `describe [COMMANDS...]` | Show detailed command documentation |
 
 **Setup flags:**
 - `--install-skills`: Install skill and agent templates to `.claude/` (34 skills + 1 agent)
-- `--force`: Overwrite existing template files (preserves by default)
+- `--install-hooks`: Install post-commit git hook for automatic incremental updates
+- `--project-name <NAME>`: Project name for git hook config (optional, used with `--install-hooks`)
+- `--mix-env <ENV>`: Mix environment for git hook (used with `--install-hooks`, default: dev)
+- `--force`: Overwrite existing template/hook files (preserves by default)
 - `--dry-run`: Show what would be created without making changes
 
 ## Common Options
@@ -143,8 +154,17 @@ Most commands support these options:
 - `-l, --limit <N>`: Maximum results to return (default: 100, max: 1000)
 - `-r, --regex`: Treat patterns as regular expressions
 - `--project <NAME>`: Filter to a specific project (default: "default")
-- `--db <PATH>`: Database file path (default: ./cozo.sqlite)
+- `--db <PATH>`: Database file path (auto-resolved if not specified)
 - `-o, --format <FORMAT>`: Output format (table, json, toon)
+
+**Database path resolution:**
+
+The `code_search setup` command creates the database at `.code_search/cozo.sqlite` by default.
+
+If `--db` is not specified, commands automatically search for the database in this order:
+1. `.code_search/cozo.sqlite` (project-local, recommended)
+2. `./cozo.sqlite` (current directory, legacy)
+3. `~/.code_search/cozo.sqlite` (user-global)
 
 ## Examples
 
@@ -189,6 +209,32 @@ code_search setup --install-skills --force
 This installs:
 - **34 skill templates** documenting each command with examples
 - **1 Haiku-powered agent** for fast, cost-efficient codebase exploration
+
+### Git Hooks for Automatic Updates
+
+Keep your code graph database automatically in sync with each commit:
+
+```bash
+# Install post-commit hook (database auto-resolves to .code_search/cozo.sqlite)
+code_search setup --install-hooks
+
+# Or install both skills and hooks together
+code_search setup --install-skills --install-hooks
+```
+
+The post-commit hook automatically:
+- Compiles your project with debug info
+- Extracts AST data for changed files using `ex_ast --git-diff`
+- Updates the database incrementally (no need to re-analyze the entire codebase)
+- Database path is auto-resolved to `.code_search/cozo.sqlite`
+
+**No configuration required!** The hook works out of the box. Optional configuration:
+```bash
+git config code-search.project-name my_app  # For multi-project databases
+git config code-search.mix-env test         # Default: dev
+```
+
+See [docs/GIT_HOOKS.md](docs/GIT_HOOKS.md) for detailed documentation and troubleshooting.
 
 ### Using with Claude Code
 

@@ -51,12 +51,12 @@ mod tests {
     }
 
     #[rstest]
-    fn test_db_has_default_value(temp_file: (TempDir, PathBuf)) {
+    fn test_db_is_optional(temp_file: (TempDir, PathBuf)) {
         let (_dir, path) = temp_file;
         let args =
             Args::try_parse_from(["code_search", "import", "--file", path.to_str().unwrap()])
                 .unwrap();
-        assert_eq!(args.db, PathBuf::from("./cozo.sqlite"));
+        assert_eq!(args.db, None);
     }
 
     #[rstest]
@@ -71,6 +71,6 @@ mod tests {
             path.to_str().unwrap(),
         ])
         .unwrap();
-        assert_eq!(args.db, PathBuf::from("/custom/path.db"));
+        assert_eq!(args.db, Some(PathBuf::from("/custom/path.db")));
     }
 }
