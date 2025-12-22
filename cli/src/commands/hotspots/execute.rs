@@ -5,7 +5,7 @@ use serde::Serialize;
 use super::HotspotsCmd;
 use crate::commands::Execute;
 use crate::output::Outputable;
-use crate::queries::hotspots::find_hotspots;
+use db::queries::hotspots::find_hotspots;
 
 /// A function hotspot entry
 #[derive(Debug, Clone, Serialize)]
@@ -100,7 +100,7 @@ impl Outputable for HotspotsResult {
 impl Execute for HotspotsCmd {
     type Output = HotspotsResult;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
         let hotspots = find_hotspots(
             db,
             self.kind,
@@ -113,10 +113,10 @@ impl Execute for HotspotsCmd {
         )?;
 
         let kind_str = match self.kind {
-            crate::queries::hotspots::HotspotKind::Incoming => "incoming",
-            crate::queries::hotspots::HotspotKind::Outgoing => "outgoing",
-            crate::queries::hotspots::HotspotKind::Total => "total",
-            crate::queries::hotspots::HotspotKind::Ratio => "ratio",
+            db::queries::hotspots::HotspotKind::Incoming => "incoming",
+            db::queries::hotspots::HotspotKind::Outgoing => "outgoing",
+            db::queries::hotspots::HotspotKind::Total => "total",
+            db::queries::hotspots::HotspotKind::Ratio => "ratio",
         };
 
         let entries: Vec<FunctionHotspotEntry> = hotspots

@@ -2,7 +2,7 @@
 
 use super::execute::ManyClausesEntry;
 use crate::output::TableFormatter;
-use crate::types::ModuleCollectionResult;
+use db::types::ModuleCollectionResult;
 
 impl TableFormatter for ModuleCollectionResult<ManyClausesEntry> {
     type Entry = ManyClausesEntry;

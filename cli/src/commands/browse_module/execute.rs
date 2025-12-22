@@ -5,10 +5,10 @@ use serde::Serialize;
 
 use super::{BrowseModuleCmd, DefinitionKind};
 use crate::commands::Execute;
-use crate::queries::file::find_functions_in_module;
-use crate::queries::specs::find_specs;
-use crate::queries::types::find_types;
-use crate::queries::structs::{find_struct_fields, group_fields_into_structs, FieldInfo};
+use db::queries::file::find_functions_in_module;
+use db::queries::specs::find_specs;
+use db::queries::types::find_types;
+use db::queries::structs::{find_struct_fields, group_fields_into_structs, FieldInfo};
 
 /// Result of browsing definitions in a module
 #[derive(Debug, Serialize)]
@@ -119,7 +119,7 @@ impl Definition {
 impl Execute for BrowseModuleCmd {
     type Output = BrowseModuleResult;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
         let mut definitions = Vec::new();
 
         // Determine what to query based on kind filter

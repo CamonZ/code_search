@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::execute::FuncSig;
-    use crate::types::{ModuleGroupResult, ModuleGroup};
+    use db::types::{ModuleGroupResult, ModuleGroup};
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -130,7 +130,7 @@ MyApp.Accounts:
         test_name: test_format_json,
         fixture: single_result,
         fixture_type: ModuleGroupResult<FuncSig>,
-        expected: crate::test_utils::load_output_fixture("function", "single.json"),
+        expected: db::test_utils::load_output_fixture("function", "single.json"),
         format: Json,
     }
 
@@ -138,7 +138,7 @@ MyApp.Accounts:
         test_name: test_format_toon,
         fixture: single_result,
         fixture_type: ModuleGroupResult<FuncSig>,
-        expected: crate::test_utils::load_output_fixture("function", "single.toon"),
+        expected: db::test_utils::load_output_fixture("function", "single.toon"),
         format: Toon,
     }
 
@@ -146,7 +146,7 @@ MyApp.Accounts:
         test_name: test_format_toon_empty,
         fixture: empty_result,
         fixture_type: ModuleGroupResult<FuncSig>,
-        expected: crate::test_utils::load_output_fixture("function", "empty.toon"),
+        expected: db::test_utils::load_output_fixture("function", "empty.toon"),
         format: Toon,
     }
 }

@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::execute::PathResult;
-    use crate::queries::path::{CallPath, PathStep};
+    use db::queries::path::{CallPath, PathStep};
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -100,7 +100,7 @@ Path 1:
         test_name: test_format_json,
         fixture: single_path_result,
         fixture_type: PathResult,
-        expected: crate::test_utils::load_output_fixture("path", "single.json"),
+        expected: db::test_utils::load_output_fixture("path", "single.json"),
         format: Json,
     }
 
@@ -108,7 +108,7 @@ Path 1:
         test_name: test_format_toon,
         fixture: single_path_result,
         fixture_type: PathResult,
-        expected: crate::test_utils::load_output_fixture("path", "single.toon"),
+        expected: db::test_utils::load_output_fixture("path", "single.toon"),
         format: Toon,
     }
 
@@ -116,7 +116,7 @@ Path 1:
         test_name: test_format_toon_empty,
         fixture: empty_result,
         fixture_type: PathResult,
-        expected: crate::test_utils::load_output_fixture("path", "empty.toon"),
+        expected: db::test_utils::load_output_fixture("path", "empty.toon"),
         format: Toon,
     }
 }

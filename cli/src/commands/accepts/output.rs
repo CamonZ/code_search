@@ -1,7 +1,7 @@
 //! Output formatting for accepts command results.
 
 use crate::output::TableFormatter;
-use crate::types::ModuleGroupResult;
+use db::types::ModuleGroupResult;
 use super::execute::AcceptsInfo;
 
 impl TableFormatter for ModuleGroupResult<AcceptsInfo> {

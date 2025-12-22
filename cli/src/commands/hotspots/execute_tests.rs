@@ -5,7 +5,7 @@ mod tests {
     use super::super::HotspotsCmd;
     use crate::commands::CommonArgs;
     use crate::commands::Execute;
-    use crate::queries::hotspots::HotspotKind;
+    use db::queries::hotspots::HotspotKind;
     use rstest::{fixture, rstest};
 
     crate::shared_fixture! {
@@ -19,7 +19,7 @@ mod tests {
     // =========================================================================
 
     #[rstest]
-    fn test_hotspots_incoming(populated_db: cozo::DbInstance) {
+    fn test_hotspots_incoming(populated_db: db::DbInstance) {
         let cmd = HotspotsCmd {
             module: None,
             kind: HotspotKind::Incoming,
@@ -37,7 +37,7 @@ mod tests {
     }
 
     #[rstest]
-    fn test_hotspots_outgoing(populated_db: cozo::DbInstance) {
+    fn test_hotspots_outgoing(populated_db: db::DbInstance) {
         let cmd = HotspotsCmd {
             module: None,
             kind: HotspotKind::Outgoing,
@@ -55,7 +55,7 @@ mod tests {
     }
 
     #[rstest]
-    fn test_hotspots_total(populated_db: cozo::DbInstance) {
+    fn test_hotspots_total(populated_db: db::DbInstance) {
         let cmd = HotspotsCmd {
             module: None,
             kind: HotspotKind::Total,
@@ -73,7 +73,7 @@ mod tests {
     }
 
     #[rstest]
-    fn test_hotspots_ratio(populated_db: cozo::DbInstance) {
+    fn test_hotspots_ratio(populated_db: db::DbInstance) {
         let cmd = HotspotsCmd {
             module: None,
             kind: HotspotKind::Ratio,
@@ -97,7 +97,7 @@ mod tests {
     // =========================================================================
 
     #[rstest]
-    fn test_hotspots_with_module_filter(populated_db: cozo::DbInstance) {
+    fn test_hotspots_with_module_filter(populated_db: db::DbInstance) {
         let cmd = HotspotsCmd {
             module: Some("Accounts".to_string()),
             kind: HotspotKind::Incoming,
@@ -115,7 +115,7 @@ mod tests {
     }
 
     #[rstest]
-    fn test_hotspots_with_limit(populated_db: cozo::DbInstance) {
+    fn test_hotspots_with_limit(populated_db: db::DbInstance) {
         let cmd = HotspotsCmd {
             module: None,
             kind: HotspotKind::Incoming,
@@ -132,7 +132,7 @@ mod tests {
     }
 
     #[rstest]
-    fn test_hotspots_exclude_generated(populated_db: cozo::DbInstance) {
+    fn test_hotspots_exclude_generated(populated_db: db::DbInstance) {
         let cmd = HotspotsCmd {
             module: None,
             kind: HotspotKind::Incoming,

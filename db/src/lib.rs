@@ -13,6 +13,7 @@ pub mod fixtures;
 
 // Re-export commonly used items
 pub use db::{open_db, run_query, run_query_no_params, DbError, Params};
+pub use cozo::DbInstance;
 
 #[cfg(any(test, feature = "test-utils"))]
 pub use db::open_mem_db;

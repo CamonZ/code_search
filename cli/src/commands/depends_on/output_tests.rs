@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::execute::DependencyFunction;
-    use crate::types::{Call, FunctionRef, ModuleGroupResult, ModuleGroup};
+    use db::types::{Call, FunctionRef, ModuleGroupResult, ModuleGroup};
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -172,7 +172,7 @@ Phoenix.View:
         test_name: test_format_json,
         fixture: single_result,
         fixture_type: ModuleGroupResult<DependencyFunction>,
-        expected: crate::test_utils::load_output_fixture("depends_on", "single.json"),
+        expected: db::test_utils::load_output_fixture("depends_on", "single.json"),
         format: Json,
     }
 
@@ -180,7 +180,7 @@ Phoenix.View:
         test_name: test_format_toon,
         fixture: single_result,
         fixture_type: ModuleGroupResult<DependencyFunction>,
-        expected: crate::test_utils::load_output_fixture("depends_on", "single.toon"),
+        expected: db::test_utils::load_output_fixture("depends_on", "single.toon"),
         format: Toon,
     }
 
@@ -188,7 +188,7 @@ Phoenix.View:
         test_name: test_format_toon_empty,
         fixture: empty_result,
         fixture_type: ModuleGroupResult<DependencyFunction>,
-        expected: crate::test_utils::load_output_fixture("depends_on", "empty.toon"),
+        expected: db::test_utils::load_output_fixture("depends_on", "empty.toon"),
         format: Toon,
     }
 }

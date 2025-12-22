@@ -219,8 +219,8 @@ macro_rules! execute_test_fixture {
         project: $project:literal $(,)?
     ) => {
         #[fixture]
-        fn $name() -> cozo::DbInstance {
-            crate::test_utils::setup_test_db($json, $project)
+        fn $name() -> db::DbInstance {
+            db::test_utils::setup_test_db($json, $project)
         }
     };
 }
@@ -245,8 +245,8 @@ macro_rules! shared_fixture {
         project: $project:literal $(,)?
     ) => {
         #[fixture]
-        fn $name() -> cozo::DbInstance {
-            crate::test_utils::call_graph_db($project)
+        fn $name() -> db::DbInstance {
+            db::test_utils::call_graph_db($project)
         }
     };
     (
@@ -255,8 +255,8 @@ macro_rules! shared_fixture {
         project: $project:literal $(,)?
     ) => {
         #[fixture]
-        fn $name() -> cozo::DbInstance {
-            crate::test_utils::type_signatures_db($project)
+        fn $name() -> db::DbInstance {
+            db::test_utils::type_signatures_db($project)
         }
     };
     (
@@ -265,8 +265,8 @@ macro_rules! shared_fixture {
         project: $project:literal $(,)?
     ) => {
         #[fixture]
-        fn $name() -> cozo::DbInstance {
-            crate::test_utils::structs_db($project)
+        fn $name() -> db::DbInstance {
+            db::test_utils::structs_db($project)
         }
     };
 }
@@ -280,7 +280,9 @@ macro_rules! execute_empty_db_test {
     ) => {
         #[rstest]
         fn test_empty_db() {
-            let result = crate::test_utils::execute_on_empty_db($cmd);
+            use crate::commands::Execute;
+            let db = db::test_utils::setup_empty_test_db();
+            let result = $cmd.execute(&db);
             assert!(result.is_err());
         }
     };
@@ -318,7 +320,7 @@ macro_rules! execute_test {
         assertions: |$result:ident| $assertions:expr $(,)?
     ) => {
         #[rstest]
-        fn $test_name($fixture: cozo::DbInstance) {
+        fn $test_name($fixture: db::DbInstance) {
             use crate::commands::Execute;
             let $result = $cmd.execute(&$fixture).expect("Execute should succeed");
             $assertions
@@ -346,7 +348,7 @@ macro_rules! execute_no_match_test {
         empty_field: $field:ident $(,)?
     ) => {
         #[rstest]
-        fn $test_name($fixture: cozo::DbInstance) {
+        fn $test_name($fixture: db::DbInstance) {
             use crate::commands::Execute;
             let result = $cmd.execute(&$fixture).expect("Execute should succeed");
             assert!(result.$field.is_empty(), concat!(stringify!($field), " should be empty"));
@@ -376,7 +378,7 @@ macro_rules! execute_count_test {
         expected: $expected:expr $(,)?
     ) => {
         #[rstest]
-        fn $test_name($fixture: cozo::DbInstance) {
+        fn $test_name($fixture: db::DbInstance) {
             use crate::commands::Execute;
             let result = $cmd.execute(&$fixture).expect("Execute should succeed");
             assert_eq!(result.$field.len(), $expected,
@@ -407,7 +409,7 @@ macro_rules! execute_field_test {
         expected: $expected:expr $(,)?
     ) => {
         #[rstest]
-        fn $test_name($fixture: cozo::DbInstance) {
+        fn $test_name($fixture: db::DbInstance) {
             use crate::commands::Execute;
             let result = $cmd.execute(&$fixture).expect("Execute should succeed");
             assert_eq!(result.$field, $expected,
@@ -440,7 +442,7 @@ macro_rules! execute_first_item_test {
         expected: $expected:expr $(,)?
     ) => {
         #[rstest]
-        fn $test_name($fixture: cozo::DbInstance) {
+        fn $test_name($fixture: db::DbInstance) {
             use crate::commands::Execute;
             let result = $cmd.execute(&$fixture).expect("Execute should succeed");
             assert!(!result.$collection.is_empty(), concat!(stringify!($collection), " should not be empty"));
@@ -472,7 +474,7 @@ macro_rules! execute_all_match_test {
         condition: |$item:ident| $cond:expr $(,)?
     ) => {
         #[rstest]
-        fn $test_name($fixture: cozo::DbInstance) {
+        fn $test_name($fixture: db::DbInstance) {
             use crate::commands::Execute;
             let result = $cmd.execute(&$fixture).expect("Execute should succeed");
             assert!(result.$collection.iter().all(|$item| $cond),
@@ -503,7 +505,7 @@ macro_rules! execute_limit_test {
         limit: $limit:expr $(,)?
     ) => {
         #[rstest]
-        fn $test_name($fixture: cozo::DbInstance) {
+        fn $test_name($fixture: db::DbInstance) {
             use crate::commands::Execute;
             let result = $cmd.execute(&$fixture).expect("Execute should succeed");
             assert!(result.$collection.len() <= $limit,

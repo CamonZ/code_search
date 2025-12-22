@@ -2,7 +2,7 @@
 
 use super::execute::LargeFunctionEntry;
 use crate::output::TableFormatter;
-use crate::types::ModuleCollectionResult;
+use db::types::ModuleCollectionResult;
 
 impl TableFormatter for ModuleCollectionResult<LargeFunctionEntry> {
     type Entry = LargeFunctionEntry;

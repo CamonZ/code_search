@@ -1,7 +1,7 @@
 //! Output formatting for function command results.
 
 use crate::output::TableFormatter;
-use crate::types::ModuleGroupResult;
+use db::types::ModuleGroupResult;
 use super::execute::FuncSig;
 
 impl TableFormatter for ModuleGroupResult<FuncSig> {

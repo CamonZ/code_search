@@ -1,12 +1,12 @@
 use std::error::Error;
 use std::fs;
-use cozo::DbInstance;
+use db::DbInstance;
 use include_dir::{include_dir, Dir};
 use serde::Serialize;
 
 use super::SetupCmd;
 use crate::commands::Execute;
-use crate::queries::schema;
+use db::queries::schema;
 
 /// Embedded skill templates directory
 static SKILL_TEMPLATES: Dir = include_dir!("$CARGO_MANIFEST_DIR/templates/skills");
@@ -382,7 +382,7 @@ impl Execute for SetupCmd {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::open_db;
+    use db::open_db;
     use rstest::{fixture, rstest};
     use tempfile::NamedTempFile;
 

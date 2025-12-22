@@ -34,7 +34,7 @@ pub struct DescribeResult {
 impl Execute for DescribeCmd {
     type Output = DescribeResult;
 
-    fn execute(self, _db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, _db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
         if self.commands.is_empty() {
             // List all commands grouped by category
             let categories_map = descriptions_by_category();

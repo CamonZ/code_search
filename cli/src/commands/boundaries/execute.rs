@@ -4,8 +4,8 @@ use serde::Serialize;
 
 use super::BoundariesCmd;
 use crate::commands::Execute;
-use crate::queries::hotspots::{find_hotspots, HotspotKind};
-use crate::types::{ModuleCollectionResult, ModuleGroup};
+use db::queries::hotspots::{find_hotspots, HotspotKind};
+use db::types::{ModuleCollectionResult, ModuleGroup};
 
 /// A single boundary module entry
 #[derive(Debug, Clone, Serialize)]
@@ -18,7 +18,7 @@ pub struct BoundaryEntry {
 impl Execute for BoundariesCmd {
     type Output = ModuleCollectionResult<BoundaryEntry>;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
         let hotspots = find_hotspots(
             db,
             HotspotKind::Ratio,

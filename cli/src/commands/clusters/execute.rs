@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use super::ClustersCmd;
 use crate::commands::Execute;
-use crate::queries::clusters::get_module_calls;
+use db::queries::clusters::get_module_calls;
 
 /// A single namespace cluster
 #[derive(Debug, Clone, Serialize)]
@@ -44,7 +44,7 @@ pub struct ClustersResult {
 impl Execute for ClustersCmd {
     type Output = ClustersResult;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
         // Get all inter-module calls
         let calls = get_module_calls(db, &self.common.project)?;
 

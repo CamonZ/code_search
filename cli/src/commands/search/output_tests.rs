@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::execute::{SearchFunc, SearchFuncModule, SearchResult};
-    use crate::queries::search::ModuleResult;
+    use db::queries::search::ModuleResult;
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -115,7 +115,7 @@ MyApp.Accounts:
         test_name: test_format_json,
         fixture: modules_result,
         fixture_type: SearchResult,
-        expected: crate::test_utils::load_output_fixture("search", "modules.json"),
+        expected: db::test_utils::load_output_fixture("search", "modules.json"),
         format: Json,
     }
 
@@ -123,7 +123,7 @@ MyApp.Accounts:
         test_name: test_format_toon,
         fixture: modules_result,
         fixture_type: SearchResult,
-        expected: crate::test_utils::load_output_fixture("search", "modules.toon"),
+        expected: db::test_utils::load_output_fixture("search", "modules.toon"),
         format: Toon,
     }
 
@@ -131,7 +131,7 @@ MyApp.Accounts:
         test_name: test_format_toon_empty,
         fixture: empty_result,
         fixture_type: SearchResult,
-        expected: crate::test_utils::load_output_fixture("search", "empty.toon"),
+        expected: db::test_utils::load_output_fixture("search", "empty.toon"),
         format: Toon,
     }
 }

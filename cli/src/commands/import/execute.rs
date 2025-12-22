@@ -1,12 +1,12 @@
 use std::error::Error;
 use std::fs;
 
-use cozo::DbInstance;
+use db::DbInstance;
 
 use super::ImportCmd;
 use crate::commands::Execute;
-use crate::queries::import::{clear_project_data, import_graph, ImportError, ImportResult};
-use crate::queries::import_models::CallGraph;
+use db::queries::import::{clear_project_data, import_graph, ImportError, ImportResult};
+use db::queries::import_models::CallGraph;
 
 impl Execute for ImportCmd {
     type Output = ImportResult;
@@ -39,7 +39,7 @@ impl Execute for ImportCmd {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::open_db;
+    use db::open_db;
     use rstest::{fixture, rstest};
     use std::io::Write;
     use tempfile::NamedTempFile;

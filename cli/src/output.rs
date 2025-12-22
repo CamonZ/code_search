@@ -4,7 +4,7 @@
 
 use clap::ValueEnum;
 use serde::Serialize;
-use crate::types::{ModuleGroupResult, ModuleCollectionResult};
+use db::types::{ModuleGroupResult, ModuleCollectionResult};
 
 /// Output format for command results
 #[derive(Debug, Clone, Copy, Default, ValueEnum)]
@@ -118,7 +118,7 @@ pub trait TableFormatter {
 ///
 /// This is the shared implementation for both ModuleGroupResult and ModuleCollectionResult.
 /// Extracts the common logic to avoid duplication between the two impl blocks.
-fn format_module_table<F>(formatter: &F, items: &[crate::types::ModuleGroup<F::Entry>], total_items: usize) -> String
+fn format_module_table<F>(formatter: &F, items: &[db::types::ModuleGroup<F::Entry>], total_items: usize) -> String
 where
     F: TableFormatter,
 {

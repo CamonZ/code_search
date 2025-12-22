@@ -91,7 +91,7 @@ use clap::Subcommand;
 use enum_dispatch::enum_dispatch;
 use std::error::Error;
 
-use cozo::DbInstance;
+use db::DbInstance;
 
 use crate::output::{OutputFormat, Outputable};
 
@@ -99,7 +99,7 @@ use crate::output::{OutputFormat, Outputable};
 pub trait Execute {
     type Output: Outputable;
 
-    fn execute(self, db: &DbInstance) -> Result<Self::Output, Box<dyn Error>>;
+    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>>;
 }
 
 /// Trait for commands that can be executed and formatted.

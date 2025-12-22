@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::execute::UnusedFunc;
-    use crate::types::{ModuleCollectionResult, ModuleGroup};
+    use db::types::{ModuleCollectionResult, ModuleGroup};
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -121,7 +121,7 @@ MyApp.Accounts (lib/accounts.ex):
         test_name: test_format_json,
         fixture: single_result,
         fixture_type: ModuleCollectionResult<UnusedFunc>,
-        expected: crate::test_utils::load_output_fixture("unused", "single.json"),
+        expected: db::test_utils::load_output_fixture("unused", "single.json"),
         format: Json,
     }
 
@@ -129,7 +129,7 @@ MyApp.Accounts (lib/accounts.ex):
         test_name: test_format_toon,
         fixture: single_result,
         fixture_type: ModuleCollectionResult<UnusedFunc>,
-        expected: crate::test_utils::load_output_fixture("unused", "single.toon"),
+        expected: db::test_utils::load_output_fixture("unused", "single.toon"),
         format: Toon,
     }
 
@@ -137,7 +137,7 @@ MyApp.Accounts (lib/accounts.ex):
         test_name: test_format_toon_empty,
         fixture: empty_result,
         fixture_type: ModuleCollectionResult<UnusedFunc>,
-        expected: crate::test_utils::load_output_fixture("unused", "empty.toon"),
+        expected: db::test_utils::load_output_fixture("unused", "empty.toon"),
         format: Toon,
     }
 }

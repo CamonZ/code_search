@@ -4,7 +4,7 @@ use regex::Regex;
 use std::sync::LazyLock;
 
 use crate::output::{Outputable, TableFormatter};
-use crate::types::ModuleGroupResult;
+use db::types::ModuleGroupResult;
 use super::execute::{UsageInfo, StructUsageOutput, StructModulesResult};
 
 /// Regex to match Elixir struct maps like `%{__struct__: Module.Name, field: type(), ...}`

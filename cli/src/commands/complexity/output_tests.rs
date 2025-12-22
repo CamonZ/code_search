@@ -4,7 +4,7 @@
 mod tests {
     use super::super::execute::ComplexityEntry;
     use crate::output::Outputable;
-    use crate::types::{ModuleCollectionResult, ModuleGroup};
+    use db::types::{ModuleCollectionResult, ModuleGroup};
 
     #[test]
     fn test_format_table_single_function() {

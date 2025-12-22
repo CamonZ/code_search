@@ -4,7 +4,7 @@
 mod tests {
     use super::super::execute::{BrowseModuleResult, Definition};
     use super::super::DefinitionKind;
-    use crate::queries::structs::FieldInfo;
+    use db::queries::structs::FieldInfo;
     use rstest::{fixture, rstest};
 
     // =========================================================================

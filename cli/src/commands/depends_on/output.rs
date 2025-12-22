@@ -1,7 +1,7 @@
 //! Output formatting for depends-on command results.
 
 use crate::output::TableFormatter;
-use crate::types::ModuleGroupResult;
+use db::types::ModuleGroupResult;
 use super::execute::DependencyFunction;
 
 impl TableFormatter for ModuleGroupResult<DependencyFunction> {

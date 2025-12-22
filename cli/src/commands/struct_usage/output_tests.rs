@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::execute::{ModuleStructUsage, StructModulesResult, StructUsageOutput, UsageInfo};
-    use crate::types::{ModuleGroup, ModuleGroupResult};
+    use db::types::{ModuleGroup, ModuleGroupResult};
     use rstest::{fixture, rstest};
 
     // =========================================================================

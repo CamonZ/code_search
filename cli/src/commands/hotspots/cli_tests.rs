@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     use crate::cli::Args;
-    use crate::queries::hotspots::HotspotKind;
+    use db::queries::hotspots::HotspotKind;
     use clap::Parser;
     use rstest::rstest;
 

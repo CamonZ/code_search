@@ -553,9 +553,14 @@ dependencies = [
 name = "db"
 version = "0.1.0"
 dependencies = [
+ "clap",
  "cozo",
+ "include_dir",
+ "regex",
+ "rstest",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror",
 ]
 

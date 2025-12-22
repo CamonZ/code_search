@@ -7,11 +7,11 @@ mod output_tests;
 use std::error::Error;
 
 use clap::Args;
-use cozo::DbInstance;
+use db::DbInstance;
 
 use crate::commands::{CommandRunner, CommonArgs, Execute};
 use crate::output::{OutputFormat, Outputable};
-use crate::queries::hotspots::HotspotKind;
+use db::queries::hotspots::HotspotKind;
 
 /// Find functions with the most incoming/outgoing calls
 #[derive(Args, Debug)]

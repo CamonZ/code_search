@@ -4,8 +4,8 @@ use serde::Serialize;
 
 use super::ComplexityCmd;
 use crate::commands::Execute;
-use crate::queries::complexity::find_complexity_metrics;
-use crate::types::ModuleCollectionResult;
+use db::queries::complexity::find_complexity_metrics;
+use db::types::ModuleCollectionResult;
 
 /// A single complexity metric entry
 #[derive(Debug, Clone, Serialize)]
@@ -21,7 +21,7 @@ pub struct ComplexityEntry {
 impl Execute for ComplexityCmd {
     type Output = ModuleCollectionResult<ComplexityEntry>;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
         let metrics = find_complexity_metrics(
             db,
             self.min,

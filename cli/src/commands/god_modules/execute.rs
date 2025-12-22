@@ -4,8 +4,8 @@ use serde::Serialize;
 
 use super::GodModulesCmd;
 use crate::commands::Execute;
-use crate::queries::hotspots::{find_hotspots, get_function_counts, get_module_loc, HotspotKind};
-use crate::types::{ModuleCollectionResult, ModuleGroup};
+use db::queries::hotspots::{find_hotspots, get_function_counts, get_module_loc, HotspotKind};
+use db::types::{ModuleCollectionResult, ModuleGroup};
 
 /// A single god module entry
 #[derive(Debug, Clone, Serialize)]
@@ -20,7 +20,7 @@ pub struct GodModuleEntry {
 impl Execute for GodModulesCmd {
     type Output = ModuleCollectionResult<GodModuleEntry>;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
         // Get function counts for all modules
         let func_counts = get_function_counts(
             db,

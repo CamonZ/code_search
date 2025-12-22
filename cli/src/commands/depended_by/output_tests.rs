@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::execute::{DependentCaller, DependentTarget};
-    use crate::types::{ModuleGroupResult, ModuleGroup};
+    use db::types::{ModuleGroupResult, ModuleGroup};
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -154,7 +154,7 @@ MyApp.Service:
         test_name: test_format_json,
         fixture: single_result,
         fixture_type: ModuleGroupResult<DependentCaller>,
-        expected: crate::test_utils::load_output_fixture("depended_by", "single.json"),
+        expected: db::test_utils::load_output_fixture("depended_by", "single.json"),
         format: Json,
     }
 
@@ -162,7 +162,7 @@ MyApp.Service:
         test_name: test_format_toon,
         fixture: single_result,
         fixture_type: ModuleGroupResult<DependentCaller>,
-        expected: crate::test_utils::load_output_fixture("depended_by", "single.toon"),
+        expected: db::test_utils::load_output_fixture("depended_by", "single.toon"),
         format: Toon,
     }
 
@@ -170,7 +170,7 @@ MyApp.Service:
         test_name: test_format_toon_empty,
         fixture: empty_result,
         fixture_type: ModuleGroupResult<DependentCaller>,
-        expected: crate::test_utils::load_output_fixture("depended_by", "empty.toon"),
+        expected: db::test_utils::load_output_fixture("depended_by", "empty.toon"),
         format: Toon,
     }
 }

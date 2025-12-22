@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     use crate::output::OutputFormat;
-    use crate::queries::import::{ImportResult, SchemaResult};
+    use db::queries::import::{ImportResult, SchemaResult};
     use rstest::{fixture, rstest};
 
     const EMPTY_TABLE_OUTPUT: &str = "\
@@ -99,7 +99,7 @@ Created Schemas:
         test_name: test_format_json,
         fixture: full_result,
         fixture_type: ImportResult,
-        expected: crate::test_utils::load_output_fixture("import", "full.json"),
+        expected: db::test_utils::load_output_fixture("import", "full.json"),
         format: Json,
     }
 
@@ -107,7 +107,7 @@ Created Schemas:
         test_name: test_format_toon,
         fixture: full_result,
         fixture_type: ImportResult,
-        expected: crate::test_utils::load_output_fixture("import", "full.toon"),
+        expected: db::test_utils::load_output_fixture("import", "full.toon"),
         format: Toon,
     }
 

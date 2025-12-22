@@ -1,7 +1,7 @@
 //! Output formatting for import command results.
 
 use crate::output::Outputable;
-use crate::queries::import::ImportResult;
+use db::queries::import::ImportResult;
 
 impl Outputable for ImportResult {
     fn to_table(&self) -> String {

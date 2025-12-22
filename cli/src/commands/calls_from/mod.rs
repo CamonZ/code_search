@@ -7,7 +7,7 @@ mod output_tests;
 use std::error::Error;
 
 use clap::Args;
-use cozo::DbInstance;
+use db::DbInstance;
 
 use crate::commands::{CommandRunner, CommonArgs, Execute};
 use crate::output::{OutputFormat, Outputable};

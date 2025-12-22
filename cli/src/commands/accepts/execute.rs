@@ -4,8 +4,8 @@ use serde::Serialize;
 
 use super::AcceptsCmd;
 use crate::commands::Execute;
-use crate::queries::accepts::{find_accepts, AcceptsEntry};
-use crate::types::ModuleGroupResult;
+use db::queries::accepts::{find_accepts, AcceptsEntry};
+use db::types::ModuleGroupResult;
 
 /// A function's input type information
 #[derive(Debug, Clone, Serialize)]
@@ -17,40 +17,37 @@ pub struct AcceptsInfo {
     pub line: i64,
 }
 
-impl ModuleGroupResult<AcceptsInfo> {
-    /// Build grouped result from flat AcceptsEntry list
-    fn from_entries(
-        pattern: String,
-        module_filter: Option<String>,
-        entries: Vec<AcceptsEntry>,
-    ) -> Self {
-        let total_items = entries.len();
+fn build_accepts_result(
+    pattern: String,
+    module_filter: Option<String>,
+    entries: Vec<AcceptsEntry>,
+) -> ModuleGroupResult<AcceptsInfo> {
+    let total_items = entries.len();
 
-        // Use helper to group by module
-        let items = crate::utils::group_by_module(entries, |entry| {
-            let accepts_info = AcceptsInfo {
-                name: entry.name,
-                arity: entry.arity,
-                inputs: entry.inputs_string,
-                return_type: entry.return_string,
-                line: entry.line,
-            };
-            (entry.module, accepts_info)
-        });
+    // Use helper to group by module
+    let items = crate::utils::group_by_module(entries, |entry| {
+        let accepts_info = AcceptsInfo {
+            name: entry.name,
+            arity: entry.arity,
+            inputs: entry.inputs_string,
+            return_type: entry.return_string,
+            line: entry.line,
+        };
+        (entry.module, accepts_info)
+    });
 
-        ModuleGroupResult {
-            module_pattern: module_filter.unwrap_or_else(|| "*".to_string()),
-            function_pattern: Some(pattern),
-            total_items,
-            items,
-        }
+    ModuleGroupResult {
+        module_pattern: module_filter.unwrap_or_else(|| "*".to_string()),
+        function_pattern: Some(pattern),
+        total_items,
+        items,
     }
 }
 
 impl Execute for AcceptsCmd {
     type Output = ModuleGroupResult<AcceptsInfo>;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
         let entries = find_accepts(
             db,
             &self.pattern,
@@ -60,7 +57,7 @@ impl Execute for AcceptsCmd {
             self.common.limit,
         )?;
 
-        Ok(<ModuleGroupResult<AcceptsInfo>>::from_entries(
+        Ok(build_accepts_result(
             self.pattern,
             self.module,
             entries,

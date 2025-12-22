@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use super::LocationCmd;
 use crate::commands::Execute;
-use crate::queries::location::{find_locations, FunctionLocation};
+use db::queries::location::{find_locations, FunctionLocation};
 
 /// A single clause (definition) of a function
 #[derive(Debug, Clone, Serialize)]
@@ -111,7 +111,7 @@ impl LocationResult {
 impl Execute for LocationCmd {
     type Output = LocationResult;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
         let locations = find_locations(
             db,
             self.module.as_deref(),

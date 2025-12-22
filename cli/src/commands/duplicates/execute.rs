@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use super::DuplicatesCmd;
 use crate::commands::Execute;
-use crate::queries::duplicates::find_duplicates;
+use db::queries::duplicates::find_duplicates;
 
 // =============================================================================
 // Detailed mode types (default)
@@ -83,7 +83,7 @@ pub enum DuplicatesOutput {
 impl Execute for DuplicatesCmd {
     type Output = DuplicatesOutput;
 
-    fn execute(self, db: &cozo::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
         let functions = find_duplicates(
             db,
             &self.common.project,
@@ -102,7 +102,7 @@ impl Execute for DuplicatesCmd {
 }
 
 fn build_detailed_result(
-    functions: Vec<crate::queries::duplicates::DuplicateFunction>,
+    functions: Vec<db::queries::duplicates::DuplicateFunction>,
 ) -> DuplicatesResult {
     // Group by hash
     let mut groups_map: BTreeMap<String, Vec<DuplicateFunctionEntry>> = BTreeMap::new();
@@ -134,7 +134,7 @@ fn build_detailed_result(
 }
 
 fn build_by_module_result(
-    functions: Vec<crate::queries::duplicates::DuplicateFunction>,
+    functions: Vec<db::queries::duplicates::DuplicateFunction>,
 ) -> DuplicatesByModuleResult {
     // Group by module first
     let mut module_map: BTreeMap<String, Vec<(String, String, i64)>> = BTreeMap::new();

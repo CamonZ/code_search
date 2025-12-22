@@ -2,7 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::types::{TraceDirection, TraceEntry, TraceResult};
+    use db::types::{TraceDirection, TraceEntry, TraceResult};
     use rstest::{fixture, rstest};
 
     // =========================================================================

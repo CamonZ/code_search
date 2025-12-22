@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use clap::{Parser, ValueEnum};
-use cozo::DbInstance;
+use db::DbInstance;
 
 use crate::commands::{CommandRunner, CommonArgs, Execute};
 use crate::output::{OutputFormat, Outputable};

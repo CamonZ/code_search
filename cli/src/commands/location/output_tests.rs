@@ -147,7 +147,7 @@ MyApp.Users:
         test_name: test_format_json,
         fixture: single_result,
         fixture_type: LocationResult,
-        expected: crate::test_utils::load_output_fixture("location", "single.json"),
+        expected: db::test_utils::load_output_fixture("location", "single.json"),
         format: Json,
     }
 
@@ -155,7 +155,7 @@ MyApp.Users:
         test_name: test_format_toon,
         fixture: single_result,
         fixture_type: LocationResult,
-        expected: crate::test_utils::load_output_fixture("location", "single.toon"),
+        expected: db::test_utils::load_output_fixture("location", "single.toon"),
         format: Toon,
     }
 
@@ -163,7 +163,7 @@ MyApp.Users:
         test_name: test_format_toon_empty,
         fixture: empty_result,
         fixture_type: LocationResult,
-        expected: crate::test_utils::load_output_fixture("location", "empty.toon"),
+        expected: db::test_utils::load_output_fixture("location", "empty.toon"),
         format: Toon,
     }
 }

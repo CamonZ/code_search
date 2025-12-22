@@ -1,7 +1,7 @@
 //! Output formatting for trace and reverse-trace command results.
 
 use crate::output::Outputable;
-use crate::types::{TraceResult, TraceDirection};
+use db::types::{TraceResult, TraceDirection};
 
 impl Outputable for TraceResult {
     fn to_table(&self) -> String {
@@ -67,7 +67,7 @@ fn format_reverse_trace(result: &TraceResult) -> String {
 }
 
 /// Format a reverse trace entry (callers going up the chain)
-fn format_reverse_entry(lines: &mut Vec<String>, entries: &[crate::types::TraceEntry], idx: usize, depth: usize) {
+fn format_reverse_entry(lines: &mut Vec<String>, entries: &[db::types::TraceEntry], idx: usize, depth: usize) {
     let entry = &entries[idx];
     let indent = "  ".repeat(depth);
     let kind_str = if entry.kind.is_empty() {
@@ -104,7 +104,7 @@ fn format_reverse_entry(lines: &mut Vec<String>, entries: &[crate::types::TraceE
 }
 
 /// Recursively format an entry and its children
-fn format_entry(lines: &mut Vec<String>, entries: &[crate::types::TraceEntry], idx: usize, depth: usize) {
+fn format_entry(lines: &mut Vec<String>, entries: &[db::types::TraceEntry], idx: usize, depth: usize) {
     let entry = &entries[idx];
     let indent = "  ".repeat(depth);
     let kind_str = if entry.kind.is_empty() {
@@ -133,7 +133,7 @@ fn format_entry(lines: &mut Vec<String>, entries: &[crate::types::TraceEntry], i
 /// Format a child call/caller entry
 fn format_call(
     lines: &mut Vec<String>,
-    entries: &[crate::types::TraceEntry],
+    entries: &[db::types::TraceEntry],
     idx: usize,
     depth: usize,
     parent_module: &str,

@@ -1,7 +1,7 @@
 //! Output formatting for returns command results.
 
 use crate::output::TableFormatter;
-use crate::types::ModuleGroupResult;
+use db::types::ModuleGroupResult;
 use super::execute::ReturnInfo;
 
 impl TableFormatter for ModuleGroupResult<ReturnInfo> {

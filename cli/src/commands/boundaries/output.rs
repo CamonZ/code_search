@@ -2,7 +2,7 @@
 
 use super::execute::BoundaryEntry;
 use crate::output::TableFormatter;
-use crate::types::ModuleCollectionResult;
+use db::types::ModuleCollectionResult;
 
 impl TableFormatter for ModuleCollectionResult<BoundaryEntry> {
     type Entry = BoundaryEntry;

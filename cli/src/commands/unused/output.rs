@@ -1,7 +1,7 @@
 //! Output formatting for unused command results.
 
 use crate::output::Outputable;
-use crate::types::ModuleCollectionResult;
+use db::types::ModuleCollectionResult;
 use super::execute::UnusedFunc;
 
 impl Outputable for ModuleCollectionResult<UnusedFunc> {

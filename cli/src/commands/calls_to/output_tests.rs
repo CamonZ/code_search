@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::execute::CalleeFunction;
-    use crate::types::{Call, FunctionRef, ModuleGroupResult};
+    use db::types::{Call, FunctionRef, ModuleGroupResult};
     use rstest::{fixture, rstest};
 
     // =========================================================================
@@ -41,19 +41,22 @@ MyApp.Repo
 
     #[fixture]
     fn empty_result() -> ModuleGroupResult<CalleeFunction> {
-        <ModuleGroupResult<CalleeFunction>>::from_calls(
-            "MyApp.Repo".to_string(),
-            "get".to_string(),
-            vec![],
-        )
+        ModuleGroupResult {
+            module_pattern: "MyApp.Repo".to_string(),
+            function_pattern: Some("get".to_string()),
+            total_items: 0,
+            items: vec![],
+        }
     }
 
     #[fixture]
     fn single_result() -> ModuleGroupResult<CalleeFunction> {
-        <ModuleGroupResult<CalleeFunction>>::from_calls(
-            "MyApp.Repo".to_string(),
-            "get".to_string(),
-            vec![Call {
+        use db::types::ModuleGroup;
+
+        let callee_func = CalleeFunction {
+            name: "get".to_string(),
+            arity: 2,
+            callers: vec![Call {
                 caller: FunctionRef::with_definition(
                     "MyApp.Accounts",
                     "get_user",
@@ -68,15 +71,29 @@ MyApp.Repo
                 call_type: Some("remote".to_string()),
                 depth: None,
             }],
-        )
+        };
+
+        ModuleGroupResult {
+            module_pattern: "MyApp.Repo".to_string(),
+            function_pattern: Some("get".to_string()),
+            total_items: 1,
+            items: vec![ModuleGroup {
+                name: "MyApp.Repo".to_string(),
+                file: String::new(),
+                entries: vec![callee_func],
+                function_count: None,
+            }],
+        }
     }
 
     #[fixture]
     fn multiple_result() -> ModuleGroupResult<CalleeFunction> {
-        <ModuleGroupResult<CalleeFunction>>::from_calls(
-            "MyApp.Repo".to_string(),
-            String::new(),
-            vec![
+        use db::types::ModuleGroup;
+
+        let callee_func = CalleeFunction {
+            name: "get".to_string(),
+            arity: 2,
+            callers: vec![
                 Call {
                     caller: FunctionRef::with_definition(
                         "MyApp.Accounts",
@@ -108,7 +125,19 @@ MyApp.Repo
                     depth: None,
                 },
             ],
-        )
+        };
+
+        ModuleGroupResult {
+            module_pattern: "MyApp.Repo".to_string(),
+            function_pattern: None,
+            total_items: 2,
+            items: vec![ModuleGroup {
+                name: "MyApp.Repo".to_string(),
+                file: String::new(),
+                entries: vec![callee_func],
+                function_count: None,
+            }],
+        }
     }
 
     // =========================================================================
@@ -140,7 +169,7 @@ MyApp.Repo
         test_name: test_format_json,
         fixture: single_result,
         fixture_type: ModuleGroupResult<CalleeFunction>,
-        expected: crate::test_utils::load_output_fixture("calls_to", "single.json"),
+        expected: db::test_utils::load_output_fixture("calls_to", "single.json"),
         format: Json,
     }
 
@@ -148,7 +177,7 @@ MyApp.Repo
         test_name: test_format_toon,
         fixture: single_result,
         fixture_type: ModuleGroupResult<CalleeFunction>,
-        expected: crate::test_utils::load_output_fixture("calls_to", "single.toon"),
+        expected: db::test_utils::load_output_fixture("calls_to", "single.toon"),
         format: Toon,
     }
 
@@ -156,7 +185,7 @@ MyApp.Repo
         test_name: test_format_toon_empty,
         fixture: empty_result,
         fixture_type: ModuleGroupResult<CalleeFunction>,
-        expected: crate::test_utils::load_output_fixture("calls_to", "empty.toon"),
+        expected: db::test_utils::load_output_fixture("calls_to", "empty.toon"),
         format: Toon,
     }
 }
