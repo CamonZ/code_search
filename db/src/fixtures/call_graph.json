@@ -1,0 +1,468 @@
+{
+  "structs": {},
+  "function_locations": {
+    "MyApp.Controller": {
+      "index/2:5": {
+        "file": "lib/my_app/controller.ex",
+        "column": 3,
+        "kind": "def",
+        "line": 5,
+        "start_line": 5,
+        "end_line": 10,
+        "pattern": "conn, params",
+        "guard": null,
+        "source_sha": "",
+        "ast_sha": "",
+        "name": "index",
+        "arity": 2
+      },
+      "show/2:12": {
+        "file": "lib/my_app/controller.ex",
+        "column": 3,
+        "kind": "def",
+        "line": 12,
+        "start_line": 12,
+        "end_line": 18,
+        "pattern": "conn, params",
+        "guard": null,
+        "source_sha": "",
+        "ast_sha": "",
+        "name": "show",
+        "arity": 2
+      },
+      "create/2:20": {
+        "file": "lib/my_app/controller.ex",
+        "column": 3,
+        "kind": "def",
+        "line": 20,
+        "start_line": 20,
+        "end_line": 30,
+        "pattern": "conn, params",
+        "guard": null,
+        "source_sha": "",
+        "ast_sha": "",
+        "name": "create",
+        "arity": 2
+      }
+    },
+    "MyApp.Accounts": {
+      "get_user/1:10": {
+        "file": "lib/my_app/accounts.ex",
+        "column": 3,
+        "kind": "def",
+        "line": 10,
+        "start_line": 10,
+        "end_line": 15,
+        "pattern": "id",
+        "guard": null,
+        "source_sha": "",
+        "ast_sha": "",
+        "name": "get_user",
+        "arity": 1
+      },
+      "get_user/2:17": {
+        "file": "lib/my_app/accounts.ex",
+        "column": 3,
+        "kind": "def",
+        "line": 17,
+        "start_line": 17,
+        "end_line": 22,
+        "pattern": "id, opts",
+        "guard": null,
+        "source_sha": "",
+        "ast_sha": "",
+        "name": "get_user",
+        "arity": 2
+      },
+      "list_users/0:24": {
+        "file": "lib/my_app/accounts.ex",
+        "column": 3,
+        "kind": "def",
+        "line": 24,
+        "start_line": 24,
+        "end_line": 28,
+        "pattern": "",
+        "guard": null,
+        "source_sha": "",
+        "ast_sha": "",
+        "name": "list_users",
+        "arity": 0
+      },
+      "validate_email/1:30": {
+        "file": "lib/my_app/accounts.ex",
+        "column": 3,
+        "kind": "defp",
+        "line": 30,
+        "start_line": 30,
+        "end_line": 35,
+        "pattern": "email",
+        "guard": null,
+        "source_sha": "",
+        "ast_sha": "",
+        "name": "validate_email",
+        "arity": 1
+      }
+    },
+    "MyApp.Service": {
+      "process/1:5": {
+        "file": "lib/my_app/service.ex",
+        "column": 3,
+        "kind": "def",
+        "line": 5,
+        "start_line": 5,
+        "end_line": 15,
+        "pattern": "data",
+        "guard": null,
+        "source_sha": "",
+        "ast_sha": "",
+        "name": "process",
+        "arity": 1
+      },
+      "fetch/1:17": {
+        "file": "lib/my_app/service.ex",
+        "column": 3,
+        "kind": "def",
+        "line": 17,
+        "start_line": 17,
+        "end_line": 25,
+        "pattern": "id",
+        "guard": null,
+        "source_sha": "",
+        "ast_sha": "",
+        "name": "fetch",
+        "arity": 1
+      },
+      "do_fetch/2:27": {
+        "file": "lib/my_app/service.ex",
+        "column": 3,
+        "kind": "defp",
+        "line": 27,
+        "start_line": 27,
+        "end_line": 35,
+        "pattern": "id, opts",
+        "guard": null,
+        "source_sha": "",
+        "ast_sha": "",
+        "name": "do_fetch",
+        "arity": 2
+      }
+    },
+    "MyApp.Repo": {
+      "get/2:10": {
+        "file": "lib/my_app/repo.ex",
+        "column": 3,
+        "kind": "def",
+        "line": 10,
+        "start_line": 10,
+        "end_line": 15,
+        "pattern": "schema, id",
+        "guard": null,
+        "source_sha": "",
+        "ast_sha": "",
+        "name": "get",
+        "arity": 2
+      },
+      "all/1:17": {
+        "file": "lib/my_app/repo.ex",
+        "column": 3,
+        "kind": "def",
+        "line": 17,
+        "start_line": 17,
+        "end_line": 22,
+        "pattern": "query",
+        "guard": null,
+        "source_sha": "",
+        "ast_sha": "",
+        "name": "all",
+        "arity": 1
+      },
+      "insert/2:24": {
+        "file": "lib/my_app/repo.ex",
+        "column": 3,
+        "kind": "def",
+        "line": 24,
+        "start_line": 24,
+        "end_line": 30,
+        "pattern": "struct, opts",
+        "guard": null,
+        "source_sha": "",
+        "ast_sha": "",
+        "name": "insert",
+        "arity": 2
+      }
+    },
+    "MyApp.Notifier": {
+      "notify/1:5": {
+        "file": "lib/my_app/notifier.ex",
+        "column": 3,
+        "kind": "def",
+        "line": 5,
+        "start_line": 5,
+        "end_line": 12,
+        "pattern": "user",
+        "guard": null,
+        "source_sha": "",
+        "ast_sha": "",
+        "name": "notify",
+        "arity": 1
+      },
+      "send_email/2:14": {
+        "file": "lib/my_app/notifier.ex",
+        "column": 3,
+        "kind": "defp",
+        "line": 14,
+        "start_line": 14,
+        "end_line": 20,
+        "pattern": "to, body",
+        "guard": null,
+        "source_sha": "",
+        "ast_sha": "",
+        "name": "send_email",
+        "arity": 2
+      }
+    }
+  },
+  "calls": [
+    {
+      "caller": {
+        "module": "MyApp.Controller",
+        "function": "index",
+        "file": "lib/my_app/controller.ex",
+        "line": 7,
+        "column": 5
+      },
+      "type": "remote",
+      "callee": {
+        "arity": 0,
+        "function": "list_users",
+        "module": "MyApp.Accounts"
+      }
+    },
+    {
+      "caller": {
+        "module": "MyApp.Controller",
+        "function": "show",
+        "file": "lib/my_app/controller.ex",
+        "line": 14,
+        "column": 5
+      },
+      "type": "remote",
+      "callee": {
+        "arity": 1,
+        "function": "get_user",
+        "module": "MyApp.Accounts"
+      }
+    },
+    {
+      "caller": {
+        "module": "MyApp.Controller",
+        "function": "create",
+        "file": "lib/my_app/controller.ex",
+        "line": 22,
+        "column": 5
+      },
+      "type": "remote",
+      "callee": {
+        "arity": 1,
+        "function": "process",
+        "module": "MyApp.Service"
+      }
+    },
+    {
+      "caller": {
+        "module": "MyApp.Accounts",
+        "function": "get_user",
+        "file": "lib/my_app/accounts.ex",
+        "line": 12,
+        "column": 5
+      },
+      "type": "remote",
+      "callee": {
+        "arity": 2,
+        "function": "get",
+        "module": "MyApp.Repo"
+      }
+    },
+    {
+      "caller": {
+        "module": "MyApp.Accounts",
+        "function": "get_user",
+        "file": "lib/my_app/accounts.ex",
+        "line": 19,
+        "column": 5
+      },
+      "type": "remote",
+      "callee": {
+        "arity": 2,
+        "function": "get",
+        "module": "MyApp.Repo"
+      }
+    },
+    {
+      "caller": {
+        "module": "MyApp.Accounts",
+        "function": "list_users",
+        "file": "lib/my_app/accounts.ex",
+        "line": 26,
+        "column": 5
+      },
+      "type": "remote",
+      "callee": {
+        "arity": 1,
+        "function": "all",
+        "module": "MyApp.Repo"
+      }
+    },
+    {
+      "caller": {
+        "module": "MyApp.Service",
+        "function": "process",
+        "file": "lib/my_app/service.ex",
+        "line": 8,
+        "column": 5
+      },
+      "type": "remote",
+      "callee": {
+        "arity": 1,
+        "function": "fetch",
+        "module": "MyApp.Service"
+      }
+    },
+    {
+      "caller": {
+        "module": "MyApp.Service",
+        "function": "fetch",
+        "file": "lib/my_app/service.ex",
+        "line": 20,
+        "column": 5
+      },
+      "type": "local",
+      "callee": {
+        "arity": 2,
+        "function": "do_fetch",
+        "module": "MyApp.Service"
+      }
+    },
+    {
+      "caller": {
+        "module": "MyApp.Service",
+        "function": "do_fetch",
+        "file": "lib/my_app/service.ex",
+        "line": 30,
+        "column": 5
+      },
+      "type": "remote",
+      "callee": {
+        "arity": 2,
+        "function": "get",
+        "module": "MyApp.Repo"
+      }
+    },
+    {
+      "caller": {
+        "module": "MyApp.Service",
+        "function": "process",
+        "file": "lib/my_app/service.ex",
+        "line": 12,
+        "column": 5
+      },
+      "type": "remote",
+      "callee": {
+        "arity": 1,
+        "function": "notify",
+        "module": "MyApp.Notifier"
+      }
+    },
+    {
+      "caller": {
+        "module": "MyApp.Notifier",
+        "function": "notify",
+        "file": "lib/my_app/notifier.ex",
+        "line": 8,
+        "column": 5
+      },
+      "type": "local",
+      "callee": {
+        "arity": 2,
+        "function": "send_email",
+        "module": "MyApp.Notifier"
+      }
+    }
+  ],
+  "specs": {
+    "MyApp.Accounts": [
+      {
+        "name": "get_user",
+        "arity": 1,
+        "kind": "spec",
+        "line": 8,
+        "clauses": [
+          {
+            "full": "@spec get_user(integer()) :: {:ok, User.t()} | {:error, :not_found}",
+            "input_strings": [
+              "integer()"
+            ],
+            "return_strings": [
+              "{:ok, User.t()}",
+              "{:error, :not_found}"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "list_users",
+        "arity": 0,
+        "kind": "spec",
+        "line": 22,
+        "clauses": [
+          {
+            "full": "@spec list_users() :: [User.t()]",
+            "input_strings": [],
+            "return_strings": [
+              "[User.t()]"
+            ]
+          }
+        ]
+      }
+    ],
+    "MyApp.Repo": [
+      {
+        "name": "get",
+        "arity": 2,
+        "kind": "callback",
+        "line": 8,
+        "clauses": [
+          {
+            "full": "@callback get(module(), term()) :: Ecto.Schema.t() | nil",
+            "input_strings": [
+              "module()",
+              "term()"
+            ],
+            "return_strings": [
+              "Ecto.Schema.t()",
+              "nil"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "types": {
+    "MyApp.Accounts": [
+      {
+        "name": "user",
+        "kind": "type",
+        "line": 5,
+        "params": [],
+        "definition": "@type user() :: %{id: integer(), name: String.t()}"
+      },
+      {
+        "name": "user_id",
+        "kind": "opaque",
+        "line": 3,
+        "params": [],
+        "definition": "@opaque user_id() :: integer()"
+      }
+    ]
+  }
+}

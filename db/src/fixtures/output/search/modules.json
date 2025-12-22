@@ -1,0 +1,16 @@
+{
+  "pattern": "MyApp",
+  "kind": "modules",
+  "modules": [
+    {
+      "project": "default",
+      "name": "MyApp.Accounts",
+      "source": "unknown"
+    },
+    {
+      "project": "default",
+      "name": "MyApp.Users",
+      "source": "unknown"
+    }
+  ]
+}

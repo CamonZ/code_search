@@ -1,0 +1,5 @@
+kind: modules
+modules[2]{name,project,source}:
+  MyApp.Accounts,default,unknown
+  MyApp.Users,default,unknown
+pattern: MyApp

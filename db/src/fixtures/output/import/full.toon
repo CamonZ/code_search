@@ -1,0 +1,11 @@
+calls_imported: 100
+cleared: true
+function_locations_imported: 45
+functions_imported: 50
+modules_imported: 10
+schemas:
+  already_existed[1]: calls
+  created[2]: modules,functions
+specs_imported: 25
+structs_imported: 5
+types_imported: 12

@@ -1,0 +1,12 @@
+function_pattern: get_user
+module_pattern: MyApp.Accounts
+modules[1]:
+  - functions[1]:
+    - arity: 1
+      clauses[1]{end_line,line,start_line}:
+        15,10,10
+      file: lib/my_app/accounts.ex
+      kind: def
+      name: get_user
+    name: MyApp.Accounts
+total_clauses: 1

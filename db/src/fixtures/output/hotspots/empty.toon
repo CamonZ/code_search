@@ -1,0 +1,4 @@
+items[0]:
+kind_filter: total
+module_pattern: *
+total_items: 0

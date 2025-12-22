@@ -440,7 +440,7 @@ pub fn import_graph(
 /// Import a JSON string directly into the database.
 ///
 /// Convenience wrapper for tests that parses JSON and calls `import_graph`.
-#[cfg(test)]
+#[cfg(any(test, feature = "test-utils"))]
 pub fn import_json_str(
     db: &DbInstance,
     content: &str,

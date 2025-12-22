@@ -5,10 +5,16 @@ pub mod types;
 pub mod query_builders;
 pub mod queries;
 
+#[cfg(feature = "test-utils")]
+pub mod test_utils;
+
+#[cfg(feature = "test-utils")]
+pub mod fixtures;
+
 // Re-export commonly used items
 pub use db::{open_db, run_query, run_query_no_params, DbError, Params};
 
-#[cfg(test)]
+#[cfg(any(test, feature = "test-utils"))]
 pub use db::open_mem_db;
 
 pub use types::{

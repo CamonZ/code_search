@@ -1,0 +1,14 @@
+max_depth: 5
+roots[1]:
+  - arity: 1
+    end_line: 20
+    file: lib/service.ex
+    function: fetch
+    kind: def
+    module: MyApp.Service
+    start_line: 10
+    targets[1]{arity,function,line,module}:
+      2,get,15,MyApp.Repo
+target_function: get
+target_module: MyApp.Repo
+total_callers: 1

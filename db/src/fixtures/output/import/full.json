@@ -1,0 +1,19 @@
+{
+  "schemas": {
+    "created": [
+      "modules",
+      "functions"
+    ],
+    "already_existed": [
+      "calls"
+    ]
+  },
+  "cleared": true,
+  "modules_imported": 10,
+  "functions_imported": 50,
+  "calls_imported": 100,
+  "structs_imported": 5,
+  "function_locations_imported": 45,
+  "specs_imported": 25,
+  "types_imported": 12
+}

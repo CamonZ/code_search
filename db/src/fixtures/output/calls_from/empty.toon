@@ -1,0 +1,4 @@
+function_pattern: get_user
+items[0]:
+module_pattern: MyApp.Accounts
+total_items: 0

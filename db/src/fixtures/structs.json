@@ -1,0 +1,33 @@
+{
+  "structs": {
+    "MyApp.User": {
+      "fields": [
+        {"default": "nil", "field": "id", "required": true, "inferred_type": "integer()"},
+        {"default": "nil", "field": "name", "required": true, "inferred_type": "String.t()"},
+        {"default": "nil", "field": "email", "required": true, "inferred_type": "String.t()"},
+        {"default": "false", "field": "admin", "required": false, "inferred_type": "boolean()"},
+        {"default": "nil", "field": "inserted_at", "required": false, "inferred_type": "DateTime.t()"}
+      ]
+    },
+    "MyApp.Post": {
+      "fields": [
+        {"default": "nil", "field": "id", "required": true, "inferred_type": "integer()"},
+        {"default": "nil", "field": "title", "required": true, "inferred_type": "String.t()"},
+        {"default": "nil", "field": "body", "required": false, "inferred_type": "String.t()"},
+        {"default": "nil", "field": "user_id", "required": true, "inferred_type": "integer()"},
+        {"default": ":draft", "field": "status", "required": false, "inferred_type": "atom()"}
+      ]
+    },
+    "MyApp.Comment": {
+      "fields": [
+        {"default": "nil", "field": "id", "required": true, "inferred_type": "integer()"},
+        {"default": "nil", "field": "content", "required": true, "inferred_type": "String.t()"},
+        {"default": "nil", "field": "post_id", "required": true, "inferred_type": "integer()"},
+        {"default": "nil", "field": "user_id", "required": true, "inferred_type": "integer()"}
+      ]
+    }
+  },
+  "function_locations": {},
+  "calls": [],
+  "type_signatures": {}
+}
