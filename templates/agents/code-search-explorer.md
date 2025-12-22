@@ -46,7 +46,12 @@ When asked to explore a codebase:
 
 ## Database Location
 
-The call graph database defaults to `./cozo.sqlite`. If needed, specify with:
+The database is automatically searched in:
+1. `.code_search/cozo.sqlite` (project-local, created by default)
+2. `./cozo.sqlite` (current directory)
+3. `~/.code_search/cozo.sqlite` (user-global)
+
+Override if needed:
 ```bash
 code_search --db /path/to/project.sqlite <command>
 ```

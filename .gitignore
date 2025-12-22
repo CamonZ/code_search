@@ -14,6 +14,7 @@ target
 **/mutants.out*/
 
 cozo.sqlite
+.code_search/
 /call_graph.json
 !src/fixtures/call_graph.json
 .cozo_repl_history
