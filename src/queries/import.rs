@@ -256,10 +256,10 @@ pub fn import_structs(
         for field in &def.fields {
             let inferred_type = field.inferred_type.as_deref().unwrap_or("");
             rows.push(format!(
-                r#"["{}", "{}", "{}", '{}', {}, "{}"]"#,
+                r#"["{}", "{}", '{}', '{}', {}, "{}"]"#,
                 escaped_project,
                 escape_string(module),
-                escape_string(&field.field),
+                escape_string_single(&field.field),
                 escape_string_single(&field.default),
                 field.required,
                 escape_string(inferred_type)
@@ -393,14 +393,14 @@ pub fn import_types(
             let params = type_def.params.join(", ");
 
             rows.push(format!(
-                r#"["{}", "{}", "{}", "{}", "{}", {}, "{}"]"#,
+                r#"["{}", "{}", "{}", "{}", "{}", {}, '{}']"#,
                 escaped_project,
                 escape_string(module),
                 escape_string(&type_def.name),
                 escape_string(&type_def.kind),
                 escape_string(&params),
                 type_def.line,
-                escape_string(&type_def.definition),
+                escape_string_single(&type_def.definition),
             ));
         }
     }
@@ -457,7 +457,7 @@ pub fn import_json_str(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::open_db;
+    use crate::db::{extract_string, open_db};
     use tempfile::NamedTempFile;
 
     // Test deserialization with all new fields present
@@ -582,5 +582,143 @@ mod tests {
         // 1. JSON deserialization worked with the new fields
         // 2. import_function_locations() successfully formatted and inserted rows with 4 new fields
         // 3. CozoDB schema accepted the data
+    }
+
+    // Test import of struct fields with string-quoted atom syntax
+    #[test]
+    fn test_import_struct_fields_with_string_quoted_atoms() {
+        let json = r#"{
+            "structs": {
+                "MyApp.User": {
+                    "fields": [
+                        {
+                            "field": "name",
+                            "default": "nil",
+                            "required": false,
+                            "inferred_type": "String.t()"
+                        },
+                        {
+                            "field": ":\"user.id\"",
+                            "default": "nil",
+                            "required": false,
+                            "inferred_type": "integer()"
+                        },
+                        {
+                            "field": ":\"first-name\"",
+                            "default": ":\"foo.bar\"",
+                            "required": true,
+                            "inferred_type": "String.t()"
+                        }
+                    ]
+                }
+            },
+            "function_locations": {},
+            "calls": [],
+            "specs": {},
+            "types": {}
+        }"#;
+
+        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
+        let db = open_db(db_file.path()).expect("Failed to open db");
+
+        let result = import_json_str(&db, json, "test_project").expect("Import should succeed");
+
+        // Verify import succeeded
+        assert_eq!(result.structs_imported, 3);
+
+        // Query the database to see what was actually stored
+        let query = r#"
+            ?[field, default_value] := *struct_fields{
+                project: "test_project",
+                module: "MyApp.User",
+                field,
+                default_value
+            }
+        "#;
+        let rows = run_query_no_params(&db, query).expect("Query should succeed");
+
+        // Extract field names and defaults
+        let mut fields: Vec<(String, String)> = rows.rows.iter()
+            .filter_map(|row| {
+                let field = extract_string(&row[0])?;
+                let default = extract_string(&row[1])?;
+                Some((field, default))
+            })
+            .collect();
+        fields.sort();
+
+        // Verify the string-quoted atom syntax is preserved in both field names and defaults
+        assert_eq!(fields.len(), 3);
+        assert_eq!(fields[0].0, r#":"first-name""#);
+        assert_eq!(fields[0].1, r#":"foo.bar""#);
+        assert_eq!(fields[1].0, r#":"user.id""#);
+        assert_eq!(fields[1].1, "nil");
+        assert_eq!(fields[2].0, "name");
+        assert_eq!(fields[2].1, "nil");
+    }
+
+    // Test import of types with string-quoted atoms in definition
+    #[test]
+    fn test_import_types_with_string_quoted_atoms() {
+        let json = r#"{
+            "structs": {},
+            "function_locations": {},
+            "calls": [],
+            "specs": {},
+            "types": {
+                "MyModule": [
+                    {
+                        "name": "status",
+                        "kind": "type",
+                        "params": [],
+                        "line": 5,
+                        "definition": "@type status() :: :pending | :active | :\"special.status\""
+                    },
+                    {
+                        "name": "config",
+                        "kind": "type",
+                        "params": [],
+                        "line": 10,
+                        "definition": "@type config() :: %{:\"api.key\" => String.t()}"
+                    }
+                ]
+            }
+        }"#;
+
+        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
+        let db = open_db(db_file.path()).expect("Failed to open db");
+
+        let result = import_json_str(&db, json, "test_project").expect("Import should succeed");
+
+        // Verify import succeeded
+        assert_eq!(result.types_imported, 2);
+
+        // Query the database to see what was actually stored
+        let query = r#"
+            ?[name, definition] := *types{
+                project: "test_project",
+                module: "MyModule",
+                name,
+                definition
+            }
+        "#;
+        let rows = run_query_no_params(&db, query).expect("Query should succeed");
+
+        // Extract type definitions
+        let mut types: Vec<(String, String)> = rows.rows.iter()
+            .filter_map(|row| {
+                let name = extract_string(&row[0])?;
+                let definition = extract_string(&row[1])?;
+                Some((name, definition))
+            })
+            .collect();
+        types.sort();
+
+        // Verify the string-quoted atom syntax is preserved in definitions
+        assert_eq!(types.len(), 2);
+        assert_eq!(types[0].0, "config");
+        assert_eq!(types[0].1, r#"@type config() :: %{:"api.key" => String.t()}"#);
+        assert_eq!(types[1].0, "status");
+        assert_eq!(types[1].1, r#"@type status() :: :pending | :active | :"special.status""#);
     }
 }
