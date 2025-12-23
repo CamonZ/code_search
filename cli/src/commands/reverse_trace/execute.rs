@@ -28,8 +28,6 @@ fn build_reverse_trace_result(
 
     // Process depth 1 (direct callers of target function)
     if let Some(depth1_steps) = by_depth.get(&1) {
-        let mut filter = crate::dedup::DeduplicationFilter::new();
-
         for step in depth1_steps {
             let caller_key = (
                 step.caller_module.clone(),
@@ -38,13 +36,16 @@ fn build_reverse_trace_result(
                 1i64,
             );
 
-            // Add caller as root entry if not already added
-            if filter.should_process(caller_key.clone()) {
+            // Add caller as root entry if not already added (use HashMap for dedup check)
+            if !entry_index_map.contains_key(&caller_key) {
                 let entry_idx = entries.len();
+                // Insert into HashMap before pushing (reuse caller_key)
+                entry_index_map.insert(caller_key.clone(), entry_idx);
+
                 entries.push(TraceEntry {
-                    module: step.caller_module.clone(),
-                    function: step.caller_function.clone(),
-                    arity: step.caller_arity,
+                    module: caller_key.0,
+                    function: caller_key.1,
+                    arity: caller_key.2,
                     kind: step.caller_kind.clone(),
                     start_line: step.caller_start_line,
                     end_line: step.caller_end_line,
@@ -53,7 +54,6 @@ fn build_reverse_trace_result(
                     line: step.line,
                     parent_index: None,
                 });
-                entry_index_map.insert(caller_key, entry_idx);
             }
         }
     }
@@ -61,8 +61,6 @@ fn build_reverse_trace_result(
     // Process deeper levels (additional callers)
     for depth in 2..=max_depth as i64 {
         if let Some(depth_steps) = by_depth.get(&depth) {
-            let mut filter = crate::dedup::DeduplicationFilter::new();
-
             for step in depth_steps {
                 let caller_key = (
                     step.caller_module.clone(),
@@ -71,31 +69,35 @@ fn build_reverse_trace_result(
                     depth,
                 );
 
-                // Find parent index (the callee at previous depth, which is what called this caller)
-                let parent_key = (
-                    step.callee_module.clone(),
-                    step.callee_function.clone(),
-                    step.callee_arity,
-                    depth - 1,
-                );
+                // Check if we already have this caller at this depth using HashMap
+                if !entry_index_map.contains_key(&caller_key) {
+                    // Find parent index using HashMap (O(1) lookup)
+                    let parent_key = (
+                        step.callee_module.clone(),
+                        step.callee_function.clone(),
+                        step.callee_arity,
+                        depth - 1,
+                    );
+                    let parent_index = entry_index_map.get(&parent_key).copied();
 
-                let parent_index = entry_index_map.get(&parent_key).copied();
+                    if parent_index.is_some() {
+                        let entry_idx = entries.len();
+                        // Insert into HashMap before pushing (reuse caller_key)
+                        entry_index_map.insert(caller_key.clone(), entry_idx);
 
-                if filter.should_process(caller_key.clone()) && parent_index.is_some() {
-                    let entry_idx = entries.len();
-                    entries.push(TraceEntry {
-                        module: step.caller_module.clone(),
-                        function: step.caller_function.clone(),
-                        arity: step.caller_arity,
-                        kind: step.caller_kind.clone(),
-                        start_line: step.caller_start_line,
-                        end_line: step.caller_end_line,
-                        file: step.file.clone(),
-                        depth,
-                        line: step.line,
-                        parent_index,
-                    });
-                    entry_index_map.insert(caller_key, entry_idx);
+                        entries.push(TraceEntry {
+                            module: caller_key.0,
+                            function: caller_key.1,
+                            arity: caller_key.2,
+                            kind: step.caller_kind.clone(),
+                            start_line: step.caller_start_line,
+                            end_line: step.caller_end_line,
+                            file: step.file.clone(),
+                            depth,
+                            line: step.line,
+                            parent_index,
+                        });
+                    }
                 }
             }
         }

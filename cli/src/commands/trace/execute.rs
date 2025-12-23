@@ -84,34 +84,34 @@ fn build_trace_result(
     for depth in 2..=max_depth as i64 {
         if let Some(depth_calls) = by_depth.remove(&depth) {
             for call in depth_calls {
-                // Check if we already have this callee at this depth
-                let existing = entries.iter().position(|e| {
-                    e.depth == depth
-                        && e.module == call.callee.module.as_ref()
-                        && e.function == call.callee.name.as_ref()
-                        && e.arity == call.callee.arity
-                });
+                // Check if we already have this callee at this depth using HashMap
+                let callee_key = (
+                    call.callee.module.to_string(),
+                    call.callee.name.to_string(),
+                    call.callee.arity,
+                    depth,
+                );
 
-                if existing.is_none() {
-                    // Find parent index using references (no cloning)
-                    let parent_index = entries.iter().position(|e| {
-                        e.depth == depth - 1
-                            && e.module == call.caller.module.as_ref()
-                            && e.function == call.caller.name.as_ref()
-                            && e.arity == call.caller.arity
-                    });
+                if !entry_index_map.contains_key(&callee_key) {
+                    // Find parent index using HashMap (O(1) lookup)
+                    let parent_key = (
+                        call.caller.module.to_string(),
+                        call.caller.name.to_string(),
+                        call.caller.arity,
+                        depth - 1,
+                    );
+                    let parent_index = entry_index_map.get(&parent_key).copied();
 
                     if parent_index.is_some() {
                         let entry_idx = entries.len();
+                        // Insert into HashMap before pushing (reuse callee_key)
+                        entry_index_map.insert(callee_key.clone(), entry_idx);
+
                         // Convert from Rc<str> to String for storage
-                        let module = call.callee.module.to_string();
-                        let function = call.callee.name.to_string();
-                        let arity = call.callee.arity;
-                        entry_index_map.insert((module.clone(), function.clone(), arity, depth), entry_idx);
                         entries.push(TraceEntry {
-                            module,
-                            function,
-                            arity,
+                            module: callee_key.0,
+                            function: callee_key.1,
+                            arity: callee_key.2,
                             kind: call.callee.kind.as_deref().unwrap_or("").to_string(),
                             start_line: call.callee.start_line.unwrap_or(0),
                             end_line: call.callee.end_line.unwrap_or(0),

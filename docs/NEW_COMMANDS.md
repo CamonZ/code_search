@@ -269,14 +269,15 @@ crate::dedup::deduplicate_retain(&mut calls, |c| {
 ```
 Use when: Items are already sorted and you want to remove duplicates while preserving order
 
-**DeduplicationFilter** - For prevention during collection
+**HashMap for deduplication** - For prevention during collection
 ```rust
-let mut filter = crate::dedup::DeduplicationFilter::new();
-if filter.should_process(key) {
+let mut seen: HashMap<Key, usize> = HashMap::new();
+if !seen.contains_key(&key) {
+    seen.insert(key, index);
     // Add entry to result
 }
 ```
-Use when: Building results incrementally and preventing duplicates before adding
+Use when: Building results incrementally and need both deduplication and O(1) lookups (e.g., parent index lookups in trace commands)
 
 **Benefits:**
 - No more HashSet boilerplate scattered across commands
@@ -471,7 +472,7 @@ impl TableFormatter for ModuleGroupResult<CallerFunction> {
 - [ ] Use `crate::dedup::*` utilities for deduplication (if needed):
   - [ ] `sort_and_deduplicate()` for combined sort + dedup
   - [ ] `deduplicate_retain()` for post-sort dedup
-  - [ ] `DeduplicationFilter` for incremental collection
+  - [ ] Use HashMap/HashSet directly for incremental collection with O(1) lookups
 - [ ] Implement `TableFormatter` trait in `output.rs` (NOT `Outputable`)
 - [ ] Document `file` field population decision with inline comments
 - [ ] Test `to_table()` output against expected string constants
