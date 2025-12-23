@@ -1,8 +1,6 @@
 //! Unified types for trace and reverse-trace commands.
 
-use std::collections::HashMap;
 use serde::Serialize;
-use crate::types::Call;
 
 /// Direction of trace traversal
 #[derive(Debug, Clone, Copy, Default, Serialize)]

@@ -285,7 +285,7 @@ pub fn import_function_locations(
     let mut rows = Vec::new();
 
     for (module, functions) in &graph.function_locations {
-        for (_func_key, loc) in functions {
+        for loc in functions.values() {
             // Use deserialized fields directly from the JSON
             let name = &loc.name;
             let arity = loc.arity;
@@ -303,7 +303,7 @@ pub fn import_function_locations(
                 r#"["{}", "{}", "{}", {}, {}, "{}", "{}", {}, "{}", {}, {}, '{}', '{}', "{}", "{}", {}, {}, "{}", "{}"]"#,
                 escaped_project,
                 escape_string(module),
-                escape_string(&name),
+                escape_string(name),
                 arity,
                 line,
                 escape_string(loc.file.as_deref().unwrap_or("")),

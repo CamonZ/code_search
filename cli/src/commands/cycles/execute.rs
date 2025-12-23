@@ -55,7 +55,7 @@ impl Execute for CyclesCmd {
         for edge in &edges {
             graph
                 .entry(edge.from.clone())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(edge.to.clone());
             all_modules.insert(edge.from.clone());
             all_modules.insert(edge.to.clone());
@@ -96,7 +96,7 @@ fn find_all_cycles(graph: &HashMap<String, Vec<String>>, all_modules: &HashSet<S
     let mut cycles = Vec::new();
 
     for start_node in all_modules {
-        let found = dfs_find_cycles(graph, start_node, start_node, vec![], &mut HashSet::new());
+        let found = dfs_find_cycles(graph, start_node, start_node, vec![]);
         cycles.extend(found);
     }
 
@@ -109,7 +109,6 @@ fn dfs_find_cycles(
     current: &str,
     start: &str,
     path: Vec<String>,
-    visited: &mut HashSet<String>,
 ) -> Vec<Cycle> {
     let mut cycles = Vec::new();
     let mut new_path = path.clone();
@@ -120,7 +119,7 @@ fn dfs_find_cycles(
     if current == start && !path.is_empty() {
         // Only report if we haven't already found this cycle
         // (cycles of length > 1 where start != first path node)
-        if path.len() > 0 {
+        if !path.is_empty() {
             cycles.push(Cycle {
                 length: new_path.len() - 1, // Don't count the repeated start node
                 modules: path.clone(),
@@ -137,7 +136,7 @@ fn dfs_find_cycles(
     // Explore neighbors
     if let Some(neighbors) = graph.get(current) {
         for neighbor in neighbors {
-            let found = dfs_find_cycles(graph, neighbor, start, new_path.clone(), visited);
+            let found = dfs_find_cycles(graph, neighbor, start, new_path.clone());
             cycles.extend(found);
         }
     }

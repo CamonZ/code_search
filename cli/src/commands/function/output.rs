@@ -8,7 +8,7 @@ impl TableFormatter for ModuleGroupResult<FuncSig> {
     type Entry = FuncSig;
 
     fn format_header(&self) -> String {
-        let function_pattern = self.function_pattern.as_ref().map(|s| s.as_str()).unwrap_or("*");
+        let function_pattern = self.function_pattern.as_deref().unwrap_or("*");
         format!("Function: {}.{}", self.module_pattern, function_pattern)
     }
 

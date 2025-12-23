@@ -1,6 +1,0 @@
-from_function: index
-from_module: MyApp.Controller
-max_depth: 10
-paths[0]:
-to_function: get
-to_module: MyApp.Repo

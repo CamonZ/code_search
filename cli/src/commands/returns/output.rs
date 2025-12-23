@@ -8,7 +8,7 @@ impl TableFormatter for ModuleGroupResult<ReturnInfo> {
     type Entry = ReturnInfo;
 
     fn format_header(&self) -> String {
-        let pattern = self.function_pattern.as_ref().map(|s| s.as_str()).unwrap_or("*");
+        let pattern = self.function_pattern.as_deref().unwrap_or("*");
         format!("Functions returning \"{}\"", pattern)
     }
 

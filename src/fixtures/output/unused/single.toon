@@ -1,7 +1,0 @@
-items[1]:
-  - entries[1]{arity,kind,line,name}:
-    0,defp,35,unused_helper
-    file: lib/accounts.ex
-    name: MyApp.Accounts
-module_pattern: *
-total_items: 1

@@ -1,9 +1,0 @@
-from_function: index
-from_module: MyApp.Controller
-max_depth: 10
-paths[1]:
-  - steps[2]{callee_arity,callee_function,callee_module,caller_function,caller_module,depth,file,line}:
-    1,fetch,MyApp.Service,index,MyApp.Controller,1,lib/controller.ex,7
-    2,get,MyApp.Repo,fetch,MyApp.Service,2,lib/service.ex,15
-to_function: get
-to_module: MyApp.Repo

@@ -72,7 +72,7 @@ impl Execute for ClustersCmd {
             let namespace = extract_namespace(module, self.depth);
             namespace_modules
                 .entry(namespace)
-                .or_insert_with(HashSet::new)
+                .or_default()
                 .insert(module.clone());
         }
 

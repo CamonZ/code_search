@@ -56,8 +56,8 @@ fn build_trace_result(
                     && e.arity == call.callee.arity
             });
 
-            if existing.is_none() || seen_at_depth.insert(existing.unwrap_or(usize::MAX)) {
-                if existing.is_none() {
+            if (existing.is_none() || seen_at_depth.insert(existing.unwrap_or(usize::MAX)))
+                && existing.is_none() {
                     let entry_idx = entries.len();
                     // Convert from Rc<str> to String for storage
                     let module = call.callee.module.to_string();
@@ -77,7 +77,6 @@ fn build_trace_result(
                         parent_index: Some(0),
                     });
                 }
-            }
         }
     }
 

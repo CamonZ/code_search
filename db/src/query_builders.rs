@@ -7,7 +7,9 @@
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
+/// use db::query_builders::ConditionBuilder;
+///
 /// let builder = ConditionBuilder::new("module", "module_pattern");
 /// let cond = builder.build(false); // "module == $module_pattern"
 /// let cond = builder.build(true);  // "regex_matches(module, $module_pattern)"

@@ -200,7 +200,7 @@ fn dfs_find_paths(
     // Check if we reached the target
     let at_target = current_edge.callee_module == to_module
         && current_edge.callee_function == to_function
-        && to_arity.map_or(true, |a| current_edge.callee_arity == a);
+        && to_arity.is_none_or(|a| current_edge.callee_arity == a);
 
     if at_target {
         // Found a complete path

@@ -79,12 +79,11 @@ pub fn get_module_loc(
 
     let mut loc_map = std::collections::HashMap::new();
     for row in rows.rows {
-        if row.len() >= 2 {
-            if let Some(module) = extract_string(&row[0]) {
+        if row.len() >= 2
+            && let Some(module) = extract_string(&row[0]) {
                 let loc = extract_i64(&row[1], 0);
                 loc_map.insert(module, loc);
             }
-        }
     }
 
     Ok(loc_map)
@@ -130,12 +129,11 @@ pub fn get_function_counts(
 
     let mut counts = std::collections::HashMap::new();
     for row in rows.rows {
-        if row.len() >= 2 {
-            if let Some(module) = extract_string(&row[0]) {
+        if row.len() >= 2
+            && let Some(module) = extract_string(&row[0]) {
                 let count = extract_i64(&row[1], 0);
                 counts.insert(module, count);
             }
-        }
     }
 
     Ok(counts)

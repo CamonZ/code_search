@@ -9,13 +9,13 @@ use crate::commands::Execute;
 use db::queries::schema;
 
 /// Embedded skill templates directory
-static SKILL_TEMPLATES: Dir = include_dir!("$CARGO_MANIFEST_DIR/templates/skills");
+static SKILL_TEMPLATES: Dir = include_dir!("$CARGO_MANIFEST_DIR/../templates/skills");
 
 /// Embedded agent templates directory
-static AGENT_TEMPLATES: Dir = include_dir!("$CARGO_MANIFEST_DIR/templates/agents");
+static AGENT_TEMPLATES: Dir = include_dir!("$CARGO_MANIFEST_DIR/../templates/agents");
 
 /// Embedded hook templates directory
-static HOOK_TEMPLATES: Dir = include_dir!("$CARGO_MANIFEST_DIR/templates/hooks");
+static HOOK_TEMPLATES: Dir = include_dir!("$CARGO_MANIFEST_DIR/../templates/hooks");
 
 /// Status of a database relation (table)
 #[derive(Debug, Clone, Serialize)]

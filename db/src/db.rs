@@ -259,20 +259,20 @@ impl CallRowLayout {
 /// (None) if any required string field cannot be extracted.
 pub fn extract_call_from_row(row: &[DataValue], layout: &CallRowLayout) -> Option<Call> {
     // Extract caller information
-    let Some(caller_module) = extract_string(&row[layout.caller_module_idx]) else { return None };
-    let Some(caller_name) = extract_string(&row[layout.caller_name_idx]) else { return None };
+    let caller_module = extract_string(&row[layout.caller_module_idx])?;
+    let caller_name = extract_string(&row[layout.caller_name_idx])?;
     let caller_arity = extract_i64(&row[layout.caller_arity_idx], 0);
     let caller_kind = extract_string_or(&row[layout.caller_kind_idx], "");
     let caller_start_line = extract_i64(&row[layout.caller_start_line_idx], 0);
     let caller_end_line = extract_i64(&row[layout.caller_end_line_idx], 0);
 
     // Extract callee information
-    let Some(callee_module) = extract_string(&row[layout.callee_module_idx]) else { return None };
-    let Some(callee_name) = extract_string(&row[layout.callee_name_idx]) else { return None };
+    let callee_module = extract_string(&row[layout.callee_module_idx])?;
+    let callee_name = extract_string(&row[layout.callee_name_idx])?;
     let callee_arity = extract_i64(&row[layout.callee_arity_idx], 0);
 
     // Extract file and line
-    let Some(file) = extract_string(&row[layout.file_idx]) else { return None };
+    let file = extract_string(&row[layout.file_idx])?;
     let line = extract_i64(&row[layout.line_idx], 0);
 
     // Extract optional call_type

@@ -77,11 +77,10 @@ pub fn find_cycle_edges(
             (row.get(from_idx), row.get(to_idx))
         {
             // Apply module pattern filter if provided
-            if let Some(pattern) = module_pattern {
-                if !from.contains(pattern) && !to.contains(pattern) {
+            if let Some(pattern) = module_pattern
+                && !from.contains(pattern) && !to.contains(pattern) {
                     continue;
                 }
-            }
             edges.push(CycleEdge {
                 from: from.to_string(),
                 to: to.to_string(),

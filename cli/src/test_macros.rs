@@ -19,7 +19,7 @@ macro_rules! cli_defaults_test {
         fn test_defaults() {
             let args = Args::try_parse_from(["code_search", $cmd, $($req_arg),*]).unwrap();
             match args.command {
-                crate::commands::Command::$variant(cmd) => {
+                $crate::commands::Command::$variant(cmd) => {
                     $(
                         assert_eq!(cmd.$($def_field).+, $def_expected,
                             concat!("Default value mismatch for field: ", stringify!($($def_field).+)));
@@ -50,7 +50,7 @@ macro_rules! cli_option_test {
                 $($arg),+
             ]).unwrap();
             match args.command {
-                crate::commands::Command::$variant(cmd) => {
+                $crate::commands::Command::$variant(cmd) => {
                     assert_eq!(cmd.$($field).+, $expected,
                         concat!("Field ", stringify!($($field).+), " mismatch"));
                 }
@@ -81,7 +81,7 @@ macro_rules! cli_option_test_with_required {
                 $($arg),+
             ]).unwrap();
             match args.command {
-                crate::commands::Command::$variant(cmd) => {
+                $crate::commands::Command::$variant(cmd) => {
                     assert_eq!(cmd.$($field).+, $expected,
                         concat!("Field ", stringify!($($field).+), " mismatch"));
                 }
@@ -108,7 +108,7 @@ macro_rules! cli_limit_tests {
         fn test_limit_default() {
             let args = Args::try_parse_from(["code_search", $cmd, $($req_arg),*]).unwrap();
             match args.command {
-                crate::commands::Command::$variant(cmd) => {
+                $crate::commands::Command::$variant(cmd) => {
                     assert_eq!(cmd.$($limit_field).+, $limit_default);
                 }
                 _ => panic!(concat!("Expected ", stringify!($variant), " command")),
@@ -280,7 +280,7 @@ macro_rules! execute_empty_db_test {
     ) => {
         #[rstest]
         fn test_empty_db() {
-            use crate::commands::Execute;
+            use $crate::commands::Execute;
             let db = db::test_utils::setup_empty_test_db();
             let result = $cmd.execute(&db);
             assert!(result.is_err());
@@ -321,7 +321,7 @@ macro_rules! execute_test {
     ) => {
         #[rstest]
         fn $test_name($fixture: db::DbInstance) {
-            use crate::commands::Execute;
+            use $crate::commands::Execute;
             let $result = $cmd.execute(&$fixture).expect("Execute should succeed");
             $assertions
         }
@@ -349,9 +349,12 @@ macro_rules! execute_no_match_test {
     ) => {
         #[rstest]
         fn $test_name($fixture: db::DbInstance) {
-            use crate::commands::Execute;
+            use $crate::commands::Execute;
             let result = $cmd.execute(&$fixture).expect("Execute should succeed");
-            assert!(result.$field.is_empty(), concat!(stringify!($field), " should be empty"));
+            assert!(
+                result.$field.is_empty(),
+                concat!(stringify!($field), " should be empty")
+            );
         }
     };
 }
@@ -379,10 +382,13 @@ macro_rules! execute_count_test {
     ) => {
         #[rstest]
         fn $test_name($fixture: db::DbInstance) {
-            use crate::commands::Execute;
+            use $crate::commands::Execute;
             let result = $cmd.execute(&$fixture).expect("Execute should succeed");
-            assert_eq!(result.$field.len(), $expected,
-                concat!("Expected ", stringify!($expected), " ", stringify!($field)));
+            assert_eq!(
+                result.$field.len(),
+                $expected,
+                concat!("Expected ", stringify!($expected), " ", stringify!($field))
+            );
         }
     };
 }
@@ -410,10 +416,12 @@ macro_rules! execute_field_test {
     ) => {
         #[rstest]
         fn $test_name($fixture: db::DbInstance) {
-            use crate::commands::Execute;
+            use $crate::commands::Execute;
             let result = $cmd.execute(&$fixture).expect("Execute should succeed");
-            assert_eq!(result.$field, $expected,
-                concat!("Field ", stringify!($field), " mismatch"));
+            assert_eq!(
+                result.$field, $expected,
+                concat!("Field ", stringify!($field), " mismatch")
+            );
         }
     };
 }
@@ -443,11 +451,16 @@ macro_rules! execute_first_item_test {
     ) => {
         #[rstest]
         fn $test_name($fixture: db::DbInstance) {
-            use crate::commands::Execute;
+            use $crate::commands::Execute;
             let result = $cmd.execute(&$fixture).expect("Execute should succeed");
-            assert!(!result.$collection.is_empty(), concat!(stringify!($collection), " should not be empty"));
-            assert_eq!(result.$collection[0].$field, $expected,
-                concat!("First item ", stringify!($field), " mismatch"));
+            assert!(
+                !result.$collection.is_empty(),
+                concat!(stringify!($collection), " should not be empty")
+            );
+            assert_eq!(
+                result.$collection[0].$field, $expected,
+                concat!("First item ", stringify!($field), " mismatch")
+            );
         }
     };
 }
@@ -475,10 +488,12 @@ macro_rules! execute_all_match_test {
     ) => {
         #[rstest]
         fn $test_name($fixture: db::DbInstance) {
-            use crate::commands::Execute;
+            use $crate::commands::Execute;
             let result = $cmd.execute(&$fixture).expect("Execute should succeed");
-            assert!(result.$collection.iter().all(|$item| $cond),
-                concat!("Not all ", stringify!($collection), " matched condition"));
+            assert!(
+                result.$collection.iter().all(|$item| $cond),
+                concat!("Not all ", stringify!($collection), " matched condition")
+            );
         }
     };
 }
@@ -506,10 +521,17 @@ macro_rules! execute_limit_test {
     ) => {
         #[rstest]
         fn $test_name($fixture: db::DbInstance) {
-            use crate::commands::Execute;
+            use $crate::commands::Execute;
             let result = $cmd.execute(&$fixture).expect("Execute should succeed");
-            assert!(result.$collection.len() <= $limit,
-                concat!("Expected at most ", stringify!($limit), " ", stringify!($collection)));
+            assert!(
+                result.$collection.len() <= $limit,
+                concat!(
+                    "Expected at most ",
+                    stringify!($limit),
+                    " ",
+                    stringify!($collection)
+                )
+            );
         }
     };
 }
@@ -543,7 +565,7 @@ macro_rules! output_table_test {
     ) => {
         #[rstest]
         fn $test_name($fixture: $fixture_type) {
-            use crate::output::{Outputable, OutputFormat};
+            use $crate::output::{OutputFormat, Outputable};
             assert_eq!($fixture.format(OutputFormat::$format), $expected);
         }
     };
@@ -556,7 +578,7 @@ macro_rules! output_table_test {
     ) => {
         #[rstest]
         fn $test_name($fixture: $fixture_type) {
-            use crate::output::Outputable;
+            use $crate::output::Outputable;
             assert_eq!($fixture.to_table(), $expected);
         }
     };
@@ -575,7 +597,7 @@ macro_rules! output_table_contains_test {
     ) => {
         #[rstest]
         fn $test_name($fixture: $fixture_type) {
-            use crate::output::Outputable;
+            use $crate::output::Outputable;
             let output = $fixture.to_table();
             $(
                 assert!(output.contains($needle), concat!("Table output should contain: ", $needle));
@@ -608,7 +630,7 @@ macro_rules! output_json_test {
     ) => {
         #[rstest]
         fn $test_name($fixture: $fixture_type) {
-            use crate::output::{Outputable, OutputFormat};
+            use $crate::output::{Outputable, OutputFormat};
             let output = $fixture.format(OutputFormat::Json);
             let parsed: serde_json::Value = serde_json::from_str(&output)
                 .expect("Should produce valid JSON");
@@ -640,7 +662,7 @@ macro_rules! output_toon_test {
     ) => {
         #[rstest]
         fn $test_name($fixture: $fixture_type) {
-            use crate::output::{Outputable, OutputFormat};
+            use $crate::output::{Outputable, OutputFormat};
             let output = $fixture.format(OutputFormat::Toon);
             $(
                 assert!(output.contains($needle), concat!("Toon output should contain: ", $needle));

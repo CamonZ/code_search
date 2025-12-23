@@ -1,4 +1,0 @@
-function_pattern: foo
-module_pattern: MyApp
-modules[0]:
-total_clauses: 0

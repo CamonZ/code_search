@@ -140,11 +140,10 @@ impl Execute for BrowseModuleCmd {
 
             for func in funcs {
                 // Filter by name if specified
-                if let Some(ref name_filter) = self.name {
-                    if !func.name.contains(name_filter) {
+                if let Some(ref name_filter) = self.name
+                    && !func.name.contains(name_filter) {
                         continue;
                     }
-                }
 
                 definitions.push(Definition::Function {
                     module: func.module,
@@ -220,11 +219,10 @@ impl Execute for BrowseModuleCmd {
 
             for struct_def in structs {
                 // Filter by name if specified
-                if let Some(ref name_filter) = self.name {
-                    if !struct_def.module.contains(name_filter) {
+                if let Some(ref name_filter) = self.name
+                    && !struct_def.module.contains(name_filter) {
                         continue;
                     }
-                }
 
                 definitions.push(Definition::Struct {
                     module: struct_def.module.clone(),

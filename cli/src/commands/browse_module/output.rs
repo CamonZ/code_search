@@ -28,17 +28,14 @@ impl Outputable for BrowseModuleResult {
         }
 
         // Summary
-        output.push_str(&format!(
-            "Found {} definition(s):\n\n",
-            self.total_items
-        ));
+        output.push_str(&format!("Found {} definition(s):\n\n", self.total_items));
 
         // Group by module for readability
         let mut by_module: BTreeMap<String, Vec<&Definition>> = BTreeMap::new();
         for def in &self.definitions {
             by_module
                 .entry(def.module().to_string())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(def);
         }
 
@@ -58,9 +55,14 @@ impl Outputable for BrowseModuleResult {
                         return_type,
                         ..
                     } => {
-                        output.push_str(&format!("    L{}-{}  [{}] {}/{}\n", start_line, end_line, kind, name, arity));
+                        output.push_str(&format!(
+                            "    L{}-{}  [{}] {}/{}\n",
+                            start_line, end_line, kind, name, arity
+                        ));
                         if !args.is_empty() || !return_type.is_empty() {
-                            output.push_str(&format!("           {} {}\n", args, return_type).trim_end());
+                            output.push_str(
+                                format!("           {} {}\n", args, return_type).trim_end(),
+                            );
                             output.push('\n');
                         }
                     }
@@ -73,7 +75,10 @@ impl Outputable for BrowseModuleResult {
                         full,
                         ..
                     } => {
-                        output.push_str(&format!("    L{:<3}  [{}] {}/{}\n", line, kind, name, arity));
+                        output.push_str(&format!(
+                            "    L{:<3}  [{}] {}/{}\n",
+                            line, kind, name, arity
+                        ));
                         if !full.is_empty() {
                             output.push_str(&format!("           {}\n", full));
                         }
@@ -89,25 +94,28 @@ impl Outputable for BrowseModuleResult {
                         output.push_str(&format!("    L{:<3}  [{}] {}\n", line, kind, name));
                         if !definition.is_empty() {
                             let formatted = format_type_definition(definition);
-                            // Indent multi-line definitions properly
-                            for (i, def_line) in formatted.lines().enumerate() {
-                                if i == 0 {
-                                    output.push_str(&format!("           {}\n", def_line));
-                                } else {
-                                    output.push_str(&format!("           {}\n", def_line));
-                                }
+                            for def_line in formatted.lines() {
+                                output.push_str(&format!("           {}\n", def_line));
                             }
                         }
                     }
 
                     Definition::Struct { name, fields, .. } => {
-                        output.push_str(&format!("    [struct] {} with {} fields\n", name, fields.len()));
+                        output.push_str(&format!(
+                            "    [struct] {} with {} fields\n",
+                            name,
+                            fields.len()
+                        ));
                         for field in fields.iter() {
                             output.push_str(&format!(
                                 "           - {}: {} {}\n",
                                 field.name,
                                 field.inferred_type,
-                                if field.required { "(required)" } else { "(optional)" }
+                                if field.required {
+                                    "(required)"
+                                } else {
+                                    "(optional)"
+                                }
                             ));
                         }
                     }

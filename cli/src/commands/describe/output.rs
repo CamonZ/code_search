@@ -16,14 +16,14 @@ impl Outputable for DescribeResult {
 fn format_list_all(categories: &[CategoryListing]) -> String {
     let mut output = String::new();
     output.push_str("Available Commands\n");
-    output.push_str("\n");
+    output.push('\n');
 
     for category in categories {
         output.push_str(&format!("{}:\n", category.category));
         for (name, brief) in &category.commands {
             output.push_str(&format!("  {:<20} {}\n", name, brief));
         }
-        output.push_str("\n");
+        output.push('\n');
     }
 
     output.push_str("Use 'code_search describe <command>' for detailed information.\n");
@@ -35,24 +35,24 @@ fn format_specific(descriptions: &[CommandDescription]) -> String {
 
     for (i, desc) in descriptions.iter().enumerate() {
         if i > 0 {
-            output.push_str("\n");
+            output.push('\n');
             output.push_str("================================================================================\n");
-            output.push_str("\n");
+            output.push('\n');
         }
 
         // Title
         output.push_str(&format!("{} - {}\n", desc.name, desc.brief));
-        output.push_str("\n");
+        output.push('\n');
 
         // Description
         output.push_str("DESCRIPTION\n");
         output.push_str(&format!("  {}\n", desc.description));
-        output.push_str("\n");
+        output.push('\n');
 
         // Usage
         output.push_str("USAGE\n");
         output.push_str(&format!("  {}\n", desc.usage));
-        output.push_str("\n");
+        output.push('\n');
 
         // Examples
         if !desc.examples.is_empty() {
@@ -60,7 +60,7 @@ fn format_specific(descriptions: &[CommandDescription]) -> String {
             for example in &desc.examples {
                 output.push_str(&format!("  # {}\n", example.description));
                 output.push_str(&format!("  {}\n", example.command));
-                output.push_str("\n");
+                output.push('\n');
             }
         }
 
@@ -70,7 +70,7 @@ fn format_specific(descriptions: &[CommandDescription]) -> String {
             for related in &desc.related {
                 output.push_str(&format!("  {}\n", related));
             }
-            output.push_str("\n");
+            output.push('\n');
         }
     }
 
