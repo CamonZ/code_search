@@ -11,7 +11,7 @@ use thiserror::Error;
 
 use crate::db::{extract_call_from_row, run_query, CallRowLayout, Params};
 use crate::types::Call;
-use crate::query_builders::{ConditionBuilder, OptionalConditionBuilder};
+use crate::query_builders::{validate_regex_patterns, ConditionBuilder, OptionalConditionBuilder};
 
 #[derive(Error, Debug)]
 pub enum CallsError {
@@ -64,6 +64,8 @@ pub fn find_calls(
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<Call>, Box<dyn Error>> {
+    validate_regex_patterns(use_regex, &[Some(module_pattern), function_pattern])?;
+
     let (module_field, function_field, arity_field) = direction.filter_fields();
     let order_clause = direction.order_clause();
 

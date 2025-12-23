@@ -5,6 +5,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::db::{extract_i64, extract_string, extract_string_or, run_query, Params};
+use crate::query_builders::{validate_regex_patterns, ConditionBuilder, OptionalConditionBuilder};
 
 #[derive(Error, Debug)]
 pub enum LocationError {
@@ -37,18 +38,14 @@ pub fn find_locations(
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<FunctionLocation>, Box<dyn Error>> {
-    // Build the query based on whether we're using regex or exact match
-    let fn_cond = if use_regex {
-        "regex_matches(name, $function_pattern)".to_string()
-    } else {
-        "name == $function_pattern".to_string()
-    };
+    validate_regex_patterns(use_regex, &[module_pattern, Some(function_pattern)])?;
 
-    let module_cond = match module_pattern {
-        Some(_) if use_regex => ", regex_matches(module, $module_pattern)".to_string(),
-        Some(_) => ", module == $module_pattern".to_string(),
-        None => String::new(),
-    };
+    // Build conditions using query builders
+    let fn_cond = ConditionBuilder::new("name", "function_pattern").build(use_regex);
+    let module_cond = OptionalConditionBuilder::new("module", "module_pattern")
+        .with_leading_comma()
+        .with_regex()
+        .build_with_regex(module_pattern.is_some(), use_regex);
 
     let arity_cond = if arity.is_some() {
         ", arity == $arity"

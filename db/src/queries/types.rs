@@ -5,6 +5,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::db::{extract_i64, extract_string, run_query, Params};
+use crate::query_builders::{validate_regex_patterns, ConditionBuilder, OptionalConditionBuilder};
 
 #[derive(Error, Debug)]
 pub enum TypesError {
@@ -33,34 +34,26 @@ pub fn find_types(
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<TypeInfo>, Box<dyn Error>> {
-    // Build module filter
-    let module_filter = if use_regex {
-        "regex_matches(module, $module_pattern)"
-    } else {
-        "module == $module_pattern"
-    };
+    validate_regex_patterns(use_regex, &[Some(module_pattern), name_filter])?;
 
-    // Build name filter
-    let name_filter_sql = match name_filter {
-        Some(_) if use_regex => ", regex_matches(name, $name_pattern)",
-        Some(_) => ", str_includes(name, $name_pattern)",
-        None => "",
-    };
-
-    // Build kind filter
-    let kind_filter_sql = match kind_filter {
-        Some(_) => ", kind == $kind",
-        None => "",
-    };
+    // Build conditions using query builders
+    let module_cond = ConditionBuilder::new("module", "module_pattern").build(use_regex);
+    let name_cond = OptionalConditionBuilder::new("name", "name_pattern")
+        .with_leading_comma()
+        .with_regex()
+        .build_with_regex(name_filter.is_some(), use_regex);
+    let kind_cond = OptionalConditionBuilder::new("kind", "kind")
+        .with_leading_comma()
+        .build(kind_filter.is_some());
 
     let script = format!(
         r#"
         ?[project, module, name, kind, params, line, definition] :=
             *types{{project, module, name, kind, params, line, definition}},
             project == $project,
-            {module_filter}
-            {name_filter_sql}
-            {kind_filter_sql}
+            {module_cond}
+            {name_cond}
+            {kind_cond}
 
         :order module, name
         :limit {limit}

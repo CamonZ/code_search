@@ -5,6 +5,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::db::{extract_i64, extract_string, run_query, Params};
+use crate::query_builders::{validate_regex_patterns, ConditionBuilder};
 
 #[derive(Error, Debug)]
 pub enum FileError {
@@ -37,12 +38,10 @@ pub fn find_functions_in_module(
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<FileFunctionDef>, Box<dyn Error>> {
-    // Build module filter
-    let module_filter = if use_regex {
-        "regex_matches(module, $module_pattern)"
-    } else {
-        "module == $module_pattern"
-    };
+    validate_regex_patterns(use_regex, &[Some(module_pattern)])?;
+
+    // Build module filter using query builder
+    let module_filter = ConditionBuilder::new("module", "module_pattern").build(use_regex);
 
     // Query to find all functions in matching modules
     let script = format!(

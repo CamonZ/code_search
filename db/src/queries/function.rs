@@ -5,7 +5,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::db::{extract_i64, extract_string, extract_string_or, run_query, Params};
-use crate::query_builders::{ConditionBuilder, OptionalConditionBuilder};
+use crate::query_builders::{validate_regex_patterns, ConditionBuilder, OptionalConditionBuilder};
 
 #[derive(Error, Debug)]
 pub enum FunctionError {
@@ -33,6 +33,8 @@ pub fn find_functions(
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<FunctionSignature>, Box<dyn Error>> {
+    validate_regex_patterns(use_regex, &[Some(module_pattern), Some(function_pattern)])?;
+
     // Build query conditions using helpers
     let module_cond = ConditionBuilder::new("module", "module_pattern").build(use_regex);
     let function_cond = ConditionBuilder::new("name", "function_pattern")

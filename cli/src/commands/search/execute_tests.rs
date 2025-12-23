@@ -21,11 +21,11 @@ mod tests {
         test_name: test_search_modules_all,
         fixture: populated_db,
         cmd: SearchCmd {
-            pattern: "MyApp".to_string(),
+            pattern: ".*MyApp.*".to_string(), // Use regex for substring matching
             kind: SearchKind::Modules,
             common: CommonArgs {
                 project: "test_project".to_string(),
-                regex: false,
+                regex: true,
                 limit: 100,
             },
         },
@@ -40,11 +40,11 @@ mod tests {
         test_name: test_search_functions_all,
         fixture: populated_db,
         cmd: SearchCmd {
-            pattern: "user".to_string(),
+            pattern: ".*user.*".to_string(), // Use regex for substring matching
             kind: SearchKind::Functions,
             common: CommonArgs {
                 project: "test_project".to_string(),
-                regex: false,
+                regex: true,
                 limit: 100,
             },
         },
@@ -59,11 +59,11 @@ mod tests {
         test_name: test_search_functions_specific,
         fixture: populated_db,
         cmd: SearchCmd {
-            pattern: "get".to_string(),
+            pattern: ".*get.*".to_string(), // Use regex for substring matching
             kind: SearchKind::Functions,
             common: CommonArgs {
                 project: "test_project".to_string(),
-                regex: false,
+                regex: true,
                 limit: 100,
             },
         },
@@ -111,6 +111,65 @@ mod tests {
         assertions: |result| {
             assert_eq!(result.modules.len(), 2);
         },
+    }
+
+    // Exact module match
+    crate::execute_test! {
+        test_name: test_search_modules_exact_match,
+        fixture: populated_db,
+        cmd: SearchCmd {
+            pattern: "MyApp.Accounts".to_string(),
+            kind: SearchKind::Modules,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
+        },
+        assertions: |result| {
+            assert_eq!(result.modules.len(), 1);
+            assert_eq!(result.modules[0].name, "MyApp.Accounts");
+        },
+    }
+
+    // Exact function match
+    crate::execute_test! {
+        test_name: test_search_functions_exact_match,
+        fixture: populated_db,
+        cmd: SearchCmd {
+            pattern: "get_user".to_string(),
+            kind: SearchKind::Functions,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
+        },
+        assertions: |result| {
+            assert_eq!(result.total_functions, Some(2));
+            // All functions should be exactly named get_user
+            for module in &result.function_modules {
+                for f in &module.functions {
+                    assert_eq!(f.name, "get_user");
+                }
+            }
+        },
+    }
+
+    // Exact match doesn't find partial matches
+    crate::execute_no_match_test! {
+        test_name: test_search_functions_exact_no_partial,
+        fixture: populated_db,
+        cmd: SearchCmd {
+            pattern: "user".to_string(), // Won't match get_user, list_users, etc.
+            kind: SearchKind::Functions,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
+        },
+        empty_field: function_modules,
     }
 
     // =========================================================================
@@ -171,11 +230,11 @@ mod tests {
         test_name: test_search_with_limit,
         fixture: populated_db,
         cmd: SearchCmd {
-            pattern: "user".to_string(),
+            pattern: ".*user.*".to_string(), // Use regex for substring matching
             kind: SearchKind::Functions,
             common: CommonArgs {
                 project: "test_project".to_string(),
-                regex: false,
+                regex: true,
                 limit: 1,
             },
         },
@@ -200,5 +259,70 @@ mod tests {
                 limit: 100,
             },
         },
+    }
+
+    #[rstest]
+    fn test_search_modules_invalid_regex(populated_db: db::DbInstance) {
+        use crate::commands::Execute;
+
+        let cmd = SearchCmd {
+            pattern: "[invalid".to_string(), // Unclosed bracket
+            kind: SearchKind::Modules,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 100,
+            },
+        };
+
+        let result = cmd.execute(&populated_db);
+        assert!(result.is_err(), "Should reject invalid regex pattern");
+
+        let err = result.unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("Invalid regex pattern"), "Error should mention 'Invalid regex pattern': {}", msg);
+        assert!(msg.contains("[invalid"), "Error should show the pattern: {}", msg);
+    }
+
+    #[rstest]
+    fn test_search_functions_invalid_regex(populated_db: db::DbInstance) {
+        use crate::commands::Execute;
+
+        let cmd = SearchCmd {
+            pattern: "*invalid".to_string(), // Invalid repetition
+            kind: SearchKind::Functions,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: true,
+                limit: 100,
+            },
+        };
+
+        let result = cmd.execute(&populated_db);
+        assert!(result.is_err(), "Should reject invalid regex pattern");
+
+        let err = result.unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("Invalid regex pattern"), "Error should mention 'Invalid regex pattern': {}", msg);
+        assert!(msg.contains("*invalid"), "Error should show the pattern: {}", msg);
+    }
+
+    #[rstest]
+    fn test_search_invalid_regex_non_regex_mode_works(populated_db: db::DbInstance) {
+        use crate::commands::Execute;
+
+        // Even invalid regex patterns should work in non-regex mode (treated as literals)
+        let cmd = SearchCmd {
+            pattern: "[invalid".to_string(),
+            kind: SearchKind::Modules,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false, // Not using regex mode
+                limit: 100,
+            },
+        };
+
+        let result = cmd.execute(&populated_db);
+        assert!(result.is_ok(), "Should accept any pattern in non-regex mode: {:?}", result.err());
     }
 }

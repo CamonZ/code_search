@@ -5,6 +5,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::db::{extract_i64, extract_string, run_query, Params};
+use crate::query_builders::{validate_regex_patterns, OptionalConditionBuilder};
 
 #[derive(Error, Debug)]
 pub enum UnusedError {
@@ -49,12 +50,13 @@ pub fn find_unused_functions(
     exclude_generated: bool,
     limit: u32,
 ) -> Result<Vec<UnusedFunction>, Box<dyn Error>> {
-    // Build optional module filter
-    let module_filter = match module_pattern {
-        Some(_) if use_regex => ", regex_matches(module, $module_pattern)".to_string(),
-        Some(_) => ", str_includes(module, $module_pattern)".to_string(),
-        None => String::new(),
-    };
+    validate_regex_patterns(use_regex, &[module_pattern])?;
+
+    // Build conditions using query builders
+    let module_cond = OptionalConditionBuilder::new("module", "module_pattern")
+        .with_leading_comma()
+        .with_regex()
+        .build_with_regex(module_pattern.is_some(), use_regex);
 
     // Build kind filter for private_only/public_only
     let kind_filter = if private_only {
@@ -74,7 +76,7 @@ pub fn find_unused_functions(
         defined[module, name, arity, kind, file, start_line] :=
             *function_locations{{project, module, name, arity, kind, file, start_line}},
             project == $project
-            {module_filter}
+            {module_cond}
             {kind_filter}
 
         # All functions that are called (as callees)

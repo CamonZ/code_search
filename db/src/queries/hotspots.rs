@@ -6,6 +6,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::db::{extract_f64, extract_i64, extract_string, run_query, Params};
+use crate::query_builders::{validate_regex_patterns, OptionalConditionBuilder};
 
 /// What type of hotspots to find
 #[derive(Debug, Clone, Copy, Default, ValueEnum)]
@@ -45,11 +46,13 @@ pub fn get_module_loc(
     module_pattern: Option<&str>,
     use_regex: bool,
 ) -> Result<std::collections::HashMap<String, i64>, Box<dyn Error>> {
-    let module_filter = match module_pattern {
-        Some(_) if use_regex => ", regex_matches(module, $module_pattern)".to_string(),
-        Some(_) => ", str_includes(module, $module_pattern)".to_string(),
-        None => String::new(),
-    };
+    validate_regex_patterns(use_regex, &[module_pattern])?;
+
+    // Build conditions using query builders
+    let module_cond = OptionalConditionBuilder::new("module", "module_pattern")
+        .with_leading_comma()
+        .with_regex()
+        .build_with_regex(module_pattern.is_some(), use_regex);
 
     let script = format!(
         r#"
@@ -58,7 +61,7 @@ pub fn get_module_loc(
             *function_locations{{project, module, start_line, end_line}},
             project == $project,
             lines = end_line - start_line + 1
-            {module_filter}
+            {module_cond}
 
         ?[module, loc] :=
             module_loc[module, loc]
@@ -96,19 +99,20 @@ pub fn get_function_counts(
     module_pattern: Option<&str>,
     use_regex: bool,
 ) -> Result<std::collections::HashMap<String, i64>, Box<dyn Error>> {
-    // Build optional module filter
-    let module_filter = match module_pattern {
-        Some(_) if use_regex => ", regex_matches(module, $module_pattern)".to_string(),
-        Some(_) => ", str_includes(module, $module_pattern)".to_string(),
-        None => String::new(),
-    };
+    validate_regex_patterns(use_regex, &[module_pattern])?;
+
+    // Build conditions using query builders
+    let module_cond = OptionalConditionBuilder::new("module", "module_pattern")
+        .with_leading_comma()
+        .with_regex()
+        .build_with_regex(module_pattern.is_some(), use_regex);
 
     let script = format!(
         r#"
         func_counts[module, count(name)] :=
             *function_locations{{project, module, name}},
             project == $project
-            {module_filter}
+            {module_cond}
 
         ?[module, func_count] :=
             func_counts[module, func_count]
@@ -150,12 +154,13 @@ pub fn get_module_connectivity(
     module_pattern: Option<&str>,
     use_regex: bool,
 ) -> Result<std::collections::HashMap<String, (i64, i64)>, Box<dyn Error>> {
-    // Build optional module filter
-    let module_filter = match module_pattern {
-        Some(_) if use_regex => ", regex_matches(module, $module_pattern)".to_string(),
-        Some(_) => ", str_includes(module, $module_pattern)".to_string(),
-        None => String::new(),
-    };
+    validate_regex_patterns(use_regex, &[module_pattern])?;
+
+    // Build conditions using query builders
+    let module_cond = OptionalConditionBuilder::new("module", "module_pattern")
+        .with_leading_comma()
+        .with_regex()
+        .build_with_regex(module_pattern.is_some(), use_regex);
 
     // Aggregate incoming/outgoing calls at module level
     let script = format!(
@@ -214,7 +219,7 @@ pub fn get_module_connectivity(
         # Aggregate to module level
         module_connectivity[module, sum(incoming), sum(outgoing)] :=
             func_stats[module, function, incoming, outgoing]
-            {module_filter}
+            {module_cond}
 
         ?[module, incoming, outgoing] :=
             module_connectivity[module, incoming, outgoing]
@@ -256,12 +261,13 @@ pub fn find_hotspots(
     exclude_generated: bool,
     require_outgoing: bool,
 ) -> Result<Vec<Hotspot>, Box<dyn Error>> {
-    // Build optional module filter
-    let module_filter = match module_pattern {
-        Some(_) if use_regex => ", regex_matches(module, $module_pattern)".to_string(),
-        Some(_) => ", str_includes(module, $module_pattern)".to_string(),
-        None => String::new(),
-    };
+    validate_regex_patterns(use_regex, &[module_pattern])?;
+
+    // Build conditions using query builders
+    let module_cond = OptionalConditionBuilder::new("module", "module_pattern")
+        .with_leading_comma()
+        .with_regex()
+        .build_with_regex(module_pattern.is_some(), use_regex);
 
     // Build optional generated filter
     let generated_filter = if exclude_generated {
@@ -334,7 +340,7 @@ pub fn find_hotspots(
             outgoing_counts[module, function, outgoing],
             total = incoming + outgoing,
             ratio = if(outgoing == 0, 9999.0, incoming / outgoing)
-            {module_filter}
+            {module_cond}
             {outgoing_filter}
 
         # Functions with only incoming (no outgoing) - leaf nodes
@@ -345,7 +351,7 @@ pub fn find_hotspots(
             outgoing = 0,
             total = incoming,
             ratio = 9999.0
-            {module_filter}
+            {module_cond}
             {outgoing_filter}
 
         # Functions with only outgoing (no incoming)
@@ -355,7 +361,7 @@ pub fn find_hotspots(
             incoming = 0,
             total = outgoing,
             ratio = 0.0
-            {module_filter}
+            {module_cond}
 
         :order -{order_by}, module, function
         :limit {limit}

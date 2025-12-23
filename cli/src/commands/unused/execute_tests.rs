@@ -47,13 +47,13 @@ mod tests {
         test_name: test_unused_with_module_filter,
         fixture: populated_db,
         cmd: UnusedCmd {
-            module: Some("Accounts".to_string()),
+            module: Some(".*Accounts.*".to_string()), // Use regex for substring matching
             private_only: false,
             public_only: false,
             exclude_generated: false,
             common: CommonArgs {
                 project: "test_project".to_string(),
-                regex: false,
+                regex: true,
                 limit: 100,
             },
         },
@@ -80,6 +80,48 @@ mod tests {
         assertions: |result| {
             assert_eq!(result.total_items, 3);
         },
+    }
+
+    // Exact module match - MyApp.Accounts has 2 uncalled functions
+    crate::execute_test! {
+        test_name: test_unused_exact_module_match,
+        fixture: populated_db,
+        cmd: UnusedCmd {
+            module: Some("MyApp.Accounts".to_string()),
+            private_only: false,
+            public_only: false,
+            exclude_generated: false,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
+        },
+        assertions: |result| {
+            assert_eq!(result.total_items, 2);
+            // Verify all results are from MyApp.Accounts
+            for module_group in &result.items {
+                assert_eq!(module_group.name, "MyApp.Accounts");
+            }
+        },
+    }
+
+    // Exact match doesn't find partial matches
+    crate::execute_no_match_test! {
+        test_name: test_unused_exact_no_partial,
+        fixture: populated_db,
+        cmd: UnusedCmd {
+            module: Some("Accounts".to_string()), // Won't match "MyApp.Accounts"
+            private_only: false,
+            public_only: false,
+            exclude_generated: false,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
+        },
+        empty_field: items,
     }
 
     // =========================================================================

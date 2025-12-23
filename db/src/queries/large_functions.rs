@@ -5,6 +5,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::db::{extract_i64, extract_string, run_query, Params};
+use crate::query_builders::{validate_regex_patterns, OptionalConditionBuilder};
 
 #[derive(Error, Debug)]
 pub enum LargeFunctionsError {
@@ -34,12 +35,13 @@ pub fn find_large_functions(
     include_generated: bool,
     limit: u32,
 ) -> Result<Vec<LargeFunction>, Box<dyn Error>> {
-    // Build optional module filter
-    let module_filter = match module_pattern {
-        Some(_) if use_regex => ", regex_matches(module, $module_pattern)".to_string(),
-        Some(_) => ", str_includes(module, $module_pattern)".to_string(),
-        None => String::new(),
-    };
+    validate_regex_patterns(use_regex, &[module_pattern])?;
+
+    // Build conditions using query builders
+    let module_cond = OptionalConditionBuilder::new("module", "module_pattern")
+        .with_leading_comma()
+        .with_regex()
+        .build_with_regex(module_pattern.is_some(), use_regex);
 
     // Build optional generated filter
     let generated_filter = if include_generated {
@@ -55,7 +57,7 @@ pub fn find_large_functions(
             project == $project,
             lines = end_line - start_line + 1,
             lines >= $min_lines
-            {module_filter}
+            {module_cond}
             {generated_filter}
 
         :order -lines, module, name

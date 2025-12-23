@@ -5,6 +5,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::db::{extract_i64, extract_string, run_query, Params};
+use crate::query_builders::{validate_regex_patterns, ConditionBuilder, OptionalConditionBuilder};
 
 #[derive(Error, Debug)]
 pub enum ReturnsError {
@@ -31,27 +32,22 @@ pub fn find_returns(
     module_pattern: Option<&str>,
     limit: u32,
 ) -> Result<Vec<ReturnEntry>, Box<dyn Error>> {
-    // Build return string filter
-    let match_fn = if use_regex {
-        "regex_matches(return_string, $pattern)"
-    } else {
-        "str_includes(return_string, $pattern)"
-    };
+    validate_regex_patterns(use_regex, &[Some(pattern), module_pattern])?;
 
-    // Build module filter
-    let module_filter = match module_pattern {
-        Some(_) if use_regex => "regex_matches(module, $module_pattern)",
-        Some(_) => "str_includes(module, $module_pattern)",
-        None => "true",
-    };
+    // Build conditions using query builders
+    let pattern_cond = ConditionBuilder::new("return_string", "pattern").build(use_regex);
+    let module_cond = OptionalConditionBuilder::new("module", "module_pattern")
+        .with_leading_comma()
+        .with_regex()
+        .build_with_regex(module_pattern.is_some(), use_regex);
 
     let script = format!(
         r#"
         ?[project, module, name, arity, return_string, line] :=
             *specs{{project, module, name, arity, return_string, line}},
             project == $project,
-            {match_fn},
-            {module_filter}
+            {pattern_cond}
+            {module_cond}
 
         :order module, name, arity
         :limit {limit}
