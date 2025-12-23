@@ -142,6 +142,11 @@ pub trait Database: Send + Sync {
     }
 }
 
+#[cfg(feature = "backend-cozo")]
+mod cozo;
+#[cfg(feature = "backend-surrealdb")]
+mod surrealdb;
+
 /// Opens a database connection to the specified path.
 ///
 /// This function uses feature flags to determine which backend to use:
@@ -150,9 +155,8 @@ pub trait Database: Send + Sync {
 ///
 /// At least one backend feature must be enabled.
 #[cfg(feature = "backend-cozo")]
-pub fn open_database(_path: &Path) -> Result<Box<dyn Database>, Box<dyn Error>> {
-    // TODO: Implement CozoDB backend when available
-    todo!("CozoDB backend implementation not yet available")
+pub fn open_database(path: &Path) -> Result<Box<dyn Database>, Box<dyn Error>> {
+    Ok(Box::new(cozo::CozoDatabase::open(path)?))
 }
 
 #[cfg(feature = "backend-surrealdb")]
@@ -173,8 +177,18 @@ pub fn open_database(_path: &Path) -> Result<Box<dyn Database>, Box<dyn Error>> 
 ///
 /// This should use the default backend (determined by feature flags)
 /// in in-memory mode.
-#[cfg(any(test, feature = "test-utils"))]
+#[cfg(all(any(test, feature = "test-utils"), feature = "backend-cozo"))]
 pub fn open_mem_database() -> Result<Box<dyn Database>, Box<dyn Error>> {
-    // TODO: Implement in-memory database when backend is available
-    todo!("In-memory database implementation not yet available")
+    Ok(Box::new(cozo::CozoDatabase::open_mem()))
+}
+
+#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+pub fn open_mem_database() -> Result<Box<dyn Database>, Box<dyn Error>> {
+    // TODO: Implement SurrealDB in-memory when backend is available
+    todo!("SurrealDB in-memory database implementation not yet available")
+}
+
+#[cfg(all(any(test, feature = "test-utils"), not(any(feature = "backend-cozo", feature = "backend-surrealdb"))))]
+pub fn open_mem_database() -> Result<Box<dyn Database>, Box<dyn Error>> {
+    compile_error!("Must enable either backend-cozo or backend-surrealdb")
 }
