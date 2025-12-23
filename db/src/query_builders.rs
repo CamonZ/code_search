@@ -110,8 +110,8 @@ pub fn validate_regex_patterns(
 /// let cond = builder.build(true);  // "regex_matches(module, $module_pattern)"
 /// ```
 pub struct ConditionBuilder {
-    field_name: String,
-    param_name: String,
+    field_name: &'static str,
+    param_name: &'static str,
     with_leading_comma: bool,
 }
 
@@ -121,10 +121,10 @@ impl ConditionBuilder {
     /// # Arguments
     /// * `field_name` - The SQL field name (e.g., "module", "caller_module")
     /// * `param_name` - The parameter name (e.g., "module_pattern", "function_pattern")
-    pub fn new(field_name: &str, param_name: &str) -> Self {
+    pub fn new(field_name: &'static str, param_name: &'static str) -> Self {
         Self {
-            field_name: field_name.to_string(),
-            param_name: param_name.to_string(),
+            field_name,
+            param_name,
             with_leading_comma: false,
         }
     }
@@ -164,10 +164,10 @@ impl ConditionBuilder {
 /// Handles the pattern of generating conditions only when values are present.
 /// For function-matching conditions, supports both exact and regex matching.
 pub struct OptionalConditionBuilder {
-    field_name: String,
-    param_name: String,
+    field_name: &'static str,
+    param_name: &'static str,
     with_leading_comma: bool,
-    when_none: Option<String>, // Alternative condition when value is None
+    when_none: Option<&'static str>, // Alternative condition when value is None
     supports_regex: bool, // Whether to use regex_matches when value is present
 }
 
@@ -177,10 +177,10 @@ impl OptionalConditionBuilder {
     /// # Arguments
     /// * `field_name` - The SQL field name
     /// * `param_name` - The parameter name
-    pub fn new(field_name: &str, param_name: &str) -> Self {
+    pub fn new(field_name: &'static str, param_name: &'static str) -> Self {
         Self {
-            field_name: field_name.to_string(),
-            param_name: param_name.to_string(),
+            field_name,
+            param_name,
             with_leading_comma: false,
             when_none: None,
             supports_regex: false,
@@ -200,8 +200,8 @@ impl OptionalConditionBuilder {
     }
 
     /// Sets an alternative condition when the value is None (e.g., "true" for no-op)
-    pub fn when_none(mut self, condition: &str) -> Self {
-        self.when_none = Some(condition.to_string());
+    pub fn when_none(mut self, condition: &'static str) -> Self {
+        self.when_none = Some(condition);
         self
     }
 
