@@ -1,5 +1,6 @@
 //! Database layer for code search - CozoDB queries and call graph data structures
 
+pub mod backend;
 pub mod db;
 pub mod types;
 pub mod query_builders;
