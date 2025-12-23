@@ -1,0 +1,21 @@
+[package]
+name = "code_search"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+db = { path = "../db" }
+clap = { version = "4", features = ["derive"] }
+enum_dispatch = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toon = "0.1"
+regex = "1"
+include_dir = "0.7"
+home = "0.5.12"
+
+[dev-dependencies]
+db = { path = "../db", features = ["test-utils"] }
+tempfile = "3"
+rstest = "0.23"
+serial_test = "3.2.0"

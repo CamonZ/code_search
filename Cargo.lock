@@ -358,7 +358,7 @@ name = "code_search"
 version = "0.1.0"
 dependencies = [
  "clap",
- "cozo",
+ "db",
  "enum_dispatch",
  "home",
  "include_dir",
@@ -368,7 +368,6 @@ dependencies = [
  "serde_json",
  "serial_test",
  "tempfile",
- "thiserror",
  "toon",
 ]
 
@@ -548,6 +547,21 @@ dependencies = [
  "lock_api",
  "once_cell",
  "parking_lot_core",
+]
+
+[[package]]
+name = "db"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "cozo",
+ "include_dir",
+ "regex",
+ "rstest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
 ]
 
 [[package]]

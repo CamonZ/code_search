@@ -5,30 +5,64 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Test Commands
 
 ```bash
-cargo build                      # Build the project
-cargo test                       # Run all tests
+cargo build                      # Build entire workspace
+cargo build -p cli               # Build CLI binary only
+cargo build -p db                # Build database library only
+cargo test                       # Run all tests in workspace
+cargo test -p db                 # Test database layer only
+cargo test -p code_search        # Test CLI layer only
 cargo test <test_name>           # Run a single test by name
 cargo nextest run                # Alternative test runner (faster)
-cargo run -- --help              # Show CLI help
-cargo run -- describe            # Show detailed command documentation
+cargo run -p code_search -- --help      # Show CLI help
+cargo run -p code_search -- describe    # Show detailed command documentation
 ```
+
+## Workspace Structure
+
+This is a Cargo workspace with two crates:
+
+- **`db/`** - Database library crate
+  - CozoDB query layer (all `queries/` modules)
+  - Database utilities (`db.rs`)
+  - Shared types (`types/`)
+  - Query builders (`query_builders.rs`)
+  - Test utilities and fixtures (behind `test-utils` feature flag)
+
+- **`cli/`** - CLI binary crate (package name: `code_search`)
+  - Command-line interface (`cli.rs`, `main.rs`)
+  - All command modules (`commands/`)
+  - Output formatting (`output.rs`)
+  - Presentation utilities (`utils.rs`, `dedup.rs`)
+  - Test macros (`test_macros.rs`)
+
+**Dependency flow:** `cli` depends on `db` via `db = { path = "../db" }`. The database layer is completely independent of the CLI.
+
+**Test utilities:** Database test helpers and fixtures are available via the `test-utils` feature. CLI tests use: `db = { path = "../db", features = ["test-utils"] }`
 
 ## Architecture
 
 This is a Rust CLI tool for querying call graph data stored in a CozoDB SQLite database. Uses Rust 2024 edition with clap derive macros for CLI parsing.
 
 **Code organization:**
-- `src/main.rs` - Entry point, module declarations
-- `src/cli.rs` - Top-level CLI structure with global `--db` and `--format` flags
-- `src/commands/mod.rs` - `Command` enum, `Execute` trait, `CommonArgs`, dispatch via enum_dispatch
-- `src/commands/<name>/` - Individual command modules (directory structure)
-- `src/queries/<name>.rs` - CozoScript queries and result parsing (separate from command logic)
-- `src/db.rs` - Database connection and query utilities
-- `src/output.rs` - `OutputFormat` enum, `Outputable` and `TableFormatter` traits
-- `src/dedup.rs` - Deduplication utilities (`sort_and_deduplicate`, `DeduplicationFilter`)
-- `src/utils.rs` - Module grouping helpers (`group_by_module`, `convert_to_module_groups`)
-- `src/types/` - Shared types (`ModuleGroupResult`, `ModuleGroup`, `Call`, etc.)
-- `src/test_macros.rs` - Declarative test macros for CLI, execute, and output tests
+
+*Database crate (`db/src/`):*
+- `lib.rs` - Public API surface, re-exports
+- `db.rs` - Database connection and query utilities
+- `queries/<name>.rs` - CozoScript queries and result parsing (31 query modules)
+- `query_builders.rs` - SQL condition builders (`ConditionBuilder`, `OptionalConditionBuilder`)
+- `types/` - Shared types (`ModuleGroupResult`, `ModuleGroup`, `Call`, `FunctionRef`, etc.)
+- `fixtures/` - Test data (feature-gated)
+- `test_utils.rs` - Test helpers (feature-gated)
+
+*CLI crate (`cli/src/`):*
+- `main.rs` - Entry point, module declarations
+- `cli.rs` - Top-level CLI structure with global `--db` and `--format` flags
+- `commands/mod.rs` - `Command` enum, `Execute` trait, `CommonArgs`, dispatch via enum_dispatch
+- `commands/<name>/` - Individual command modules (27 commands, directory structure)
+- `output.rs` - `OutputFormat` enum, `Outputable` and `TableFormatter` traits
+- `dedup.rs` - Deduplication utilities (`sort_and_deduplicate`, `DeduplicationFilter`)
+- `utils.rs` - Presentation helpers (`group_by_module`, `convert_to_module_groups`, `format_type_definition`)
+- `test_macros.rs` - Declarative test macros for CLI, execute, and output tests
 
 **Command module structure:**
 Each command is a directory module with these files:
@@ -39,9 +73,10 @@ Each command is a directory module with these files:
 
 **Execute trait:**
 ```rust
+// Defined in cli/src/commands/mod.rs
 pub trait Execute {
     type Output: Outputable;
-    fn execute(self, db: &DbInstance) -> Result<Self::Output, Box<dyn Error>>;
+    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>>;
 }
 ```
 
@@ -67,7 +102,7 @@ pub trait Execute {
 
 When refactoring output, ensure all three formats remain consistent:
 1. The struct hierarchy should make sense for both JSON and toon
-2. Test fixtures exist in `src/fixtures/output/<command>/` for JSON and toon
+2. Test fixtures exist in `db/src/fixtures/output/<command>/` for JSON and toon
 3. Output tests verify round-trip consistency between formats
 
 **Dispatch flow:**
@@ -96,8 +131,9 @@ pub struct MyCmd {
 - Uses `tempfile` for filesystem-based tests
 - Tests live alongside implementation in each module
 - Output tests use expected string constants for clarity
-- Test macros in `src/test_macros.rs` reduce boilerplate (see `docs/TESTING_STRATEGY.md`)
-- Shared fixtures in `src/fixtures/` for database and output tests
+- Test macros in `cli/src/test_macros.rs` reduce boilerplate (see `docs/TESTING_STRATEGY.md`)
+- Shared fixtures in `db/src/fixtures/` for database and output tests
+- Database test utilities available via `db` crate with `test-utils` feature
 - Run with `cargo test` or `cargo nextest run`
 
 **Adding new commands:**
