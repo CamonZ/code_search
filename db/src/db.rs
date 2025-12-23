@@ -50,7 +50,7 @@ pub enum DbError {
     MissingColumn { name: String },
 }
 
-pub type Params = BTreeMap<String, DataValue>;
+pub type Params = BTreeMap<&'static str, DataValue>;
 
 pub fn open_db(path: &Path) -> Result<DbInstance, Box<dyn Error>> {
     DbInstance::new("sqlite", path, "").map_err(|e| {
@@ -75,7 +75,13 @@ pub fn run_query(
     script: &str,
     params: Params,
 ) -> Result<NamedRows, Box<dyn Error>> {
-    db.run_script(script, params, ScriptMutability::Mutable)
+    // Convert &'static str keys to String for CozoDB
+    let params_owned: BTreeMap<String, DataValue> = params
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v))
+        .collect();
+
+    db.run_script(script, params_owned, ScriptMutability::Mutable)
         .map_err(|e| {
             Box::new(DbError::QueryFailed {
                 message: format!("{:?}", e),

@@ -5,6 +5,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::db::{extract_bool, extract_string, extract_string_or, run_query, Params};
+use crate::query_builders::{validate_regex_patterns, ConditionBuilder};
 
 #[derive(Error, Debug)]
 pub enum StructError {
@@ -47,11 +48,9 @@ pub fn find_struct_fields(
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<StructField>, Box<dyn Error>> {
-    let module_cond = if use_regex {
-        "regex_matches(module, $module_pattern)".to_string()
-    } else {
-        "module == $module_pattern".to_string()
-    };
+    validate_regex_patterns(use_regex, &[Some(module_pattern)])?;
+
+    let module_cond = ConditionBuilder::new("module", "module_pattern").build(use_regex);
 
     let project_cond = ", project == $project";
 
@@ -67,8 +66,8 @@ pub fn find_struct_fields(
     );
 
     let mut params = Params::new();
-    params.insert("module_pattern".to_string(), DataValue::Str(module_pattern.into()));
-    params.insert("project".to_string(), DataValue::Str(project.into()));
+    params.insert("module_pattern", DataValue::Str(module_pattern.into()));
+    params.insert("project", DataValue::Str(project.into()));
 
     let rows = run_query(db, &script, params).map_err(|e| StructError::QueryFailed {
         message: e.to_string(),

@@ -6,7 +6,7 @@ use thiserror::Error;
 
 use crate::db::{extract_i64, extract_string, extract_string_or, run_query, Params};
 use crate::types::{Call, FunctionRef};
-use crate::query_builders::{ConditionBuilder, OptionalConditionBuilder};
+use crate::query_builders::{validate_regex_patterns, ConditionBuilder, OptionalConditionBuilder};
 
 #[derive(Error, Debug)]
 pub enum TraceError {
@@ -24,6 +24,8 @@ pub fn trace_calls(
     max_depth: u32,
     limit: u32,
 ) -> Result<Vec<Call>, Box<dyn Error>> {
+    validate_regex_patterns(use_regex, &[Some(module_pattern), Some(function_pattern)])?;
+
     // Build the starting conditions for the recursive query using helpers
     let module_cond = ConditionBuilder::new("caller_module", "module_pattern").build(use_regex);
     let function_cond = ConditionBuilder::new("caller_name", "function_pattern").build(use_regex);
@@ -75,12 +77,12 @@ pub fn trace_calls(
     );
 
     let mut params = Params::new();
-    params.insert("module_pattern".to_string(), DataValue::Str(module_pattern.into()));
-    params.insert("function_pattern".to_string(), DataValue::Str(function_pattern.into()));
+    params.insert("module_pattern", DataValue::Str(module_pattern.into()));
+    params.insert("function_pattern", DataValue::Str(function_pattern.into()));
     if let Some(a) = arity {
-        params.insert("arity".to_string(), DataValue::from(a));
+        params.insert("arity", DataValue::from(a));
     }
-    params.insert("project".to_string(), DataValue::Str(project.into()));
+    params.insert("project", DataValue::Str(project.into()));
 
     let rows = run_query(db, &script, params).map_err(|e| TraceError::QueryFailed {
         message: e.to_string(),

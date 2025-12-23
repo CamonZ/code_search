@@ -24,4 +24,4 @@ pub use types::{
     TraceDirection, SharedStr
 };
 
-pub use query_builders::{ConditionBuilder, OptionalConditionBuilder};
+pub use query_builders::{ConditionBuilder, OptionalConditionBuilder, validate_regex_pattern, validate_regex_patterns};

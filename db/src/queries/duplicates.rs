@@ -5,6 +5,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::db::{extract_i64, extract_string, run_query, Params};
+use crate::query_builders::{validate_regex_patterns, OptionalConditionBuilder};
 
 #[derive(Error, Debug)]
 pub enum DuplicatesError {
@@ -31,15 +32,16 @@ pub fn find_duplicates(
     use_exact: bool,
     exclude_generated: bool,
 ) -> Result<Vec<DuplicateFunction>, Box<dyn Error>> {
+    validate_regex_patterns(use_regex, &[module_pattern])?;
+
     // Choose hash field based on exact flag
     let hash_field = if use_exact { "source_sha" } else { "ast_sha" };
 
-    // Build optional module filter
-    let module_filter = match module_pattern {
-        Some(_) if use_regex => ", regex_matches(module, $module_pattern)".to_string(),
-        Some(_) => ", str_includes(module, $module_pattern)".to_string(),
-        None => String::new(),
-    };
+    // Build conditions using query builders
+    let module_cond = OptionalConditionBuilder::new("module", "module_pattern")
+        .with_leading_comma()
+        .with_regex()
+        .build_with_regex(module_pattern.is_some(), use_regex);
 
     // Build optional generated filter
     let generated_filter = if exclude_generated {
@@ -64,7 +66,7 @@ pub fn find_duplicates(
             hash_counts[{hash_field}, cnt],
             cnt > 1,
             project == $project
-            {module_filter}
+            {module_cond}
             {generated_filter}
 
         :order {hash_field}, module, name, arity
@@ -72,9 +74,9 @@ pub fn find_duplicates(
     );
 
     let mut params = Params::new();
-    params.insert("project".to_string(), DataValue::Str(project.into()));
+    params.insert("project", DataValue::Str(project.into()));
     if let Some(pattern) = module_pattern {
-        params.insert("module_pattern".to_string(), DataValue::Str(pattern.into()));
+        params.insert("module_pattern", DataValue::Str(pattern.into()));
     }
 
     let rows = run_query(db, &script, params).map_err(|e| DuplicatesError::QueryFailed {

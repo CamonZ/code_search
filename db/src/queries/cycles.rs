@@ -53,7 +53,7 @@ pub fn find_cycle_edges(
     "#.to_string();
 
     let mut params = Params::new();
-    params.insert("project".to_string(), DataValue::Str(project.into()));
+    params.insert("project", DataValue::Str(project.into()));
 
     let rows = run_query(db, &script, params)?;
 

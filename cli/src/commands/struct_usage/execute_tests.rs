@@ -24,12 +24,12 @@ mod tests {
         test_name: test_struct_usage_finds_user_type,
         fixture: populated_db,
         cmd: StructUsageCmd {
-            pattern: "User.t".to_string(),
+            pattern: ".*User\\.t.*".to_string(), // Use regex for substring matching
             module: None,
             by_module: false,
             common: CommonArgs {
                 project: "test_project".to_string(),
-                regex: false,
+                regex: true,
                 limit: 100,
             },
         },
@@ -49,12 +49,12 @@ mod tests {
         test_name: test_struct_usage_with_module_filter,
         fixture: populated_db,
         cmd: StructUsageCmd {
-            pattern: "User.t".to_string(),
+            pattern: ".*User\\.t.*".to_string(), // Use regex for substring matching
             module: Some("MyApp.Accounts".to_string()),
             by_module: false,
             common: CommonArgs {
                 project: "test_project".to_string(),
-                regex: false,
+                regex: true,
                 limit: 100,
             },
         },
@@ -80,12 +80,12 @@ mod tests {
         test_name: test_struct_usage_by_module,
         fixture: populated_db,
         cmd: StructUsageCmd {
-            pattern: "User.t".to_string(),
+            pattern: ".*User\\.t.*".to_string(), // Use regex for substring matching
             module: None,
             by_module: true,
             common: CommonArgs {
                 project: "test_project".to_string(),
-                regex: false,
+                regex: true,
                 limit: 100,
             },
         },
@@ -165,12 +165,12 @@ mod tests {
         test_name: test_struct_usage_with_limit,
         fixture: populated_db,
         cmd: StructUsageCmd {
-            pattern: "User.t".to_string(),
+            pattern: ".*User\\.t.*".to_string(), // Use regex for substring matching
             module: None,
             by_module: false,
             common: CommonArgs {
                 project: "test_project".to_string(),
-                regex: false,
+                regex: true,
                 limit: 1,
             },
         },
@@ -202,6 +202,57 @@ mod tests {
                 StructUsageOutput::Detailed(ref detail) => {
                     // Should match User.t(), Ecto.Changeset.t(), etc.
                     assert!(detail.total_items > 0, "Regex should match .t() types");
+                }
+                _ => panic!("Expected Detailed output"),
+            }
+        },
+    }
+
+    // Exact type match - search for integer() in inputs
+    crate::execute_test! {
+        test_name: test_struct_usage_exact_match,
+        fixture: populated_db,
+        cmd: StructUsageCmd {
+            pattern: "integer()".to_string(),
+            module: None,
+            by_module: false,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
+        },
+        assertions: |result| {
+            match result {
+                StructUsageOutput::Detailed(ref detail) => {
+                    assert!(detail.total_items > 0, "Should find exact match for integer()");
+                    // Verify we found functions using integer()
+                    assert!(detail.items.len() >= 1, "Should find integer() in at least one module");
+                }
+                _ => panic!("Expected Detailed output"),
+            }
+        },
+    }
+
+    // Exact match doesn't find partial matches
+    crate::execute_test! {
+        test_name: test_struct_usage_exact_no_partial,
+        fixture: populated_db,
+        cmd: StructUsageCmd {
+            pattern: "integer".to_string(), // Won't match "integer()" - missing parens
+            module: None,
+            by_module: false,
+            common: CommonArgs {
+                project: "test_project".to_string(),
+                regex: false,
+                limit: 100,
+            },
+        },
+        assertions: |result| {
+            match result {
+                StructUsageOutput::Detailed(ref detail) => {
+                    assert_eq!(detail.total_items, 0, "Exact match should not find partial matches");
+                    assert!(detail.items.is_empty());
                 }
                 _ => panic!("Expected Detailed output"),
             }

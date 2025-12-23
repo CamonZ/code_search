@@ -5,6 +5,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::db::{extract_i64, extract_string, run_query, Params};
+use crate::query_builders::{validate_regex_patterns, OptionalConditionBuilder};
 
 #[derive(Error, Debug)]
 pub enum StructUsageError {
@@ -32,27 +33,28 @@ pub fn find_struct_usage(
     module_pattern: Option<&str>,
     limit: u32,
 ) -> Result<Vec<StructUsageEntry>, Box<dyn Error>> {
-    // Build pattern matching function for both inputs and return
-    let match_fn = if use_regex {
+    validate_regex_patterns(use_regex, &[Some(pattern), module_pattern])?;
+
+    // Build pattern matching function for both inputs and return (manual OR condition)
+    let match_cond = if use_regex {
         "regex_matches(inputs_string, $pattern) or regex_matches(return_string, $pattern)"
     } else {
-        "str_includes(inputs_string, $pattern) or str_includes(return_string, $pattern)"
+        "inputs_string == $pattern or return_string == $pattern"
     };
 
-    // Build module filter
-    let module_filter = match module_pattern {
-        Some(_) if use_regex => "regex_matches(module, $module_pattern)",
-        Some(_) => "str_includes(module, $module_pattern)",
-        None => "true",
-    };
+    // Build module filter using OptionalConditionBuilder
+    let module_cond = OptionalConditionBuilder::new("module", "module_pattern")
+        .with_leading_comma()
+        .with_regex()
+        .build_with_regex(module_pattern.is_some(), use_regex);
 
     let script = format!(
         r#"
         ?[project, module, name, arity, inputs_string, return_string, line] :=
             *specs{{project, module, name, arity, inputs_string, return_string, line}},
             project == $project,
-            {match_fn},
-            {module_filter}
+            {match_cond}
+            {module_cond}
 
         :order module, name, arity
         :limit {limit}
@@ -60,12 +62,12 @@ pub fn find_struct_usage(
     );
 
     let mut params = Params::new();
-    params.insert("pattern".to_string(), DataValue::Str(pattern.into()));
-    params.insert("project".to_string(), DataValue::Str(project.into()));
+    params.insert("pattern", DataValue::Str(pattern.into()));
+    params.insert("project", DataValue::Str(project.into()));
 
     if let Some(mod_pat) = module_pattern {
         params.insert(
-            "module_pattern".to_string(),
+            "module_pattern",
             DataValue::Str(mod_pat.into()),
         );
     }

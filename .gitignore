@@ -24,6 +24,7 @@ cozo.sqlite
 /phoenix_call_graph.json
 INPUT_FORMAT.md
 docs/tickets
+/tickets/
 .claude
 scratch
 /AGENTS.md

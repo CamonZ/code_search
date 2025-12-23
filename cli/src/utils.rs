@@ -1,5 +1,6 @@
 //! Utility functions for code search CLI output and presentation.
 
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use regex::Regex;
 use db::types::{ModuleGroup, Call};
@@ -215,15 +216,15 @@ where
 /// * `definition` - The raw type definition string from the database
 ///
 /// # Returns
-/// The formatted type definition string
-pub fn format_type_definition(definition: &str) -> String {
+/// The formatted type definition (borrowed if unchanged, owned if formatted)
+pub fn format_type_definition(definition: &str) -> Cow<str> {
     // Check if this is a struct type definition
     if let Some(formatted) = try_format_struct_type(definition) {
-        return formatted;
+        return Cow::Owned(formatted);
     }
 
     // Return as-is if no transformation needed
-    definition.to_string()
+    Cow::Borrowed(definition)
 }
 
 /// Attempts to format a struct type definition.

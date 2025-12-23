@@ -6,6 +6,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::db::{extract_f64, extract_i64, extract_string, run_query, Params};
+use crate::query_builders::{validate_regex_patterns, OptionalConditionBuilder};
 
 /// What type of hotspots to find
 #[derive(Debug, Clone, Copy, Default, ValueEnum)]
@@ -45,11 +46,13 @@ pub fn get_module_loc(
     module_pattern: Option<&str>,
     use_regex: bool,
 ) -> Result<std::collections::HashMap<String, i64>, Box<dyn Error>> {
-    let module_filter = match module_pattern {
-        Some(_) if use_regex => ", regex_matches(module, $module_pattern)".to_string(),
-        Some(_) => ", str_includes(module, $module_pattern)".to_string(),
-        None => String::new(),
-    };
+    validate_regex_patterns(use_regex, &[module_pattern])?;
+
+    // Build conditions using query builders
+    let module_cond = OptionalConditionBuilder::new("module", "module_pattern")
+        .with_leading_comma()
+        .with_regex()
+        .build_with_regex(module_pattern.is_some(), use_regex);
 
     let script = format!(
         r#"
@@ -58,7 +61,7 @@ pub fn get_module_loc(
             *function_locations{{project, module, start_line, end_line}},
             project == $project,
             lines = end_line - start_line + 1
-            {module_filter}
+            {module_cond}
 
         ?[module, loc] :=
             module_loc[module, loc]
@@ -68,9 +71,9 @@ pub fn get_module_loc(
     );
 
     let mut params = Params::new();
-    params.insert("project".to_string(), DataValue::Str(project.into()));
+    params.insert("project", DataValue::Str(project.into()));
     if let Some(pattern) = module_pattern {
-        params.insert("module_pattern".to_string(), DataValue::Str(pattern.into()));
+        params.insert("module_pattern", DataValue::Str(pattern.into()));
     }
 
     let rows = run_query(db, &script, params).map_err(|e| HotspotsError::QueryFailed {
@@ -96,19 +99,20 @@ pub fn get_function_counts(
     module_pattern: Option<&str>,
     use_regex: bool,
 ) -> Result<std::collections::HashMap<String, i64>, Box<dyn Error>> {
-    // Build optional module filter
-    let module_filter = match module_pattern {
-        Some(_) if use_regex => ", regex_matches(module, $module_pattern)".to_string(),
-        Some(_) => ", str_includes(module, $module_pattern)".to_string(),
-        None => String::new(),
-    };
+    validate_regex_patterns(use_regex, &[module_pattern])?;
+
+    // Build conditions using query builders
+    let module_cond = OptionalConditionBuilder::new("module", "module_pattern")
+        .with_leading_comma()
+        .with_regex()
+        .build_with_regex(module_pattern.is_some(), use_regex);
 
     let script = format!(
         r#"
         func_counts[module, count(name)] :=
             *function_locations{{project, module, name}},
             project == $project
-            {module_filter}
+            {module_cond}
 
         ?[module, func_count] :=
             func_counts[module, func_count]
@@ -118,9 +122,9 @@ pub fn get_function_counts(
     );
 
     let mut params = Params::new();
-    params.insert("project".to_string(), DataValue::Str(project.into()));
+    params.insert("project", DataValue::Str(project.into()));
     if let Some(pattern) = module_pattern {
-        params.insert("module_pattern".to_string(), DataValue::Str(pattern.into()));
+        params.insert("module_pattern", DataValue::Str(pattern.into()));
     }
 
     let rows = run_query(db, &script, params).map_err(|e| HotspotsError::QueryFailed {
@@ -139,6 +143,114 @@ pub fn get_function_counts(
     Ok(counts)
 }
 
+/// Get module-level connectivity (aggregated incoming/outgoing calls)
+///
+/// Returns a HashMap of module name -> (incoming, outgoing) call counts.
+/// This aggregates function-level hotspots to module level at the database layer,
+/// avoiding the need to fetch all function hotspots.
+pub fn get_module_connectivity(
+    db: &cozo::DbInstance,
+    project: &str,
+    module_pattern: Option<&str>,
+    use_regex: bool,
+) -> Result<std::collections::HashMap<String, (i64, i64)>, Box<dyn Error>> {
+    validate_regex_patterns(use_regex, &[module_pattern])?;
+
+    // Build conditions using query builders
+    let module_cond = OptionalConditionBuilder::new("module", "module_pattern")
+        .with_leading_comma()
+        .with_regex()
+        .build_with_regex(module_pattern.is_some(), use_regex);
+
+    // Aggregate incoming/outgoing calls at module level
+    let script = format!(
+        r#"
+        # Get canonical function names (no generated functions)
+        canonical[module, function] :=
+            *calls{{project, callee_module, callee_function}},
+            *function_locations{{project, module: callee_module, name: callee_function, generated_by}},
+            project == $project,
+            module = callee_module,
+            function = callee_function,
+            generated_by == ""
+
+        # Distinct outgoing calls per function
+        distinct_outgoing[caller_module, canonical_name, callee_module, callee_function] :=
+            *calls{{project, caller_module, caller_function, callee_module, callee_function}},
+            canonical[caller_module, canonical_name],
+            project == $project,
+            (caller_function == canonical_name or starts_with(caller_function, concat(canonical_name, "/")))
+
+        # Count outgoing calls per function
+        outgoing_counts[module, function, count(callee_function)] :=
+            distinct_outgoing[module, function, callee_module, callee_function]
+
+        # Distinct incoming calls per function
+        distinct_incoming[callee_module, callee_function, caller_module, caller_function] :=
+            *calls{{project, caller_module, caller_function, callee_module, callee_function}},
+            canonical[callee_module, callee_function],
+            project == $project
+
+        # Count incoming calls per function
+        incoming_counts[module, function, count(caller_function)] :=
+            distinct_incoming[module, function, caller_module, caller_function]
+
+        # Function stats with defaults for missing counts
+        # Functions with both counts
+        func_stats[module, function, incoming, outgoing] :=
+            canonical[module, function],
+            incoming_counts[module, function, incoming],
+            outgoing_counts[module, function, outgoing]
+
+        # Functions with only incoming (no outgoing)
+        func_stats[module, function, incoming, outgoing] :=
+            canonical[module, function],
+            incoming_counts[module, function, incoming],
+            not outgoing_counts[module, function, _],
+            outgoing = 0
+
+        # Functions with only outgoing (no incoming)
+        func_stats[module, function, incoming, outgoing] :=
+            canonical[module, function],
+            not incoming_counts[module, function, _],
+            outgoing_counts[module, function, outgoing],
+            incoming = 0
+
+        # Aggregate to module level
+        module_connectivity[module, sum(incoming), sum(outgoing)] :=
+            func_stats[module, function, incoming, outgoing]
+            {module_cond}
+
+        ?[module, incoming, outgoing] :=
+            module_connectivity[module, incoming, outgoing]
+
+        :order -incoming
+        "#,
+    );
+
+    let mut params = Params::new();
+    params.insert("project", DataValue::Str(project.into()));
+    if let Some(pattern) = module_pattern {
+        params.insert("module_pattern", DataValue::Str(pattern.into()));
+    }
+
+    let rows = run_query(db, &script, params).map_err(|e| HotspotsError::QueryFailed {
+        message: e.to_string(),
+    })?;
+
+    let mut connectivity = std::collections::HashMap::new();
+    for row in rows.rows {
+        if row.len() >= 3
+            && let Some(module) = extract_string(&row[0]) {
+                let incoming = extract_i64(&row[1], 0);
+                let outgoing = extract_i64(&row[2], 0);
+                connectivity.insert(module, (incoming, outgoing));
+            }
+    }
+
+    Ok(connectivity)
+}
+
 pub fn find_hotspots(
     db: &cozo::DbInstance,
     kind: HotspotKind,
@@ -149,12 +261,13 @@ pub fn find_hotspots(
     exclude_generated: bool,
     require_outgoing: bool,
 ) -> Result<Vec<Hotspot>, Box<dyn Error>> {
-    // Build optional module filter
-    let module_filter = match module_pattern {
-        Some(_) if use_regex => ", regex_matches(module, $module_pattern)".to_string(),
-        Some(_) => ", str_includes(module, $module_pattern)".to_string(),
-        None => String::new(),
-    };
+    validate_regex_patterns(use_regex, &[module_pattern])?;
+
+    // Build conditions using query builders
+    let module_cond = OptionalConditionBuilder::new("module", "module_pattern")
+        .with_leading_comma()
+        .with_regex()
+        .build_with_regex(module_pattern.is_some(), use_regex);
 
     // Build optional generated filter
     let generated_filter = if exclude_generated {
@@ -227,7 +340,7 @@ pub fn find_hotspots(
             outgoing_counts[module, function, outgoing],
             total = incoming + outgoing,
             ratio = if(outgoing == 0, 9999.0, incoming / outgoing)
-            {module_filter}
+            {module_cond}
             {outgoing_filter}
 
         # Functions with only incoming (no outgoing) - leaf nodes
@@ -238,7 +351,7 @@ pub fn find_hotspots(
             outgoing = 0,
             total = incoming,
             ratio = 9999.0
-            {module_filter}
+            {module_cond}
             {outgoing_filter}
 
         # Functions with only outgoing (no incoming)
@@ -248,7 +361,7 @@ pub fn find_hotspots(
             incoming = 0,
             total = outgoing,
             ratio = 0.0
-            {module_filter}
+            {module_cond}
 
         :order -{order_by}, module, function
         :limit {limit}
@@ -256,9 +369,9 @@ pub fn find_hotspots(
     );
 
     let mut params = Params::new();
-    params.insert("project".to_string(), DataValue::Str(project.into()));
+    params.insert("project", DataValue::Str(project.into()));
     if let Some(pattern) = module_pattern {
-        params.insert("module_pattern".to_string(), DataValue::Str(pattern.into()));
+        params.insert("module_pattern", DataValue::Str(pattern.into()));
     }
 
     let rows = run_query(db, &script, params).map_err(|e| HotspotsError::QueryFailed {
@@ -287,4 +400,257 @@ pub fn find_hotspots(
     }
 
     Ok(results)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn populated_db() -> cozo::DbInstance {
+        crate::test_utils::call_graph_db("default")
+    }
+
+    #[rstest]
+    fn test_get_module_connectivity_returns_results(populated_db: cozo::DbInstance) {
+        let result = get_module_connectivity(
+            &populated_db,
+            "default",
+            None,
+            false,
+        );
+
+        if let Err(ref e) = result {
+            eprintln!("Error: {}", e);
+        }
+        assert!(result.is_ok());
+        let connectivity = result.unwrap();
+        assert!(!connectivity.is_empty());
+    }
+
+    #[rstest]
+    fn test_get_module_connectivity_has_valid_counts(populated_db: cozo::DbInstance) {
+        let connectivity = get_module_connectivity(
+            &populated_db,
+            "default",
+            None,
+            false,
+        ).unwrap();
+
+        // All modules should have non-negative counts
+        for (module, (incoming, outgoing)) in &connectivity {
+            assert!(*incoming >= 0, "Module {} has negative incoming: {}", module, incoming);
+            assert!(*outgoing >= 0, "Module {} has negative outgoing: {}", module, outgoing);
+        }
+    }
+
+    #[rstest]
+    fn test_get_module_connectivity_with_module_filter(populated_db: cozo::DbInstance) {
+        let connectivity = get_module_connectivity(
+            &populated_db,
+            "default",
+            Some("Accounts"),
+            false,
+        ).unwrap();
+
+        // All modules should contain "Accounts"
+        for module in connectivity.keys() {
+            assert!(module.contains("Accounts"), "Module {} doesn't contain 'Accounts'", module);
+        }
+    }
+
+    #[rstest]
+    fn test_get_module_connectivity_aggregates_correctly(populated_db: cozo::DbInstance) {
+        // Get module-level connectivity
+        let module_conn = get_module_connectivity(
+            &populated_db,
+            "default",
+            None,
+            false,
+        ).unwrap();
+
+        // Get function-level hotspots
+        let function_hotspots = find_hotspots(
+            &populated_db,
+            HotspotKind::Total,
+            None,
+            "default",
+            false,
+            u32::MAX,
+            false,
+            false,
+        ).unwrap();
+
+        // Manually aggregate function hotspots by module
+        let mut manual_agg: std::collections::HashMap<String, (i64, i64)> = std::collections::HashMap::new();
+        for hotspot in function_hotspots {
+            let entry = manual_agg.entry(hotspot.module).or_insert((0, 0));
+            entry.0 += hotspot.incoming;
+            entry.1 += hotspot.outgoing;
+        }
+
+        // The two approaches should produce the same results
+        assert_eq!(module_conn.len(), manual_agg.len(), "Different number of modules");
+
+        for (module, (conn_in, conn_out)) in &module_conn {
+            let (manual_in, manual_out) = manual_agg.get(module)
+                .expect(&format!("Module {} not found in manual aggregation", module));
+            assert_eq!(conn_in, manual_in, "Module {} has different incoming: {} vs {}", module, conn_in, manual_in);
+            assert_eq!(conn_out, manual_out, "Module {} has different outgoing: {} vs {}", module, conn_out, manual_out);
+        }
+    }
+
+    #[rstest]
+    fn test_get_module_loc_returns_results(populated_db: cozo::DbInstance) {
+        let result = get_module_loc(
+            &populated_db,
+            "default",
+            None,
+            false,
+        );
+
+        assert!(result.is_ok());
+        let loc_map = result.unwrap();
+        assert!(!loc_map.is_empty());
+    }
+
+    #[rstest]
+    fn test_get_function_counts_returns_results(populated_db: cozo::DbInstance) {
+        let result = get_function_counts(
+            &populated_db,
+            "default",
+            None,
+            false,
+        );
+
+        assert!(result.is_ok());
+        let counts = result.unwrap();
+        assert!(!counts.is_empty());
+    }
+
+    #[rstest]
+    fn test_module_connectivity_returns_fewer_rows(populated_db: cozo::DbInstance) {
+        // Get module-level connectivity (NEW approach)
+        let module_conn = get_module_connectivity(
+            &populated_db,
+            "default",
+            None,
+            false,
+        ).unwrap();
+
+        // Get function-level hotspots (OLD approach)
+        let function_hotspots = find_hotspots(
+            &populated_db,
+            HotspotKind::Total,
+            None,
+            "default",
+            false,
+            u32::MAX,
+            false,
+            false,
+        ).unwrap();
+
+        // The new approach should return FAR fewer rows
+        println!("Module connectivity rows: {}", module_conn.len());
+        println!("Function hotspots rows: {}", function_hotspots.len());
+
+        // For any non-trivial codebase, there are more functions than modules
+        assert!(
+            module_conn.len() <= function_hotspots.len(),
+            "Module connectivity ({} rows) should return same or fewer rows than function hotspots ({} rows)",
+            module_conn.len(),
+            function_hotspots.len()
+        );
+
+        // Calculate reduction percentage
+        if function_hotspots.len() > 0 {
+            let reduction = 100.0 * (1.0 - (module_conn.len() as f64 / function_hotspots.len() as f64));
+            println!("Row reduction: {:.1}%", reduction);
+
+            // In a typical codebase, we expect significant reduction
+            // (unless every module has exactly 1 function, which is unlikely)
+        }
+    }
+
+    #[rstest]
+    fn test_get_module_connectivity_nonexistent_project(populated_db: cozo::DbInstance) {
+        let connectivity = get_module_connectivity(
+            &populated_db,
+            "nonexistent_project",
+            None,
+            false,
+        ).unwrap();
+
+        // Should return empty for non-existent project
+        assert!(connectivity.is_empty());
+    }
+
+    #[rstest]
+    fn test_get_module_connectivity_nonexistent_module(populated_db: cozo::DbInstance) {
+        let connectivity = get_module_connectivity(
+            &populated_db,
+            "default",
+            Some("NonExistentModule"),
+            false,
+        ).unwrap();
+
+        // Should return empty when module pattern matches nothing
+        assert!(connectivity.is_empty());
+    }
+
+    #[rstest]
+    fn test_get_module_connectivity_with_regex(populated_db: cozo::DbInstance) {
+        let connectivity = get_module_connectivity(
+            &populated_db,
+            "default",
+            Some(".*Accounts.*"),
+            true, // use regex
+        ).unwrap();
+
+        // Should return results matching the regex
+        for module in connectivity.keys() {
+            assert!(module.contains("Accounts"), "Module {} doesn't match regex pattern", module);
+        }
+    }
+
+    #[rstest]
+    fn test_get_module_loc_nonexistent_project(populated_db: cozo::DbInstance) {
+        let loc_map = get_module_loc(
+            &populated_db,
+            "nonexistent_project",
+            None,
+            false,
+        ).unwrap();
+
+        assert!(loc_map.is_empty());
+    }
+
+    #[rstest]
+    fn test_get_function_counts_nonexistent_project(populated_db: cozo::DbInstance) {
+        let counts = get_function_counts(
+            &populated_db,
+            "nonexistent_project",
+            None,
+            false,
+        ).unwrap();
+
+        assert!(counts.is_empty());
+    }
+
+    #[rstest]
+    fn test_get_module_connectivity_all_values_positive(populated_db: cozo::DbInstance) {
+        let connectivity = get_module_connectivity(
+            &populated_db,
+            "default",
+            None,
+            false,
+        ).unwrap();
+
+        // Verify all counts are non-negative (sanity check)
+        for (module, (incoming, outgoing)) in &connectivity {
+            assert!(*incoming >= 0, "Module {} has negative incoming", module);
+            assert!(*outgoing >= 0, "Module {} has negative outgoing", module);
+        }
+    }
 }

@@ -5,6 +5,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::db::{extract_i64, extract_string, run_query, Params};
+use crate::query_builders::{validate_regex_patterns, OptionalConditionBuilder};
 
 #[derive(Error, Debug)]
 pub enum ComplexityError {
@@ -37,12 +38,13 @@ pub fn find_complexity_metrics(
     exclude_generated: bool,
     limit: u32,
 ) -> Result<Vec<ComplexityMetric>, Box<dyn Error>> {
-    // Build optional module filter
-    let module_filter = match module_pattern {
-        Some(_) if use_regex => ", regex_matches(module, $module_pattern)".to_string(),
-        Some(_) => ", str_includes(module, $module_pattern)".to_string(),
-        None => String::new(),
-    };
+    validate_regex_patterns(use_regex, &[module_pattern])?;
+
+    // Build conditions using query builders
+    let module_cond = OptionalConditionBuilder::new("module", "module_pattern")
+        .with_leading_comma()
+        .with_regex()
+        .build_with_regex(module_pattern.is_some(), use_regex);
 
     // Build optional generated filter
     let generated_filter = if exclude_generated {
@@ -59,7 +61,7 @@ pub fn find_complexity_metrics(
             complexity >= $min_complexity,
             max_nesting_depth >= $min_depth,
             lines = end_line - start_line + 1
-            {module_filter}
+            {module_cond}
             {generated_filter}
 
         :order -complexity, module, name
@@ -68,11 +70,11 @@ pub fn find_complexity_metrics(
     );
 
     let mut params = Params::new();
-    params.insert("project".to_string(), DataValue::Str(project.into()));
-    params.insert("min_complexity".to_string(), DataValue::from(min_complexity));
-    params.insert("min_depth".to_string(), DataValue::from(min_depth));
+    params.insert("project", DataValue::Str(project.into()));
+    params.insert("min_complexity", DataValue::from(min_complexity));
+    params.insert("min_depth", DataValue::from(min_depth));
     if let Some(pattern) = module_pattern {
-        params.insert("module_pattern".to_string(), DataValue::Str(pattern.into()));
+        params.insert("module_pattern", DataValue::Str(pattern.into()));
     }
 
     let rows = run_query(db, &script, params).map_err(|e| ComplexityError::QueryFailed {

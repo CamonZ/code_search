@@ -103,17 +103,17 @@ pub fn find_paths(
     );
 
     let mut params = Params::new();
-    params.insert("from_module".to_string(), DataValue::Str(from_module.into()));
-    params.insert("from_function".to_string(), DataValue::Str(from_function.into()));
-    params.insert("to_module".to_string(), DataValue::Str(to_module.into()));
-    params.insert("to_function".to_string(), DataValue::Str(to_function.into()));
+    params.insert("from_module", DataValue::Str(from_module.into()));
+    params.insert("from_function", DataValue::Str(from_function.into()));
+    params.insert("to_module", DataValue::Str(to_module.into()));
+    params.insert("to_function", DataValue::Str(to_function.into()));
     if let Some(a) = from_arity {
-        params.insert("from_arity".to_string(), DataValue::from(a));
+        params.insert("from_arity", DataValue::from(a));
     }
     if let Some(a) = to_arity {
-        params.insert("to_arity".to_string(), DataValue::from(a));
+        params.insert("to_arity", DataValue::from(a));
     }
-    params.insert("project".to_string(), DataValue::Str(project.into()));
+    params.insert("project", DataValue::Str(project.into()));
 
     let rows = run_query(db, &script, params).map_err(|e| PathError::QueryFailed {
         message: e.to_string(),

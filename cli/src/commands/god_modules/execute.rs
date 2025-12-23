@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use super::GodModulesCmd;
 use crate::commands::Execute;
-use db::queries::hotspots::{find_hotspots, get_function_counts, get_module_loc, HotspotKind};
+use db::queries::hotspots::{get_function_counts, get_module_connectivity, get_module_loc};
 use db::types::{ModuleCollectionResult, ModuleGroup};
 
 /// A single god module entry
@@ -37,29 +37,13 @@ impl Execute for GodModulesCmd {
             self.common.regex,
         )?;
 
-        // Get hotspot data (incoming/outgoing calls per function)
-        let hotspots = find_hotspots(
+        // Get module-level connectivity (aggregated at database level)
+        let module_connectivity = get_module_connectivity(
             db,
-            HotspotKind::Total,
-            self.module.as_deref(),
             &self.common.project,
+            self.module.as_deref(),
             self.common.regex,
-            u32::MAX, // Get all hotspots to aggregate connectivity
-            false,    // Don't exclude generated functions
-            false,    // Don't require outgoing calls
         )?;
-
-        // Aggregate connectivity (incoming/outgoing) per module
-        let mut module_connectivity: std::collections::HashMap<String, (i64, i64)> =
-            std::collections::HashMap::new();
-
-        for hotspot in hotspots {
-            let entry = module_connectivity
-                .entry(hotspot.module)
-                .or_insert((0, 0));
-            entry.0 += hotspot.incoming;
-            entry.1 += hotspot.outgoing;
-        }
 
         // Build god modules: filter by thresholds and sort by total connectivity
         // Tuple: (module_name, func_count, loc, incoming, outgoing)

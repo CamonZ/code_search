@@ -1,8 +1,8 @@
 //! Deduplication utilities for reducing code duplication across commands.
 //!
-//! This module provides reusable patterns for deduplicating collections using different strategies:
-//! - Strategy A: HashSet retain pattern (deduplicate_retain) - for in-place deduplication after sorting
-//! - Strategy B: HashSet prevention pattern (DeduplicationFilter) - for preventing duplicates during collection
+//! This module provides reusable patterns for deduplicating collections:
+//! - HashSet retain pattern (deduplicate_retain) - for in-place deduplication after sorting
+//! - Combined sort and deduplicate operation (sort_and_deduplicate)
 
 use std::collections::HashSet;
 use std::hash::Hash;
@@ -68,45 +68,4 @@ where
 {
     items.sort_by(sort_cmp);
     deduplicate_retain(items, dedup_key);
-}
-
-/// Strategy B: HashSet prevention pattern - check before adding
-///
-/// Use this when collecting items and you want to prevent duplicates from being added
-/// in the first place, without needing to sort or post-process.
-///
-/// # Example
-/// ```ignore
-/// let mut filter = DeduplicationFilter::new();
-/// for entry in entries {
-///     if filter.should_process(entry_key) {
-///         // Add entry to result
-///     }
-/// }
-/// ```
-#[derive(Debug)]
-pub struct DeduplicationFilter<K: Eq + Hash> {
-    processed: HashSet<K>,
-}
-
-impl<K: Eq + Hash> DeduplicationFilter<K> {
-    /// Create a new empty deduplication filter
-    pub fn new() -> Self {
-        Self {
-            processed: HashSet::new(),
-        }
-    }
-
-    /// Check if a key should be processed (inserted into the set)
-    ///
-    /// Returns true if the key is new and was successfully inserted, false if it was already present.
-    pub fn should_process(&mut self, key: K) -> bool {
-        self.processed.insert(key)
-    }
-}
-
-impl<K: Eq + Hash> Default for DeduplicationFilter<K> {
-    fn default() -> Self {
-        Self::new()
-    }
 }

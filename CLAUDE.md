@@ -60,7 +60,7 @@ This is a Rust CLI tool for querying call graph data stored in a CozoDB SQLite d
 - `commands/mod.rs` - `Command` enum, `Execute` trait, `CommonArgs`, dispatch via enum_dispatch
 - `commands/<name>/` - Individual command modules (27 commands, directory structure)
 - `output.rs` - `OutputFormat` enum, `Outputable` and `TableFormatter` traits
-- `dedup.rs` - Deduplication utilities (`sort_and_deduplicate`, `DeduplicationFilter`)
+- `dedup.rs` - Deduplication utilities (`sort_and_deduplicate`, `deduplicate_retain`)
 - `utils.rs` - Presentation helpers (`group_by_module`, `convert_to_module_groups`, `format_type_definition`)
 - `test_macros.rs` - Declarative test macros for CLI, execute, and output tests
 

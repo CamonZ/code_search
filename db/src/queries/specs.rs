@@ -5,6 +5,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::db::{extract_i64, extract_string, run_query, Params};
+use crate::query_builders::{validate_regex_patterns, ConditionBuilder, OptionalConditionBuilder};
 
 #[derive(Error, Debug)]
 pub enum SpecsError {
@@ -35,34 +36,26 @@ pub fn find_specs(
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<SpecDef>, Box<dyn Error>> {
-    // Build module filter
-    let module_filter = if use_regex {
-        "regex_matches(module, $module_pattern)"
-    } else {
-        "module == $module_pattern"
-    };
+    validate_regex_patterns(use_regex, &[Some(module_pattern), function_pattern])?;
 
-    // Build function filter
-    let function_filter = match function_pattern {
-        Some(_) if use_regex => ", regex_matches(name, $function_pattern)",
-        Some(_) => ", str_includes(name, $function_pattern)",
-        None => "",
-    };
-
-    // Build kind filter
-    let kind_filter_sql = match kind_filter {
-        Some(_) => ", kind == $kind",
-        None => "",
-    };
+    // Build conditions using query builders
+    let module_cond = ConditionBuilder::new("module", "module_pattern").build(use_regex);
+    let function_cond = OptionalConditionBuilder::new("name", "function_pattern")
+        .with_leading_comma()
+        .with_regex()
+        .build_with_regex(function_pattern.is_some(), use_regex);
+    let kind_cond = OptionalConditionBuilder::new("kind", "kind")
+        .with_leading_comma()
+        .build(kind_filter.is_some());
 
     let script = format!(
         r#"
         ?[project, module, name, arity, kind, line, inputs_string, return_string, full] :=
             *specs{{project, module, name, arity, kind, line, inputs_string, return_string, full}},
             project == $project,
-            {module_filter}
-            {function_filter}
-            {kind_filter_sql}
+            {module_cond}
+            {function_cond}
+            {kind_cond}
 
         :order module, name, arity
         :limit {limit}
@@ -70,18 +63,18 @@ pub fn find_specs(
     );
 
     let mut params = Params::new();
-    params.insert("project".to_string(), DataValue::Str(project.into()));
+    params.insert("project", DataValue::Str(project.into()));
     params.insert(
-        "module_pattern".to_string(),
+        "module_pattern",
         DataValue::Str(module_pattern.into()),
     );
 
     if let Some(func) = function_pattern {
-        params.insert("function_pattern".to_string(), DataValue::Str(func.into()));
+        params.insert("function_pattern", DataValue::Str(func.into()));
     }
 
     if let Some(kind) = kind_filter {
-        params.insert("kind".to_string(), DataValue::Str(kind.into()));
+        params.insert("kind", DataValue::Str(kind.into()));
     }
 
     let rows = run_query(db, &script, params).map_err(|e| SpecsError::QueryFailed {
