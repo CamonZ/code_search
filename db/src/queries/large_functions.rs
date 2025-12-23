@@ -66,10 +66,10 @@ pub fn find_large_functions(
     );
 
     let mut params = Params::new();
-    params.insert("project".to_string(), DataValue::Str(project.into()));
-    params.insert("min_lines".to_string(), DataValue::from(min_lines));
+    params.insert("project", DataValue::Str(project.into()));
+    params.insert("min_lines", DataValue::from(min_lines));
     if let Some(pattern) = module_pattern {
-        params.insert("module_pattern".to_string(), DataValue::Str(pattern.into()));
+        params.insert("module_pattern", DataValue::Str(pattern.into()));
     }
 
     let rows = run_query(db, &script, params).map_err(|e| LargeFunctionsError::QueryFailed {

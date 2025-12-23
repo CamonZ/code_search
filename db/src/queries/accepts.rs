@@ -56,12 +56,12 @@ pub fn find_accepts(
     );
 
     let mut params = Params::new();
-    params.insert("pattern".to_string(), DataValue::Str(pattern.into()));
-    params.insert("project".to_string(), DataValue::Str(project.into()));
+    params.insert("pattern", DataValue::Str(pattern.into()));
+    params.insert("project", DataValue::Str(project.into()));
 
     if let Some(mod_pat) = module_pattern {
         params.insert(
-            "module_pattern".to_string(),
+            "module_pattern",
             DataValue::Str(mod_pat.into()),
         );
     }

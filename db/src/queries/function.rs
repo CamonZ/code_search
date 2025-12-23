@@ -59,12 +59,12 @@ pub fn find_functions(
     );
 
     let mut params = Params::new();
-    params.insert("module_pattern".to_string(), DataValue::Str(module_pattern.into()));
-    params.insert("function_pattern".to_string(), DataValue::Str(function_pattern.into()));
+    params.insert("module_pattern", DataValue::Str(module_pattern.into()));
+    params.insert("function_pattern", DataValue::Str(function_pattern.into()));
     if let Some(a) = arity {
-        params.insert("arity".to_string(), DataValue::from(a));
+        params.insert("arity", DataValue::from(a));
     }
-    params.insert("project".to_string(), DataValue::Str(project.into()));
+    params.insert("project", DataValue::Str(project.into()));
 
     let rows = run_query(db, &script, params).map_err(|e| FunctionError::QueryFailed {
         message: e.to_string(),

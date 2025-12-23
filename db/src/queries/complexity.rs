@@ -70,11 +70,11 @@ pub fn find_complexity_metrics(
     );
 
     let mut params = Params::new();
-    params.insert("project".to_string(), DataValue::Str(project.into()));
-    params.insert("min_complexity".to_string(), DataValue::from(min_complexity));
-    params.insert("min_depth".to_string(), DataValue::from(min_depth));
+    params.insert("project", DataValue::Str(project.into()));
+    params.insert("min_complexity", DataValue::from(min_complexity));
+    params.insert("min_depth", DataValue::from(min_depth));
     if let Some(pattern) = module_pattern {
-        params.insert("module_pattern".to_string(), DataValue::Str(pattern.into()));
+        params.insert("module_pattern", DataValue::Str(pattern.into()));
     }
 
     let rows = run_query(db, &script, params).map_err(|e| ComplexityError::QueryFailed {

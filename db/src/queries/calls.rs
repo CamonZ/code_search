@@ -105,19 +105,19 @@ pub fn find_calls(
 
     let mut params = Params::new();
     params.insert(
-        "module_pattern".to_string(),
+        "module_pattern",
         DataValue::Str(module_pattern.into()),
     );
     if let Some(fn_pat) = function_pattern {
         params.insert(
-            "function_pattern".to_string(),
+            "function_pattern",
             DataValue::Str(fn_pat.into()),
         );
     }
     if let Some(a) = arity {
-        params.insert("arity".to_string(), DataValue::from(a));
+        params.insert("arity", DataValue::from(a));
     }
-    params.insert("project".to_string(), DataValue::Str(project.into()));
+    params.insert("project", DataValue::Str(project.into()));
 
     let rows = run_query(db, &script, params).map_err(|e| CallsError::QueryFailed {
         message: e.to_string(),

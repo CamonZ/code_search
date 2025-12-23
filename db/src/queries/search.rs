@@ -52,8 +52,8 @@ pub fn search_modules(
     );
 
     let mut params = Params::new();
-    params.insert("pattern".to_string(), DataValue::Str(pattern.into()));
-    params.insert("project".to_string(), DataValue::Str(project.into()));
+    params.insert("pattern", DataValue::Str(pattern.into()));
+    params.insert("project", DataValue::Str(project.into()));
 
     let rows = run_query(db, &script, params).map_err(|e| SearchError::QueryFailed {
         message: e.to_string(),
@@ -93,8 +93,8 @@ pub fn search_functions(
     );
 
     let mut params = Params::new();
-    params.insert("pattern".to_string(), DataValue::Str(pattern.into()));
-    params.insert("project".to_string(), DataValue::Str(project.into()));
+    params.insert("pattern", DataValue::Str(pattern.into()));
+    params.insert("project", DataValue::Str(project.into()));
 
     let rows = run_query(db, &script, params).map_err(|e| SearchError::QueryFailed {
         message: e.to_string(),

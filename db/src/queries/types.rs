@@ -61,18 +61,18 @@ pub fn find_types(
     );
 
     let mut params = Params::new();
-    params.insert("project".to_string(), DataValue::Str(project.into()));
+    params.insert("project", DataValue::Str(project.into()));
     params.insert(
-        "module_pattern".to_string(),
+        "module_pattern",
         DataValue::Str(module_pattern.into()),
     );
 
     if let Some(name) = name_filter {
-        params.insert("name_pattern".to_string(), DataValue::Str(name.into()));
+        params.insert("name_pattern", DataValue::Str(name.into()));
     }
 
     if let Some(kind) = kind_filter {
-        params.insert("kind".to_string(), DataValue::Str(kind.into()));
+        params.insert("kind", DataValue::Str(kind.into()));
     }
 
     let rows = run_query(db, &script, params).map_err(|e| TypesError::QueryFailed {

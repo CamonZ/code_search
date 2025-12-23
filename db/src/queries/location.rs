@@ -69,14 +69,14 @@ pub fn find_locations(
     );
 
     let mut params = Params::new();
-    params.insert("function_pattern".to_string(), DataValue::Str(function_pattern.into()));
+    params.insert("function_pattern", DataValue::Str(function_pattern.into()));
     if let Some(mod_pat) = module_pattern {
-        params.insert("module_pattern".to_string(), DataValue::Str(mod_pat.into()));
+        params.insert("module_pattern", DataValue::Str(mod_pat.into()));
     }
     if let Some(a) = arity {
-        params.insert("arity".to_string(), DataValue::Num(Num::Int(a)));
+        params.insert("arity", DataValue::Num(Num::Int(a)));
     }
-    params.insert("project".to_string(), DataValue::Str(project.into()));
+    params.insert("project", DataValue::Str(project.into()));
 
     let rows = run_query(db, &script, params).map_err(|e| LocationError::QueryFailed {
         message: e.to_string(),

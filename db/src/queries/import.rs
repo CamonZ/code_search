@@ -91,7 +91,7 @@ pub fn clear_project_data(db: &DbInstance, project: &str) -> Result<(), Box<dyn 
         );
 
         let mut params = Params::new();
-        params.insert("project".to_string(), DataValue::Str(project.into()));
+        params.insert("project", DataValue::Str(project.into()));
 
         run_query(db, &script, params).map_err(|e| ImportError::ClearFailed {
             message: format!("Failed to clear {}: {}", table, e),

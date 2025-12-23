@@ -57,8 +57,8 @@ pub fn find_functions_in_module(
     );
 
     let mut params = Params::new();
-    params.insert("project".to_string(), DataValue::Str(project.into()));
-    params.insert("module_pattern".to_string(), DataValue::Str(module_pattern.into()));
+    params.insert("project", DataValue::Str(project.into()));
+    params.insert("module_pattern", DataValue::Str(module_pattern.into()));
 
     let rows = run_query(db, &script, params).map_err(|e| FileError::QueryFailed {
         message: e.to_string(),
