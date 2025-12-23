@@ -160,9 +160,8 @@ pub fn open_database(path: &Path) -> Result<Box<dyn Database>, Box<dyn Error>> {
 }
 
 #[cfg(feature = "backend-surrealdb")]
-pub fn open_database(_path: &Path) -> Result<Box<dyn Database>, Box<dyn Error>> {
-    // TODO: Implement SurrealDB backend when available
-    todo!("SurrealDB backend implementation not yet available")
+pub fn open_database(path: &Path) -> Result<Box<dyn Database>, Box<dyn Error>> {
+    Ok(Box::new(surrealdb::SurrealDatabase::open(path)?))
 }
 
 #[cfg(not(any(feature = "backend-cozo", feature = "backend-surrealdb")))]
@@ -184,8 +183,7 @@ pub fn open_mem_database() -> Result<Box<dyn Database>, Box<dyn Error>> {
 
 #[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
 pub fn open_mem_database() -> Result<Box<dyn Database>, Box<dyn Error>> {
-    // TODO: Implement SurrealDB in-memory when backend is available
-    todo!("SurrealDB in-memory database implementation not yet available")
+    Ok(Box::new(surrealdb::SurrealDatabase::open_mem()))
 }
 
 #[cfg(all(any(test, feature = "test-utils"), not(any(feature = "backend-cozo", feature = "backend-surrealdb"))))]
