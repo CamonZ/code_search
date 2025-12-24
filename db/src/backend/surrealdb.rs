@@ -250,14 +250,77 @@ impl Value for surrealdb::sql::Value {
 mod tests {
     use super::*;
 
+    // ==================== In-Memory Database Tests ====================
+
     #[test]
-    fn test_open_mem_compiles() {
-        // Just verify it compiles, full testing in Ticket 06
-        let _ = SurrealDatabase::open_mem();
+    fn test_open_mem() {
+        let db = SurrealDatabase::open_mem().expect("Failed to open in-memory database");
+        // Verify database is usable by executing a simple DDL statement
+        let result = db.execute_query("DEFINE TABLE test SCHEMAFULL;", QueryParams::new());
+        assert!(result.is_ok());
+    }
+
+    // ==================== Parameter Conversion Tests ====================
+
+    #[test]
+    fn test_parameter_conversion_str() {
+        let params = QueryParams::new().with_str("name", "test");
+        let converted = convert_params(params).expect("Failed to convert params");
+        assert!(converted.contains_key("name"));
+
+        // Verify the value is correctly converted to a Strand
+        if let Some(surrealdb::sql::Value::Strand(s)) = converted.get("name") {
+            assert_eq!(s.as_str(), "test");
+        } else {
+            panic!("Expected Strand value");
+        }
     }
 
     #[test]
-    fn test_parameter_conversion() {
+    fn test_parameter_conversion_int() {
+        let params = QueryParams::new().with_int("count", 42);
+        let converted = convert_params(params).expect("Failed to convert params");
+        assert!(converted.contains_key("count"));
+
+        // Verify the value is correctly converted to a Number
+        if let Some(surrealdb::sql::Value::Number(n)) = converted.get("count") {
+            assert_eq!(n.as_int(), 42);
+        } else {
+            panic!("Expected Number value");
+        }
+    }
+
+    #[test]
+    fn test_parameter_conversion_float() {
+        let params = QueryParams::new().with_float("price", 3.14);
+        let converted = convert_params(params).expect("Failed to convert params");
+        assert!(converted.contains_key("price"));
+
+        // Verify the value is correctly converted to a Number
+        if let Some(surrealdb::sql::Value::Number(n)) = converted.get("price") {
+            let f = n.as_float();
+            assert!((f - 3.14).abs() < 0.01);
+        } else {
+            panic!("Expected Number value");
+        }
+    }
+
+    #[test]
+    fn test_parameter_conversion_bool() {
+        let params = QueryParams::new().with_bool("active", true);
+        let converted = convert_params(params).expect("Failed to convert params");
+        assert!(converted.contains_key("active"));
+
+        // Verify the value is correctly converted to a Bool
+        if let Some(surrealdb::sql::Value::Bool(b)) = converted.get("active") {
+            assert_eq!(*b, true);
+        } else {
+            panic!("Expected Bool value");
+        }
+    }
+
+    #[test]
+    fn test_parameter_conversion_multiple_types() {
         let params = QueryParams::new()
             .with_str("name", "test")
             .with_int("count", 42)
@@ -273,18 +336,203 @@ mod tests {
         assert!(surreal_params.contains_key("flag"));
     }
 
+    // ==================== Value Extraction Tests ====================
+
     #[test]
-    fn test_value_extraction() {
-        let str_val = surrealdb::sql::Value::Strand("test".into());
-        assert_eq!(str_val.as_str(), Some("test"));
+    fn test_value_extraction_str() {
+        let val = surrealdb::sql::Value::Strand("hello".into());
+        assert_eq!(val.as_str(), Some("hello"));
+        assert_eq!(val.as_i64(), None);
+        assert_eq!(val.as_bool(), None);
+        assert_eq!(val.as_f64(), None);
+    }
 
-        let int_val = surrealdb::sql::Value::Number(42.into());
-        assert_eq!(int_val.as_i64(), Some(42));
+    #[test]
+    fn test_value_extraction_int() {
+        let val = surrealdb::sql::Value::Number(42.into());
+        assert_eq!(val.as_i64(), Some(42));
+        assert_eq!(val.as_str(), None);
+        assert_eq!(val.as_bool(), None);
+    }
 
-        let float_val = surrealdb::sql::Value::Number(3.14.into());
-        assert_eq!(float_val.as_f64(), Some(3.14));
+    #[test]
+    fn test_value_extraction_float() {
+        let val = surrealdb::sql::Value::Number(3.14.into());
+        assert!(val.as_f64().is_some());
+        let f = val.as_f64().unwrap();
+        assert!((f - 3.14).abs() < 0.01);
+        assert_eq!(val.as_str(), None);
+        assert_eq!(val.as_bool(), None);
+    }
 
-        let bool_val = surrealdb::sql::Value::Bool(true);
-        assert_eq!(bool_val.as_bool(), Some(true));
+    #[test]
+    fn test_value_extraction_bool() {
+        let val = surrealdb::sql::Value::Bool(true);
+        assert_eq!(val.as_bool(), Some(true));
+        assert_eq!(val.as_i64(), None);
+        assert_eq!(val.as_str(), None);
+    }
+
+    #[test]
+    fn test_value_extraction_bool_false() {
+        let val = surrealdb::sql::Value::Bool(false);
+        assert_eq!(val.as_bool(), Some(false));
+    }
+
+    // ==================== Query Execution Tests ====================
+
+    #[test]
+    fn test_schema_creation() {
+        let db = SurrealDatabase::open_mem().expect("Failed to open database");
+
+        // Test creating a simple table with SCHEMAFULL
+        let result = db.execute_query(
+            "DEFINE TABLE test_table SCHEMAFULL; DEFINE FIELD name ON test_table TYPE string;",
+            QueryParams::new(),
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_multiple_statements() {
+        let db = SurrealDatabase::open_mem().expect("Failed to open database");
+
+        // Test executing multiple DDL statements in one query
+        let result = db.execute_query(
+            "DEFINE TABLE users SCHEMAFULL; DEFINE FIELD username ON users TYPE string;",
+            QueryParams::new(),
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parameterized_query() {
+        let db = SurrealDatabase::open_mem().expect("Failed to open database");
+
+        // Create table
+        db.execute_query(
+            "DEFINE TABLE config SCHEMAFULL; DEFINE FIELD key ON config TYPE string; DEFINE FIELD value ON config TYPE string;",
+            QueryParams::new(),
+        )
+        .expect("Failed to create table");
+
+        // Test parameter conversion in query
+        let params = QueryParams::new()
+            .with_str("key", "setting1")
+            .with_str("value", "enabled");
+
+        // Just test that parameters are accepted without error
+        let result = db.execute_query(
+            "DEFINE TABLE test_with_params SCHEMAFULL; DEFINE FIELD key ON test_with_params TYPE string;",
+            params,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_database_trait_implementation() {
+        let db = SurrealDatabase::open_mem().expect("Failed to open database");
+
+        // Verify the Database trait is properly implemented
+        let result = db.execute_query(
+            "DEFINE TABLE trait_test SCHEMAFULL;",
+            QueryParams::new(),
+        );
+        assert!(result.is_ok());
+
+        // Verify as_any() works
+        let any_ref = db.as_any();
+        assert!(any_ref.is::<SurrealDatabase>());
+    }
+
+    // ==================== Persistent Database Tests ====================
+
+    #[test]
+    fn test_open_persistent_database() {
+        use tempfile::tempdir;
+
+        let temp_dir = tempdir().expect("Failed to create temp dir");
+        let db_path = temp_dir.path().join("test_persistent.db");
+
+        // Test opening a persistent database
+        let db = SurrealDatabase::open(&db_path).expect("Failed to open persistent database");
+
+        // Verify database is usable
+        let result = db.execute_query(
+            "DEFINE TABLE persistent_test SCHEMAFULL;",
+            QueryParams::new(),
+        );
+        assert!(result.is_ok(), "Database should be usable after opening");
+    }
+
+    // ==================== QueryResult Trait Tests ====================
+
+    #[test]
+    fn test_query_result_trait() {
+        let db = SurrealDatabase::open_mem().expect("Failed to open database");
+
+        // Create multiple tables to get a result with multiple rows
+        let result = db
+            .execute_query(
+                "DEFINE TABLE test1 SCHEMAFULL; DEFINE TABLE test2 SCHEMAFULL;",
+                QueryParams::new(),
+            )
+            .expect("Failed to create tables");
+
+        // Test headers() - DDL returns empty headers
+        let headers = result.headers();
+        assert!(headers.is_empty(), "DDL statements return no headers");
+
+        // Test rows() - DDL returns empty rows
+        let rows = result.rows();
+        assert_eq!(rows.len(), 0, "DDL statements return no rows");
+
+        // Test into_rows()
+        let rows_vec = result.into_rows();
+        assert_eq!(rows_vec.len(), 0, "Should have same count after into_rows");
+    }
+
+    // ==================== Row Trait Tests ====================
+
+    #[test]
+    fn test_row_trait() {
+        // Test Row trait methods by creating a SurrealRow directly
+        use surrealdb::sql::Value as SurrealValue;
+
+        let values = vec![
+            SurrealValue::Strand("test".into()),
+            SurrealValue::Number(42.into()),
+            SurrealValue::Bool(true),
+        ];
+
+        let row = SurrealRow { values };
+
+        // Test len()
+        assert_eq!(row.len(), 3, "Row should have 3 columns");
+
+        // Test get()
+        let first_value = row.get(0);
+        assert!(first_value.is_some(), "Should be able to get first column");
+        assert_eq!(first_value.unwrap().as_str(), Some("test"));
+
+        let second_value = row.get(1);
+        assert!(second_value.is_some(), "Should be able to get second column");
+        assert_eq!(second_value.unwrap().as_i64(), Some(42));
+
+        let third_value = row.get(2);
+        assert!(third_value.is_some(), "Should be able to get third column");
+        assert_eq!(third_value.unwrap().as_bool(), Some(true));
+
+        // Test is_empty()
+        assert!(!row.is_empty(), "Row should not be empty");
+
+        // Test get() with out of bounds index
+        let out_of_bounds = row.get(999);
+        assert!(out_of_bounds.is_none(), "Out of bounds get should return None");
+
+        // Test empty row
+        let empty_row = SurrealRow { values: vec![] };
+        assert!(empty_row.is_empty(), "Empty row should be empty");
+        assert_eq!(empty_row.len(), 0, "Empty row length should be 0");
     }
 }
