@@ -149,8 +149,13 @@ pub trait Database: Send + Sync {
 
 #[cfg(feature = "backend-cozo")]
 pub(crate) mod cozo;
+#[cfg(feature = "backend-cozo")]
+pub mod cozo_schema;
+
 #[cfg(feature = "backend-surrealdb")]
 pub(crate) mod surrealdb;
+#[cfg(feature = "backend-surrealdb")]
+pub mod surrealdb_schema;
 
 /// Opens a database connection to the specified path.
 ///
