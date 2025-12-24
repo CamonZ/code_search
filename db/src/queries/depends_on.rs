@@ -6,10 +6,11 @@
 use std::error::Error;
 
 use super::dependencies::{find_dependencies as query_dependencies, DependencyDirection};
+use crate::backend::Database;
 use crate::types::Call;
 
 pub fn find_dependencies(
-    db: &cozo::DbInstance,
+    db: &dyn Database,
     module_pattern: &str,
     project: &str,
     use_regex: bool,

@@ -5,9 +5,8 @@
 
 use std::error::Error;
 
-use cozo::DataValue;
-
-use crate::db::{run_query, Params};
+use crate::backend::{Database, QueryParams};
+use crate::db::run_query;
 
 /// Represents a call between two different modules
 #[derive(Debug, Clone)]
@@ -20,7 +19,7 @@ pub struct ModuleCall {
 ///
 /// Returns calls where caller_module != callee_module.
 /// These are used to compute internal vs external connectivity per namespace cluster.
-pub fn get_module_calls(db: &cozo::DbInstance, project: &str) -> Result<Vec<ModuleCall>, Box<dyn Error>> {
+pub fn get_module_calls(db: &dyn Database, project: &str) -> Result<Vec<ModuleCall>, Box<dyn Error>> {
     let script = r#"
         ?[caller_module, callee_module] :=
             *calls{project, caller_module, callee_module},
@@ -28,22 +27,22 @@ pub fn get_module_calls(db: &cozo::DbInstance, project: &str) -> Result<Vec<Modu
             caller_module != callee_module
     "#;
 
-    let mut params = Params::new();
-    params.insert("project", DataValue::Str(project.into()));
+    let params = QueryParams::new()
+        .with_str("project", project);
 
-    let rows = run_query(db, script, params)?;
+    let result = run_query(db, script, params)?;
 
-    let caller_idx = rows.headers.iter().position(|h| h == "caller_module")
+    let caller_idx = result.headers().iter().position(|h| h == "caller_module")
         .ok_or("Missing caller_module column")?;
-    let callee_idx = rows.headers.iter().position(|h| h == "callee_module")
+    let callee_idx = result.headers().iter().position(|h| h == "callee_module")
         .ok_or("Missing callee_module column")?;
 
-    let results = rows
-        .rows
+    let results = result
+        .rows()
         .iter()
         .filter_map(|row| {
-            let caller = row.get(caller_idx).and_then(|v| v.get_str());
-            let callee = row.get(callee_idx).and_then(|v| v.get_str());
+            let caller = row.get(caller_idx).and_then(|v| v.as_str());
+            let callee = row.get(callee_idx).and_then(|v| v.as_str());
             match (caller, callee) {
                 (Some(c), Some(m)) => Some(ModuleCall {
                     caller_module: c.to_string(),

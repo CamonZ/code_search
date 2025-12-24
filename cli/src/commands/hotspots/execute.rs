@@ -100,7 +100,7 @@ impl Outputable for HotspotsResult {
 impl Execute for HotspotsCmd {
     type Output = HotspotsResult;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         let hotspots = find_hotspots(
             db,
             self.kind,

@@ -6,15 +6,22 @@ pub mod types;
 pub mod query_builders;
 pub mod queries;
 
-#[cfg(feature = "test-utils")]
+#[cfg(any(test, feature = "test-utils"))]
 pub mod test_utils;
 
-#[cfg(feature = "test-utils")]
+#[cfg(any(test, feature = "test-utils"))]
 pub mod fixtures;
 
 // Re-export commonly used items
-pub use db::{open_db, run_query, run_query_no_params, DbError, Params};
+pub use db::{
+    open_db, run_query, run_query_no_params, DbError,
+    extract_call_from_row_trait, extract_call_from_row,
+    extract_string, extract_i64, extract_f64,
+    extract_bool, extract_string_or, CallRowLayout,
+    try_create_relation,
+};
 pub use cozo::DbInstance;
+pub use backend::{Database, QueryResult, Row, Value, QueryParams};
 
 #[cfg(any(test, feature = "test-utils"))]
 pub use db::open_mem_db;

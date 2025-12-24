@@ -1,11 +1,11 @@
 use std::error::Error;
 
 use clap::ValueEnum;
-use cozo::DataValue;
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::db::{extract_f64, extract_i64, extract_string, run_query, Params};
+use crate::backend::{Database, QueryParams};
+use crate::db::{extract_f64, extract_i64, extract_string, run_query};
 use crate::query_builders::{validate_regex_patterns, OptionalConditionBuilder};
 
 /// What type of hotspots to find
@@ -41,7 +41,7 @@ pub struct Hotspot {
 
 /// Get lines of code per module (sum of function line counts)
 pub fn get_module_loc(
-    db: &cozo::DbInstance,
+    db: &dyn Database,
     project: &str,
     module_pattern: Option<&str>,
     use_regex: bool,
@@ -70,21 +70,22 @@ pub fn get_module_loc(
         "#,
     );
 
-    let mut params = Params::new();
-    params.insert("project", DataValue::Str(project.into()));
+    let mut params = QueryParams::new()
+        .with_str("project", project);
+
     if let Some(pattern) = module_pattern {
-        params.insert("module_pattern", DataValue::Str(pattern.into()));
+        params = params.with_str("module_pattern", pattern);
     }
 
-    let rows = run_query(db, &script, params).map_err(|e| HotspotsError::QueryFailed {
+    let result = run_query(db, &script, params).map_err(|e| HotspotsError::QueryFailed {
         message: e.to_string(),
     })?;
 
     let mut loc_map = std::collections::HashMap::new();
-    for row in rows.rows {
+    for row in result.rows() {
         if row.len() >= 2
-            && let Some(module) = extract_string(&row[0]) {
-                let loc = extract_i64(&row[1], 0);
+            && let Some(module) = extract_string(row.get(0).unwrap()) {
+                let loc = extract_i64(row.get(1).unwrap(), 0);
                 loc_map.insert(module, loc);
             }
     }
@@ -94,7 +95,7 @@ pub fn get_module_loc(
 
 /// Get function count per module
 pub fn get_function_counts(
-    db: &cozo::DbInstance,
+    db: &dyn Database,
     project: &str,
     module_pattern: Option<&str>,
     use_regex: bool,
@@ -121,21 +122,22 @@ pub fn get_function_counts(
         "#,
     );
 
-    let mut params = Params::new();
-    params.insert("project", DataValue::Str(project.into()));
+    let mut params = QueryParams::new()
+        .with_str("project", project);
+
     if let Some(pattern) = module_pattern {
-        params.insert("module_pattern", DataValue::Str(pattern.into()));
+        params = params.with_str("module_pattern", pattern);
     }
 
-    let rows = run_query(db, &script, params).map_err(|e| HotspotsError::QueryFailed {
+    let result = run_query(db, &script, params).map_err(|e| HotspotsError::QueryFailed {
         message: e.to_string(),
     })?;
 
     let mut counts = std::collections::HashMap::new();
-    for row in rows.rows {
+    for row in result.rows() {
         if row.len() >= 2
-            && let Some(module) = extract_string(&row[0]) {
-                let count = extract_i64(&row[1], 0);
+            && let Some(module) = extract_string(row.get(0).unwrap()) {
+                let count = extract_i64(row.get(1).unwrap(), 0);
                 counts.insert(module, count);
             }
     }
@@ -149,7 +151,7 @@ pub fn get_function_counts(
 /// This aggregates function-level hotspots to module level at the database layer,
 /// avoiding the need to fetch all function hotspots.
 pub fn get_module_connectivity(
-    db: &cozo::DbInstance,
+    db: &dyn Database,
     project: &str,
     module_pattern: Option<&str>,
     use_regex: bool,
@@ -228,22 +230,23 @@ pub fn get_module_connectivity(
         "#,
     );
 
-    let mut params = Params::new();
-    params.insert("project", DataValue::Str(project.into()));
+    let mut params = QueryParams::new()
+        .with_str("project", project);
+
     if let Some(pattern) = module_pattern {
-        params.insert("module_pattern", DataValue::Str(pattern.into()));
+        params = params.with_str("module_pattern", pattern);
     }
 
-    let rows = run_query(db, &script, params).map_err(|e| HotspotsError::QueryFailed {
+    let result = run_query(db, &script, params).map_err(|e| HotspotsError::QueryFailed {
         message: e.to_string(),
     })?;
 
     let mut connectivity = std::collections::HashMap::new();
-    for row in rows.rows {
+    for row in result.rows() {
         if row.len() >= 3
-            && let Some(module) = extract_string(&row[0]) {
-                let incoming = extract_i64(&row[1], 0);
-                let outgoing = extract_i64(&row[2], 0);
+            && let Some(module) = extract_string(row.get(0).unwrap()) {
+                let incoming = extract_i64(row.get(1).unwrap(), 0);
+                let outgoing = extract_i64(row.get(2).unwrap(), 0);
                 connectivity.insert(module, (incoming, outgoing));
             }
     }
@@ -252,7 +255,7 @@ pub fn get_module_connectivity(
 }
 
 pub fn find_hotspots(
-    db: &cozo::DbInstance,
+    db: &dyn Database,
     kind: HotspotKind,
     module_pattern: Option<&str>,
     project: &str,
@@ -368,25 +371,26 @@ pub fn find_hotspots(
         "#,
     );
 
-    let mut params = Params::new();
-    params.insert("project", DataValue::Str(project.into()));
+    let mut params = QueryParams::new()
+        .with_str("project", project);
+
     if let Some(pattern) = module_pattern {
-        params.insert("module_pattern", DataValue::Str(pattern.into()));
+        params = params.with_str("module_pattern", pattern);
     }
 
-    let rows = run_query(db, &script, params).map_err(|e| HotspotsError::QueryFailed {
+    let result = run_query(db, &script, params).map_err(|e| HotspotsError::QueryFailed {
         message: e.to_string(),
     })?;
 
     let mut results = Vec::new();
-    for row in rows.rows {
+    for row in result.rows() {
         if row.len() >= 6 {
-            let Some(module) = extract_string(&row[0]) else { continue };
-            let Some(function) = extract_string(&row[1]) else { continue };
-            let incoming = extract_i64(&row[2], 0);
-            let outgoing = extract_i64(&row[3], 0);
-            let total = extract_i64(&row[4], 0);
-            let ratio = extract_f64(&row[5], 0.0);
+            let Some(module) = extract_string(row.get(0).unwrap()) else { continue };
+            let Some(function) = extract_string(row.get(1).unwrap()) else { continue };
+            let incoming = extract_i64(row.get(2).unwrap(), 0);
+            let outgoing = extract_i64(row.get(3).unwrap(), 0);
+            let total = extract_i64(row.get(4).unwrap(), 0);
+            let ratio = extract_f64(row.get(5).unwrap(), 0.0);
 
             results.push(Hotspot {
                 module,
@@ -408,14 +412,14 @@ mod tests {
     use rstest::{fixture, rstest};
 
     #[fixture]
-    fn populated_db() -> cozo::DbInstance {
+    fn populated_db() -> Box<dyn crate::backend::Database> {
         crate::test_utils::call_graph_db("default")
     }
 
     #[rstest]
-    fn test_get_module_connectivity_returns_results(populated_db: cozo::DbInstance) {
+    fn test_get_module_connectivity_returns_results(populated_db: Box<dyn crate::backend::Database>) {
         let result = get_module_connectivity(
-            &populated_db,
+            &*populated_db,
             "default",
             None,
             false,
@@ -430,9 +434,9 @@ mod tests {
     }
 
     #[rstest]
-    fn test_get_module_connectivity_has_valid_counts(populated_db: cozo::DbInstance) {
+    fn test_get_module_connectivity_has_valid_counts(populated_db: Box<dyn crate::backend::Database>) {
         let connectivity = get_module_connectivity(
-            &populated_db,
+            &*populated_db,
             "default",
             None,
             false,
@@ -446,9 +450,9 @@ mod tests {
     }
 
     #[rstest]
-    fn test_get_module_connectivity_with_module_filter(populated_db: cozo::DbInstance) {
+    fn test_get_module_connectivity_with_module_filter(populated_db: Box<dyn crate::backend::Database>) {
         let connectivity = get_module_connectivity(
-            &populated_db,
+            &*populated_db,
             "default",
             Some("Accounts"),
             false,
@@ -461,10 +465,10 @@ mod tests {
     }
 
     #[rstest]
-    fn test_get_module_connectivity_aggregates_correctly(populated_db: cozo::DbInstance) {
+    fn test_get_module_connectivity_aggregates_correctly(populated_db: Box<dyn crate::backend::Database>) {
         // Get module-level connectivity
         let module_conn = get_module_connectivity(
-            &populated_db,
+            &*populated_db,
             "default",
             None,
             false,
@@ -472,7 +476,7 @@ mod tests {
 
         // Get function-level hotspots
         let function_hotspots = find_hotspots(
-            &populated_db,
+            &*populated_db,
             HotspotKind::Total,
             None,
             "default",
@@ -502,9 +506,9 @@ mod tests {
     }
 
     #[rstest]
-    fn test_get_module_loc_returns_results(populated_db: cozo::DbInstance) {
+    fn test_get_module_loc_returns_results(populated_db: Box<dyn crate::backend::Database>) {
         let result = get_module_loc(
-            &populated_db,
+            &*populated_db,
             "default",
             None,
             false,
@@ -516,9 +520,9 @@ mod tests {
     }
 
     #[rstest]
-    fn test_get_function_counts_returns_results(populated_db: cozo::DbInstance) {
+    fn test_get_function_counts_returns_results(populated_db: Box<dyn crate::backend::Database>) {
         let result = get_function_counts(
-            &populated_db,
+            &*populated_db,
             "default",
             None,
             false,
@@ -530,10 +534,10 @@ mod tests {
     }
 
     #[rstest]
-    fn test_module_connectivity_returns_fewer_rows(populated_db: cozo::DbInstance) {
+    fn test_module_connectivity_returns_fewer_rows(populated_db: Box<dyn crate::backend::Database>) {
         // Get module-level connectivity (NEW approach)
         let module_conn = get_module_connectivity(
-            &populated_db,
+            &*populated_db,
             "default",
             None,
             false,
@@ -541,7 +545,7 @@ mod tests {
 
         // Get function-level hotspots (OLD approach)
         let function_hotspots = find_hotspots(
-            &populated_db,
+            &*populated_db,
             HotspotKind::Total,
             None,
             "default",
@@ -574,9 +578,9 @@ mod tests {
     }
 
     #[rstest]
-    fn test_get_module_connectivity_nonexistent_project(populated_db: cozo::DbInstance) {
+    fn test_get_module_connectivity_nonexistent_project(populated_db: Box<dyn crate::backend::Database>) {
         let connectivity = get_module_connectivity(
-            &populated_db,
+            &*populated_db,
             "nonexistent_project",
             None,
             false,
@@ -587,9 +591,9 @@ mod tests {
     }
 
     #[rstest]
-    fn test_get_module_connectivity_nonexistent_module(populated_db: cozo::DbInstance) {
+    fn test_get_module_connectivity_nonexistent_module(populated_db: Box<dyn crate::backend::Database>) {
         let connectivity = get_module_connectivity(
-            &populated_db,
+            &*populated_db,
             "default",
             Some("NonExistentModule"),
             false,
@@ -600,9 +604,9 @@ mod tests {
     }
 
     #[rstest]
-    fn test_get_module_connectivity_with_regex(populated_db: cozo::DbInstance) {
+    fn test_get_module_connectivity_with_regex(populated_db: Box<dyn crate::backend::Database>) {
         let connectivity = get_module_connectivity(
-            &populated_db,
+            &*populated_db,
             "default",
             Some(".*Accounts.*"),
             true, // use regex
@@ -615,9 +619,9 @@ mod tests {
     }
 
     #[rstest]
-    fn test_get_module_loc_nonexistent_project(populated_db: cozo::DbInstance) {
+    fn test_get_module_loc_nonexistent_project(populated_db: Box<dyn crate::backend::Database>) {
         let loc_map = get_module_loc(
-            &populated_db,
+            &*populated_db,
             "nonexistent_project",
             None,
             false,
@@ -627,9 +631,9 @@ mod tests {
     }
 
     #[rstest]
-    fn test_get_function_counts_nonexistent_project(populated_db: cozo::DbInstance) {
+    fn test_get_function_counts_nonexistent_project(populated_db: Box<dyn crate::backend::Database>) {
         let counts = get_function_counts(
-            &populated_db,
+            &*populated_db,
             "nonexistent_project",
             None,
             false,
@@ -639,9 +643,9 @@ mod tests {
     }
 
     #[rstest]
-    fn test_get_module_connectivity_all_values_positive(populated_db: cozo::DbInstance) {
+    fn test_get_module_connectivity_all_values_positive(populated_db: Box<dyn crate::backend::Database>) {
         let connectivity = get_module_connectivity(
-            &populated_db,
+            &*populated_db,
             "default",
             None,
             false,

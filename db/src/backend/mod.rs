@@ -140,12 +140,17 @@ pub trait Database: Send + Sync {
     fn execute_query_no_params(&self, query: &str) -> Result<Box<dyn QueryResult>, Box<dyn Error>> {
         self.execute_query(query, QueryParams::new())
     }
+
+    /// Returns the underlying database instance as a trait object.
+    ///
+    /// Used for testing and downcasting in backend-specific code.
+    fn as_any(&self) -> &(dyn std::any::Any + Send + Sync);
 }
 
 #[cfg(feature = "backend-cozo")]
-mod cozo;
+pub(crate) mod cozo;
 #[cfg(feature = "backend-surrealdb")]
-mod surrealdb;
+pub(crate) mod surrealdb;
 
 /// Opens a database connection to the specified path.
 ///

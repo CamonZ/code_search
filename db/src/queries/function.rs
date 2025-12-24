@@ -1,10 +1,10 @@
 use std::error::Error;
 
-use cozo::DataValue;
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::db::{extract_i64, extract_string, extract_string_or, run_query, Params};
+use crate::backend::{Database, QueryParams};
+use crate::db::{extract_i64, extract_string, extract_string_or, run_query};
 use crate::query_builders::{validate_regex_patterns, ConditionBuilder, OptionalConditionBuilder};
 
 #[derive(Error, Debug)]
@@ -25,7 +25,7 @@ pub struct FunctionSignature {
 }
 
 pub fn find_functions(
-    db: &cozo::DbInstance,
+    db: &dyn Database,
     module_pattern: &str,
     function_pattern: &str,
     arity: Option<i64>,
@@ -58,27 +58,34 @@ pub fn find_functions(
         "#,
     );
 
-    let mut params = Params::new();
-    params.insert("module_pattern", DataValue::Str(module_pattern.into()));
-    params.insert("function_pattern", DataValue::Str(function_pattern.into()));
-    if let Some(a) = arity {
-        params.insert("arity", DataValue::from(a));
-    }
-    params.insert("project", DataValue::Str(project.into()));
+    let mut params = QueryParams::new()
+        .with_str("module_pattern", module_pattern)
+        .with_str("function_pattern", function_pattern)
+        .with_str("project", project);
 
-    let rows = run_query(db, &script, params).map_err(|e| FunctionError::QueryFailed {
+    if let Some(a) = arity {
+        params = params.with_int("arity", a);
+    }
+
+    let result = run_query(db, &script, params).map_err(|e| FunctionError::QueryFailed {
         message: e.to_string(),
     })?;
 
     let mut results = Vec::new();
-    for row in rows.rows {
+    for row in result.rows() {
         if row.len() >= 6 {
-            let Some(project) = extract_string(&row[0]) else { continue };
-            let Some(module) = extract_string(&row[1]) else { continue };
-            let Some(name) = extract_string(&row[2]) else { continue };
-            let arity = extract_i64(&row[3], 0);
-            let args = extract_string_or(&row[4], "");
-            let return_type = extract_string_or(&row[5], "");
+            let Some(project) = extract_string(row.get(0).unwrap()) else {
+                continue;
+            };
+            let Some(module) = extract_string(row.get(1).unwrap()) else {
+                continue;
+            };
+            let Some(name) = extract_string(row.get(2).unwrap()) else {
+                continue;
+            };
+            let arity = extract_i64(row.get(3).unwrap(), 0);
+            let args = extract_string_or(row.get(4).unwrap(), "");
+            let return_type = extract_string_or(row.get(5).unwrap(), "");
 
             results.push(FunctionSignature {
                 project,

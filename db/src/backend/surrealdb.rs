@@ -48,6 +48,10 @@ impl Database for SurrealDatabase {
     ) -> Result<Box<dyn QueryResult>, Box<dyn Error>> {
         unimplemented!("SurrealDB query execution not yet implemented")
     }
+
+    fn as_any(&self) -> &(dyn std::any::Any + Send + Sync) {
+        self as &(dyn std::any::Any + Send + Sync)
+    }
 }
 
 // TODO: Implement SurrealQueryResult, SurrealRow, Value for SurrealDB types

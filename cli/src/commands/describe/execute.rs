@@ -34,7 +34,7 @@ pub struct DescribeResult {
 impl Execute for DescribeCmd {
     type Output = DescribeResult;
 
-    fn execute(self, _db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, _db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         if self.commands.is_empty() {
             // List all commands grouped by category
             let categories_map = descriptions_by_category();
@@ -79,8 +79,8 @@ mod tests {
         let cmd = DescribeCmd {
             commands: vec![],
         };
-
-        let result = cmd.execute(&Default::default()).expect("Should succeed");
+        let db = db::test_utils::setup_empty_test_db();
+        let result = cmd.execute(&*db).expect("Should succeed");
 
         match result.mode {
             DescribeMode::ListAll { ref categories } => {
@@ -98,8 +98,8 @@ mod tests {
         let cmd = DescribeCmd {
             commands: vec!["calls-to".to_string()],
         };
-
-        let result = cmd.execute(&Default::default()).expect("Should succeed");
+        let db = db::test_utils::setup_empty_test_db();
+        let result = cmd.execute(&*db).expect("Should succeed");
 
         match result.mode {
             DescribeMode::Specific { ref descriptions } => {
@@ -119,8 +119,8 @@ mod tests {
                 "trace".to_string(),
             ],
         };
-
-        let result = cmd.execute(&Default::default()).expect("Should succeed");
+        let db = db::test_utils::setup_empty_test_db();
+        let result = cmd.execute(&*db).expect("Should succeed");
 
         match result.mode {
             DescribeMode::Specific { ref descriptions } => {
@@ -139,8 +139,8 @@ mod tests {
         let cmd = DescribeCmd {
             commands: vec!["nonexistent".to_string()],
         };
-
-        let result = cmd.execute(&Default::default());
+        let db = db::test_utils::setup_empty_test_db();
+        let result = cmd.execute(&*db);
         assert!(result.is_err());
     }
 }

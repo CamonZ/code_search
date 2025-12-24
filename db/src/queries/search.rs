@@ -1,10 +1,10 @@
 use std::error::Error;
 
-use cozo::DataValue;
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::db::{extract_i64, extract_string, extract_string_or, run_query, Params};
+use crate::backend::{Database, QueryParams};
+use crate::db::{extract_i64, extract_string, extract_string_or, run_query};
 use crate::query_builders::{validate_regex_patterns, ConditionBuilder};
 
 #[derive(Error, Debug)]
@@ -32,7 +32,7 @@ pub struct FunctionResult {
 }
 
 pub fn search_modules(
-    db: &cozo::DbInstance,
+    db: &dyn Database,
     pattern: &str,
     project: &str,
     limit: u32,
@@ -51,21 +51,30 @@ pub fn search_modules(
         "#,
     );
 
-    let mut params = Params::new();
-    params.insert("pattern", DataValue::Str(pattern.into()));
-    params.insert("project", DataValue::Str(project.into()));
+    let params = QueryParams::new()
+        .with_str("pattern", pattern)
+        .with_str("project", project);
 
-    let rows = run_query(db, &script, params).map_err(|e| SearchError::QueryFailed {
+    let result = run_query(db, &script, params).map_err(|e| SearchError::QueryFailed {
         message: e.to_string(),
     })?;
 
     let mut results = Vec::new();
-    for row in rows.rows {
+    for row in result.rows() {
         if row.len() >= 3 {
-            let Some(project) = extract_string(&row[0]) else { continue };
-            let Some(name) = extract_string(&row[1]) else { continue };
-            let source = extract_string_or(&row[2], "unknown");
-            results.push(ModuleResult { project, name, source });
+            let Some(project) = extract_string(row.get(0).unwrap()) else {
+                continue;
+            };
+            let Some(name) = extract_string(row.get(1).unwrap()) else {
+                continue;
+            };
+            let source = extract_string_or(row.get(2).unwrap(), "");
+
+            results.push(ModuleResult {
+                project,
+                name,
+                source,
+            });
         }
     }
 
@@ -73,7 +82,7 @@ pub fn search_modules(
 }
 
 pub fn search_functions(
-    db: &cozo::DbInstance,
+    db: &dyn Database,
     pattern: &str,
     project: &str,
     limit: u32,
@@ -92,22 +101,29 @@ pub fn search_functions(
         "#,
     );
 
-    let mut params = Params::new();
-    params.insert("pattern", DataValue::Str(pattern.into()));
-    params.insert("project", DataValue::Str(project.into()));
+    let params = QueryParams::new()
+        .with_str("pattern", pattern)
+        .with_str("project", project);
 
-    let rows = run_query(db, &script, params).map_err(|e| SearchError::QueryFailed {
+    let result = run_query(db, &script, params).map_err(|e| SearchError::QueryFailed {
         message: e.to_string(),
     })?;
 
     let mut results = Vec::new();
-    for row in rows.rows {
+    for row in result.rows() {
         if row.len() >= 5 {
-            let Some(project) = extract_string(&row[0]) else { continue };
-            let Some(module) = extract_string(&row[1]) else { continue };
-            let Some(name) = extract_string(&row[2]) else { continue };
-            let arity = extract_i64(&row[3], 0);
-            let return_type = extract_string_or(&row[4], "");
+            let Some(project) = extract_string(row.get(0).unwrap()) else {
+                continue;
+            };
+            let Some(module) = extract_string(row.get(1).unwrap()) else {
+                continue;
+            };
+            let Some(name) = extract_string(row.get(2).unwrap()) else {
+                continue;
+            };
+            let arity = extract_i64(row.get(3).unwrap(), 0);
+            let return_type = extract_string_or(row.get(4).unwrap(), "");
+
             results.push(FunctionResult {
                 project,
                 module,
@@ -130,13 +146,21 @@ mod tests {
         let db = crate::test_utils::call_graph_db("default");
 
         // Invalid regex pattern: unclosed bracket
-        let result = search_modules(&db, "[invalid", "test_project", 10, true);
+        let result = search_modules(&*db, "[invalid", "test_project", 10, true);
 
         assert!(result.is_err(), "Should reject invalid regex");
         let err = result.unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("Invalid regex pattern"), "Error should mention invalid regex: {}", msg);
-        assert!(msg.contains("[invalid"), "Error should show the pattern: {}", msg);
+        assert!(
+            msg.contains("Invalid regex pattern"),
+            "Error should mention invalid regex: {}",
+            msg
+        );
+        assert!(
+            msg.contains("[invalid"),
+            "Error should show the pattern: {}",
+            msg
+        );
     }
 
     #[test]
@@ -144,13 +168,21 @@ mod tests {
         let db = crate::test_utils::call_graph_db("default");
 
         // Invalid regex pattern: invalid repetition
-        let result = search_functions(&db, "*invalid", "test_project", 10, true);
+        let result = search_functions(&*db, "*invalid", "test_project", 10, true);
 
         assert!(result.is_err(), "Should reject invalid regex");
         let err = result.unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("Invalid regex pattern"), "Error should mention invalid regex: {}", msg);
-        assert!(msg.contains("*invalid"), "Error should show the pattern: {}", msg);
+        assert!(
+            msg.contains("Invalid regex pattern"),
+            "Error should mention invalid regex: {}",
+            msg
+        );
+        assert!(
+            msg.contains("*invalid"),
+            "Error should show the pattern: {}",
+            msg
+        );
     }
 
     #[test]
@@ -158,10 +190,14 @@ mod tests {
         let db = crate::test_utils::call_graph_db("default");
 
         // Valid regex pattern should not error on validation (may or may not find results)
-        let result = search_modules(&db, "^test.*$", "test_project", 10, true);
+        let result = search_modules(&*db, "^test.*$", "test_project", 10, true);
 
         // Should not fail on validation (may return empty results, that's fine)
-        assert!(result.is_ok(), "Should accept valid regex: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Should accept valid regex: {:?}",
+            result.err()
+        );
     }
 
     #[test]
@@ -169,10 +205,14 @@ mod tests {
         let db = crate::test_utils::call_graph_db("default");
 
         // Valid regex pattern should not error on validation
-        let result = search_functions(&db, "^get_.*$", "test_project", 10, true);
+        let result = search_functions(&*db, "^get_.*$", "test_project", 10, true);
 
         // Should not fail on validation
-        assert!(result.is_ok(), "Should accept valid regex: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Should accept valid regex: {:?}",
+            result.err()
+        );
     }
 
     #[test]
@@ -180,10 +220,14 @@ mod tests {
         let db = crate::test_utils::call_graph_db("default");
 
         // Even invalid regex should work in non-regex mode (treated as literal string)
-        let result = search_modules(&db, "[invalid", "test_project", 10, false);
+        let result = search_modules(&*db, "[invalid", "test_project", 10, false);
 
         // Should succeed (no regex validation in non-regex mode)
-        assert!(result.is_ok(), "Should accept any pattern in non-regex mode: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Should accept any pattern in non-regex mode: {:?}",
+            result.err()
+        );
     }
 
     #[test]
@@ -191,9 +235,13 @@ mod tests {
         let db = crate::test_utils::call_graph_db("default");
 
         // Even invalid regex should work in non-regex mode
-        let result = search_functions(&db, "*invalid", "test_project", 10, false);
+        let result = search_functions(&*db, "*invalid", "test_project", 10, false);
 
         // Should succeed (no regex validation in non-regex mode)
-        assert!(result.is_ok(), "Should accept any pattern in non-regex mode: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Should accept any pattern in non-regex mode: {:?}",
+            result.err()
+        );
     }
 }

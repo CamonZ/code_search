@@ -1,10 +1,10 @@
 use std::error::Error;
 use std::rc::Rc;
 
-use cozo::DataValue;
 use thiserror::Error;
 
-use crate::db::{extract_i64, extract_string, extract_string_or, run_query, Params};
+use crate::backend::{Database, QueryParams};
+use crate::db::{extract_i64, extract_string, extract_string_or, run_query};
 use crate::types::{Call, FunctionRef};
 use crate::query_builders::{validate_regex_patterns, ConditionBuilder, OptionalConditionBuilder};
 
@@ -15,7 +15,7 @@ pub enum TraceError {
 }
 
 pub fn trace_calls(
-    db: &cozo::DbInstance,
+    db: &dyn Database,
     module_pattern: &str,
     function_pattern: &str,
     arity: Option<i64>,
@@ -76,33 +76,34 @@ pub fn trace_calls(
         "#,
     );
 
-    let mut params = Params::new();
-    params.insert("module_pattern", DataValue::Str(module_pattern.into()));
-    params.insert("function_pattern", DataValue::Str(function_pattern.into()));
-    if let Some(a) = arity {
-        params.insert("arity", DataValue::from(a));
-    }
-    params.insert("project", DataValue::Str(project.into()));
+    let mut params = QueryParams::new()
+        .with_str("module_pattern", module_pattern)
+        .with_str("function_pattern", function_pattern)
+        .with_str("project", project);
 
-    let rows = run_query(db, &script, params).map_err(|e| TraceError::QueryFailed {
+    if let Some(a) = arity {
+        params = params.with_int("arity", a);
+    }
+
+    let result = run_query(db, &script, params).map_err(|e| TraceError::QueryFailed {
         message: e.to_string(),
     })?;
 
     let mut results = Vec::new();
-    for row in rows.rows {
+    for row in result.rows() {
         if row.len() >= 12 {
-            let depth = extract_i64(&row[0], 0);
-            let Some(caller_module) = extract_string(&row[1]) else { continue };
-            let Some(caller_name) = extract_string(&row[2]) else { continue };
-            let caller_arity = extract_i64(&row[3], 0);
-            let caller_kind = extract_string_or(&row[4], "");
-            let caller_start_line = extract_i64(&row[5], 0);
-            let caller_end_line = extract_i64(&row[6], 0);
-            let Some(callee_module) = extract_string(&row[7]) else { continue };
-            let Some(callee_name) = extract_string(&row[8]) else { continue };
-            let callee_arity = extract_i64(&row[9], 0);
-            let Some(file) = extract_string(&row[10]) else { continue };
-            let line = extract_i64(&row[11], 0);
+            let depth = extract_i64(row.get(0).unwrap(), 0);
+            let Some(caller_module) = extract_string(row.get(1).unwrap()) else { continue };
+            let Some(caller_name) = extract_string(row.get(2).unwrap()) else { continue };
+            let caller_arity = extract_i64(row.get(3).unwrap(), 0);
+            let caller_kind = extract_string_or(row.get(4).unwrap(), "");
+            let caller_start_line = extract_i64(row.get(5).unwrap(), 0);
+            let caller_end_line = extract_i64(row.get(6).unwrap(), 0);
+            let Some(callee_module) = extract_string(row.get(7).unwrap()) else { continue };
+            let Some(callee_name) = extract_string(row.get(8).unwrap()) else { continue };
+            let callee_arity = extract_i64(row.get(9).unwrap(), 0);
+            let Some(file) = extract_string(row.get(10).unwrap()) else { continue };
+            let line = extract_i64(row.get(11).unwrap(), 0);
 
             let caller = FunctionRef::with_definition(
                 Rc::from(caller_module.into_boxed_str()),

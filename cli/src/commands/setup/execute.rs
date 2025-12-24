@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::fs;
-use db::DbInstance;
+
 use include_dir::{include_dir, Dir};
 use serde::Serialize;
 
@@ -110,7 +110,15 @@ fn process_dir(
         match entry {
             include_dir::DirEntry::Dir(subdir) => {
                 // Recursively process subdirectory
-                process_dir(subdir, base_path, force, files, installed_count, skipped_count, overwritten_count)?;
+                process_dir(
+                    subdir,
+                    base_path,
+                    force,
+                    files,
+                    installed_count,
+                    skipped_count,
+                    overwritten_count,
+                )?;
             }
             include_dir::DirEntry::File(file) => {
                 let relative_path = file.path();
@@ -151,7 +159,10 @@ fn process_dir(
 }
 
 /// Install templates (skills and agents) to .claude/ in the given base directory
-fn install_templates_to(base_dir: &std::path::Path, force: bool) -> Result<TemplatesInstallResult, Box<dyn Error>> {
+fn install_templates_to(
+    base_dir: &std::path::Path,
+    force: bool,
+) -> Result<TemplatesInstallResult, Box<dyn Error>> {
     let claude_dir = base_dir.join(".claude");
     let skills_dir = claude_dir.join("skills");
     let agents_dir = claude_dir.join("agents");
@@ -282,9 +293,7 @@ fn install_hooks(
     ));
 
     for (key, value) in configs {
-        let output = Command::new("git")
-            .args(["config", key, &value])
-            .output()?;
+        let output = Command::new("git").args(["config", key, &value]).output()?;
 
         git_config.push(GitConfigStatus {
             key: key.to_string(),
@@ -305,7 +314,7 @@ fn install_hooks(
 impl Execute for SetupCmd {
     type Output = SetupResult;
 
-    fn execute(self, db: &DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         let mut relations = Vec::new();
 
         if self.dry_run {
@@ -360,11 +369,7 @@ impl Execute for SetupCmd {
 
         // Install git hooks if requested
         let hooks = if self.install_hooks {
-            Some(install_hooks(
-                self.force,
-                self.project_name,
-                self.mix_env,
-            )?)
+            Some(install_hooks(self.force, self.project_name, self.mix_env)?)
         } else {
             None
         };
@@ -403,7 +408,7 @@ mod tests {
         };
 
         let db = open_db(db_file.path()).expect("Failed to open db");
-        let result = cmd.execute(&db).expect("Setup should succeed");
+        let result = cmd.execute(&*db).expect("Setup should succeed");
 
         // Should create 7 relations
         assert_eq!(result.relations.len(), 7);
@@ -432,7 +437,7 @@ mod tests {
             project_name: None,
             mix_env: None,
         };
-        let result1 = cmd1.execute(&db).expect("First setup should succeed");
+        let result1 = cmd1.execute(&*db).expect("First setup should succeed");
         assert!(result1.created_new);
 
         // Second setup should find existing relations
@@ -444,7 +449,7 @@ mod tests {
             project_name: None,
             mix_env: None,
         };
-        let result2 = cmd2.execute(&db).expect("Second setup should succeed");
+        let result2 = cmd2.execute(&*db).expect("Second setup should succeed");
 
         // Should still have 7 relations, but all already existing
         assert_eq!(result2.relations.len(), 7);
@@ -468,7 +473,7 @@ mod tests {
         };
 
         let db = open_db(db_file.path()).expect("Failed to open db");
-        let result = cmd.execute(&db).expect("Setup should succeed");
+        let result = cmd.execute(&*db).expect("Setup should succeed");
 
         assert!(result.dry_run);
         assert_eq!(result.relations.len(), 7);
@@ -495,7 +500,7 @@ mod tests {
         };
 
         let db = open_db(db_file.path()).expect("Failed to open db");
-        let result = cmd.execute(&db).expect("Setup should succeed");
+        let result = cmd.execute(&*db).expect("Setup should succeed");
 
         let relation_names: Vec<_> = result.relations.iter().map(|r| r.name.as_str()).collect();
 
@@ -516,11 +521,13 @@ mod tests {
         let temp_dir = TempDir::new().expect("Failed to create temp dir");
 
         // Install templates directly to temp directory
-        let result = install_templates_to(temp_dir.path(), false)
-            .expect("Install should succeed");
+        let result = install_templates_to(temp_dir.path(), false).expect("Install should succeed");
 
         // All files should be installed (not skipped or overwritten)
-        assert_eq!(result.skills_installed, 34, "Should install all 34 skill files");
+        assert_eq!(
+            result.skills_installed, 34,
+            "Should install all 34 skill files"
+        );
         assert_eq!(result.skills_skipped, 0);
         assert_eq!(result.skills_overwritten, 0);
 
@@ -540,20 +547,32 @@ mod tests {
         let temp_dir = TempDir::new().expect("Failed to create temp dir");
 
         // First installation
-        let result1 = install_templates_to(temp_dir.path(), false)
-            .expect("First install should succeed");
+        let result1 =
+            install_templates_to(temp_dir.path(), false).expect("First install should succeed");
         assert_eq!(result1.skills_installed, 34);
         assert_eq!(result1.agents_installed, 1);
 
         // Second installation without force - should skip all files
-        let result2 = install_templates_to(temp_dir.path(), false)
-            .expect("Second install should succeed");
-        assert_eq!(result2.skills_installed, 0, "Should not install any skill files");
-        assert_eq!(result2.skills_skipped, 34, "Should skip all 34 existing skill files");
+        let result2 =
+            install_templates_to(temp_dir.path(), false).expect("Second install should succeed");
+        assert_eq!(
+            result2.skills_installed, 0,
+            "Should not install any skill files"
+        );
+        assert_eq!(
+            result2.skills_skipped, 34,
+            "Should skip all 34 existing skill files"
+        );
         assert_eq!(result2.skills_overwritten, 0);
 
-        assert_eq!(result2.agents_installed, 0, "Should not install any agent files");
-        assert_eq!(result2.agents_skipped, 1, "Should skip the existing agent file");
+        assert_eq!(
+            result2.agents_installed, 0,
+            "Should not install any agent files"
+        );
+        assert_eq!(
+            result2.agents_skipped, 1,
+            "Should skip the existing agent file"
+        );
         assert_eq!(result2.agents_overwritten, 0);
     }
 
@@ -564,21 +583,33 @@ mod tests {
         let temp_dir = TempDir::new().expect("Failed to create temp dir");
 
         // First installation
-        let result1 = install_templates_to(temp_dir.path(), false)
-            .expect("First install should succeed");
+        let result1 =
+            install_templates_to(temp_dir.path(), false).expect("First install should succeed");
         assert_eq!(result1.skills_installed, 34);
         assert_eq!(result1.agents_installed, 1);
 
         // Second installation with force - should overwrite all files
         let result2 = install_templates_to(temp_dir.path(), true)
             .expect("Second install with force should succeed");
-        assert_eq!(result2.skills_installed, 0, "Should not install new skill files");
+        assert_eq!(
+            result2.skills_installed, 0,
+            "Should not install new skill files"
+        );
         assert_eq!(result2.skills_skipped, 0, "Should not skip any skill files");
-        assert_eq!(result2.skills_overwritten, 34, "Should overwrite all 34 existing skill files");
+        assert_eq!(
+            result2.skills_overwritten, 34,
+            "Should overwrite all 34 existing skill files"
+        );
 
-        assert_eq!(result2.agents_installed, 0, "Should not install new agent files");
+        assert_eq!(
+            result2.agents_installed, 0,
+            "Should not install new agent files"
+        );
         assert_eq!(result2.agents_skipped, 0, "Should not skip any agent files");
-        assert_eq!(result2.agents_overwritten, 1, "Should overwrite the existing agent file");
+        assert_eq!(
+            result2.agents_overwritten, 1,
+            "Should overwrite the existing agent file"
+        );
     }
 
     #[rstest]
@@ -593,7 +624,7 @@ mod tests {
         };
 
         let db = open_db(db_file.path()).expect("Failed to open db");
-        let result = cmd.execute(&db).expect("Setup should succeed");
+        let result = cmd.execute(&*db).expect("Setup should succeed");
 
         // Templates and hooks should be None when not requested
         assert!(result.templates.is_none());
@@ -634,7 +665,7 @@ mod tests {
             mix_env: Some("test".to_string()),
         };
 
-        let result = cmd.execute(&db).expect("Setup with hooks should succeed");
+        let result = cmd.execute(&*db).expect("Setup with hooks should succeed");
 
         // Verify hook file exists and is executable BEFORE restoring directory
         let hook_path = temp_path.join(".git").join("hooks").join("post-commit");
@@ -645,10 +676,7 @@ mod tests {
             use std::os::unix::fs::PermissionsExt;
             let metadata = fs::metadata(&hook_path).expect("Failed to get hook metadata");
             let permissions = metadata.permissions();
-            assert!(
-                permissions.mode() & 0o111 != 0,
-                "Hook should be executable"
-            );
+            assert!(permissions.mode() & 0o111 != 0, "Hook should be executable");
         }
 
         // Verify hook content
@@ -670,18 +698,27 @@ mod tests {
         // Should have 1 hook file
         assert_eq!(hooks.hooks.len(), 1);
         assert_eq!(hooks.hooks[0].path, "post-commit");
-        assert!(matches!(hooks.hooks[0].status, TemplateFileState::Installed));
+        assert!(matches!(
+            hooks.hooks[0].status,
+            TemplateFileState::Installed
+        ));
 
         // Should have configured 2 git settings (project-name and mix-env)
         assert_eq!(hooks.git_config.len(), 2);
 
         // Verify git config values
-        let project_config = hooks.git_config.iter().find(|c| c.key == "code-search.project-name");
+        let project_config = hooks
+            .git_config
+            .iter()
+            .find(|c| c.key == "code-search.project-name");
         assert!(project_config.is_some());
         assert_eq!(project_config.unwrap().value, "test_project");
         assert!(project_config.unwrap().set);
 
-        let mix_env_config = hooks.git_config.iter().find(|c| c.key == "code-search.mix-env");
+        let mix_env_config = hooks
+            .git_config
+            .iter()
+            .find(|c| c.key == "code-search.mix-env");
         assert!(mix_env_config.is_some());
         assert_eq!(mix_env_config.unwrap().value, "test");
         assert!(mix_env_config.unwrap().set);
@@ -721,7 +758,7 @@ mod tests {
             mix_env: None,
         };
 
-        let result = cmd.execute(&db).expect("Setup with hooks should succeed");
+        let result = cmd.execute(&*db).expect("Setup with hooks should succeed");
 
         assert!(result.hooks.is_some());
         let hooks = result.hooks.unwrap();
@@ -730,12 +767,18 @@ mod tests {
         assert_eq!(hooks.git_config.len(), 1);
 
         // Verify default values were used
-        let mix_env_config = hooks.git_config.iter().find(|c| c.key == "code-search.mix-env");
+        let mix_env_config = hooks
+            .git_config
+            .iter()
+            .find(|c| c.key == "code-search.mix-env");
         assert!(mix_env_config.is_some());
         assert_eq!(mix_env_config.unwrap().value, "dev");
 
         // Verify project-name was NOT set
-        let project_config = hooks.git_config.iter().find(|c| c.key == "code-search.project-name");
+        let project_config = hooks
+            .git_config
+            .iter()
+            .find(|c| c.key == "code-search.project-name");
         assert!(project_config.is_none());
 
         // Restore original directory
@@ -773,7 +816,7 @@ mod tests {
             mix_env: None,
         };
 
-        let result1 = cmd1.execute(&db).expect("First install should succeed");
+        let result1 = cmd1.execute(&*db).expect("First install should succeed");
         assert_eq!(result1.hooks.as_ref().unwrap().hooks_installed, 1);
 
         // Second installation without force
@@ -786,7 +829,7 @@ mod tests {
             mix_env: None,
         };
 
-        let result2 = cmd2.execute(&db).expect("Second install should succeed");
+        let result2 = cmd2.execute(&*db).expect("Second install should succeed");
 
         // Should skip existing hook
         assert_eq!(result2.hooks.as_ref().unwrap().hooks_installed, 0);
@@ -828,7 +871,7 @@ mod tests {
             mix_env: None,
         };
 
-        cmd1.execute(&db).expect("First install should succeed");
+        cmd1.execute(&*db).expect("First install should succeed");
 
         // Second installation with force
         let cmd2 = SetupCmd {
@@ -840,7 +883,9 @@ mod tests {
             mix_env: None,
         };
 
-        let result2 = cmd2.execute(&db).expect("Second install with force should succeed");
+        let result2 = cmd2
+            .execute(&*db)
+            .expect("Second install with force should succeed");
 
         // Should overwrite existing hook
         assert_eq!(result2.hooks.as_ref().unwrap().hooks_installed, 0);
@@ -874,7 +919,7 @@ mod tests {
             mix_env: None,
         };
 
-        let result = cmd.execute(&db);
+        let result = cmd.execute(&*db);
 
         // Restore original directory
         std::env::set_current_dir(&original_dir).ok(); // Ignore error if original_dir was deleted

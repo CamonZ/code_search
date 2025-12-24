@@ -19,6 +19,7 @@ tempfile = "3"
 serde_json = "1.0"
 
 [features]
+default = ["backend-cozo"]
 test-utils = ["tempfile", "serde_json"]
 backend-cozo = []
 backend-surrealdb = []

@@ -91,7 +91,7 @@ use clap::Subcommand;
 use enum_dispatch::enum_dispatch;
 use std::error::Error;
 
-use db::DbInstance;
+use db::backend::Database;
 
 use crate::output::{OutputFormat, Outputable};
 
@@ -99,14 +99,14 @@ use crate::output::{OutputFormat, Outputable};
 pub trait Execute {
     type Output: Outputable;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>>;
+    fn execute(self, db: &dyn Database) -> Result<Self::Output, Box<dyn Error>>;
 }
 
 /// Trait for commands that can be executed and formatted.
 /// Auto-implemented for all Command variants via enum_dispatch.
 #[enum_dispatch]
 pub trait CommandRunner {
-    fn run(self, db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>>;
+    fn run(self, db: &dyn Database, format: OutputFormat) -> Result<String, Box<dyn Error>>;
 }
 
 #[derive(Subcommand, Debug)]
@@ -203,7 +203,7 @@ pub enum Command {
 
 // Special handling for Unknown variant - not a real command
 impl CommandRunner for Vec<String> {
-    fn run(self, _db: &DbInstance, _format: OutputFormat) -> Result<String, Box<dyn Error>> {
+    fn run(self, _db: &dyn Database, _format: OutputFormat) -> Result<String, Box<dyn Error>> {
         Err(format!("Unknown command: {}", self.first().unwrap_or(&String::new())).into())
     }
 }

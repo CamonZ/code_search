@@ -1,10 +1,10 @@
 use std::error::Error;
 
-use cozo::DataValue;
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::db::{extract_i64, extract_string, run_query, Params};
+use crate::backend::{Database, QueryParams};
+use crate::db::{extract_i64, extract_string, run_query};
 use crate::query_builders::{validate_regex_patterns, OptionalConditionBuilder};
 
 #[derive(Error, Debug)]
@@ -25,7 +25,7 @@ pub struct DuplicateFunction {
 }
 
 pub fn find_duplicates(
-    db: &cozo::DbInstance,
+    db: &dyn Database,
     project: &str,
     module_pattern: Option<&str>,
     use_regex: bool,
@@ -73,25 +73,26 @@ pub fn find_duplicates(
         "#,
     );
 
-    let mut params = Params::new();
-    params.insert("project", DataValue::Str(project.into()));
+    let mut params = QueryParams::new()
+        .with_str("project", project);
+
     if let Some(pattern) = module_pattern {
-        params.insert("module_pattern", DataValue::Str(pattern.into()));
+        params = params.with_str("module_pattern", pattern);
     }
 
-    let rows = run_query(db, &script, params).map_err(|e| DuplicatesError::QueryFailed {
+    let result = run_query(db, &script, params).map_err(|e| DuplicatesError::QueryFailed {
         message: e.to_string(),
     })?;
 
     let mut results = Vec::new();
-    for row in rows.rows {
+    for row in result.rows() {
         if row.len() >= 6 {
-            let Some(hash) = extract_string(&row[0]) else { continue };
-            let Some(module) = extract_string(&row[1]) else { continue };
-            let Some(name) = extract_string(&row[2]) else { continue };
-            let arity = extract_i64(&row[3], 0);
-            let line = extract_i64(&row[4], 0);
-            let Some(file) = extract_string(&row[5]) else { continue };
+            let Some(hash) = extract_string(row.get(0).unwrap()) else { continue };
+            let Some(module) = extract_string(row.get(1).unwrap()) else { continue };
+            let Some(name) = extract_string(row.get(2).unwrap()) else { continue };
+            let arity = extract_i64(row.get(3).unwrap(), 0);
+            let line = extract_i64(row.get(4).unwrap(), 0);
+            let Some(file) = extract_string(row.get(5).unwrap()) else { continue };
 
             results.push(DuplicateFunction {
                 hash,

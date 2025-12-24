@@ -28,14 +28,14 @@
 //! derive macro limitations) outweighs the type safety benefit. Field names
 //! (`module`, `name`) are sufficiently clear.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::error::Error;
 use std::path::Path;
 use std::rc::Rc;
 
-use cozo::{DataValue, DbInstance, NamedRows, ScriptMutability};
 use thiserror::Error;
 
+use crate::backend::{Database, Row, Value};
 use crate::types::{Call, FunctionRef};
 
 #[derive(Error, Debug)]
@@ -50,48 +50,59 @@ pub enum DbError {
     MissingColumn { name: String },
 }
 
-pub type Params = BTreeMap<&'static str, DataValue>;
-
-pub fn open_db(path: &Path) -> Result<DbInstance, Box<dyn Error>> {
-    DbInstance::new("sqlite", path, "").map_err(|e| {
-        Box::new(DbError::OpenFailed {
-            path: path.display().to_string(),
-            message: format!("{:?}", e),
-        }) as Box<dyn Error>
-    })
+/// Open a database at the specified path.
+///
+/// Returns a trait object for backend-agnostic database access.
+pub fn open_db(path: &Path) -> Result<Box<dyn Database>, Box<dyn Error>> {
+    crate::backend::open_database(path)
 }
 
 /// Create an in-memory database instance.
 ///
 /// Used for tests to avoid disk I/O and temp file management.
 #[cfg(any(test, feature = "test-utils"))]
-pub fn open_mem_db() -> DbInstance {
-    DbInstance::new("mem", "", "").expect("Failed to create in-memory DB")
+pub fn open_mem_db() -> Result<Box<dyn Database>, Box<dyn Error>> {
+    crate::backend::open_mem_database()
 }
 
-/// Run a mutable query (insert, delete, create, etc.)
-pub fn run_query(
-    db: &DbInstance,
-    script: &str,
-    params: Params,
-) -> Result<NamedRows, Box<dyn Error>> {
-    // Convert &'static str keys to String for CozoDB
-    let params_owned: BTreeMap<String, DataValue> = params
-        .into_iter()
-        .map(|(k, v)| (k.to_string(), v))
-        .collect();
+/// Extract DbInstance from a Box<dyn Database> (CozoDB-specific, for tests).
+///
+/// This function uses downcasting to extract the underlying DbInstance
+/// from a trait object. Only works when the database is a CozoDatabase.
+///
+/// # Panics
+/// Panics if the database is not a CozoDatabase (e.g., SurrealDB).
+#[cfg(all(any(test, feature = "test-utils"), feature = "backend-cozo"))]
+pub fn get_cozo_instance(db: &dyn Database) -> &cozo::DbInstance {
+    use crate::backend::cozo::CozoDatabase;
+    let db_any = db.as_any();
+    db_any
+        .downcast_ref::<CozoDatabase>()
+        .expect("Database must be CozoDatabase")
+        .inner_ref()
+}
 
-    db.run_script(script, params_owned, ScriptMutability::Mutable)
-        .map_err(|e| {
-            Box::new(DbError::QueryFailed {
-                message: format!("{:?}", e),
-            }) as Box<dyn Error>
-        })
+/// Run a mutable query (insert, delete, create, etc.) with a CozoDB DbInstance.
+///
+/// This version provides backward compatibility for code that uses DbInstance directly.
+/// Accepts Params (BTreeMap<&str, DataValue>) for backward compatibility.
+/// Returns NamedRows to maintain compatibility with existing query code.
+#[cfg(feature = "backend-cozo")]
+pub fn run_query(
+    db: &dyn Database,
+    script: &str,
+    params: crate::backend::QueryParams,
+) -> Result<Box<dyn crate::backend::QueryResult>, Box<dyn Error>> {
+    db.execute_query(script, params)
 }
 
 /// Run a mutable query with no parameters
-pub fn run_query_no_params(db: &DbInstance, script: &str) -> Result<NamedRows, Box<dyn Error>> {
-    run_query(db, script, Params::new())
+#[cfg(feature = "backend-cozo")]
+pub fn run_query_no_params(
+    db: &dyn Database,
+    script: &str,
+) -> Result<Box<dyn crate::backend::QueryResult>, Box<dyn Error>> {
+    run_query(db, script, crate::backend::QueryParams::new())
 }
 
 /// Escape a string for use in CozoDB string literals.
@@ -135,7 +146,8 @@ pub fn escape_string_single(s: &str) -> String {
 }
 
 /// Try to create a relation, returning Ok(true) if created, Ok(false) if already exists
-pub fn try_create_relation(db: &DbInstance, script: &str) -> Result<bool, Box<dyn Error>> {
+#[cfg(feature = "backend-cozo")]
+pub fn try_create_relation(db: &dyn Database, script: &str) -> Result<bool, Box<dyn Error>> {
     match run_query_no_params(db, script) {
         Ok(_) => Ok(true),
         Err(e) => {
@@ -149,50 +161,34 @@ pub fn try_create_relation(db: &DbInstance, script: &str) -> Result<bool, Box<dy
     }
 }
 
-// DataValue extraction helpers
+// Trait-based extraction helpers
 
-use cozo::Num;
-
-/// Extract a String from a DataValue, returning None if not a string
-pub fn extract_string(value: &DataValue) -> Option<String> {
-    match value {
-        DataValue::Str(s) => Some(s.to_string()),
-        _ => None,
-    }
+/// Extract a String from a Value trait object, returning None if not a string
+pub fn extract_string(value: &dyn Value) -> Option<String> {
+    value.as_str().map(|s| s.to_string())
 }
 
-/// Extract an i64 from a DataValue, returning the default if not a number
-pub fn extract_i64(value: &DataValue, default: i64) -> i64 {
-    match value {
-        DataValue::Num(Num::Int(i)) => *i,
-        DataValue::Num(Num::Float(f)) => *f as i64,
-        _ => default,
-    }
+/// Extract an i64 from a Value trait object, returning the default if not a number
+pub fn extract_i64(value: &dyn Value, default: i64) -> i64 {
+    value.as_i64().unwrap_or(default)
 }
 
-/// Extract a String from a DataValue, returning the default if not a string
-pub fn extract_string_or(value: &DataValue, default: &str) -> String {
-    match value {
-        DataValue::Str(s) => s.to_string(),
-        _ => default.to_string(),
-    }
+/// Extract a String from a Value trait object, returning the default if not a string
+pub fn extract_string_or(value: &dyn Value, default: &str) -> String {
+    value
+        .as_str()
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| default.to_string())
 }
 
-/// Extract a bool from a DataValue, returning the default if not a bool
-pub fn extract_bool(value: &DataValue, default: bool) -> bool {
-    match value {
-        DataValue::Bool(b) => *b,
-        _ => default,
-    }
+/// Extract a bool from a Value trait object, returning the default if not a bool
+pub fn extract_bool(value: &dyn Value, default: bool) -> bool {
+    value.as_bool().unwrap_or(default)
 }
 
-/// Extract an f64 from a DataValue, returning the default if not a number
-pub fn extract_f64(value: &DataValue, default: f64) -> f64 {
-    match value {
-        DataValue::Num(Num::Int(i)) => *i as f64,
-        DataValue::Num(Num::Float(f)) => *f,
-        _ => default,
-    }
+/// Extract an f64 from a Value trait object, returning the default if not a number
+pub fn extract_f64(value: &dyn Value, default: f64) -> f64 {
+    value.as_f64().unwrap_or(default)
 }
 
 /// Layout descriptor for extracting call data from query result rows
@@ -259,32 +255,114 @@ impl CallRowLayout {
     }
 }
 
+/// Extract call data from a trait object row
+///
+/// Returns Option<Call> if all required fields are present. Uses early return
+/// (None) if any required string field cannot be extracted. This version works
+/// with the trait-based Row interface.
+pub fn extract_call_from_row_trait(row: &dyn Row, layout: &CallRowLayout) -> Option<Call> {
+    // Extract caller information
+    let caller_module = row
+        .get(layout.caller_module_idx)
+        .and_then(|v| extract_string(v))?;
+    let caller_name = row
+        .get(layout.caller_name_idx)
+        .and_then(|v| extract_string(v))?;
+    let caller_arity = row
+        .get(layout.caller_arity_idx)
+        .map(|v| extract_i64(v, 0))
+        .unwrap_or(0);
+    let caller_kind = row
+        .get(layout.caller_kind_idx)
+        .map(|v| extract_string_or(v, ""))
+        .unwrap_or_default();
+    let caller_start_line = row
+        .get(layout.caller_start_line_idx)
+        .map(|v| extract_i64(v, 0))
+        .unwrap_or(0);
+    let caller_end_line = row
+        .get(layout.caller_end_line_idx)
+        .map(|v| extract_i64(v, 0))
+        .unwrap_or(0);
+
+    // Extract callee information
+    let callee_module = row
+        .get(layout.callee_module_idx)
+        .and_then(|v| extract_string(v))?;
+    let callee_name = row
+        .get(layout.callee_name_idx)
+        .and_then(|v| extract_string(v))?;
+    let callee_arity = row
+        .get(layout.callee_arity_idx)
+        .map(|v| extract_i64(v, 0))
+        .unwrap_or(0);
+
+    // Extract file and line
+    let file = row.get(layout.file_idx).and_then(|v| extract_string(v))?;
+    let line = row
+        .get(layout.line_idx)
+        .map(|v| extract_i64(v, 0))
+        .unwrap_or(0);
+
+    // Extract optional call_type
+    let call_type = layout
+        .call_type_idx
+        .and_then(|idx| row.get(idx).map(|v| extract_string_or(v, "remote")));
+
+    // Create FunctionRef objects with Rc<str> to reduce memory allocations
+    let caller = FunctionRef::with_definition(
+        Rc::from(caller_module.into_boxed_str()),
+        Rc::from(caller_name.into_boxed_str()),
+        caller_arity,
+        Rc::from(caller_kind.into_boxed_str()),
+        Rc::from(file.into_boxed_str()),
+        caller_start_line,
+        caller_end_line,
+    );
+
+    let callee = FunctionRef::new(
+        Rc::from(callee_module.into_boxed_str()),
+        Rc::from(callee_name.into_boxed_str()),
+        callee_arity,
+    );
+
+    // Return Call
+    Some(Call {
+        caller,
+        callee,
+        line,
+        call_type,
+        depth: None,
+    })
+}
+
 /// Extract call data from a query result row
 ///
 /// Returns Option<Call> if all required fields are present. Uses early return
 /// (None) if any required string field cannot be extracted.
-pub fn extract_call_from_row(row: &[DataValue], layout: &CallRowLayout) -> Option<Call> {
+#[cfg(feature = "backend-cozo")]
+pub fn extract_call_from_row(row: &[cozo::DataValue], layout: &CallRowLayout) -> Option<Call> {
     // Extract caller information
-    let caller_module = extract_string(&row[layout.caller_module_idx])?;
-    let caller_name = extract_string(&row[layout.caller_name_idx])?;
-    let caller_arity = extract_i64(&row[layout.caller_arity_idx], 0);
-    let caller_kind = extract_string_or(&row[layout.caller_kind_idx], "");
-    let caller_start_line = extract_i64(&row[layout.caller_start_line_idx], 0);
-    let caller_end_line = extract_i64(&row[layout.caller_end_line_idx], 0);
+    let caller_module = extract_string_cozo(&row[layout.caller_module_idx])?;
+    let caller_name = extract_string_cozo(&row[layout.caller_name_idx])?;
+    let caller_arity = extract_i64_cozo(&row[layout.caller_arity_idx], 0);
+    let caller_kind = extract_string_or_cozo(&row[layout.caller_kind_idx], "");
+    let caller_start_line = extract_i64_cozo(&row[layout.caller_start_line_idx], 0);
+    let caller_end_line = extract_i64_cozo(&row[layout.caller_end_line_idx], 0);
 
     // Extract callee information
-    let callee_module = extract_string(&row[layout.callee_module_idx])?;
-    let callee_name = extract_string(&row[layout.callee_name_idx])?;
-    let callee_arity = extract_i64(&row[layout.callee_arity_idx], 0);
+    let callee_module = extract_string_cozo(&row[layout.callee_module_idx])?;
+    let callee_name = extract_string_cozo(&row[layout.callee_name_idx])?;
+    let callee_arity = extract_i64_cozo(&row[layout.callee_arity_idx], 0);
 
     // Extract file and line
-    let file = extract_string(&row[layout.file_idx])?;
-    let line = extract_i64(&row[layout.line_idx], 0);
+    let file = extract_string_cozo(&row[layout.file_idx])?;
+    let line = extract_i64_cozo(&row[layout.line_idx], 0);
 
     // Extract optional call_type
     let call_type = layout.call_type_idx.and_then(|idx| {
         if idx < row.len() {
-            Some(extract_string_or(&row[idx], "remote"))
+            Some(extract_string_or_cozo(&row[idx], "remote"))
         } else {
             None
         }
@@ -317,52 +395,86 @@ pub fn extract_call_from_row(row: &[DataValue], layout: &CallRowLayout) -> Optio
     })
 }
 
+// CozoDB-specific extraction helpers (only when backend-cozo is enabled)
+#[cfg(feature = "backend-cozo")]
+mod cozo_helpers {
+    use cozo::{DataValue, Num};
+
+    /// Extract a String from a CozoDB DataValue, returning None if not a string
+    pub fn extract_string_cozo(value: &DataValue) -> Option<String> {
+        match value {
+            DataValue::Str(s) => Some(s.to_string()),
+            _ => None,
+        }
+    }
+
+    /// Extract an i64 from a CozoDB DataValue, returning the default if not a number
+    pub fn extract_i64_cozo(value: &DataValue, default: i64) -> i64 {
+        match value {
+            DataValue::Num(Num::Int(i)) => *i,
+            DataValue::Num(Num::Float(f)) => *f as i64,
+            _ => default,
+        }
+    }
+
+    /// Extract a String from a CozoDB DataValue, returning the default if not a string
+    pub fn extract_string_or_cozo(value: &DataValue, default: &str) -> String {
+        match value {
+            DataValue::Str(s) => s.to_string(),
+            _ => default.to_string(),
+        }
+    }
+}
+
+#[cfg(feature = "backend-cozo")]
+use cozo_helpers::*;
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cozo::Num;
+    use cozo::{DataValue, Num};
     use rstest::rstest;
 
     #[rstest]
     fn test_extract_string_from_str() {
-        let value = DataValue::Str("hello".into());
-        assert_eq!(extract_string(&value), Some("hello".to_string()));
+        let value: Box<dyn Value> = Box::new(DataValue::Str("hello".into()));
+        assert_eq!(extract_string(&*value), Some("hello".to_string()));
     }
 
     #[rstest]
     fn test_extract_string_from_non_str() {
-        let value = DataValue::Num(Num::Int(42));
-        assert_eq!(extract_string(&value), None);
+        let value: Box<dyn Value> = Box::new(DataValue::Num(Num::Int(42)));
+        assert_eq!(extract_string(&*value), None);
     }
 
     #[rstest]
     fn test_extract_i64_from_int() {
-        let value = DataValue::Num(Num::Int(42));
-        assert_eq!(extract_i64(&value, 0), 42);
+        let value: Box<dyn Value> = Box::new(DataValue::Num(Num::Int(42)));
+        assert_eq!(extract_i64(&*value, 0), 42);
     }
 
     #[rstest]
     fn test_extract_i64_from_float() {
-        let value = DataValue::Num(Num::Float(42.7));
-        assert_eq!(extract_i64(&value, 0), 42);
+        let value: Box<dyn Value> = Box::new(DataValue::Num(Num::Float(42.7)));
+        assert_eq!(extract_i64(&*value, 0), 42);
     }
 
     #[rstest]
     fn test_extract_i64_from_non_num() {
-        let value = DataValue::Str("not a number".into());
-        assert_eq!(extract_i64(&value, -1), -1);
+        let value: Box<dyn Value> = Box::new(DataValue::Str("not a number".into()));
+        assert_eq!(extract_i64(&*value, -1), -1);
     }
 
     #[rstest]
     fn test_extract_string_or_from_str() {
-        let value = DataValue::Str("hello".into());
-        assert_eq!(extract_string_or(&value, "default"), "hello");
+        let value: Box<dyn Value> = Box::new(DataValue::Str("hello".into()));
+        assert_eq!(extract_string_or(&*value, "default"), "hello");
     }
 
     #[rstest]
     fn test_extract_string_or_from_non_str() {
-        let value = DataValue::Num(Num::Int(42));
-        assert_eq!(extract_string_or(&value, "default"), "default");
+        let value: Box<dyn Value> = Box::new(DataValue::Num(Num::Int(42)));
+        assert_eq!(extract_string_or(&*value, "default"), "default");
     }
 
     #[rstest]

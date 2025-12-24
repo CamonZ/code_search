@@ -1,9 +1,9 @@
 mod execute;
 mod output;
 
-use std::error::Error;
 use clap::Args;
-use db::DbInstance;
+use db::backend::Database;
+use std::error::Error;
 
 use crate::commands::{CommandRunner, Execute};
 use crate::output::{OutputFormat, Outputable};
@@ -47,7 +47,7 @@ pub struct SetupCmd {
 }
 
 impl CommandRunner for SetupCmd {
-    fn run(self, db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>> {
+    fn run(self, db: &dyn Database, format: OutputFormat) -> Result<String, Box<dyn Error>> {
         let result = self.execute(db)?;
         Ok(result.format(format))
     }

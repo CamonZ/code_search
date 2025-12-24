@@ -6,10 +6,11 @@
 use std::error::Error;
 
 use super::calls::{find_calls, CallDirection};
+use crate::backend::Database;
 use crate::types::Call;
 
 pub fn find_calls_from(
-    db: &cozo::DbInstance,
+    db: &dyn Database,
     module_pattern: &str,
     function_pattern: Option<&str>,
     arity: Option<i64>,

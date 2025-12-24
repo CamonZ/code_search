@@ -1,10 +1,10 @@
 use std::error::Error;
 
-use cozo::{DataValue, Num};
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::db::{extract_i64, extract_string, extract_string_or, run_query, Params};
+use crate::backend::{Database, QueryParams};
+use crate::db::{extract_i64, extract_string, extract_string_or, run_query};
 use crate::query_builders::{validate_regex_patterns, ConditionBuilder, OptionalConditionBuilder};
 
 #[derive(Error, Debug)]
@@ -30,7 +30,7 @@ pub struct FunctionLocation {
 }
 
 pub fn find_locations(
-    db: &cozo::DbInstance,
+    db: &dyn Database,
     module_pattern: Option<&str>,
     function_pattern: &str,
     arity: Option<i64>,
@@ -68,35 +68,44 @@ pub fn find_locations(
         "#,
     );
 
-    let mut params = Params::new();
-    params.insert("function_pattern", DataValue::Str(function_pattern.into()));
-    if let Some(mod_pat) = module_pattern {
-        params.insert("module_pattern", DataValue::Str(mod_pat.into()));
-    }
-    if let Some(a) = arity {
-        params.insert("arity", DataValue::Num(Num::Int(a)));
-    }
-    params.insert("project", DataValue::Str(project.into()));
+    let mut params = QueryParams::new()
+        .with_str("function_pattern", function_pattern)
+        .with_str("project", project);
 
-    let rows = run_query(db, &script, params).map_err(|e| LocationError::QueryFailed {
+    if let Some(mod_pat) = module_pattern {
+        params = params.with_str("module_pattern", mod_pat);
+    }
+
+    if let Some(a) = arity {
+        params = params.with_int("arity", a);
+    }
+
+    let result = run_query(db, &script, params).map_err(|e| LocationError::QueryFailed {
         message: e.to_string(),
     })?;
 
     let mut results = Vec::new();
-    for row in rows.rows {
+    for row in result.rows() {
         if row.len() >= 11 {
-            // Order matches query: project, file, line, start_line, end_line, module, kind, name, arity, pattern, guard
-            let Some(project) = extract_string(&row[0]) else { continue };
-            let Some(file) = extract_string(&row[1]) else { continue };
-            let line = extract_i64(&row[2], 0);
-            let start_line = extract_i64(&row[3], 0);
-            let end_line = extract_i64(&row[4], 0);
-            let Some(module) = extract_string(&row[5]) else { continue };
-            let kind = extract_string_or(&row[6], "");
-            let Some(name) = extract_string(&row[7]) else { continue };
-            let arity = extract_i64(&row[8], 0);
-            let pattern = extract_string_or(&row[9], "");
-            let guard = extract_string_or(&row[10], "");
+            let Some(project) = extract_string(row.get(0).unwrap()) else {
+                continue;
+            };
+            let Some(file) = extract_string(row.get(1).unwrap()) else {
+                continue;
+            };
+            let line = extract_i64(row.get(2).unwrap(), 0);
+            let start_line = extract_i64(row.get(3).unwrap(), 0);
+            let end_line = extract_i64(row.get(4).unwrap(), 0);
+            let Some(module) = extract_string(row.get(5).unwrap()) else {
+                continue;
+            };
+            let kind = extract_string_or(row.get(6).unwrap(), "");
+            let Some(name) = extract_string(row.get(7).unwrap()) else {
+                continue;
+            };
+            let arity = extract_i64(row.get(8).unwrap(), 0);
+            let pattern = extract_string_or(row.get(9).unwrap(), "");
+            let guard = extract_string_or(row.get(10).unwrap(), "");
 
             results.push(FunctionLocation {
                 project,

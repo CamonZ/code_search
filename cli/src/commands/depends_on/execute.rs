@@ -67,7 +67,7 @@ fn build_dependency_result(source_module: String, calls: Vec<Call>) -> ModuleGro
 impl Execute for DependsOnCmd {
     type Output = ModuleGroupResult<DependencyFunction>;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         let calls = find_dependencies(
             db,
             &self.module,

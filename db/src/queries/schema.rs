@@ -4,9 +4,8 @@
 //! and setup commands. It defines the database schema for all relations
 //! and provides functions to create, check, and drop them.
 
-use std::error::Error;
-use cozo::DbInstance;
 use crate::db::try_create_relation;
+use std::error::Error;
 
 // Schema definitions
 
@@ -127,7 +126,9 @@ pub struct SchemaCreationResult {
 ///
 /// Returns a list of all relations with their creation status.
 /// If a relation already exists, returns Ok with created=false for that relation.
-pub fn create_schema(db: &DbInstance) -> Result<Vec<SchemaCreationResult>, Box<dyn Error>> {
+pub fn create_schema(
+    db: &dyn crate::backend::Database,
+) -> Result<Vec<SchemaCreationResult>, Box<dyn Error>> {
     let mut result = Vec::new();
 
     let schemas = [

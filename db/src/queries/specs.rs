@@ -1,10 +1,11 @@
 use std::error::Error;
 
-use cozo::DataValue;
+
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::db::{extract_i64, extract_string, run_query, Params};
+use crate::backend::{Database, QueryParams};
+use crate::db::{extract_i64, extract_string, run_query};
 use crate::query_builders::{validate_regex_patterns, ConditionBuilder, OptionalConditionBuilder};
 
 #[derive(Error, Debug)]
@@ -28,7 +29,7 @@ pub struct SpecDef {
 }
 
 pub fn find_specs(
-    db: &cozo::DbInstance,
+    db: &dyn Database,
     module_pattern: &str,
     function_pattern: Option<&str>,
     kind_filter: Option<&str>,
@@ -62,45 +63,42 @@ pub fn find_specs(
         "#,
     );
 
-    let mut params = Params::new();
-    params.insert("project", DataValue::Str(project.into()));
-    params.insert(
-        "module_pattern",
-        DataValue::Str(module_pattern.into()),
-    );
+    let mut params = QueryParams::new()
+        .with_str("project", project)
+        .with_str("module_pattern", module_pattern);
 
     if let Some(func) = function_pattern {
-        params.insert("function_pattern", DataValue::Str(func.into()));
+        params = params.with_str("function_pattern", func);
     }
 
     if let Some(kind) = kind_filter {
-        params.insert("kind", DataValue::Str(kind.into()));
+        params = params.with_str("kind", kind);
     }
 
-    let rows = run_query(db, &script, params).map_err(|e| SpecsError::QueryFailed {
+    let result = run_query(db, &script, params).map_err(|e| SpecsError::QueryFailed {
         message: e.to_string(),
     })?;
 
     let mut results = Vec::new();
-    for row in rows.rows {
+    for row in result.rows() {
         if row.len() >= 9 {
-            let Some(project) = extract_string(&row[0]) else {
+            let Some(project) = extract_string(row.get(0).unwrap()) else {
                 continue;
             };
-            let Some(module) = extract_string(&row[1]) else {
+            let Some(module) = extract_string(row.get(1).unwrap()) else {
                 continue;
             };
-            let Some(name) = extract_string(&row[2]) else {
+            let Some(name) = extract_string(row.get(2).unwrap()) else {
                 continue;
             };
-            let arity = extract_i64(&row[3], 0);
-            let Some(kind) = extract_string(&row[4]) else {
+            let arity = extract_i64(row.get(3).unwrap(), 0);
+            let Some(kind) = extract_string(row.get(4).unwrap()) else {
                 continue;
             };
-            let line = extract_i64(&row[5], 0);
-            let inputs_string = extract_string(&row[6]).unwrap_or_default();
-            let return_string = extract_string(&row[7]).unwrap_or_default();
-            let full = extract_string(&row[8]).unwrap_or_default();
+            let line = extract_i64(row.get(5).unwrap(), 0);
+            let inputs_string = extract_string(row.get(6).unwrap()).unwrap_or_default();
+            let return_string = extract_string(row.get(7).unwrap()).unwrap_or_default();
+            let full = extract_string(row.get(8).unwrap()).unwrap_or_default();
 
             results.push(SpecDef {
                 project,

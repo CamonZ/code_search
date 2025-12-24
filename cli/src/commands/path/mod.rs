@@ -7,7 +7,7 @@ mod output_tests;
 use std::error::Error;
 
 use clap::Args;
-use db::DbInstance;
+use db::backend::Database;
 
 use crate::commands::{CommandRunner, Execute};
 use crate::output::{OutputFormat, Outputable};
@@ -59,7 +59,7 @@ pub struct PathCmd {
 }
 
 impl CommandRunner for PathCmd {
-    fn run(self, db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>> {
+    fn run(self, db: &dyn Database, format: OutputFormat) -> Result<String, Box<dyn Error>> {
         let result = self.execute(db)?;
         Ok(result.format(format))
     }

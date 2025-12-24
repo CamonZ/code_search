@@ -5,13 +5,17 @@
 #[cfg(feature = "test-utils")]
 use std::io::Write;
 
-use cozo::DbInstance;
+use crate::backend::Database;
 #[cfg(feature = "test-utils")]
 use tempfile::NamedTempFile;
 
 #[cfg(any(test, feature = "test-utils"))]
 use crate::queries::import::import_json_str;
-use crate::db::open_mem_db;
+use crate::db::{open_mem_db, get_cozo_instance};
+use std::error::Error;
+
+#[cfg(all(any(test, feature = "test-utils"), feature = "backend-cozo"))]
+use cozo::DbInstance;
 
 /// Create a temporary file containing the given content.
 ///
@@ -29,9 +33,9 @@ pub fn create_temp_json_file(content: &str) -> NamedTempFile {
 /// This is the standard setup for execute tests: create an in-memory DB,
 /// import test data, return the DB instance for command execution.
 #[cfg(any(test, feature = "test-utils"))]
-pub fn setup_test_db(json_content: &str, project: &str) -> DbInstance {
-    let db = open_mem_db();
-    import_json_str(&db, json_content, project).expect("Import should succeed");
+pub fn setup_test_db(json_content: &str, project: &str) -> Box<dyn Database> {
+    let db = open_mem_db().expect("Failed to create in-memory DB");
+    import_json_str(&*db, json_content, project).expect("Import should succeed");
     db
 }
 
@@ -39,8 +43,8 @@ pub fn setup_test_db(json_content: &str, project: &str) -> DbInstance {
 ///
 /// Used to verify queries fail gracefully on empty DBs.
 #[cfg(any(test, feature = "test-utils"))]
-pub fn setup_empty_test_db() -> DbInstance {
-    open_mem_db()
+pub fn setup_empty_test_db() -> Box<dyn Database> {
+    open_mem_db().expect("Failed to create in-memory DB")
 }
 
 // =============================================================================
@@ -55,7 +59,7 @@ use crate::fixtures;
 /// Use for: trace, reverse_trace, calls_from, calls_to, path, hotspots,
 /// unused, depends_on, depended_by
 #[cfg(any(test, feature = "test-utils"))]
-pub fn call_graph_db(project: &str) -> DbInstance {
+pub fn call_graph_db(project: &str) -> Box<dyn Database> {
     setup_test_db(fixtures::CALL_GRAPH, project)
 }
 
@@ -63,7 +67,7 @@ pub fn call_graph_db(project: &str) -> DbInstance {
 ///
 /// Use for: search (functions kind), function
 #[cfg(any(test, feature = "test-utils"))]
-pub fn type_signatures_db(project: &str) -> DbInstance {
+pub fn type_signatures_db(project: &str) -> Box<dyn Database> {
     setup_test_db(fixtures::TYPE_SIGNATURES, project)
 }
 
@@ -71,8 +75,16 @@ pub fn type_signatures_db(project: &str) -> DbInstance {
 ///
 /// Use for: struct command
 #[cfg(any(test, feature = "test-utils"))]
-pub fn structs_db(project: &str) -> DbInstance {
+pub fn structs_db(project: &str) -> Box<dyn Database> {
     setup_test_db(fixtures::STRUCTS, project)
+}
+
+/// Helper to extract DbInstance from Box<dyn Database> for test compatibility.
+///
+/// Use this in tests when you need to pass a &DbInstance to query functions.
+#[cfg(all(any(test, feature = "test-utils"), feature = "backend-cozo"))]
+pub fn get_db_instance(db: &Box<dyn Database>) -> &DbInstance {
+    get_cozo_instance(&**db)
 }
 
 // =============================================================================

@@ -1,10 +1,11 @@
 use std::error::Error;
 
-use cozo::DataValue;
+
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::db::{extract_bool, extract_string, extract_string_or, run_query, Params};
+use crate::backend::{Database, QueryParams};
+use crate::db::{extract_bool, extract_string, extract_string_or, run_query};
 use crate::query_builders::{validate_regex_patterns, ConditionBuilder};
 
 #[derive(Error, Debug)]
@@ -42,7 +43,7 @@ pub struct FieldInfo {
 }
 
 pub fn find_struct_fields(
-    db: &cozo::DbInstance,
+    db: &dyn Database,
     module_pattern: &str,
     project: &str,
     use_regex: bool,
@@ -65,23 +66,23 @@ pub fn find_struct_fields(
         "#,
     );
 
-    let mut params = Params::new();
-    params.insert("module_pattern", DataValue::Str(module_pattern.into()));
-    params.insert("project", DataValue::Str(project.into()));
+    let mut params = QueryParams::new();
+    params = params.with_str("module_pattern", module_pattern);
+    params = params.with_str("project", project);
 
-    let rows = run_query(db, &script, params).map_err(|e| StructError::QueryFailed {
+    let result = run_query(db, &script, params).map_err(|e| StructError::QueryFailed {
         message: e.to_string(),
     })?;
 
     let mut results = Vec::new();
-    for row in rows.rows {
+    for row in result.rows() {
         if row.len() >= 6 {
-            let Some(project) = extract_string(&row[0]) else { continue };
-            let Some(module) = extract_string(&row[1]) else { continue };
-            let Some(field) = extract_string(&row[2]) else { continue };
-            let default_value = extract_string_or(&row[3], "");
-            let required = extract_bool(&row[4], false);
-            let inferred_type = extract_string_or(&row[5], "");
+            let Some(project) = extract_string(row.get(0).unwrap()) else { continue };
+            let Some(module) = extract_string(row.get(1).unwrap()) else { continue };
+            let Some(field) = extract_string(row.get(2).unwrap()) else { continue };
+            let default_value = extract_string_or(row.get(3).unwrap(), "");
+            let required = extract_bool(row.get(4).unwrap(), false);
+            let inferred_type = extract_string_or(row.get(5).unwrap(), "");
 
             results.push(StructField {
                 project,

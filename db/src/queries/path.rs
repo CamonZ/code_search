@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::error::Error;
 
-use cozo::DataValue;
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::db::{extract_i64, extract_string, run_query, Params};
+use crate::backend::{Database, QueryParams};
+use crate::db::{extract_i64, extract_string, run_query};
 use crate::query_builders::OptionalConditionBuilder;
 
 #[derive(Error, Debug)]
@@ -35,7 +35,7 @@ pub struct CallPath {
 
 #[allow(clippy::too_many_arguments)]
 pub fn find_paths(
-    db: &cozo::DbInstance,
+    db: &dyn Database,
     from_module: &str,
     from_function: &str,
     from_arity: Option<i64>,
@@ -102,36 +102,37 @@ pub fn find_paths(
         "#,
     );
 
-    let mut params = Params::new();
-    params.insert("from_module", DataValue::Str(from_module.into()));
-    params.insert("from_function", DataValue::Str(from_function.into()));
-    params.insert("to_module", DataValue::Str(to_module.into()));
-    params.insert("to_function", DataValue::Str(to_function.into()));
+    let mut params = QueryParams::new()
+        .with_str("from_module", from_module)
+        .with_str("from_function", from_function)
+        .with_str("to_module", to_module)
+        .with_str("to_function", to_function)
+        .with_str("project", project);
+
     if let Some(a) = from_arity {
-        params.insert("from_arity", DataValue::from(a));
+        params = params.with_int("from_arity", a);
     }
     if let Some(a) = to_arity {
-        params.insert("to_arity", DataValue::from(a));
+        params = params.with_int("to_arity", a);
     }
-    params.insert("project", DataValue::Str(project.into()));
 
-    let rows = run_query(db, &script, params).map_err(|e| PathError::QueryFailed {
+    let result = run_query(db, &script, params).map_err(|e| PathError::QueryFailed {
         message: e.to_string(),
     })?;
 
     // Parse all edges from the query result
     let mut edges: Vec<PathStep> = Vec::new();
 
-    for row in rows.rows {
+    for row in result.rows() {
         if row.len() >= 8 {
-            let depth = extract_i64(&row[0], 0);
-            let Some(caller_module) = extract_string(&row[1]) else { continue };
-            let Some(caller_function) = extract_string(&row[2]) else { continue };
-            let Some(callee_module) = extract_string(&row[3]) else { continue };
-            let Some(callee_function) = extract_string(&row[4]) else { continue };
-            let callee_arity = extract_i64(&row[5], 0);
-            let Some(file) = extract_string(&row[6]) else { continue };
-            let line = extract_i64(&row[7], 0);
+            let depth = extract_i64(row.get(0).unwrap(), 0);
+            let Some(caller_module) = extract_string(row.get(1).unwrap()) else { continue };
+            let Some(caller_function) = extract_string(row.get(2).unwrap()) else { continue };
+            let Some(callee_module) = extract_string(row.get(3).unwrap()) else { continue };
+            let Some(callee_function) = extract_string(row.get(4).unwrap()) else { continue };
+            let callee_arity = extract_i64(row.get(5).unwrap(), 0);
+            let Some(file) = extract_string(row.get(6).unwrap()) else { continue };
+            let line = extract_i64(row.get(7).unwrap(), 0);
 
             edges.push(PathStep {
                 depth,

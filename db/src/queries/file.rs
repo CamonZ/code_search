@@ -1,10 +1,10 @@
 use std::error::Error;
 
-use cozo::DataValue;
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::db::{extract_i64, extract_string, run_query, Params};
+use crate::backend::{Database, QueryParams};
+use crate::db::{extract_i64, extract_string, run_query};
 use crate::query_builders::{validate_regex_patterns, ConditionBuilder};
 
 #[derive(Error, Debug)]
@@ -32,7 +32,7 @@ pub struct FileFunctionDef {
 /// Find all functions in modules matching a pattern
 /// Returns a flat vec of functions with location info (for browse-module)
 pub fn find_functions_in_module(
-    db: &cozo::DbInstance,
+    db: &dyn Database,
     module_pattern: &str,
     project: &str,
     use_regex: bool,
@@ -56,28 +56,38 @@ pub fn find_functions_in_module(
         "#,
     );
 
-    let mut params = Params::new();
-    params.insert("project", DataValue::Str(project.into()));
-    params.insert("module_pattern", DataValue::Str(module_pattern.into()));
+    let params = QueryParams::new()
+        .with_str("module_pattern", module_pattern)
+        .with_str("project", project);
 
-    let rows = run_query(db, &script, params).map_err(|e| FileError::QueryFailed {
+    let result = run_query(db, &script, params).map_err(|e| FileError::QueryFailed {
         message: e.to_string(),
     })?;
 
     let mut results = Vec::new();
 
-    for row in rows.rows {
+    for row in result.rows() {
         if row.len() >= 10 {
-            let Some(module) = extract_string(&row[0]) else { continue };
-            let Some(name) = extract_string(&row[1]) else { continue };
-            let arity = extract_i64(&row[2], 0);
-            let Some(kind) = extract_string(&row[3]) else { continue };
-            let line = extract_i64(&row[4], 0);
-            let start_line = extract_i64(&row[5], 0);
-            let end_line = extract_i64(&row[6], 0);
-            let file = extract_string(&row[7]).unwrap_or_default();
-            let pattern = extract_string(&row[8]).unwrap_or_default();
-            let guard = extract_string(&row[9]).unwrap_or_default();
+            let Some(module) = extract_string(row.get(0).unwrap()) else {
+                continue;
+            };
+
+            let Some(name) = extract_string(row.get(1).unwrap()) else {
+                continue;
+            };
+
+            let arity = extract_i64(row.get(2).unwrap(), 0);
+
+            let Some(kind) = extract_string(row.get(3).unwrap()) else {
+                continue;
+            };
+
+            let line = extract_i64(row.get(4).unwrap(), 0);
+            let start_line = extract_i64(row.get(5).unwrap(), 0);
+            let end_line = extract_i64(row.get(6).unwrap(), 0);
+            let file = extract_string(row.get(7).unwrap()).unwrap_or_default();
+            let pattern = extract_string(row.get(8).unwrap()).unwrap_or_default();
+            let guard = extract_string(row.get(9).unwrap()).unwrap_or_default();
 
             results.push(FileFunctionDef {
                 module,

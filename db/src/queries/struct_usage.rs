@@ -1,10 +1,11 @@
 use std::error::Error;
 
-use cozo::DataValue;
+
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::db::{extract_i64, extract_string, run_query, Params};
+use crate::backend::{Database, QueryParams};
+use crate::db::{extract_i64, extract_string, run_query};
 use crate::query_builders::{validate_regex_patterns, OptionalConditionBuilder};
 
 #[derive(Error, Debug)]
@@ -26,7 +27,7 @@ pub struct StructUsageEntry {
 }
 
 pub fn find_struct_usage(
-    db: &cozo::DbInstance,
+    db: &dyn Database,
     pattern: &str,
     project: &str,
     use_regex: bool,
@@ -61,37 +62,34 @@ pub fn find_struct_usage(
         "#,
     );
 
-    let mut params = Params::new();
-    params.insert("pattern", DataValue::Str(pattern.into()));
-    params.insert("project", DataValue::Str(project.into()));
+    let mut params = QueryParams::new();
+    params = params.with_str("pattern", pattern);
+    params = params.with_str("project", project);
 
     if let Some(mod_pat) = module_pattern {
-        params.insert(
-            "module_pattern",
-            DataValue::Str(mod_pat.into()),
-        );
+        params = params.with_str("module_pattern", mod_pat);
     }
 
-    let rows = run_query(db, &script, params).map_err(|e| StructUsageError::QueryFailed {
+    let result = run_query(db, &script, params).map_err(|e| StructUsageError::QueryFailed {
         message: e.to_string(),
     })?;
 
     let mut results = Vec::new();
-    for row in rows.rows {
+    for row in result.rows() {
         if row.len() >= 7 {
-            let Some(project) = extract_string(&row[0]) else {
+            let Some(project) = extract_string(row.get(0).unwrap()) else {
                 continue;
             };
-            let Some(module) = extract_string(&row[1]) else {
+            let Some(module) = extract_string(row.get(1).unwrap()) else {
                 continue;
             };
-            let Some(name) = extract_string(&row[2]) else {
+            let Some(name) = extract_string(row.get(2).unwrap()) else {
                 continue;
             };
-            let arity = extract_i64(&row[3], 0);
-            let inputs_string = extract_string(&row[4]).unwrap_or_default();
-            let return_string = extract_string(&row[5]).unwrap_or_default();
-            let line = extract_i64(&row[6], 0);
+            let arity = extract_i64(row.get(3).unwrap(), 0);
+            let inputs_string = extract_string(row.get(4).unwrap()).unwrap_or_default();
+            let return_string = extract_string(row.get(5).unwrap()).unwrap_or_default();
+            let line = extract_i64(row.get(6).unwrap(), 0);
 
             results.push(StructUsageEntry {
                 project,

@@ -141,7 +141,7 @@ fn build_trace_result(
 impl Execute for TraceCmd {
     type Output = TraceResult;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         let calls = trace_calls(
             db,
             &self.module,

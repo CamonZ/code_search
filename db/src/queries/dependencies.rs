@@ -6,10 +6,10 @@
 
 use std::error::Error;
 
-use cozo::DataValue;
 use thiserror::Error;
 
-use crate::db::{extract_call_from_row, run_query, CallRowLayout, Params};
+use crate::backend::{Database, QueryParams};
+use crate::db::{extract_call_from_row_trait, run_query, CallRowLayout};
 use crate::types::Call;
 use crate::query_builders::ConditionBuilder;
 
@@ -59,7 +59,7 @@ impl DependencyDirection {
 ///
 /// Self-references (calls within the same module) are excluded.
 pub fn find_dependencies(
-    db: &cozo::DbInstance,
+    db: &dyn Database,
     direction: DependencyDirection,
     module_pattern: &str,
     project: &str,
@@ -92,22 +92,19 @@ pub fn find_dependencies(
         "#,
     );
 
-    let mut params = Params::new();
-    params.insert(
-        "module_pattern",
-        DataValue::Str(module_pattern.into()),
-    );
-    params.insert("project", DataValue::Str(project.into()));
+    let params = QueryParams::new()
+        .with_str("module_pattern", module_pattern)
+        .with_str("project", project);
 
-    let rows = run_query(db, &script, params).map_err(|e| DependencyError::QueryFailed {
+    let result = run_query(db, &script, params).map_err(|e| DependencyError::QueryFailed {
         message: e.to_string(),
     })?;
 
-    let layout = CallRowLayout::from_headers(&rows.headers)?;
-    let results = rows
-        .rows
+    let layout = CallRowLayout::from_headers(result.headers())?;
+    let results = result
+        .rows()
         .iter()
-        .filter_map(|row| extract_call_from_row(row, &layout))
+        .filter_map(|row| extract_call_from_row_trait(&**row, &layout))
         .collect();
 
     Ok(results)

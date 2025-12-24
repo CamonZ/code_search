@@ -33,6 +33,14 @@ impl CozoDatabase {
         let inner = DbInstance::new("mem", "", "").expect("Failed to create in-memory DB");
         Self { inner }
     }
+
+    /// Returns a reference to the inner DbInstance.
+    ///
+    /// This is mainly used for testing and for code that needs to work with DbInstance directly.
+    #[cfg(all(any(test, feature = "test-utils"), feature = "backend-cozo"))]
+    pub fn inner_ref(&self) -> &DbInstance {
+        &self.inner
+    }
 }
 
 impl Database for CozoDatabase {
@@ -50,6 +58,10 @@ impl Database for CozoDatabase {
             .map_err(|e| format!("Query failed: {:?}", e))?;
 
         Ok(Box::new(CozoQueryResult::new(rows)))
+    }
+
+    fn as_any(&self) -> &(dyn std::any::Any + Send + Sync) {
+        self as &(dyn std::any::Any + Send + Sync)
     }
 }
 
@@ -78,7 +90,7 @@ pub struct CozoQueryResult {
 
 impl CozoQueryResult {
     /// Creates a new query result from CozoDB's NamedRows.
-    fn new(named_rows: NamedRows) -> Self {
+    pub fn new(named_rows: NamedRows) -> Self {
         let headers = named_rows.headers;
         let rows: Vec<Box<dyn Row>> = named_rows
             .rows

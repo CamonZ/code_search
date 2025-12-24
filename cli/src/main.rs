@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let db = open_db(&db_path)?;
-    let output = args.command.run(&db, args.format)?;
+    let output = args.command.run(&*db, args.format)?;
     println!("{}", output);
     Ok(())
 }

@@ -47,7 +47,7 @@ fn build_unused_functions_result(
 impl Execute for UnusedCmd {
     type Output = ModuleCollectionResult<UnusedFunc>;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         let functions = find_unused_functions(
             db,
             self.module.as_deref(),

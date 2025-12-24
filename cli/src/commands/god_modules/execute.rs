@@ -20,7 +20,7 @@ pub struct GodModuleEntry {
 impl Execute for GodModulesCmd {
     type Output = ModuleCollectionResult<GodModuleEntry>;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         // Get function counts for all modules
         let func_counts = get_function_counts(
             db,

@@ -8,9 +8,8 @@
 
 use std::error::Error;
 
-use cozo::DataValue;
-
-use crate::db::{run_query, Params};
+use crate::backend::{Database, QueryParams};
+use crate::db::run_query;
 
 /// Edge in a cycle (from module -> to module)
 #[derive(Debug, Clone)]
@@ -23,7 +22,7 @@ pub struct CycleEdge {
 ///
 /// Returns edges (from, to) where both modules are part of at least one cycle.
 pub fn find_cycle_edges(
-    db: &cozo::DbInstance,
+    db: &dyn Database,
     project: &str,
     module_pattern: Option<&str>,
 ) -> Result<Vec<CycleEdge>, Box<dyn Error>> {
@@ -52,39 +51,41 @@ pub fn find_cycle_edges(
         :order from, to
     "#.to_string();
 
-    let mut params = Params::new();
-    params.insert("project", DataValue::Str(project.into()));
+    let params = QueryParams::new()
+        .with_str("project", project);
 
-    let rows = run_query(db, &script, params)?;
+    let result = run_query(db, &script, params)?;
 
     // Parse results
     let mut edges = Vec::new();
 
     // Find column indices
-    let from_idx = rows
-        .headers
+    let from_idx = result
+        .headers()
         .iter()
         .position(|h| h == "from")
         .ok_or("Missing 'from' column")?;
-    let to_idx = rows
-        .headers
+    let to_idx = result
+        .headers()
         .iter()
         .position(|h| h == "to")
         .ok_or("Missing 'to' column")?;
 
-    for row in &rows.rows {
-        if let (Some(DataValue::Str(from)), Some(DataValue::Str(to))) =
+    for row in result.rows() {
+        if let (Some(from_val), Some(to_val)) =
             (row.get(from_idx), row.get(to_idx))
         {
-            // Apply module pattern filter if provided
-            if let Some(pattern) = module_pattern
-                && !from.contains(pattern) && !to.contains(pattern) {
-                    continue;
-                }
-            edges.push(CycleEdge {
-                from: from.to_string(),
-                to: to.to_string(),
-            });
+            if let (Some(from), Some(to)) = (from_val.as_str(), to_val.as_str()) {
+                // Apply module pattern filter if provided
+                if let Some(pattern) = module_pattern
+                    && !from.contains(pattern) && !to.contains(pattern) {
+                        continue;
+                    }
+                edges.push(CycleEdge {
+                    from: from.to_string(),
+                    to: to.to_string(),
+                });
+            }
         }
     }
 

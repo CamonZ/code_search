@@ -6,10 +6,10 @@
 
 use std::error::Error;
 
-use cozo::DataValue;
 use thiserror::Error;
 
-use crate::db::{extract_call_from_row, run_query, CallRowLayout, Params};
+use crate::backend::{Database, QueryParams};
+use crate::db::{extract_call_from_row_trait, run_query, CallRowLayout};
 use crate::types::Call;
 use crate::query_builders::{validate_regex_patterns, ConditionBuilder, OptionalConditionBuilder};
 
@@ -55,7 +55,7 @@ impl CallDirection {
 /// - `From`: Returns all calls made by functions matching the pattern
 /// - `To`: Returns all calls to functions matching the pattern
 pub fn find_calls(
-    db: &cozo::DbInstance,
+    db: &dyn Database,
     direction: CallDirection,
     module_pattern: &str,
     function_pattern: Option<&str>,
@@ -103,31 +103,26 @@ pub fn find_calls(
         "#,
     );
 
-    let mut params = Params::new();
-    params.insert(
-        "module_pattern",
-        DataValue::Str(module_pattern.into()),
-    );
+    let mut params = QueryParams::new()
+        .with_str("module_pattern", module_pattern)
+        .with_str("project", project);
+
     if let Some(fn_pat) = function_pattern {
-        params.insert(
-            "function_pattern",
-            DataValue::Str(fn_pat.into()),
-        );
+        params = params.with_str("function_pattern", fn_pat);
     }
     if let Some(a) = arity {
-        params.insert("arity", DataValue::from(a));
+        params = params.with_int("arity", a);
     }
-    params.insert("project", DataValue::Str(project.into()));
 
-    let rows = run_query(db, &script, params).map_err(|e| CallsError::QueryFailed {
+    let result = run_query(db, &script, params).map_err(|e| CallsError::QueryFailed {
         message: e.to_string(),
     })?;
 
-    let layout = CallRowLayout::from_headers(&rows.headers)?;
-    let results = rows
-        .rows
+    let layout = CallRowLayout::from_headers(result.headers())?;
+    let results = result
+        .rows()
         .iter()
-        .filter_map(|row| extract_call_from_row(row, &layout))
+        .filter_map(|row| extract_call_from_row_trait(&**row, &layout))
         .collect();
 
     Ok(results)

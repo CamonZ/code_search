@@ -1,10 +1,11 @@
 use std::error::Error;
 
-use cozo::DataValue;
+
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::db::{extract_i64, extract_string, run_query, Params};
+use crate::backend::{Database, QueryParams};
+use crate::db::{extract_i64, extract_string, run_query};
 use crate::query_builders::{validate_regex_patterns, OptionalConditionBuilder};
 
 #[derive(Error, Debug)]
@@ -27,7 +28,7 @@ pub struct ManyClauses {
 }
 
 pub fn find_many_clauses(
-    db: &cozo::DbInstance,
+    db: &dyn Database,
     min_clauses: i64,
     module_pattern: Option<&str>,
     project: &str,
@@ -67,28 +68,28 @@ pub fn find_many_clauses(
         "#,
     );
 
-    let mut params = Params::new();
-    params.insert("project", DataValue::Str(project.into()));
-    params.insert("min_clauses", DataValue::from(min_clauses));
+    let mut params = QueryParams::new();
+    params = params.with_str("project", project);
+    params = params.with_int("min_clauses", min_clauses);
     if let Some(pattern) = module_pattern {
-        params.insert("module_pattern", DataValue::Str(pattern.into()));
+        params = params.with_str("module_pattern", pattern);
     }
 
-    let rows = run_query(db, &script, params).map_err(|e| ManyClausesError::QueryFailed {
+    let result = run_query(db, &script, params).map_err(|e| ManyClausesError::QueryFailed {
         message: e.to_string(),
     })?;
 
     let mut results = Vec::new();
-    for row in rows.rows {
+    for row in result.rows() {
         if row.len() >= 8 {
-            let Some(module) = extract_string(&row[0]) else { continue };
-            let Some(name) = extract_string(&row[1]) else { continue };
-            let arity = extract_i64(&row[2], 0);
-            let clauses = extract_i64(&row[3], 0);
-            let first_line = extract_i64(&row[4], 0);
-            let last_line = extract_i64(&row[5], 0);
-            let Some(file) = extract_string(&row[6]) else { continue };
-            let Some(generated_by) = extract_string(&row[7]) else { continue };
+            let Some(module) = extract_string(row.get(0).unwrap()) else { continue };
+            let Some(name) = extract_string(row.get(1).unwrap()) else { continue };
+            let arity = extract_i64(row.get(2).unwrap(), 0);
+            let clauses = extract_i64(row.get(3).unwrap(), 0);
+            let first_line = extract_i64(row.get(4).unwrap(), 0);
+            let last_line = extract_i64(row.get(5).unwrap(), 0);
+            let Some(file) = extract_string(row.get(6).unwrap()) else { continue };
+            let Some(generated_by) = extract_string(row.get(7).unwrap()) else { continue };
 
             results.push(ManyClauses {
                 module,
