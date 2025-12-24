@@ -154,7 +154,12 @@ pub fn try_create_relation(db: &dyn Database, script: &str) -> Result<bool, Box<
         Ok(_) => Ok(true),
         Err(e) => {
             let err_str = e.to_string();
-            if err_str.contains("AlreadyExists") || err_str.contains("stored_relation_conflict") {
+            // Check for backend-specific "already exists" error messages
+            // CozoDB: "AlreadyExists" or "stored_relation_conflict"
+            // SurrealDB: "already exists"
+            if err_str.contains("AlreadyExists")
+                || err_str.contains("stored_relation_conflict")
+                || err_str.contains("already exists") {
                 Ok(false)
             } else {
                 Err(e)

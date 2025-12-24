@@ -105,10 +105,20 @@ impl Database for SurrealDatabase {
         })?;
 
         // Take the first statement result
+        // DDL statements (DEFINE TABLE, etc.) return None/empty results, so we handle that gracefully
         let result: Vec<surrealdb::sql::Value> = self.runtime.block_on(async {
-            response
-                .take(0)
-                .map_err(|e| -> Box<dyn Error> { format!("Failed to extract results: {}", e).into() })
+            match response.take::<Vec<surrealdb::sql::Value>>(0) {
+                Ok(values) => Ok::<Vec<surrealdb::sql::Value>, Box<dyn Error>>(values),
+                Err(e) => {
+                    // If deserialization fails (e.g., for DDL statements), return empty result
+                    let err_str = e.to_string();
+                    if err_str.contains("expected an enum variant") && err_str.contains("found None") {
+                        Ok::<Vec<surrealdb::sql::Value>, Box<dyn Error>>(Vec::new())
+                    } else {
+                        Err(format!("Failed to extract results: {}", e).into())
+                    }
+                }
+            }
         })?;
 
         // Extract headers from first object (if any)
