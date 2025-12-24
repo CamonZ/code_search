@@ -3,7 +3,7 @@
 //! This module provides the SurrealDB-specific implementation of the Database trait,
 //! wrapping the async SurrealDB API with a synchronous interface using tokio::Runtime.
 
-use super::{Database, QueryParams, QueryResult, ValueType};
+use super::{Database, QueryParams, QueryResult, Row, Value, ValueType};
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::path::Path;
@@ -96,7 +96,7 @@ impl Database for SurrealDatabase {
         let surreal_params = convert_params(params)?;
 
         // Execute query async via runtime
-        let _result = self.runtime.block_on(async {
+        let mut response = self.runtime.block_on(async {
             self.db
                 .query(query)
                 .bind(surreal_params)
@@ -104,8 +104,46 @@ impl Database for SurrealDatabase {
                 .map_err(|e| -> Box<dyn Error> { format!("SurrealDB query error: {}", e).into() })
         })?;
 
-        // Result wrapping will be implemented in Ticket 03
-        unimplemented!("Result wrapping - implemented in Ticket 03")
+        // Take the first statement result
+        let result: Vec<surrealdb::sql::Value> = self.runtime.block_on(async {
+            response
+                .take(0)
+                .map_err(|e| -> Box<dyn Error> { format!("Failed to extract results: {}", e).into() })
+        })?;
+
+        // Extract headers from first object (if any)
+        let headers = if let Some(surrealdb::sql::Value::Object(first)) = result.first() {
+            first.keys().map(|k| k.to_string()).collect()
+        } else {
+            Vec::new()
+        };
+
+        // Convert each object to a row
+        let rows: Vec<Box<dyn Row>> = result
+            .into_iter()
+            .map(|value| match value {
+                surrealdb::sql::Value::Object(obj) => {
+                    // Extract values in header order
+                    let values: Vec<surrealdb::sql::Value> = headers
+                        .iter()
+                        .map(|h| {
+                            obj.get(h)
+                                .cloned()
+                                .unwrap_or(surrealdb::sql::Value::None)
+                        })
+                        .collect();
+                    Box::new(SurrealRow { values }) as Box<dyn Row>
+                }
+                _ => {
+                    // Single value result
+                    Box::new(SurrealRow {
+                        values: vec![value],
+                    }) as Box<dyn Row>
+                }
+            })
+            .collect();
+
+        Ok(Box::new(SurrealQueryResult { headers, rows }))
     }
 
     fn as_any(&self) -> &(dyn std::any::Any + Send + Sync) {
@@ -130,6 +168,72 @@ fn convert_params(
     }
 
     Ok(surreal_params)
+}
+
+/// Query result wrapper implementing the generic QueryResult trait.
+pub struct SurrealQueryResult {
+    headers: Vec<String>,
+    rows: Vec<Box<dyn Row>>,
+}
+
+impl QueryResult for SurrealQueryResult {
+    fn headers(&self) -> &[String] {
+        &self.headers
+    }
+
+    fn rows(&self) -> &[Box<dyn Row>] {
+        &self.rows
+    }
+
+    fn into_rows(self: Box<Self>) -> Vec<Box<dyn Row>> {
+        self.rows
+    }
+}
+
+/// Row wrapper implementing the generic Row trait.
+pub struct SurrealRow {
+    values: Vec<surrealdb::sql::Value>,
+}
+
+impl Row for SurrealRow {
+    fn get(&self, index: usize) -> Option<&dyn Value> {
+        self.values.get(index).map(|v| v as &dyn Value)
+    }
+
+    fn len(&self) -> usize {
+        self.values.len()
+    }
+}
+
+/// Implements the Value trait for SurrealDB's sql::Value type.
+impl Value for surrealdb::sql::Value {
+    fn as_str(&self) -> Option<&str> {
+        match self {
+            surrealdb::sql::Value::Strand(s) => Some(s.as_str()),
+            _ => None,
+        }
+    }
+
+    fn as_i64(&self) -> Option<i64> {
+        match self {
+            surrealdb::sql::Value::Number(n) => Some(n.as_int()),
+            _ => None,
+        }
+    }
+
+    fn as_f64(&self) -> Option<f64> {
+        match self {
+            surrealdb::sql::Value::Number(n) => Some(n.as_float()),
+            _ => None,
+        }
+    }
+
+    fn as_bool(&self) -> Option<bool> {
+        match self {
+            surrealdb::sql::Value::Bool(b) => Some(*b),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -157,5 +261,20 @@ mod tests {
         assert!(surreal_params.contains_key("count"));
         assert!(surreal_params.contains_key("value"));
         assert!(surreal_params.contains_key("flag"));
+    }
+
+    #[test]
+    fn test_value_extraction() {
+        let str_val = surrealdb::sql::Value::Strand("test".into());
+        assert_eq!(str_val.as_str(), Some("test"));
+
+        let int_val = surrealdb::sql::Value::Number(42.into());
+        assert_eq!(int_val.as_i64(), Some(42));
+
+        let float_val = surrealdb::sql::Value::Number(3.14.into());
+        assert_eq!(float_val.as_f64(), Some(3.14));
+
+        let bool_val = surrealdb::sql::Value::Bool(true);
+        assert_eq!(bool_val.as_bool(), Some(true));
     }
 }

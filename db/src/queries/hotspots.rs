@@ -406,7 +406,7 @@ pub fn find_hotspots(
     Ok(results)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "backend-cozo"))]
 mod tests {
     use super::*;
     use rstest::{fixture, rstest};

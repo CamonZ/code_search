@@ -453,7 +453,7 @@ pub fn import_json_str(
     import_graph(db, project, &graph)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "backend-cozo"))]
 mod tests {
     use super::*;
     use crate::db::{extract_string, open_db};

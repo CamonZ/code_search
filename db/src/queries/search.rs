@@ -137,7 +137,7 @@ pub fn search_functions(
     Ok(results)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "backend-cozo"))]
 mod tests {
     use super::*;
 
