@@ -82,12 +82,11 @@ pub fn get_cozo_instance(db: &dyn Database) -> &cozo::DbInstance {
         .inner_ref()
 }
 
-/// Run a mutable query (insert, delete, create, etc.) with a CozoDB DbInstance.
+/// Run a database query with parameters.
 ///
-/// This version provides backward compatibility for code that uses DbInstance directly.
-/// Accepts Params (BTreeMap<&str, DataValue>) for backward compatibility.
-/// Returns NamedRows to maintain compatibility with existing query code.
-#[cfg(feature = "backend-cozo")]
+/// Works with any backend that implements the Database trait.
+/// Accepts QueryParams for type-safe parameter binding.
+/// Returns a trait object that provides access to query results.
 pub fn run_query(
     db: &dyn Database,
     script: &str,
@@ -96,8 +95,9 @@ pub fn run_query(
     db.execute_query(script, params)
 }
 
-/// Run a mutable query with no parameters
-#[cfg(feature = "backend-cozo")]
+/// Run a database query with no parameters.
+///
+/// Convenience wrapper around run_query for queries without parameters.
 pub fn run_query_no_params(
     db: &dyn Database,
     script: &str,
@@ -145,8 +145,10 @@ pub fn escape_string_single(s: &str) -> String {
     escape_string_for_quote(s, '\'')
 }
 
-/// Try to create a relation, returning Ok(true) if created, Ok(false) if already exists
-#[cfg(feature = "backend-cozo")]
+/// Try to create a relation, returning Ok(true) if created, Ok(false) if already exists.
+///
+/// This function attempts to create a database relation/table. If the relation already
+/// exists, it returns Ok(false) instead of failing.
 pub fn try_create_relation(db: &dyn Database, script: &str) -> Result<bool, Box<dyn Error>> {
     match run_query_no_params(db, script) {
         Ok(_) => Ok(true),
