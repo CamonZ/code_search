@@ -431,7 +431,7 @@ mod cozo_helpers {
 #[cfg(feature = "backend-cozo")]
 use cozo_helpers::*;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "backend-cozo"))]
 mod tests {
     use super::*;
     use cozo::{DataValue, Num};

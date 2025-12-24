@@ -11,8 +11,10 @@ use tempfile::NamedTempFile;
 
 #[cfg(any(test, feature = "test-utils"))]
 use crate::queries::import::import_json_str;
-use crate::db::{open_mem_db, get_cozo_instance};
-use std::error::Error;
+use crate::db::open_mem_db;
+
+#[cfg(all(any(test, feature = "test-utils"), feature = "backend-cozo"))]
+use crate::db::get_cozo_instance;
 
 #[cfg(all(any(test, feature = "test-utils"), feature = "backend-cozo"))]
 use cozo::DbInstance;
