@@ -95,28 +95,59 @@ impl Database for SurrealDatabase {
         // Convert QueryParams to SurrealDB format
         let surreal_params = convert_params(params)?;
 
-        // Execute query async via runtime
-        let mut response = self.runtime.block_on(async {
-            self.db
+        // Execute query and extract results in a single async block
+        // This ensures the transaction completes properly before we return
+        let result: Vec<surrealdb::sql::Value> = self.runtime.block_on(async {
+            let response = self.db
                 .query(query)
                 .bind(surreal_params)
                 .await
-                .map_err(|e| -> Box<dyn Error> { format!("SurrealDB query error: {}", e).into() })
-        })?;
+                .map_err(|e| -> Box<dyn Error> { format!("SurrealDB query error: {}", e).into() })?;
 
-        // Take the first statement result
-        // DDL statements (DEFINE TABLE, etc.) return None/empty results, so we handle that gracefully
-        let result: Vec<surrealdb::sql::Value> = self.runtime.block_on(async {
-            match response.take::<Vec<surrealdb::sql::Value>>(0) {
-                Ok(values) => Ok::<Vec<surrealdb::sql::Value>, Box<dyn Error>>(values),
-                Err(e) => {
-                    // If deserialization fails (e.g., for DDL statements), return empty result
-                    let err_str = e.to_string();
-                    if err_str.contains("expected an enum variant") && err_str.contains("found None") {
-                        Ok::<Vec<surrealdb::sql::Value>, Box<dyn Error>>(Vec::new())
-                    } else {
-                        Err(format!("Failed to extract results: {}", e).into())
+            // Check for errors - this is critical for transaction completion
+            // Note: check() consumes and returns the Response
+            let mut response = response.check().map_err(|e| -> Box<dyn Error> {
+                format!("SurrealDB query validation error: {}", e).into()
+            })?;
+
+            // Take the first statement result as surrealdb::Value
+            // The Response from SurrealDB contains results for each statement in the query
+            // Each result can be: None (DDL), single object, or array of objects
+            let raw_result: Result<surrealdb::Value, _> = response.take(0);
+
+            match raw_result {
+                Ok(value) => {
+                    // Convert surrealdb::Value to surrealdb::sql::Value via JSON
+                    // This is necessary because surrealdb::Value wraps surrealdb::sql::Value
+                    // but the wrapper's inner field is private
+                    let json_str = serde_json::to_string(&value)
+                        .map_err(|e| format!("Failed to serialize Value to JSON: {}", e))?;
+
+                    let sql_value: surrealdb::sql::Value = serde_json::from_str(&json_str)
+                        .map_err(|e| format!("Failed to deserialize JSON to sql::Value: {}", e))?;
+
+                    // Handle the three cases: Array, Object, or None
+                    match sql_value {
+                        surrealdb::sql::Value::Array(arr) => {
+                            // SELECT queries return arrays
+                            Ok::<Vec<surrealdb::sql::Value>, Box<dyn Error>>(arr.0)
+                        },
+                        surrealdb::sql::Value::Object(_) => {
+                            // INFO commands and some other queries return single objects
+                            Ok::<Vec<surrealdb::sql::Value>, Box<dyn Error>>(vec![sql_value])
+                        },
+                        surrealdb::sql::Value::None => {
+                            // DDL statements (DEFINE, CREATE without results) return None
+                            Ok::<Vec<surrealdb::sql::Value>, Box<dyn Error>>(Vec::new())
+                        },
+                        other => {
+                            // Unexpected types - wrap in Vec to be safe
+                            Ok::<Vec<surrealdb::sql::Value>, Box<dyn Error>>(vec![other])
+                        }
                     }
+                },
+                Err(e) => {
+                    Err(format!("Failed to extract results: {}", e).into())
                 }
             }
         })?;

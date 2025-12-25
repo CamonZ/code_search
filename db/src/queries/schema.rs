@@ -25,14 +25,19 @@ pub struct SchemaCreationResult {
 pub fn create_schema(
     db: &dyn crate::backend::Database,
 ) -> Result<Vec<SchemaCreationResult>, Box<dyn Error>> {
-    #[cfg(feature = "backend-cozo")]
+    #[cfg(all(feature = "backend-cozo", not(feature = "backend-surrealdb")))]
     {
-        create_schema_cozo(db)
+        return create_schema_cozo(db);
     }
 
-    #[cfg(feature = "backend-surrealdb")]
+    #[cfg(all(feature = "backend-surrealdb", not(feature = "backend-cozo")))]
     {
-        create_schema_surrealdb(db)
+        return create_schema_surrealdb(db);
+    }
+
+    #[cfg(all(feature = "backend-cozo", feature = "backend-surrealdb"))]
+    {
+        compile_error!("Cannot enable both backend-cozo and backend-surrealdb features at the same time");
     }
 
     #[cfg(not(any(feature = "backend-cozo", feature = "backend-surrealdb")))]
@@ -114,9 +119,9 @@ fn create_schema_surrealdb(
 /// - **CozoDB**: 7 relations (modules, functions, calls, struct_fields, function_locations, specs, types)
 /// - **SurrealDB**: 9 tables (5 nodes + 4 relationships, in creation order)
 pub fn relation_names() -> Vec<&'static str> {
-    #[cfg(feature = "backend-cozo")]
+    #[cfg(all(feature = "backend-cozo", not(feature = "backend-surrealdb")))]
     {
-        vec![
+        return vec![
             "modules",
             "functions",
             "calls",
@@ -124,16 +129,21 @@ pub fn relation_names() -> Vec<&'static str> {
             "function_locations",
             "specs",
             "types",
-        ]
+        ];
     }
 
-    #[cfg(feature = "backend-surrealdb")]
+    #[cfg(all(feature = "backend-surrealdb", not(feature = "backend-cozo")))]
     {
         use crate::backend::surrealdb_schema;
         let mut names = Vec::new();
         names.extend_from_slice(surrealdb_schema::node_tables());
         names.extend_from_slice(surrealdb_schema::relationship_tables());
-        names
+        return names;
+    }
+
+    #[cfg(all(feature = "backend-cozo", feature = "backend-surrealdb"))]
+    {
+        compile_error!("Cannot enable both backend-cozo and backend-surrealdb features at the same time");
     }
 
     #[cfg(not(any(feature = "backend-cozo", feature = "backend-surrealdb")))]
@@ -149,16 +159,21 @@ pub fn relation_names() -> Vec<&'static str> {
 /// - **SurrealDB**: Uses `surrealdb_schema::schema_for_table`
 #[allow(dead_code)]
 pub fn schema_for_relation(name: &str) -> Option<&'static str> {
-    #[cfg(feature = "backend-cozo")]
+    #[cfg(all(feature = "backend-cozo", not(feature = "backend-surrealdb")))]
     {
         use crate::backend::cozo_schema;
-        cozo_schema::schema_for_relation(name)
+        return cozo_schema::schema_for_relation(name);
     }
 
-    #[cfg(feature = "backend-surrealdb")]
+    #[cfg(all(feature = "backend-surrealdb", not(feature = "backend-cozo")))]
     {
         use crate::backend::surrealdb_schema;
-        surrealdb_schema::schema_for_table(name)
+        return surrealdb_schema::schema_for_table(name);
+    }
+
+    #[cfg(all(feature = "backend-cozo", feature = "backend-surrealdb"))]
+    {
+        compile_error!("Cannot enable both backend-cozo and backend-surrealdb features at the same time");
     }
 
     #[cfg(not(any(feature = "backend-cozo", feature = "backend-surrealdb")))]

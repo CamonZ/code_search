@@ -164,15 +164,18 @@ pub mod surrealdb_schema;
 /// - `backend-surrealdb`: Opens a SurrealDB instance
 ///
 /// At least one backend feature must be enabled.
-#[cfg(feature = "backend-cozo")]
+#[cfg(all(feature = "backend-cozo", not(feature = "backend-surrealdb")))]
 pub fn open_database(path: &Path) -> Result<Box<dyn Database>, Box<dyn Error>> {
     Ok(Box::new(cozo::CozoDatabase::open(path)?))
 }
 
-#[cfg(feature = "backend-surrealdb")]
+#[cfg(all(feature = "backend-surrealdb", not(feature = "backend-cozo")))]
 pub fn open_database(path: &Path) -> Result<Box<dyn Database>, Box<dyn Error>> {
     Ok(Box::new(surrealdb::SurrealDatabase::open(path)?))
 }
+
+#[cfg(all(feature = "backend-cozo", feature = "backend-surrealdb"))]
+compile_error!("Cannot enable both backend-cozo and backend-surrealdb features at the same time");
 
 #[cfg(not(any(feature = "backend-cozo", feature = "backend-surrealdb")))]
 pub fn open_database(_path: &Path) -> Result<Box<dyn Database>, Box<dyn Error>> {
@@ -186,12 +189,12 @@ pub fn open_database(_path: &Path) -> Result<Box<dyn Database>, Box<dyn Error>> 
 ///
 /// This should use the default backend (determined by feature flags)
 /// in in-memory mode.
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-cozo"))]
+#[cfg(all(any(test, feature = "test-utils"), feature = "backend-cozo", not(feature = "backend-surrealdb")))]
 pub fn open_mem_database() -> Result<Box<dyn Database>, Box<dyn Error>> {
     Ok(Box::new(cozo::CozoDatabase::open_mem()))
 }
 
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb", not(feature = "backend-cozo")))]
 pub fn open_mem_database() -> Result<Box<dyn Database>, Box<dyn Error>> {
     Ok(Box::new(surrealdb::SurrealDatabase::open_mem()?))
 }
