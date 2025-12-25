@@ -116,3 +116,96 @@ mod tests {
         assert!(calls.is_empty(), "Non-existent project should return no results");
     }
 }
+
+#[cfg(all(test, feature = "backend-surrealdb"))]
+mod surrealdb_tests {
+    use super::*;
+
+    #[test]
+    fn test_find_calls_to_returns_ok() {
+        let db = crate::test_utils::surreal_call_graph_db();
+
+        let result = find_calls_to(
+            &*db,
+            "module_a",
+            None,
+            None,
+            "default",
+            false,
+            100,
+        );
+
+        assert!(result.is_ok(), "Should execute successfully");
+    }
+
+    #[test]
+    fn test_find_calls_to_empty_for_nonexistent() {
+        let db = crate::test_utils::surreal_call_graph_db();
+
+        let result = find_calls_to(
+            &*db,
+            "NonExistent",
+            None,
+            None,
+            "default",
+            false,
+            100,
+        );
+
+        assert!(result.is_ok());
+        let calls = result.unwrap();
+        assert!(calls.is_empty(), "Non-existent module should return empty");
+    }
+
+    #[test]
+    fn test_find_calls_to_respects_limit() {
+        let db = crate::test_utils::surreal_call_graph_db_complex();
+
+        let limit_2 = find_calls_to(
+            &*db,
+            "MyApp.Accounts",
+            None,
+            None,
+            "default",
+            false,
+            2,
+        )
+        .unwrap_or_default();
+
+        assert!(limit_2.len() <= 2, "Limit of 2 should be respected");
+    }
+
+    #[test]
+    fn test_find_calls_to_with_function_pattern() {
+        let db = crate::test_utils::surreal_call_graph_db();
+
+        let result = find_calls_to(
+            &*db,
+            "module_a",
+            Some("bar"),
+            None,
+            "default",
+            false,
+            100,
+        );
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_find_calls_to_with_invalid_regex() {
+        let db = crate::test_utils::surreal_call_graph_db();
+
+        let result = find_calls_to(
+            &*db,
+            "[invalid",
+            None,
+            None,
+            "default",
+            true,
+            100,
+        );
+
+        assert!(result.is_err(), "Should reject invalid regex");
+    }
+}

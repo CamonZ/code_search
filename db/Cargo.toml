@@ -6,8 +6,8 @@ edition.workspace = true
 [features]
 default = ["backend-cozo"]
 backend-cozo = ["dep:cozo"]
-backend-surrealdb = ["dep:surrealdb", "dep:tokio", "surrealdb?/kv-mem"]
-test-utils = ["tempfile", "serde_json"]
+backend-surrealdb = ["dep:surrealdb", "dep:tokio", "dep:serde_json", "surrealdb?/kv-mem"]
+test-utils = ["dep:tempfile", "dep:serde_json"]
 
 [dependencies]
 # Core dependencies (always included)
