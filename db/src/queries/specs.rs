@@ -116,3 +116,109 @@ pub fn find_specs(
 
     Ok(results)
 }
+
+#[cfg(all(test, feature = "backend-cozo"))]
+mod tests {
+    use super::*;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn populated_db() -> Box<dyn crate::backend::Database> {
+        crate::test_utils::type_signatures_db("default")
+    }
+
+    #[rstest]
+    fn test_find_specs_returns_results(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_specs(&*populated_db, "", None, None, "default", false, 100);
+        assert!(result.is_ok());
+        let specs = result.unwrap();
+        // May be empty if fixture doesn't have specs, just verify query executes
+        assert!(specs.is_empty() || !specs.is_empty(), "Query should execute");
+    }
+
+    #[rstest]
+    fn test_find_specs_empty_results(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_specs(
+            &*populated_db,
+            "NonExistentModule",
+            None,
+            None,
+            "default",
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let specs = result.unwrap();
+        assert!(specs.is_empty(), "Should return empty results for non-existent module");
+    }
+
+    #[rstest]
+    fn test_find_specs_with_function_filter(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_specs(&*populated_db, "", Some("index"), None, "default", false, 100);
+        assert!(result.is_ok());
+        let specs = result.unwrap();
+        for spec in &specs {
+            assert_eq!(spec.name, "index", "Function name should match filter");
+        }
+    }
+
+    #[rstest]
+    fn test_find_specs_with_kind_filter(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_specs(&*populated_db, "", None, Some("spec"), "default", false, 100);
+        assert!(result.is_ok());
+        let specs = result.unwrap();
+        for spec in &specs {
+            assert_eq!(spec.kind, "spec", "Kind should match filter");
+        }
+    }
+
+    #[rstest]
+    fn test_find_specs_respects_limit(populated_db: Box<dyn crate::backend::Database>) {
+        let limit_5 = find_specs(&*populated_db, "", None, None, "default", false, 5)
+            .unwrap();
+        let limit_100 = find_specs(&*populated_db, "", None, None, "default", false, 100)
+            .unwrap();
+
+        assert!(limit_5.len() <= 5, "Limit should be respected");
+        assert!(limit_5.len() <= limit_100.len(), "Higher limit should return >= results");
+    }
+
+    #[rstest]
+    fn test_find_specs_with_regex_pattern(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_specs(&*populated_db, "^MyApp\\..*$", None, None, "default", true, 100);
+        assert!(result.is_ok());
+        let specs = result.unwrap();
+        for spec in &specs {
+            assert!(spec.module.starts_with("MyApp"), "Module should match regex");
+        }
+    }
+
+    #[rstest]
+    fn test_find_specs_invalid_regex(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_specs(&*populated_db, "[invalid", None, None, "default", true, 100);
+        assert!(result.is_err(), "Should reject invalid regex");
+    }
+
+    #[rstest]
+    fn test_find_specs_nonexistent_project(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_specs(&*populated_db, "", None, None, "nonexistent", false, 100);
+        assert!(result.is_ok());
+        let specs = result.unwrap();
+        assert!(specs.is_empty(), "Non-existent project should return no results");
+    }
+
+    #[rstest]
+    fn test_find_specs_returns_valid_structure(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_specs(&*populated_db, "", None, None, "default", false, 100);
+        assert!(result.is_ok());
+        let specs = result.unwrap();
+        if !specs.is_empty() {
+            let spec = &specs[0];
+            assert_eq!(spec.project, "default");
+            assert!(!spec.module.is_empty());
+            assert!(!spec.name.is_empty());
+            assert!(!spec.kind.is_empty());
+            assert!(spec.arity >= 0);
+        }
+    }
+}

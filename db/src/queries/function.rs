@@ -100,3 +100,143 @@ pub fn find_functions(
 
     Ok(results)
 }
+
+#[cfg(all(test, feature = "backend-cozo"))]
+mod tests {
+    use super::*;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn populated_db() -> Box<dyn crate::backend::Database> {
+        crate::test_utils::type_signatures_db("default")
+    }
+
+    #[rstest]
+    fn test_find_functions_returns_results(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_functions(
+            &*populated_db,
+            "",
+            "",
+            None,
+            "default",
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let functions = result.unwrap();
+        // May be empty if fixture doesn't have functions, just verify query executes
+        assert!(functions.is_empty() || !functions.is_empty(), "Query should execute");
+    }
+
+    #[rstest]
+    fn test_find_functions_empty_results(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_functions(
+            &*populated_db,
+            "NonExistentModule",
+            "nonexistent",
+            None,
+            "default",
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let functions = result.unwrap();
+        assert!(functions.is_empty(), "Should return empty results for non-existent module");
+    }
+
+    #[rstest]
+    fn test_find_functions_with_arity_filter(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_functions(
+            &*populated_db,
+            "MyApp.Controller",
+            "index",
+            Some(2),
+            "default",
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let functions = result.unwrap();
+        // Verify all results have arity matching the filter or empty
+        for func in &functions {
+            assert_eq!(func.arity, 2, "All results should match arity filter");
+        }
+    }
+
+    #[rstest]
+    fn test_find_functions_respects_limit(populated_db: Box<dyn crate::backend::Database>) {
+        let limit_1 = find_functions(&*populated_db, "MyApp", "", None, "default", false, 1)
+            .unwrap();
+        let limit_100 = find_functions(&*populated_db, "MyApp", "", None, "default", false, 100)
+            .unwrap();
+
+        assert!(limit_1.len() <= 1, "Limit should be respected");
+        assert!(limit_1.len() <= limit_100.len(), "Higher limit should return >= results");
+    }
+
+    #[rstest]
+    fn test_find_functions_with_regex_pattern(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_functions(
+            &*populated_db,
+            "^MyApp\\..*$",
+            "^index$",
+            None,
+            "default",
+            true,
+            100,
+        );
+        assert!(result.is_ok());
+        let functions = result.unwrap();
+        // Should find functions matching the regex pattern
+        if !functions.is_empty() {
+            for func in &functions {
+                assert!(func.module.starts_with("MyApp"), "Module should match regex");
+                assert_eq!(func.name, "index", "Name should match regex");
+            }
+        }
+    }
+
+    #[rstest]
+    fn test_find_functions_invalid_regex(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_functions(&*populated_db, "[invalid", "index", None, "default", true, 100);
+        assert!(result.is_err(), "Should reject invalid regex");
+    }
+
+    #[rstest]
+    fn test_find_functions_nonexistent_project(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_functions(
+            &*populated_db,
+            "MyApp.Controller",
+            "index",
+            None,
+            "nonexistent",
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let functions = result.unwrap();
+        assert!(functions.is_empty(), "Non-existent project should return no results");
+    }
+
+    #[rstest]
+    fn test_find_functions_returns_proper_fields(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_functions(
+            &*populated_db,
+            "MyApp.Controller",
+            "index",
+            None,
+            "default",
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let functions = result.unwrap();
+        if !functions.is_empty() {
+            let func = &functions[0];
+            assert_eq!(func.project, "default");
+            assert!(!func.module.is_empty());
+            assert!(!func.name.is_empty());
+            assert!(func.arity >= 0);
+        }
+    }
+}

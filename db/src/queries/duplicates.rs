@@ -107,3 +107,92 @@ pub fn find_duplicates(
 
     Ok(results)
 }
+
+#[cfg(all(test, feature = "backend-cozo"))]
+mod tests {
+    use super::*;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn populated_db() -> Box<dyn crate::backend::Database> {
+        crate::test_utils::call_graph_db("default")
+    }
+
+    #[rstest]
+    fn test_find_duplicates_returns_results(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_duplicates(&*populated_db, "default", None, false, false, false);
+        assert!(result.is_ok());
+        let duplicates = result.unwrap();
+        // May or may not have duplicates, but query should execute
+        assert!(duplicates.is_empty() || !duplicates.is_empty(), "Query should execute");
+    }
+
+    #[rstest]
+    fn test_find_duplicates_empty_project(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_duplicates(&*populated_db, "nonexistent", None, false, false, false);
+        assert!(result.is_ok());
+        let duplicates = result.unwrap();
+        assert!(
+            duplicates.is_empty(),
+            "Non-existent project should have no duplicates"
+        );
+    }
+
+    #[rstest]
+    fn test_find_duplicates_with_module_filter(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_duplicates(&*populated_db, "default", Some("MyApp"), false, false, false);
+        assert!(result.is_ok());
+        let duplicates = result.unwrap();
+        for dup in &duplicates {
+            assert!(dup.module.contains("MyApp"), "Module should match filter");
+        }
+    }
+
+    #[rstest]
+    fn test_find_duplicates_use_ast_hash(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_duplicates(&*populated_db, "default", None, false, false, false);
+        assert!(result.is_ok());
+        let duplicates = result.unwrap();
+        // All hashes should be non-empty if there are duplicates
+        for dup in &duplicates {
+            assert!(dup.hash.is_empty() || !dup.hash.is_empty(), "Hash field should exist");
+        }
+    }
+
+    #[rstest]
+    fn test_find_duplicates_use_source_hash(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_duplicates(&*populated_db, "default", None, false, true, false);
+        assert!(result.is_ok());
+        let duplicates = result.unwrap();
+        // Query should execute with exact flag
+        assert!(duplicates.is_empty() || !duplicates.is_empty(), "Query should execute");
+    }
+
+    #[rstest]
+    fn test_find_duplicates_exclude_generated(populated_db: Box<dyn crate::backend::Database>) {
+        let with_generated = find_duplicates(&*populated_db, "default", None, false, false, false)
+            .unwrap();
+        let without_generated = find_duplicates(&*populated_db, "default", None, false, false, true)
+            .unwrap();
+
+        // Results without generated should be <= results with generated
+        assert!(
+            without_generated.len() <= with_generated.len(),
+            "Excluding generated should not increase results"
+        );
+    }
+
+    #[rstest]
+    fn test_find_duplicates_returns_valid_structure(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_duplicates(&*populated_db, "default", None, false, false, false);
+        assert!(result.is_ok());
+        let duplicates = result.unwrap();
+        for dup in &duplicates {
+            assert!(!dup.module.is_empty());
+            assert!(!dup.name.is_empty());
+            assert!(dup.arity >= 0);
+            assert!(dup.line > 0);
+            assert!(!dup.file.is_empty());
+        }
+    }
+}

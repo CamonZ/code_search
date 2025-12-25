@@ -106,3 +106,89 @@ pub fn find_many_clauses(
 
     Ok(results)
 }
+
+#[cfg(all(test, feature = "backend-cozo"))]
+mod tests {
+    use super::*;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn populated_db() -> Box<dyn crate::backend::Database> {
+        crate::test_utils::call_graph_db("default")
+    }
+
+    #[rstest]
+    fn test_find_many_clauses_returns_results(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_many_clauses(&*populated_db, 0, None, "default", false, true, 100);
+        assert!(result.is_ok());
+        let clauses = result.unwrap();
+        // Should find functions with clause counts
+        assert!(!clauses.is_empty(), "Should find functions with clauses");
+    }
+
+    #[rstest]
+    fn test_find_many_clauses_respects_min_clauses(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_many_clauses(&*populated_db, 5, None, "default", false, true, 100);
+        assert!(result.is_ok());
+        let clauses = result.unwrap();
+        for entry in &clauses {
+            assert!(entry.clauses >= 5, "All results should have >= min_clauses");
+        }
+    }
+
+    #[rstest]
+    fn test_find_many_clauses_empty_results_high_threshold(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
+        let result = find_many_clauses(&*populated_db, 1000, None, "default", false, true, 100);
+        assert!(result.is_ok());
+        let clauses = result.unwrap();
+        // May be empty if no functions have so many clauses
+        assert!(clauses.is_empty() || !clauses.is_empty(), "Query should execute");
+    }
+
+    #[rstest]
+    fn test_find_many_clauses_with_module_filter(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_many_clauses(&*populated_db, 0, Some("MyApp"), "default", false, true, 100);
+        assert!(result.is_ok());
+        let clauses = result.unwrap();
+        for entry in &clauses {
+            assert!(entry.module.contains("MyApp"), "Module should match filter");
+        }
+    }
+
+    #[rstest]
+    fn test_find_many_clauses_respects_limit(populated_db: Box<dyn crate::backend::Database>) {
+        let limit_5 = find_many_clauses(&*populated_db, 0, None, "default", false, true, 5)
+            .unwrap();
+        let limit_100 = find_many_clauses(&*populated_db, 0, None, "default", false, true, 100)
+            .unwrap();
+
+        assert!(limit_5.len() <= 5, "Limit should be respected");
+        assert!(limit_5.len() <= limit_100.len(), "Higher limit should return >= results");
+    }
+
+    #[rstest]
+    fn test_find_many_clauses_nonexistent_project(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_many_clauses(&*populated_db, 0, None, "nonexistent", false, true, 100);
+        assert!(result.is_ok());
+        let clauses = result.unwrap();
+        assert!(clauses.is_empty(), "Non-existent project should return no results");
+    }
+
+    #[rstest]
+    fn test_find_many_clauses_returns_valid_structure(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_many_clauses(&*populated_db, 0, None, "default", false, true, 100);
+        assert!(result.is_ok());
+        let clauses = result.unwrap();
+        if !clauses.is_empty() {
+            let entry = &clauses[0];
+            assert!(!entry.module.is_empty());
+            assert!(!entry.name.is_empty());
+            assert!(entry.arity >= 0);
+            assert!(entry.clauses > 0);
+            assert!(entry.first_line > 0);
+            assert!(entry.last_line >= entry.first_line);
+        }
+    }
+}

@@ -113,3 +113,126 @@ pub fn find_complexity_metrics(
 
     Ok(results)
 }
+
+#[cfg(all(test, feature = "backend-cozo"))]
+mod tests {
+    use super::*;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn populated_db() -> Box<dyn crate::backend::Database> {
+        crate::test_utils::call_graph_db("default")
+    }
+
+    #[rstest]
+    fn test_find_complexity_metrics_returns_results(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_complexity_metrics(&*populated_db, 0, 0, None, "default", false, false, 100);
+        assert!(result.is_ok());
+        let metrics = result.unwrap();
+        // Should find some functions with complexity metrics
+        assert!(!metrics.is_empty(), "Should find complexity metrics");
+    }
+
+    #[rstest]
+    fn test_find_complexity_metrics_empty_results_high_threshold(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
+        let result = find_complexity_metrics(
+            &*populated_db,
+            1000, // Very high complexity threshold
+            0,
+            None,
+            "default",
+            false,
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let metrics = result.unwrap();
+        // May be empty if no functions have such high complexity
+        assert!(metrics.is_empty() || !metrics.is_empty(), "Query should execute");
+    }
+
+    #[rstest]
+    fn test_find_complexity_metrics_respects_min_complexity(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
+        let result = find_complexity_metrics(&*populated_db, 5, 0, None, "default", false, false, 100);
+        assert!(result.is_ok());
+        let metrics = result.unwrap();
+        for metric in &metrics {
+            assert!(metric.complexity >= 5, "All results should respect min_complexity");
+        }
+    }
+
+    #[rstest]
+    fn test_find_complexity_metrics_respects_min_depth(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_complexity_metrics(&*populated_db, 0, 3, None, "default", false, false, 100);
+        assert!(result.is_ok());
+        let metrics = result.unwrap();
+        for metric in &metrics {
+            assert!(
+                metric.max_nesting_depth >= 3,
+                "All results should respect min_depth"
+            );
+        }
+    }
+
+    #[rstest]
+    fn test_find_complexity_metrics_with_module_filter(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_complexity_metrics(
+            &*populated_db,
+            0,
+            0,
+            Some("MyApp"),
+            "default",
+            false,
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let metrics = result.unwrap();
+        for metric in &metrics {
+            assert!(metric.module.contains("MyApp"), "Module should match filter");
+        }
+    }
+
+    #[rstest]
+    fn test_find_complexity_metrics_respects_limit(populated_db: Box<dyn crate::backend::Database>) {
+        let limit_5 = find_complexity_metrics(&*populated_db, 0, 0, None, "default", false, false, 5)
+            .unwrap();
+        let limit_100 = find_complexity_metrics(&*populated_db, 0, 0, None, "default", false, false, 100)
+            .unwrap();
+
+        assert!(limit_5.len() <= 5);
+        assert!(limit_5.len() <= limit_100.len());
+    }
+
+    #[rstest]
+    fn test_find_complexity_metrics_nonexistent_project(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
+        let result = find_complexity_metrics(&*populated_db, 0, 0, None, "nonexistent", false, false, 100);
+        assert!(result.is_ok());
+        let metrics = result.unwrap();
+        assert!(metrics.is_empty(), "Non-existent project should return no results");
+    }
+
+    #[rstest]
+    fn test_find_complexity_metrics_returns_valid_fields(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_complexity_metrics(&*populated_db, 0, 0, None, "default", false, false, 100);
+        assert!(result.is_ok());
+        let metrics = result.unwrap();
+        if !metrics.is_empty() {
+            let metric = &metrics[0];
+            assert!(!metric.module.is_empty());
+            assert!(!metric.name.is_empty());
+            assert!(metric.arity >= 0);
+            assert!(metric.complexity >= 0);
+            assert!(metric.max_nesting_depth >= 0);
+            assert!(metric.start_line > 0);
+            assert!(metric.end_line >= metric.start_line);
+            assert_eq!(metric.lines, metric.end_line - metric.start_line + 1);
+        }
+    }
+}

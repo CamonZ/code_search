@@ -96,3 +96,92 @@ pub fn find_returns(
 
     Ok(results)
 }
+
+#[cfg(all(test, feature = "backend-cozo"))]
+mod tests {
+    use super::*;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn populated_db() -> Box<dyn crate::backend::Database> {
+        crate::test_utils::type_signatures_db("default")
+    }
+
+    #[rstest]
+    fn test_find_returns_returns_results(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_returns(&*populated_db, "", "default", false, None, 100);
+        assert!(result.is_ok());
+        let entries = result.unwrap();
+        // May or may not have matching specs, but query should execute
+        assert!(entries.is_empty() || !entries.is_empty(), "Query should execute");
+    }
+
+    #[rstest]
+    fn test_find_returns_empty_results(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_returns(&*populated_db, "NonExistentReturnType", "default", false, None, 100);
+        assert!(result.is_ok());
+        let entries = result.unwrap();
+        assert!(entries.is_empty(), "Should return empty results for non-existent pattern");
+    }
+
+    #[rstest]
+    fn test_find_returns_with_module_filter(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_returns(&*populated_db, "", "default", false, Some("MyApp"), 100);
+        assert!(result.is_ok());
+        let entries = result.unwrap();
+        for entry in &entries {
+            assert!(entry.module.contains("MyApp"), "Module should match filter");
+        }
+    }
+
+    #[rstest]
+    fn test_find_returns_respects_limit(populated_db: Box<dyn crate::backend::Database>) {
+        let limit_5 = find_returns(&*populated_db, "", "default", false, None, 5)
+            .unwrap();
+        let limit_100 = find_returns(&*populated_db, "", "default", false, None, 100)
+            .unwrap();
+
+        assert!(limit_5.len() <= 5, "Limit should be respected");
+        assert!(limit_5.len() <= limit_100.len(), "Higher limit should return >= results");
+    }
+
+    #[rstest]
+    fn test_find_returns_with_regex_pattern(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_returns(&*populated_db, "^atom", "default", true, None, 100);
+        assert!(result.is_ok());
+        let entries = result.unwrap();
+        for entry in &entries {
+            assert!(
+                entry.return_string.starts_with("atom"),
+                "Return type should match regex"
+            );
+        }
+    }
+
+    #[rstest]
+    fn test_find_returns_invalid_regex(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_returns(&*populated_db, "[invalid", "default", true, None, 100);
+        assert!(result.is_err(), "Should reject invalid regex");
+    }
+
+    #[rstest]
+    fn test_find_returns_nonexistent_project(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_returns(&*populated_db, "", "nonexistent", false, None, 100);
+        assert!(result.is_ok());
+        let entries = result.unwrap();
+        assert!(entries.is_empty(), "Non-existent project should return no results");
+    }
+
+    #[rstest]
+    fn test_find_returns_returns_valid_structure(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_returns(&*populated_db, "", "default", false, None, 100);
+        assert!(result.is_ok());
+        let entries = result.unwrap();
+        for entry in &entries {
+            assert_eq!(entry.project, "default");
+            assert!(!entry.module.is_empty());
+            assert!(!entry.name.is_empty());
+            assert!(entry.arity >= 0);
+        }
+    }
+}

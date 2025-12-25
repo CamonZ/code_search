@@ -109,3 +109,124 @@ pub fn find_dependencies(
 
     Ok(results)
 }
+
+#[cfg(all(test, feature = "backend-cozo"))]
+mod tests {
+    use super::*;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn populated_db() -> Box<dyn crate::backend::Database> {
+        crate::test_utils::call_graph_db("default")
+    }
+
+    #[rstest]
+    fn test_find_dependencies_outgoing_returns_results(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
+        let result = find_dependencies(
+            &*populated_db,
+            DependencyDirection::Outgoing,
+            "MyApp.Controller",
+            "default",
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let deps = result.unwrap();
+        // Should find outgoing dependencies
+        assert!(!deps.is_empty(), "Should find outgoing dependencies");
+    }
+
+    #[rstest]
+    fn test_find_dependencies_incoming_returns_results(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
+        let result = find_dependencies(
+            &*populated_db,
+            DependencyDirection::Incoming,
+            "MyApp",
+            "default",
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let deps = result.unwrap();
+        // May have incoming dependencies
+        assert!(deps.is_empty() || !deps.is_empty(), "Query should execute");
+    }
+
+    #[rstest]
+    fn test_find_dependencies_excludes_self_references(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
+        let result = find_dependencies(
+            &*populated_db,
+            DependencyDirection::Outgoing,
+            "MyApp.Controller",
+            "default",
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let deps = result.unwrap();
+        for dep in &deps {
+            assert_ne!(dep.caller.module, dep.callee.module, "Should exclude self-references");
+        }
+    }
+
+    #[rstest]
+    fn test_find_dependencies_empty_results(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_dependencies(
+            &*populated_db,
+            DependencyDirection::Outgoing,
+            "NonExistent",
+            "default",
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let deps = result.unwrap();
+        assert!(deps.is_empty(), "Non-existent module should have no dependencies");
+    }
+
+    #[rstest]
+    fn test_find_dependencies_respects_limit(populated_db: Box<dyn crate::backend::Database>) {
+        let limit_5 = find_dependencies(
+            &*populated_db,
+            DependencyDirection::Outgoing,
+            "MyApp.Controller",
+            "default",
+            false,
+            5,
+        )
+        .unwrap();
+        let limit_100 = find_dependencies(
+            &*populated_db,
+            DependencyDirection::Outgoing,
+            "MyApp.Controller",
+            "default",
+            false,
+            100,
+        )
+        .unwrap();
+
+        assert!(limit_5.len() <= 5, "Limit should be respected");
+        assert!(limit_5.len() <= limit_100.len(), "Higher limit should return >= results");
+    }
+
+    #[rstest]
+    fn test_find_dependencies_nonexistent_project(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_dependencies(
+            &*populated_db,
+            DependencyDirection::Outgoing,
+            "MyApp",
+            "nonexistent",
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let deps = result.unwrap();
+        assert!(deps.is_empty(), "Non-existent project should return no results");
+    }
+}

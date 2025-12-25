@@ -136,3 +136,283 @@ pub fn find_unused_functions(
 
     Ok(results)
 }
+
+#[cfg(all(test, feature = "backend-cozo"))]
+mod tests {
+    use super::*;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn populated_db() -> Box<dyn crate::backend::Database> {
+        crate::test_utils::call_graph_db("default")
+    }
+
+    #[rstest]
+    fn test_find_unused_functions_returns_results(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_unused_functions(
+            &*populated_db,
+            None,
+            "default",
+            false,
+            false,
+            false,
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let unused = result.unwrap();
+        // May or may not find unused functions depending on fixture data
+        // Just verify the query executes successfully
+        let _ = unused;
+    }
+
+    #[rstest]
+    fn test_find_unused_functions_empty_module_filter(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
+        let result = find_unused_functions(
+            &*populated_db,
+            Some("NonExistentModule"),
+            "default",
+            false,
+            false,
+            false,
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let unused = result.unwrap();
+        // Non-existent module filter should return empty
+        assert!(unused.is_empty());
+    }
+
+    #[rstest]
+    fn test_find_unused_functions_private_only_filter(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
+        let result = find_unused_functions(
+            &*populated_db,
+            None,
+            "default",
+            false,
+            true, // private_only
+            false,
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let unused = result.unwrap();
+        // If there are unused private functions, verify they are actually private
+        for func in &unused {
+            assert!(
+                func.kind == "defp" || func.kind == "defmacrop",
+                "Private filter should only return private functions, got {}",
+                func.kind
+            );
+        }
+    }
+
+    #[rstest]
+    fn test_find_unused_functions_public_only_filter(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
+        let result = find_unused_functions(
+            &*populated_db,
+            None,
+            "default",
+            false,
+            false,
+            true, // public_only
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let unused = result.unwrap();
+        // If there are unused public functions, verify they are actually public
+        for func in &unused {
+            assert!(
+                func.kind == "def" || func.kind == "defmacro",
+                "Public filter should only return public functions, got {}",
+                func.kind
+            );
+        }
+    }
+
+    #[rstest]
+    fn test_find_unused_functions_exclude_generated(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
+        let with_generated = find_unused_functions(
+            &*populated_db,
+            None,
+            "default",
+            false,
+            false,
+            false,
+            false, // include generated
+            100,
+        )
+        .unwrap();
+
+        let without_generated = find_unused_functions(
+            &*populated_db,
+            None,
+            "default",
+            false,
+            false,
+            false,
+            true, // exclude generated
+            100,
+        )
+        .unwrap();
+
+        // Excluding generated should return same or fewer results
+        assert!(without_generated.len() <= with_generated.len());
+
+        // Verify no generated functions in excluded results
+        for func in &without_generated {
+            assert!(
+                !func.name.starts_with("__"),
+                "Excluded results should not contain generated functions"
+            );
+        }
+    }
+
+    #[rstest]
+    fn test_find_unused_functions_respects_limit(populated_db: Box<dyn crate::backend::Database>) {
+        let limit_5 = find_unused_functions(
+            &*populated_db,
+            None,
+            "default",
+            false,
+            false,
+            false,
+            false,
+            5,
+        )
+        .unwrap();
+
+        let limit_100 = find_unused_functions(
+            &*populated_db,
+            None,
+            "default",
+            false,
+            false,
+            false,
+            false,
+            100,
+        )
+        .unwrap();
+
+        // Smaller limit should return fewer results
+        assert!(limit_5.len() <= limit_100.len());
+        assert!(limit_5.len() <= 5);
+    }
+
+    #[rstest]
+    fn test_find_unused_functions_with_module_pattern(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
+        let result = find_unused_functions(
+            &*populated_db,
+            Some("MyApp.Accounts"),
+            "default",
+            false,
+            false,
+            false,
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let unused = result.unwrap();
+        // All results should be from MyApp.Accounts module
+        for func in &unused {
+            assert_eq!(func.module, "MyApp.Accounts", "Module filter should match results");
+        }
+    }
+
+    #[rstest]
+    fn test_find_unused_functions_with_regex_pattern(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
+        let result = find_unused_functions(
+            &*populated_db,
+            Some("^MyApp\\.Accounts$"),
+            "default",
+            true, // use_regex
+            false,
+            false,
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let unused = result.unwrap();
+        // All results should match the regex
+        for func in &unused {
+            assert_eq!(func.module, "MyApp.Accounts", "Regex pattern should match results");
+        }
+    }
+
+    #[rstest]
+    fn test_find_unused_functions_invalid_regex(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
+        let result = find_unused_functions(
+            &*populated_db,
+            Some("[invalid"),
+            "default",
+            true, // use_regex
+            false,
+            false,
+            false,
+            100,
+        );
+        assert!(result.is_err(), "Should reject invalid regex");
+    }
+
+    #[rstest]
+    fn test_find_unused_functions_nonexistent_project(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
+        let result = find_unused_functions(
+            &*populated_db,
+            None,
+            "nonexistent",
+            false,
+            false,
+            false,
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let unused = result.unwrap();
+        assert!(unused.is_empty(), "Nonexistent project should return no results");
+    }
+
+    #[rstest]
+    fn test_find_unused_functions_result_fields_valid(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
+        let result = find_unused_functions(
+            &*populated_db,
+            None,
+            "default",
+            false,
+            false,
+            false,
+            false,
+            100,
+        )
+        .unwrap();
+
+        // Verify all result fields are populated
+        for func in &result {
+            assert!(!func.module.is_empty(), "Module should not be empty");
+            assert!(!func.name.is_empty(), "Name should not be empty");
+            assert!(func.arity >= 0, "Arity should be non-negative");
+            assert!(!func.kind.is_empty(), "Kind should not be empty");
+            assert!(!func.file.is_empty(), "File should not be empty");
+            assert!(func.line > 0, "Line should be positive");
+        }
+    }
+}

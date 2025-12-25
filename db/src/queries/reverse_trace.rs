@@ -139,3 +139,144 @@ pub fn reverse_trace_calls(
 
     Ok(results)
 }
+
+#[cfg(all(test, feature = "backend-cozo"))]
+mod tests {
+    use super::*;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn populated_db() -> Box<dyn crate::backend::Database> {
+        crate::test_utils::call_graph_db("default")
+    }
+
+    #[rstest]
+    fn test_reverse_trace_calls_returns_results(populated_db: Box<dyn crate::backend::Database>) {
+        let result = reverse_trace_calls(&*populated_db, "MyApp.Accounts", "get_user", None, "default", false, 10, 100);
+        assert!(result.is_ok());
+        let steps = result.unwrap();
+        // Should find some callers to Accounts.get_user
+        assert!(!steps.is_empty(), "Should find callers to MyApp.Accounts.get_user");
+    }
+
+    #[rstest]
+    fn test_reverse_trace_calls_empty_results(populated_db: Box<dyn crate::backend::Database>) {
+        let result = reverse_trace_calls(
+            &*populated_db,
+            "NonExistentModule",
+            "nonexistent",
+            None,
+            "default",
+            false,
+            10,
+            100,
+        );
+        assert!(result.is_ok());
+        let steps = result.unwrap();
+        // No callers to non-existent function
+        assert!(steps.is_empty());
+    }
+
+    #[rstest]
+    fn test_reverse_trace_calls_with_arity_filter(populated_db: Box<dyn crate::backend::Database>) {
+        let result = reverse_trace_calls(
+            &*populated_db,
+            "MyApp.Accounts",
+            "get_user",
+            Some(1),
+            "default",
+            false,
+            10,
+            100,
+        );
+        assert!(result.is_ok());
+        let steps = result.unwrap();
+        // Verify all results have the specified callee arity
+        for step in &steps {
+            assert_eq!(
+                step.callee_arity, 1,
+                "All calls should target callee with arity 1"
+            );
+        }
+    }
+
+    #[rstest]
+    fn test_reverse_trace_calls_respects_max_depth(populated_db: Box<dyn crate::backend::Database>) {
+        // Trace with shallow depth limit
+        let shallow = reverse_trace_calls(&*populated_db, "MyApp.Accounts", "get_user", None, "default", false, 1, 100)
+            .unwrap();
+        // Trace with deeper depth limit
+        let deep = reverse_trace_calls(&*populated_db, "MyApp.Accounts", "get_user", None, "default", false, 10, 100)
+            .unwrap();
+
+        // Shallow trace should have same or fewer results
+        assert!(shallow.len() <= deep.len(), "Shallow depth should return <= results than deep depth");
+    }
+
+    #[rstest]
+    fn test_reverse_trace_calls_respects_limit(populated_db: Box<dyn crate::backend::Database>) {
+        let limit_5 = reverse_trace_calls(&*populated_db, "MyApp.Accounts", "get_user", None, "default", false, 10, 5)
+            .unwrap();
+        let limit_100 = reverse_trace_calls(&*populated_db, "MyApp.Accounts", "get_user", None, "default", false, 10, 100)
+            .unwrap();
+
+        // Smaller limit should return fewer results
+        assert!(limit_5.len() <= limit_100.len());
+        assert!(limit_5.len() <= 5);
+    }
+
+    #[rstest]
+    fn test_reverse_trace_calls_with_regex_pattern(populated_db: Box<dyn crate::backend::Database>) {
+        let result = reverse_trace_calls(
+            &*populated_db,
+            "^MyApp\\.Accounts$",
+            "^get_user$",
+            None,
+            "default",
+            true,
+            10,
+            100,
+        );
+        assert!(result.is_ok());
+        let steps = result.unwrap();
+        // Should find calls with regex matching
+        for step in &steps {
+            assert_eq!(step.callee_module, "MyApp.Accounts", "Callee module should be MyApp.Accounts");
+            assert_eq!(step.callee_function, "get_user", "Callee function should be get_user");
+        }
+    }
+
+    #[rstest]
+    fn test_reverse_trace_calls_invalid_regex(populated_db: Box<dyn crate::backend::Database>) {
+        let result = reverse_trace_calls(&*populated_db, "[invalid", "get_user", None, "default", true, 10, 100);
+        assert!(result.is_err(), "Should reject invalid regex");
+    }
+
+    #[rstest]
+    fn test_reverse_trace_calls_nonexistent_project(populated_db: Box<dyn crate::backend::Database>) {
+        let result = reverse_trace_calls(
+            &*populated_db,
+            "MyApp.Accounts",
+            "get_user",
+            None,
+            "nonexistent",
+            false,
+            10,
+            100,
+        );
+        assert!(result.is_ok());
+        let steps = result.unwrap();
+        assert!(steps.is_empty(), "Nonexistent project should return no results");
+    }
+
+    #[rstest]
+    fn test_reverse_trace_calls_depth_field_populated(populated_db: Box<dyn crate::backend::Database>) {
+        let result = reverse_trace_calls(&*populated_db, "MyApp.Accounts", "get_user", None, "default", false, 10, 100)
+            .unwrap();
+
+        // All steps should have depth >= 1
+        for step in &result {
+            assert!(step.depth >= 1, "Depth should be >= 1");
+        }
+    }
+}

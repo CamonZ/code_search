@@ -125,3 +125,131 @@ pub fn find_locations(
 
     Ok(results)
 }
+
+#[cfg(all(test, feature = "backend-cozo"))]
+mod tests {
+    use super::*;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn populated_db() -> Box<dyn crate::backend::Database> {
+        crate::test_utils::call_graph_db("default")
+    }
+
+    #[rstest]
+    fn test_find_locations_returns_results(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_locations(&*populated_db, None, "index", None, "default", false, 100);
+        assert!(result.is_ok());
+        let locations = result.unwrap();
+        assert!(!locations.is_empty(), "Should find function locations");
+    }
+
+    #[rstest]
+    fn test_find_locations_empty_results(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_locations(
+            &*populated_db,
+            None,
+            "nonexistent_function",
+            None,
+            "default",
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let locations = result.unwrap();
+        assert!(locations.is_empty(), "Should return empty results for non-existent function");
+    }
+
+    #[rstest]
+    fn test_find_locations_with_module_filter(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_locations(
+            &*populated_db,
+            Some("MyApp.Controller"),
+            "index",
+            None,
+            "default",
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let locations = result.unwrap();
+        // All results should have the specified module
+        for loc in &locations {
+            assert_eq!(loc.module, "MyApp.Controller", "Module should match filter");
+        }
+    }
+
+    #[rstest]
+    fn test_find_locations_with_arity_filter(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_locations(&*populated_db, None, "index", Some(2), "default", false, 100);
+        assert!(result.is_ok());
+        let locations = result.unwrap();
+        // All results should match arity
+        for loc in &locations {
+            assert_eq!(loc.arity, 2, "Arity should match filter");
+        }
+    }
+
+    #[rstest]
+    fn test_find_locations_respects_limit(populated_db: Box<dyn crate::backend::Database>) {
+        let limit_1 = find_locations(&*populated_db, None, "", None, "default", false, 1)
+            .unwrap();
+        let limit_100 = find_locations(&*populated_db, None, "", None, "default", false, 100)
+            .unwrap();
+
+        assert!(limit_1.len() <= 1, "Limit should be respected");
+        assert!(limit_1.len() <= limit_100.len(), "Higher limit should return >= results");
+    }
+
+    #[rstest]
+    fn test_find_locations_with_regex_pattern(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_locations(&*populated_db, None, "^index$", None, "default", true, 100);
+        assert!(result.is_ok());
+        let locations = result.unwrap();
+        // All results should match the regex pattern
+        if !locations.is_empty() {
+            for loc in &locations {
+                assert_eq!(loc.name, "index", "Name should match regex pattern");
+            }
+        }
+    }
+
+    #[rstest]
+    fn test_find_locations_invalid_regex(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_locations(&*populated_db, None, "[invalid", None, "default", true, 100);
+        assert!(result.is_err(), "Should reject invalid regex");
+    }
+
+    #[rstest]
+    fn test_find_locations_nonexistent_project(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_locations(
+            &*populated_db,
+            None,
+            "index",
+            None,
+            "nonexistent",
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let locations = result.unwrap();
+        assert!(locations.is_empty(), "Non-existent project should return no results");
+    }
+
+    #[rstest]
+    fn test_find_locations_returns_proper_fields(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_locations(&*populated_db, None, "index", None, "default", false, 100);
+        assert!(result.is_ok());
+        let locations = result.unwrap();
+        if !locations.is_empty() {
+            let loc = &locations[0];
+            assert_eq!(loc.project, "default");
+            assert!(!loc.file.is_empty());
+            assert!(loc.line > 0);
+            assert!(loc.start_line > 0);
+            assert!(loc.end_line >= loc.start_line);
+            assert!(!loc.module.is_empty());
+            assert!(!loc.name.is_empty());
+        }
+    }
+}

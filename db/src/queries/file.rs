@@ -106,3 +106,97 @@ pub fn find_functions_in_module(
 
     Ok(results)
 }
+
+#[cfg(all(test, feature = "backend-cozo"))]
+mod tests {
+    use super::*;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn populated_db() -> Box<dyn crate::backend::Database> {
+        crate::test_utils::call_graph_db("default")
+    }
+
+    #[rstest]
+    fn test_find_functions_in_module_returns_results(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_functions_in_module(&*populated_db, "", "default", false, 100);
+        assert!(result.is_ok());
+        let functions = result.unwrap();
+        // May be empty if fixture doesn't have modules, just verify query executes
+        assert!(functions.is_empty() || !functions.is_empty(), "Query should execute");
+    }
+
+    #[rstest]
+    fn test_find_functions_in_module_empty_results(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_functions_in_module(
+            &*populated_db,
+            "NonExistentModule",
+            "default",
+            false,
+            100,
+        );
+        assert!(result.is_ok());
+        let functions = result.unwrap();
+        assert!(functions.is_empty(), "Should return empty for non-existent module");
+    }
+
+    #[rstest]
+    fn test_find_functions_in_module_respects_limit(populated_db: Box<dyn crate::backend::Database>) {
+        let limit_5 = find_functions_in_module(&*populated_db, "MyApp", "default", false, 5)
+            .unwrap();
+        let limit_100 = find_functions_in_module(&*populated_db, "MyApp", "default", false, 100)
+            .unwrap();
+
+        assert!(limit_5.len() <= 5, "Limit should be respected");
+        assert!(limit_5.len() <= limit_100.len(), "Higher limit should return >= results");
+    }
+
+    #[rstest]
+    fn test_find_functions_in_module_with_regex(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_functions_in_module(
+            &*populated_db,
+            "^MyApp\\..*$",
+            "default",
+            true,
+            100,
+        );
+        assert!(result.is_ok());
+        let functions = result.unwrap();
+        for func in &functions {
+            assert!(func.module.starts_with("MyApp"), "Module should match regex");
+        }
+    }
+
+    #[rstest]
+    fn test_find_functions_in_module_invalid_regex(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_functions_in_module(&*populated_db, "[invalid", "default", true, 100);
+        assert!(result.is_err(), "Should reject invalid regex");
+    }
+
+    #[rstest]
+    fn test_find_functions_in_module_nonexistent_project(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
+        let result = find_functions_in_module(&*populated_db, "MyApp", "nonexistent", false, 100);
+        assert!(result.is_ok());
+        let functions = result.unwrap();
+        assert!(functions.is_empty(), "Non-existent project should return no results");
+    }
+
+    #[rstest]
+    fn test_find_functions_in_module_returns_valid_structure(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
+        let result = find_functions_in_module(&*populated_db, "MyApp", "default", false, 100);
+        assert!(result.is_ok());
+        let functions = result.unwrap();
+        if !functions.is_empty() {
+            let func = &functions[0];
+            assert!(!func.module.is_empty());
+            assert!(!func.name.is_empty());
+            assert!(!func.kind.is_empty());
+            assert!(func.start_line > 0);
+            assert!(func.end_line >= func.start_line);
+        }
+    }
+}

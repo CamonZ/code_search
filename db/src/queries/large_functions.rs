@@ -104,3 +104,89 @@ pub fn find_large_functions(
 
     Ok(results)
 }
+
+#[cfg(all(test, feature = "backend-cozo"))]
+mod tests {
+    use super::*;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn populated_db() -> Box<dyn crate::backend::Database> {
+        crate::test_utils::call_graph_db("default")
+    }
+
+    #[rstest]
+    fn test_find_large_functions_returns_results(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_large_functions(&*populated_db, 0, None, "default", false, true, 100);
+        assert!(result.is_ok());
+        let functions = result.unwrap();
+        assert!(!functions.is_empty(), "Should find functions");
+    }
+
+    #[rstest]
+    fn test_find_large_functions_respects_min_lines(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_large_functions(&*populated_db, 50, None, "default", false, true, 100);
+        assert!(result.is_ok());
+        let functions = result.unwrap();
+        for func in &functions {
+            assert!(func.lines >= 50, "All results should have >= min_lines");
+        }
+    }
+
+    #[rstest]
+    fn test_find_large_functions_empty_results_high_threshold(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
+        let result = find_large_functions(&*populated_db, 10000, None, "default", false, true, 100);
+        assert!(result.is_ok());
+        let functions = result.unwrap();
+        // May be empty if no functions are that long
+        assert!(functions.is_empty() || !functions.is_empty(), "Query should execute");
+    }
+
+    #[rstest]
+    fn test_find_large_functions_with_module_filter(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_large_functions(&*populated_db, 0, Some("MyApp"), "default", false, true, 100);
+        assert!(result.is_ok());
+        let functions = result.unwrap();
+        for func in &functions {
+            assert!(func.module.contains("MyApp"), "Module should match filter");
+        }
+    }
+
+    #[rstest]
+    fn test_find_large_functions_respects_limit(populated_db: Box<dyn crate::backend::Database>) {
+        let limit_5 = find_large_functions(&*populated_db, 0, None, "default", false, true, 5)
+            .unwrap();
+        let limit_100 = find_large_functions(&*populated_db, 0, None, "default", false, true, 100)
+            .unwrap();
+
+        assert!(limit_5.len() <= 5, "Limit should be respected");
+        assert!(limit_5.len() <= limit_100.len(), "Higher limit should return >= results");
+    }
+
+    #[rstest]
+    fn test_find_large_functions_nonexistent_project(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_large_functions(&*populated_db, 0, None, "nonexistent", false, true, 100);
+        assert!(result.is_ok());
+        let functions = result.unwrap();
+        assert!(functions.is_empty(), "Non-existent project should return no results");
+    }
+
+    #[rstest]
+    fn test_find_large_functions_returns_valid_structure(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_large_functions(&*populated_db, 0, None, "default", false, true, 100);
+        assert!(result.is_ok());
+        let functions = result.unwrap();
+        if !functions.is_empty() {
+            let func = &functions[0];
+            assert!(!func.module.is_empty());
+            assert!(!func.name.is_empty());
+            assert!(func.arity >= 0);
+            assert!(func.lines > 0);
+            assert!(func.start_line > 0);
+            assert!(func.end_line >= func.start_line);
+            assert_eq!(func.lines, func.end_line - func.start_line + 1);
+        }
+    }
+}

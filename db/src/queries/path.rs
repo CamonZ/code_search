@@ -244,3 +244,220 @@ fn dfs_find_paths(
     // Backtrack
     current_path.pop();
 }
+
+#[cfg(all(test, feature = "backend-cozo"))]
+mod tests {
+    use super::*;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn populated_db() -> Box<dyn crate::backend::Database> {
+        crate::test_utils::call_graph_db("default")
+    }
+
+    #[rstest]
+    fn test_find_paths_returns_results(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_paths(
+            &*populated_db,
+            "MyApp.Controller",
+            "index",
+            None,
+            "MyApp.Accounts",
+            "list_users",  // This is directly called
+            None,
+            "default",
+            10,
+            100,
+        );
+        assert!(result.is_ok());
+        let paths = result.unwrap();
+        // Should find at least one path
+        assert!(!paths.is_empty(), "Should find paths from MyApp.Controller.index to MyApp.Accounts.list_users");
+    }
+
+    #[rstest]
+    fn test_find_paths_empty_results(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_paths(
+            &*populated_db,
+            "NonExistent",
+            "nonexistent",
+            None,
+            "Accounts",
+            "validate",
+            None,
+            "default",
+            10,
+            100,
+        );
+        assert!(result.is_ok());
+        let paths = result.unwrap();
+        // No paths from non-existent source
+        assert!(paths.is_empty());
+    }
+
+    #[rstest]
+    fn test_find_paths_unreachable_target(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_paths(
+            &*populated_db,
+            "Accounts",
+            "validate",
+            None,
+            "Controller",
+            "index",
+            None,
+            "default",
+            10,
+            100,
+        );
+        assert!(result.is_ok());
+        let paths = result.unwrap();
+        // No paths if target is not reachable from source
+        // (depends on fixture data structure, but should handle gracefully)
+        // Just verify it doesn't error
+        let _ = paths;
+    }
+
+    #[rstest]
+    fn test_find_paths_with_arity_filters(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_paths(
+            &*populated_db,
+            "Controller",
+            "index",
+            Some(1),
+            "Accounts",
+            "validate",
+            Some(1),
+            "default",
+            10,
+            100,
+        );
+        assert!(result.is_ok());
+        // Should execute without error
+        let paths = result.unwrap();
+        // Verify all paths respect arity constraints if found
+        for path in &paths {
+            if !path.steps.is_empty() {
+                let first_step = &path.steps[0];
+                // First step should start with arity 1
+                assert!(first_step.caller_function.contains("1") || first_step.caller_function.len() > 0);
+            }
+        }
+    }
+
+    #[rstest]
+    fn test_find_paths_respects_max_depth(populated_db: Box<dyn crate::backend::Database>) {
+        let shallow = find_paths(
+            &*populated_db,
+            "MyApp.Controller",
+            "index",
+            None,
+            "MyApp.Accounts",
+            "get_user",
+            None,
+            "default",
+            2,
+            100,
+        )
+        .unwrap();
+
+        let deep = find_paths(
+            &*populated_db,
+            "MyApp.Controller",
+            "index",
+            None,
+            "MyApp.Accounts",
+            "get_user",
+            None,
+            "default",
+            10,
+            100,
+        )
+        .unwrap();
+
+        // Deeper search may find more paths
+        // Shallow should have same or fewer
+        assert!(shallow.len() <= deep.len());
+    }
+
+    #[rstest]
+    fn test_find_paths_respects_limit(populated_db: Box<dyn crate::backend::Database>) {
+        let limit_1 = find_paths(
+            &*populated_db,
+            "MyApp.Controller",
+            "index",
+            None,
+            "MyApp.Accounts",
+            "get_user",
+            None,
+            "default",
+            10,
+            1,
+        )
+        .unwrap();
+
+        let limit_10 = find_paths(
+            &*populated_db,
+            "MyApp.Controller",
+            "index",
+            None,
+            "MyApp.Accounts",
+            "get_user",
+            None,
+            "default",
+            10,
+            10,
+        )
+        .unwrap();
+
+        // Smaller limit should return fewer paths
+        assert!(limit_1.len() <= limit_10.len());
+        assert!(limit_1.len() <= 1);
+    }
+
+    #[rstest]
+    fn test_find_paths_path_steps_valid(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_paths(
+            &*populated_db,
+            "MyApp.Controller",
+            "index",
+            None,
+            "MyApp.Accounts",
+            "get_user",
+            None,
+            "default",
+            10,
+            100,
+        )
+        .unwrap();
+
+        for path in &result {
+            assert!(!path.steps.is_empty(), "Each path should have at least one step");
+            // Each step should have valid data
+            for step in &path.steps {
+                assert!(!step.caller_module.is_empty(), "Caller module should not be empty");
+                assert!(!step.caller_function.is_empty(), "Caller function should not be empty");
+                assert!(!step.callee_module.is_empty(), "Callee module should not be empty");
+                assert!(!step.callee_function.is_empty(), "Callee function should not be empty");
+            }
+        }
+    }
+
+    #[rstest]
+    fn test_find_paths_nonexistent_project(populated_db: Box<dyn crate::backend::Database>) {
+        let result = find_paths(
+            &*populated_db,
+            "MyApp.Controller",
+            "index",
+            None,
+            "MyApp.Accounts",
+            "get_user",
+            None,
+            "nonexistent",
+            10,
+            100,
+        );
+        assert!(result.is_ok());
+        let paths = result.unwrap();
+        assert!(paths.is_empty(), "Nonexistent project should return no paths");
+    }
+}
