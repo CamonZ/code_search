@@ -821,6 +821,51 @@ pub fn surreal_structs_db() -> Box<dyn Database> {
     db
 }
 
+/// Create a test database with type definitions for comprehensive type query testing.
+///
+/// Sets up an in-memory SurrealDB instance with:
+/// - Two modules: module_a, module_b
+/// - Three types:
+///   - User struct in module_a
+///   - Post struct in module_b
+///   - Comment struct in module_b
+///
+/// This fixture is suitable for testing:
+/// - Type query filtering by module pattern
+/// - Type query filtering by name
+/// - Type query filtering by kind
+/// - Combined filtering (module + name + kind)
+/// - Regex pattern matching on modules and names
+/// - Sorting by module and name
+/// - Limit respecting behavior
+///
+/// # Returns
+/// A boxed trait object containing the configured database instance
+///
+/// # Panics
+/// Panics if database creation or schema setup fails
+#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+pub fn surreal_type_db() -> Box<dyn Database> {
+    let db = open_mem_db().expect("Failed to create in-memory database");
+    schema::create_schema(&*db).expect("Failed to create schema");
+
+    // Create modules
+    insert_module(&*db, "module_a").expect("Failed to insert module_a");
+    insert_module(&*db, "module_b").expect("Failed to insert module_b");
+
+    // Insert types for module_a
+    insert_type(&*db, "module_a", "User", "struct", "user definition")
+        .expect("Failed to insert User type");
+
+    // Insert types for module_b
+    insert_type(&*db, "module_b", "Post", "struct", "post definition")
+        .expect("Failed to insert Post type");
+    insert_type(&*db, "module_b", "Comment", "struct", "comment definition")
+        .expect("Failed to insert Comment type");
+
+    db
+}
+
 // =============================================================================
 // Tests for SurrealDB Fixture Functions
 // =============================================================================
