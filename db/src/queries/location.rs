@@ -149,7 +149,7 @@ pub fn find_locations(
 
     // Build the WHERE clause based on regex vs exact match
     // SurrealDB v3.0 uses type casting for regex: <regex>$pattern
-    let module_clause = if let Some(mod_pat) = module_pattern {
+    let module_clause = if module_pattern.is_some() {
         if use_regex {
             "module_name = <regex>$module_pattern"
         } else {

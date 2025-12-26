@@ -397,6 +397,7 @@ fn insert_call(
 /// * `Ok(())` if insertion succeeded
 /// * `Err` if the relationship cannot be created or database operation fails
 #[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[allow(dead_code)] // Helper for future tests
 fn insert_defines(
     db: &dyn Database,
     module_name: &str,
@@ -429,6 +430,7 @@ fn insert_defines(
 /// * `Ok(())` if insertion succeeded
 /// * `Err` if the relationship cannot be created or database operation fails
 #[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[allow(dead_code)] // Helper for future tests
 fn insert_has_clause(
     db: &dyn Database,
     function_id: &str,
