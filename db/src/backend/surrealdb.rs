@@ -246,6 +246,33 @@ impl Row for SurrealRow {
     }
 }
 
+/// Implements the Value trait for SurrealDB's sql::Array type.
+impl Value for surrealdb::sql::Array {
+    fn as_str(&self) -> Option<&str> {
+        None
+    }
+
+    fn as_i64(&self) -> Option<i64> {
+        None
+    }
+
+    fn as_f64(&self) -> Option<f64> {
+        None
+    }
+
+    fn as_bool(&self) -> Option<bool> {
+        None
+    }
+
+    fn as_array(&self) -> Option<Vec<&dyn Value>> {
+        Some(self.0.iter().map(|v| v as &dyn Value).collect())
+    }
+
+    fn as_thing_id(&self) -> Option<&dyn Value> {
+        None
+    }
+}
+
 /// Implements the Value trait for SurrealDB's sql::Value type.
 impl Value for surrealdb::sql::Value {
     fn as_str(&self) -> Option<&str> {
@@ -272,6 +299,25 @@ impl Value for surrealdb::sql::Value {
     fn as_bool(&self) -> Option<bool> {
         match self {
             surrealdb::sql::Value::Bool(b) => Some(*b),
+            _ => None,
+        }
+    }
+
+    fn as_array(&self) -> Option<Vec<&dyn Value>> {
+        match self {
+            surrealdb::sql::Value::Array(arr) => {
+                Some(arr.iter().map(|v| v as &dyn Value).collect())
+            }
+            _ => None,
+        }
+    }
+
+    fn as_thing_id(&self) -> Option<&dyn Value> {
+        match self {
+            surrealdb::sql::Value::Thing(thing) => match &thing.id {
+                surrealdb::sql::Id::Array(arr) => Some(arr),
+                _ => None,
+            },
             _ => None,
         }
     }

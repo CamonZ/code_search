@@ -169,6 +169,14 @@ impl Value for DataValue {
             _ => None,
         }
     }
+
+    fn as_array(&self) -> Option<Vec<&dyn Value>> {
+        None // CozoDB doesn't need array extraction for graph traversal
+    }
+
+    fn as_thing_id(&self) -> Option<&dyn Value> {
+        None // CozoDB doesn't have Thing type
+    }
 }
 
 #[cfg(test)]

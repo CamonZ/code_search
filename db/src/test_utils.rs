@@ -9,9 +9,9 @@ use crate::backend::Database;
 #[cfg(feature = "test-utils")]
 use tempfile::NamedTempFile;
 
+use crate::db::open_mem_db;
 #[cfg(any(test, feature = "test-utils"))]
 use crate::queries::import::import_json_str;
-use crate::db::open_mem_db;
 
 #[cfg(all(any(test, feature = "test-utils"), feature = "backend-cozo"))]
 use crate::db::get_cozo_instance;
@@ -588,16 +588,44 @@ pub fn surreal_call_graph_db_complex() -> Box<dyn Database> {
         .expect("Failed to insert get_user/1");
     insert_function(&*db, "MyApp.Accounts", "get_user", 2, None, Some("public"))
         .expect("Failed to insert get_user/2");
-    insert_function(&*db, "MyApp.Accounts", "list_users", 0, None, Some("public"))
-        .expect("Failed to insert list_users/0");
-    insert_function(&*db, "MyApp.Accounts", "validate_email", 1, None, Some("private"))
-        .expect("Failed to insert validate_email/1");
+    insert_function(
+        &*db,
+        "MyApp.Accounts",
+        "list_users",
+        0,
+        None,
+        Some("public"),
+    )
+    .expect("Failed to insert list_users/0");
+    insert_function(
+        &*db,
+        "MyApp.Accounts",
+        "validate_email",
+        1,
+        None,
+        Some("private"),
+    )
+    .expect("Failed to insert validate_email/1");
 
     // Service functions
-    insert_function(&*db, "MyApp.Service", "process_request", 2, None, Some("public"))
-        .expect("Failed to insert process_request/2");
-    insert_function(&*db, "MyApp.Service", "transform_data", 1, None, Some("private"))
-        .expect("Failed to insert transform_data/1");
+    insert_function(
+        &*db,
+        "MyApp.Service",
+        "process_request",
+        2,
+        None,
+        Some("public"),
+    )
+    .expect("Failed to insert process_request/2");
+    insert_function(
+        &*db,
+        "MyApp.Service",
+        "transform_data",
+        1,
+        None,
+        Some("private"),
+    )
+    .expect("Failed to insert transform_data/1");
 
     // Repo functions (data access)
     insert_function(&*db, "MyApp.Repo", "get", 2, None, Some("public"))
@@ -610,10 +638,24 @@ pub fn surreal_call_graph_db_complex() -> Box<dyn Database> {
         .expect("Failed to insert query/2");
 
     // Notifier functions
-    insert_function(&*db, "MyApp.Notifier", "send_email", 2, None, Some("public"))
-        .expect("Failed to insert send_email/2");
-    insert_function(&*db, "MyApp.Notifier", "format_message", 1, None, Some("private"))
-        .expect("Failed to insert format_message/1");
+    insert_function(
+        &*db,
+        "MyApp.Notifier",
+        "send_email",
+        2,
+        None,
+        Some("public"),
+    )
+    .expect("Failed to insert send_email/2");
+    insert_function(
+        &*db,
+        "MyApp.Notifier",
+        "format_message",
+        1,
+        None,
+        Some("private"),
+    )
+    .expect("Failed to insert format_message/1");
 
     // Create clauses with realistic line numbers
     // Controller.index/2 - calls Accounts.list_users/0
@@ -683,38 +725,148 @@ pub fn surreal_call_graph_db_complex() -> Box<dyn Database> {
     // Create call relationships (11 calls total, matching call_graph.json structure)
 
     // Controller -> Accounts
-    insert_call(&*db, "MyApp.Controller", "index", 2, "MyApp.Accounts", "list_users", 0, "local", 7)
-        .expect("Failed to insert call: Controller.index -> Accounts.list_users");
-    insert_call(&*db, "MyApp.Controller", "show", 2, "MyApp.Accounts", "get_user", 2, "local", 15)
-        .expect("Failed to insert call: Controller.show -> Accounts.get_user/2");
-    insert_call(&*db, "MyApp.Controller", "create", 2, "MyApp.Service", "process_request", 2, "local", 25)
-        .expect("Failed to insert call: Controller.create -> Service.process_request");
+    insert_call(
+        &*db,
+        "MyApp.Controller",
+        "index",
+        2,
+        "MyApp.Accounts",
+        "list_users",
+        0,
+        "local",
+        7,
+    )
+    .expect("Failed to insert call: Controller.index -> Accounts.list_users");
+    insert_call(
+        &*db,
+        "MyApp.Controller",
+        "show",
+        2,
+        "MyApp.Accounts",
+        "get_user",
+        2,
+        "local",
+        15,
+    )
+    .expect("Failed to insert call: Controller.show -> Accounts.get_user/2");
+    insert_call(
+        &*db,
+        "MyApp.Controller",
+        "create",
+        2,
+        "MyApp.Service",
+        "process_request",
+        2,
+        "local",
+        25,
+    )
+    .expect("Failed to insert call: Controller.create -> Service.process_request");
 
     // Accounts -> Repo
-    insert_call(&*db, "MyApp.Accounts", "get_user", 1, "MyApp.Repo", "get", 2, "local", 12)
-        .expect("Failed to insert call: Accounts.get_user/1 -> Repo.get");
-    insert_call(&*db, "MyApp.Accounts", "get_user", 2, "MyApp.Accounts", "get_user", 1, "local", 17)
-        .expect("Failed to insert call: Accounts.get_user/2 -> Accounts.get_user/1");
-    insert_call(&*db, "MyApp.Accounts", "list_users", 0, "MyApp.Repo", "all", 1, "local", 24)
-        .expect("Failed to insert call: Accounts.list_users -> Repo.all");
+    insert_call(
+        &*db,
+        "MyApp.Accounts",
+        "get_user",
+        1,
+        "MyApp.Repo",
+        "get",
+        2,
+        "local",
+        12,
+    )
+    .expect("Failed to insert call: Accounts.get_user/1 -> Repo.get");
+    insert_call(
+        &*db,
+        "MyApp.Accounts",
+        "get_user",
+        2,
+        "MyApp.Accounts",
+        "get_user",
+        1,
+        "local",
+        17,
+    )
+    .expect("Failed to insert call: Accounts.get_user/2 -> Accounts.get_user/1");
+    insert_call(
+        &*db,
+        "MyApp.Accounts",
+        "list_users",
+        0,
+        "MyApp.Repo",
+        "all",
+        1,
+        "local",
+        24,
+    )
+    .expect("Failed to insert call: Accounts.list_users -> Repo.all");
 
     // Service -> Accounts
-    insert_call(&*db, "MyApp.Service", "process_request", 2, "MyApp.Accounts", "get_user", 1, "local", 12)
-        .expect("Failed to insert call: Service.process_request -> Accounts.get_user/1");
+    insert_call(
+        &*db,
+        "MyApp.Service",
+        "process_request",
+        2,
+        "MyApp.Accounts",
+        "get_user",
+        1,
+        "local",
+        12,
+    )
+    .expect("Failed to insert call: Service.process_request -> Accounts.get_user/1");
 
     // Service -> Notifier
-    insert_call(&*db, "MyApp.Service", "process_request", 2, "MyApp.Notifier", "send_email", 2, "remote", 16)
-        .expect("Failed to insert call: Service.process_request -> Notifier.send_email");
+    insert_call(
+        &*db,
+        "MyApp.Service",
+        "process_request",
+        2,
+        "MyApp.Notifier",
+        "send_email",
+        2,
+        "remote",
+        16,
+    )
+    .expect("Failed to insert call: Service.process_request -> Notifier.send_email");
 
     // Repo internal
-    insert_call(&*db, "MyApp.Repo", "get", 2, "MyApp.Repo", "query", 2, "local", 10)
-        .expect("Failed to insert call: Repo.get -> Repo.query");
-    insert_call(&*db, "MyApp.Repo", "all", 1, "MyApp.Repo", "query", 2, "local", 15)
-        .expect("Failed to insert call: Repo.all -> Repo.query");
+    insert_call(
+        &*db,
+        "MyApp.Repo",
+        "get",
+        2,
+        "MyApp.Repo",
+        "query",
+        2,
+        "local",
+        10,
+    )
+    .expect("Failed to insert call: Repo.get -> Repo.query");
+    insert_call(
+        &*db,
+        "MyApp.Repo",
+        "all",
+        1,
+        "MyApp.Repo",
+        "query",
+        2,
+        "local",
+        15,
+    )
+    .expect("Failed to insert call: Repo.all -> Repo.query");
 
     // Notifier internal
-    insert_call(&*db, "MyApp.Notifier", "send_email", 2, "MyApp.Notifier", "format_message", 1, "local", 6)
-        .expect("Failed to insert call: Notifier.send_email -> Notifier.format_message");
+    insert_call(
+        &*db,
+        "MyApp.Notifier",
+        "send_email",
+        2,
+        "MyApp.Notifier",
+        "format_message",
+        1,
+        "local",
+        6,
+    )
+    .expect("Failed to insert call: Notifier.send_email -> Notifier.format_message");
 
     db
 }
@@ -795,23 +947,11 @@ pub fn surreal_structs_db() -> Box<dyn Database> {
     insert_type(&*db, "structs_module", "person", "struct", "{name, age}")
         .expect("Failed to insert person type");
 
-    insert_field(
-        &*db,
-        "structs_module",
-        "person",
-        "name",
-        "string()",
-    )
-    .expect("Failed to insert name field");
+    insert_field(&*db, "structs_module", "person", "name", "string()")
+        .expect("Failed to insert name field");
 
-    insert_field(
-        &*db,
-        "structs_module",
-        "person",
-        "age",
-        "integer()",
-    )
-    .expect("Failed to insert age field");
+    insert_field(&*db, "structs_module", "person", "age", "integer()")
+        .expect("Failed to insert age field");
 
     insert_has_field(&*db, "structs_module", "person", "name")
         .expect("Failed to create has_field relation for name");
@@ -879,22 +1019,26 @@ mod surrealdb_fixture_tests {
         let db = open_mem_db().expect("Failed to create DB");
 
         // Define a simple test table
-        db.execute_query_no_params("DEFINE TABLE test SCHEMAFULL; DEFINE FIELD name ON test TYPE string;")
-            .expect("Failed to define table");
+        db.execute_query_no_params(
+            "DEFINE TABLE test SCHEMAFULL; DEFINE FIELD name ON test TYPE string;",
+        )
+        .expect("Failed to define table");
 
         // Create a test record
         db.execute_query_no_params("CREATE test:one SET name = 'test1';")
             .expect("Failed to create record");
 
         // Verify we can select it back
-        let result = db.execute_query_no_params("SELECT * FROM test;")
+        let result = db
+            .execute_query_no_params("SELECT * FROM test;")
             .expect("Failed to query test table");
 
         let rows = result.rows();
         assert_eq!(rows.len(), 1, "Should have exactly one record");
 
         // Verify selecting by specific ID also works
-        let result2 = db.execute_query_no_params("SELECT * FROM test:one;")
+        let result2 = db
+            .execute_query_no_params("SELECT * FROM test:one;")
             .expect("Failed to query specific record");
         assert_eq!(result2.rows().len(), 1, "Should find record by ID");
     }
@@ -905,7 +1049,11 @@ mod surrealdb_fixture_tests {
 
         // Verify database is accessible by running a simple query
         let result = db.execute_query_no_params("SELECT * FROM `function` LIMIT 1");
-        assert!(result.is_ok(), "Should be able to query the database: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Should be able to query the database: {:?}",
+            result.err()
+        );
     }
 
     #[test]
@@ -919,7 +1067,11 @@ mod surrealdb_fixture_tests {
 
         let rows = result.rows();
         // Should have at least 2 modules (module_a, module_b)
-        assert!(rows.len() >= 2, "Should have at least 2 modules, got {}", rows.len());
+        assert!(
+            rows.len() >= 2,
+            "Should have at least 2 modules, got {}",
+            rows.len()
+        );
     }
 
     #[test]
@@ -932,7 +1084,11 @@ mod surrealdb_fixture_tests {
             .expect("Should be able to query functions");
 
         let rows = result.rows();
-        assert!(rows.len() >= 3, "Should have at least 3 functions, got {}", rows.len());
+        assert!(
+            rows.len() >= 3,
+            "Should have at least 3 functions, got {}",
+            rows.len()
+        );
     }
 
     #[test]
@@ -945,7 +1101,11 @@ mod surrealdb_fixture_tests {
             .expect("Should be able to query calls");
 
         let rows = result.rows();
-        assert!(rows.len() >= 2, "Should have at least 2 calls, got {}", rows.len());
+        assert!(
+            rows.len() >= 2,
+            "Should have at least 2 calls, got {}",
+            rows.len()
+        );
     }
 
     #[test]
@@ -1011,7 +1171,11 @@ mod surrealdb_fixture_tests {
 
         // Verify database is accessible
         let result = db.execute_query_no_params("SELECT * FROM `module` LIMIT 1");
-        assert!(result.is_ok(), "Should be able to query the database: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Should be able to query the database: {:?}",
+            result.err()
+        );
     }
 
     #[test]
@@ -1024,7 +1188,12 @@ mod surrealdb_fixture_tests {
             .expect("Should be able to query modules");
 
         let rows = result.rows();
-        assert_eq!(rows.len(), 5, "Should have exactly 5 modules (Controller, Accounts, Service, Repo, Notifier), got {}", rows.len());
+        assert_eq!(
+            rows.len(),
+            5,
+            "Should have exactly 5 modules (Controller, Accounts, Service, Repo, Notifier), got {}",
+            rows.len()
+        );
     }
 
     #[test]
@@ -1037,7 +1206,12 @@ mod surrealdb_fixture_tests {
             .expect("Should be able to query functions");
 
         let rows = result.rows();
-        assert_eq!(rows.len(), 15, "Should have exactly 15 functions, got {}", rows.len());
+        assert_eq!(
+            rows.len(),
+            15,
+            "Should have exactly 15 functions, got {}",
+            rows.len()
+        );
     }
 
     #[test]
@@ -1050,7 +1224,12 @@ mod surrealdb_fixture_tests {
             .expect("Should be able to query calls");
 
         let rows = result.rows();
-        assert_eq!(rows.len(), 11, "Should have exactly 11 call relationships, got {}", rows.len());
+        assert_eq!(
+            rows.len(),
+            11,
+            "Should have exactly 11 call relationships, got {}",
+            rows.len()
+        );
     }
 
     #[test]
@@ -1063,7 +1242,12 @@ mod surrealdb_fixture_tests {
             .expect("Should be able to query get_user functions");
 
         let rows = result.rows();
-        assert_eq!(rows.len(), 2, "Should have get_user with both arity 1 and 2, got {}", rows.len());
+        assert_eq!(
+            rows.len(),
+            2,
+            "Should have get_user with both arity 1 and 2, got {}",
+            rows.len()
+        );
     }
 
     #[test]
@@ -1073,11 +1257,14 @@ mod surrealdb_fixture_tests {
         // Verify Controller.show calls Accounts.get_user/2
         let result = db
             .execute_query_no_params(
-                "SELECT * FROM calls WHERE in.name = 'show' AND out.name = 'get_user'"
+                "SELECT * FROM calls WHERE in.name = 'show' AND out.name = 'get_user'",
             )
             .expect("Should be able to query specific call");
 
         let rows = result.rows();
-        assert!(!rows.is_empty(), "Should have Controller.show -> Accounts.get_user/2 call");
+        assert!(
+            !rows.is_empty(),
+            "Should have Controller.show -> Accounts.get_user/2 call"
+        );
     }
 }

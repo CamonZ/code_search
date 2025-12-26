@@ -74,7 +74,7 @@ impl QueryParams {
 ///
 /// Implementations should provide type conversion methods that safely
 /// extract values from the underlying database representation.
-pub trait Value: Send + Sync {
+pub trait Value: Send + Sync + std::fmt::Debug {
     /// Attempts to extract the value as a string reference.
     fn as_str(&self) -> Option<&str>;
 
@@ -86,6 +86,13 @@ pub trait Value: Send + Sync {
 
     /// Attempts to extract the value as a boolean.
     fn as_bool(&self) -> Option<bool>;
+
+    /// Attempts to extract the value as an array of values.
+    fn as_array(&self) -> Option<Vec<&dyn Value>>;
+
+    /// Attempts to extract the id from a SurrealDB Thing (record reference).
+    /// Returns the id as a Value which can be further extracted (e.g., as an array).
+    fn as_thing_id(&self) -> Option<&dyn Value>;
 }
 
 /// Trait for accessing column values in a database row.

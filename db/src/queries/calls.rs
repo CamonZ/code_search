@@ -10,9 +10,9 @@ use std::rc::Rc;
 use thiserror::Error;
 
 use crate::backend::{Database, QueryParams};
-use crate::types::{Call, FunctionRef};
-use crate::query_builders::validate_regex_patterns;
 use crate::db::{extract_i64, extract_string, extract_string_or};
+use crate::query_builders::validate_regex_patterns;
+use crate::types::{Call, FunctionRef};
 
 #[cfg(feature = "backend-cozo")]
 use crate::db::{extract_call_from_row_trait, run_query, CallRowLayout};
@@ -35,7 +35,27 @@ pub enum CallDirection {
     To,
 }
 
-impl CallDirection {}
+impl CallDirection {
+    #[cfg(feature = "backend-cozo")]
+    fn filter_fields(&self) -> (&'static str, &'static str, &'static str) {
+        match self {
+            CallDirection::From => ("caller_module", "caller_name", "caller_arity"),
+            CallDirection::To => ("callee_module", "callee_function", "callee_arity"),
+        }
+    }
+
+    #[cfg(feature = "backend-cozo")]
+    fn order_clause(&self) -> &'static str {
+        match self {
+            CallDirection::From => {
+                "caller_module, caller_name, caller_arity, call_line, callee_module, callee_function, callee_arity"
+            }
+            CallDirection::To => {
+                "callee_module, callee_function, callee_arity, caller_module, caller_name, caller_arity"
+            }
+        }
+    }
+}
 
 // ==================== CozoDB Implementation ====================
 #[cfg(feature = "backend-cozo")]
@@ -59,13 +79,11 @@ pub fn find_calls(
     let order_clause = direction.order_clause();
 
     // Build conditions using the appropriate field names
-    let module_cond =
-        ConditionBuilder::new(module_field, "module_pattern").build(use_regex);
-    let function_cond =
-        OptionalConditionBuilder::new(function_field, "function_pattern")
-            .with_leading_comma()
-            .with_regex()
-            .build_with_regex(function_pattern.is_some(), use_regex);
+    let module_cond = ConditionBuilder::new(module_field, "module_pattern").build(use_regex);
+    let function_cond = OptionalConditionBuilder::new(function_field, "function_pattern")
+        .with_leading_comma()
+        .with_regex()
+        .build_with_regex(function_pattern.is_some(), use_regex);
     let arity_cond = OptionalConditionBuilder::new(arity_field, "arity")
         .with_leading_comma()
         .build(arity.is_some());
@@ -230,9 +248,11 @@ pub fn find_calls(
         params = params.with_int("arity", a);
     }
 
-    let result = db.execute_query(&query, params).map_err(|e| CallsError::QueryFailed {
-        message: e.to_string(),
-    })?;
+    let result = db
+        .execute_query(&query, params)
+        .map_err(|e| CallsError::QueryFailed {
+            message: e.to_string(),
+        })?;
 
     // Parse results from SurrealDB rows
     // SurrealDB returns columns in alphabetical order:
@@ -263,11 +283,8 @@ pub fn find_calls(
             let _caller_end_line = extract_i64(row.get(10).unwrap(), 0);
             let _file = extract_string_or(row.get(11).unwrap(), "");
 
-            let caller = FunctionRef::new(
-                Rc::from(caller_module),
-                Rc::from(caller_name),
-                caller_arity,
-            );
+            let caller =
+                FunctionRef::new(Rc::from(caller_module), Rc::from(caller_name), caller_arity);
             let callee = FunctionRef::new(
                 Rc::from(callee_module),
                 Rc::from(callee_function),
@@ -333,7 +350,10 @@ mod tests {
         assert!(result.is_ok());
         let calls = result.unwrap();
         // May have some results
-        assert!(calls.is_empty() || !calls.is_empty(), "Query should execute");
+        assert!(
+            calls.is_empty() || !calls.is_empty(),
+            "Query should execute"
+        );
     }
 
     #[rstest]
@@ -350,7 +370,10 @@ mod tests {
         );
         assert!(result.is_ok());
         let calls = result.unwrap();
-        assert!(calls.is_empty(), "Should return empty for non-existent module");
+        assert!(
+            calls.is_empty(),
+            "Should return empty for non-existent module"
+        );
     }
 
     #[rstest]
@@ -399,7 +422,10 @@ mod tests {
         .unwrap();
 
         assert!(limit_5.len() <= 5, "Limit should be respected");
-        assert!(limit_5.len() <= limit_100.len(), "Higher limit should return >= results");
+        assert!(
+            limit_5.len() <= limit_100.len(),
+            "Higher limit should return >= results"
+        );
     }
 
     #[rstest]
@@ -416,14 +442,16 @@ mod tests {
         );
         assert!(result.is_ok());
         let calls = result.unwrap();
-        assert!(calls.is_empty(), "Non-existent project should return no results");
+        assert!(
+            calls.is_empty(),
+            "Non-existent project should return no results"
+        );
     }
 }
 
 #[cfg(all(test, feature = "backend-surrealdb"))]
 mod surrealdb_tests {
     use super::*;
-
 
     #[test]
     fn test_find_calls_from_empty_results() {
@@ -442,7 +470,10 @@ mod surrealdb_tests {
 
         assert!(result.is_ok());
         let calls = result.unwrap();
-        assert!(calls.is_empty(), "Non-existent module should return no calls");
+        assert!(
+            calls.is_empty(),
+            "Non-existent module should return no calls"
+        );
     }
 
     #[test]
@@ -483,7 +514,10 @@ mod surrealdb_tests {
 
         assert!(result.is_ok(), "Query should succeed even with no matches");
         let calls = result.unwrap();
-        assert!(calls.is_empty(), "Should return empty for non-existent module");
+        assert!(
+            calls.is_empty(),
+            "Should return empty for non-existent module"
+        );
     }
 
     #[test]
@@ -516,6 +550,9 @@ mod surrealdb_tests {
 
         // The limit should be respected (though may not have enough data in fixture)
         assert!(limit_1.len() <= 1, "Limit of 1 should be respected");
-        assert!(limit_1.len() <= limit_100.len(), "Higher limit should return >= results");
+        assert!(
+            limit_1.len() <= limit_100.len(),
+            "Higher limit should return >= results"
+        );
     }
 }
