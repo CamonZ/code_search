@@ -45,6 +45,7 @@ const GENERATED_PATTERNS: &[&str] = &[
     "__changeset__",
     "__schema__",
     "__meta__",
+    "__generated__",
 ];
 
 // ==================== CozoDB Implementation ====================
@@ -531,26 +532,32 @@ mod surrealdb_tests {
 
     // The complex fixture contains:
     // - 9 modules: Controller, Accounts, Service, Repo, Notifier, Logger, Events, Cache, Metrics
-    // - 31 functions total
+    // - 37 functions total (31 original + 6 for duplicate testing)
     // - 24 calls (edges) including 3 cycles:
     //   - Cycle A (3 nodes): Service → Logger → Repo → Service
     //   - Cycle B (4 nodes): Controller → Events → Cache → Accounts → Controller
     //   - Cycle C (5 nodes): Notifier → Metrics → Logger → Events → Cache → Notifier
     //
-    // Unused functions (10 total):
-    // 1. MyApp.Accounts.__struct__/0 - def - line 1 (generated)
-    // 2. MyApp.Accounts.validate_email/1 - defp - line 30
-    // 3. MyApp.Cache.fetch/1 - def - line 16
-    // 4. MyApp.Controller.create/2 - def - line 20
-    // 5. MyApp.Controller.index/2 - def - line 5
-    // 6. MyApp.Controller.show/2 - def - line 12
-    // 7. MyApp.Events.subscribe/2 - def - line 18
-    // 8. MyApp.Logger.debug/1 - defp - line 18
-    // 9. MyApp.Metrics.increment/1 - def - line 12
-    // 10. MyApp.Service.transform_data/1 - defp - line 22
+    // Unused functions (16 total - 10 original + 6 new for duplicate testing):
+    // 1. MyApp.Accounts.__generated__/0 - def - line 90 (generated, duplicate)
+    // 2. MyApp.Accounts.__struct__/0 - def - line 1 (generated)
+    // 3. MyApp.Accounts.format_name/1 - def - line 50 (duplicate)
+    // 4. MyApp.Accounts.validate_email/1 - defp - line 30
+    // 5. MyApp.Cache.fetch/1 - def - line 16
+    // 6. MyApp.Controller.__generated__/0 - def - line 100 (generated, duplicate)
+    // 7. MyApp.Controller.create/2 - def - line 20
+    // 8. MyApp.Controller.format_display/1 - def - line 60 (duplicate)
+    // 9. MyApp.Controller.index/2 - def - line 5
+    // 10. MyApp.Controller.show/2 - def - line 12
+    // 11. MyApp.Events.subscribe/2 - def - line 18
+    // 12. MyApp.Logger.debug/1 - defp - line 18
+    // 13. MyApp.Metrics.increment/1 - def - line 12
+    // 14. MyApp.Repo.validate/1 - def - line 80 (duplicate)
+    // 15. MyApp.Service.transform_data/1 - defp - line 22
+    // 16. MyApp.Service.validate/1 - def - line 70 (duplicate)
     //
     // Private unused (3): validate_email, debug, transform_data
-    // Public unused (7): __struct__, fetch, create, index, show, subscribe, increment
+    // Public unused (13): __struct__, __generated__ x2, format_name, format_display, fetch, create, index, show, subscribe, increment, validate x2
     fn get_db() -> Box<dyn crate::backend::Database> {
         crate::test_utils::surreal_call_graph_db_complex()
     }
@@ -558,16 +565,16 @@ mod surrealdb_tests {
     // ===== Basic functionality tests =====
 
     #[test]
-    fn test_find_unused_functions_returns_exactly_10() {
+    fn test_find_unused_functions_returns_exactly_16() {
         let db = get_db();
         let unused = find_unused_functions(&*db, None, "default", false, false, false, false, 100)
             .expect("Query should succeed");
 
-        // Exactly 10 unused functions in fixture (including __struct__)
+        // Exactly 16 unused functions in fixture (10 original + 6 for duplicates)
         assert_eq!(
             unused.len(),
-            10,
-            "Should find exactly 10 unused functions, got {}: {:?}",
+            16,
+            "Should find exactly 16 unused functions, got {}: {:?}",
             unused.len(),
             unused.iter().map(|f| format!("{}.{}/{}", f.module, f.name, f.arity)).collect::<Vec<_>>()
         );
@@ -579,18 +586,24 @@ mod surrealdb_tests {
         let unused = find_unused_functions(&*db, None, "default", false, false, false, false, 100)
             .expect("Query should succeed");
 
-        // Build a set of expected unused function signatures
+        // Build a set of expected unused function signatures (16 total)
         let expected = vec![
+            ("MyApp.Accounts", "__generated__", 0),  // new for duplicates
             ("MyApp.Accounts", "__struct__", 0),
+            ("MyApp.Accounts", "format_name", 1),    // new for duplicates
             ("MyApp.Accounts", "validate_email", 1),
             ("MyApp.Cache", "fetch", 1),
+            ("MyApp.Controller", "__generated__", 0), // new for duplicates
             ("MyApp.Controller", "create", 2),
+            ("MyApp.Controller", "format_display", 1), // new for duplicates
             ("MyApp.Controller", "index", 2),
             ("MyApp.Controller", "show", 2),
             ("MyApp.Events", "subscribe", 2),
             ("MyApp.Logger", "debug", 1),
             ("MyApp.Metrics", "increment", 1),
+            ("MyApp.Repo", "validate", 1),           // new for duplicates
             ("MyApp.Service", "transform_data", 1),
+            ("MyApp.Service", "validate", 1),        // new for duplicates
         ];
 
         for (module, name, arity) in &expected {
@@ -606,20 +619,21 @@ mod surrealdb_tests {
     }
 
     #[test]
-    fn test_find_unused_functions_first_result_is_accounts_struct() {
+    fn test_find_unused_functions_first_result_is_accounts_generated() {
         let db = get_db();
         let unused = find_unused_functions(&*db, None, "default", false, false, false, false, 100)
             .expect("Query should succeed");
 
-        // Ordered by module, name, arity - first should be MyApp.Accounts.__struct__/0
+        // Ordered by module, name, arity - first should be MyApp.Accounts.__generated__/0
+        // (__generated__ comes before __struct__ alphabetically)
         assert!(!unused.is_empty(), "Should have results");
         let first = &unused[0];
         assert_eq!(first.module, "MyApp.Accounts");
-        assert_eq!(first.name, "__struct__");
+        assert_eq!(first.name, "__generated__");
         assert_eq!(first.arity, 0);
         assert_eq!(first.kind, "def");
         assert_eq!(first.file, "lib/my_app/accounts.ex");
-        assert_eq!(first.line, 1);
+        assert_eq!(first.line, 90);
     }
 
     #[test]
@@ -711,16 +725,16 @@ mod surrealdb_tests {
     }
 
     #[test]
-    fn test_find_unused_functions_public_only_returns_exactly_7() {
+    fn test_find_unused_functions_public_only_returns_exactly_13() {
         let db = get_db();
         let unused = find_unused_functions(&*db, None, "default", false, false, true, false, 100)
             .expect("Query should succeed");
 
-        // Exactly 7 unused public functions: __struct__, fetch, create, index, show, subscribe, increment
+        // Exactly 13 unused public functions (16 total - 3 private: validate_email, debug, transform_data)
         assert_eq!(
             unused.len(),
-            7,
-            "Should find exactly 7 unused public functions, got {}: {:?}",
+            13,
+            "Should find exactly 13 unused public functions, got {}: {:?}",
             unused.len(),
             unused.iter().map(|f| format!("{}.{}/{}", f.module, f.name, f.arity)).collect::<Vec<_>>()
         );
@@ -772,11 +786,11 @@ mod surrealdb_tests {
         let public = find_unused_functions(&*db, None, "default", false, false, true, false, 100)
             .expect("Query should succeed");
 
-        // Private (3) + Public (7) = Total (10)
+        // Private (3) + Public (13) = Total (16)
         assert_eq!(
             private.len() + public.len(),
-            10,
-            "Private ({}) + Public ({}) should equal total unused (10)",
+            16,
+            "Private ({}) + Public ({}) should equal total unused (16)",
             private.len(),
             public.len()
         );
@@ -785,16 +799,16 @@ mod surrealdb_tests {
     // ===== Generated function filtering tests =====
 
     #[test]
-    fn test_find_unused_functions_exclude_generated_returns_exactly_9() {
+    fn test_find_unused_functions_exclude_generated_returns_exactly_13() {
         let db = get_db();
         let without_generated = find_unused_functions(&*db, None, "default", false, false, false, true, 100)
             .expect("Query should succeed");
 
-        // 10 total unused - 1 __struct__ = 9
+        // 16 total unused - 3 generated (__struct__, __generated__ x2) = 13
         assert_eq!(
             without_generated.len(),
-            9,
-            "Should find exactly 9 non-generated unused functions, got {}: {:?}",
+            13,
+            "Should find exactly 13 non-generated unused functions, got {}: {:?}",
             without_generated.len(),
             without_generated.iter().map(|f| format!("{}.{}/{}", f.module, f.name, f.arity)).collect::<Vec<_>>()
         );
@@ -808,18 +822,22 @@ mod surrealdb_tests {
         let without_generated = find_unused_functions(&*db, None, "default", false, false, false, true, 100)
             .expect("Query should succeed");
 
-        // With generated should have __struct__, without should not
+        // With generated should have __struct__ and __generated__, without should not
         let has_struct_with = with_generated.iter().any(|f| f.name == "__struct__");
         let has_struct_without = without_generated.iter().any(|f| f.name == "__struct__");
+        let has_generated_with = with_generated.iter().any(|f| f.name == "__generated__");
+        let has_generated_without = without_generated.iter().any(|f| f.name == "__generated__");
 
         assert!(has_struct_with, "__struct__ should be in unfiltered results");
         assert!(!has_struct_without, "__struct__ should NOT be in filtered results");
+        assert!(has_generated_with, "__generated__ should be in unfiltered results");
+        assert!(!has_generated_without, "__generated__ should NOT be in filtered results");
 
-        // Difference should be exactly 1
+        // Difference should be exactly 3 (1 __struct__ + 2 __generated__)
         assert_eq!(
             with_generated.len() - without_generated.len(),
-            1,
-            "Excluding generated should remove exactly 1 function"
+            3,
+            "Excluding generated should remove exactly 3 functions"
         );
     }
 
@@ -855,23 +873,25 @@ mod surrealdb_tests {
         )
         .expect("Query should succeed");
 
-        // Controller has 3 unused functions: index, show, create
+        // Controller has 5 unused functions: __generated__, create, format_display, index, show
         assert_eq!(
             unused.len(),
-            3,
-            "Should find exactly 3 unused Controller functions, got {}: {:?}",
+            5,
+            "Should find exactly 5 unused Controller functions, got {}: {:?}",
             unused.len(),
             unused.iter().map(|f| f.name.as_str()).collect::<Vec<_>>()
         );
 
         let names: std::collections::HashSet<_> = unused.iter().map(|f| f.name.as_str()).collect();
+        assert!(names.contains("__generated__"), "Should contain __generated__");
+        assert!(names.contains("create"), "Should contain create");
+        assert!(names.contains("format_display"), "Should contain format_display");
         assert!(names.contains("index"), "Should contain index");
         assert!(names.contains("show"), "Should contain show");
-        assert!(names.contains("create"), "Should contain create");
     }
 
     #[test]
-    fn test_find_unused_functions_accounts_module_returns_exactly_2() {
+    fn test_find_unused_functions_accounts_module_returns_exactly_4() {
         let db = get_db();
         let unused = find_unused_functions(
             &*db,
@@ -885,22 +905,24 @@ mod surrealdb_tests {
         )
         .expect("Query should succeed");
 
-        // Accounts has 2 unused functions: __struct__, validate_email
+        // Accounts has 4 unused functions: __generated__, __struct__, format_name, validate_email
         assert_eq!(
             unused.len(),
-            2,
-            "Should find exactly 2 unused Accounts functions, got {}: {:?}",
+            4,
+            "Should find exactly 4 unused Accounts functions, got {}: {:?}",
             unused.len(),
             unused.iter().map(|f| f.name.as_str()).collect::<Vec<_>>()
         );
 
         let names: std::collections::HashSet<_> = unused.iter().map(|f| f.name.as_str()).collect();
+        assert!(names.contains("__generated__"), "Should contain __generated__");
         assert!(names.contains("__struct__"), "Should contain __struct__");
+        assert!(names.contains("format_name"), "Should contain format_name");
         assert!(names.contains("validate_email"), "Should contain validate_email");
     }
 
     #[test]
-    fn test_find_unused_functions_repo_module_returns_0() {
+    fn test_find_unused_functions_repo_module_returns_1() {
         let db = get_db();
         let unused = find_unused_functions(
             &*db,
@@ -914,17 +936,19 @@ mod surrealdb_tests {
         )
         .expect("Query should succeed");
 
-        // Repo has 0 unused functions (insert is now called by Logger.log_query in Cycle A)
-        assert!(
-            unused.is_empty(),
-            "Should find no unused Repo functions (insert is now called), got {}: {:?}",
+        // Repo has 1 unused function: validate (added for duplicate testing)
+        assert_eq!(
+            unused.len(),
+            1,
+            "Should find 1 unused Repo function (validate), got {}: {:?}",
             unused.len(),
             unused.iter().map(|f| f.name.as_str()).collect::<Vec<_>>()
         );
+        assert_eq!(unused[0].name, "validate");
     }
 
     #[test]
-    fn test_find_unused_functions_service_module_returns_exactly_1() {
+    fn test_find_unused_functions_service_module_returns_exactly_2() {
         let db = get_db();
         let unused = find_unused_functions(
             &*db,
@@ -938,11 +962,11 @@ mod surrealdb_tests {
         )
         .expect("Query should succeed");
 
-        // Service has 1 unused function: transform_data
-        assert_eq!(unused.len(), 1, "Should find exactly 1 unused Service function");
-        assert_eq!(unused[0].name, "transform_data");
-        assert_eq!(unused[0].arity, 1);
-        assert_eq!(unused[0].kind, "defp");
+        // Service has 2 unused functions: transform_data, validate
+        assert_eq!(unused.len(), 2, "Should find exactly 2 unused Service functions");
+        let names: std::collections::HashSet<_> = unused.iter().map(|f| f.name.as_str()).collect();
+        assert!(names.contains("transform_data"), "Should contain transform_data");
+        assert!(names.contains("validate"), "Should contain validate");
     }
 
     #[test]
@@ -1002,8 +1026,8 @@ mod surrealdb_tests {
         )
         .expect("Query should succeed");
 
-        // Same as exact match - 3 functions
-        assert_eq!(unused.len(), 3, "Regex should match Controller exactly");
+        // Same as exact match - 5 functions
+        assert_eq!(unused.len(), 5, "Regex should match Controller exactly");
         for func in &unused {
             assert_eq!(func.module, "MyApp.Controller");
         }
@@ -1056,12 +1080,12 @@ mod surrealdb_tests {
     }
 
     #[test]
-    fn test_find_unused_functions_limit_100_returns_all_10() {
+    fn test_find_unused_functions_limit_100_returns_all_16() {
         let db = get_db();
         let unused = find_unused_functions(&*db, None, "default", false, false, false, false, 100)
             .expect("Query should succeed");
 
-        assert_eq!(unused.len(), 10, "Limit 100 should return all 10 unused functions");
+        assert_eq!(unused.len(), 16, "Limit 100 should return all 16 unused functions");
     }
 
     // ===== Ordering tests =====
@@ -1080,16 +1104,22 @@ mod surrealdb_tests {
 
         // Expected order (alphabetically by module, then name, then arity):
         let expected = vec![
+            ("MyApp.Accounts", "__generated__", 0),
             ("MyApp.Accounts", "__struct__", 0),
+            ("MyApp.Accounts", "format_name", 1),
             ("MyApp.Accounts", "validate_email", 1),
             ("MyApp.Cache", "fetch", 1),
+            ("MyApp.Controller", "__generated__", 0),
             ("MyApp.Controller", "create", 2),
+            ("MyApp.Controller", "format_display", 1),
             ("MyApp.Controller", "index", 2),
             ("MyApp.Controller", "show", 2),
             ("MyApp.Events", "subscribe", 2),
             ("MyApp.Logger", "debug", 1),
             ("MyApp.Metrics", "increment", 1),
+            ("MyApp.Repo", "validate", 1),
             ("MyApp.Service", "transform_data", 1),
+            ("MyApp.Service", "validate", 1),
         ];
 
         assert_eq!(ordered, expected, "Results should be ordered by module, name, arity");
@@ -1122,22 +1152,26 @@ mod surrealdb_tests {
         let unused = find_unused_functions(&*db, None, "default", false, false, true, true, 100)
             .expect("Query should succeed");
 
-        // Public (7) - 1 __struct__ = 6
+        // Public (13) - 3 generated (__struct__, __generated__ x2) = 10
         assert_eq!(
             unused.len(),
-            6,
-            "Public + exclude_generated should return 6 (7 public - 1 __struct__)"
+            10,
+            "Public + exclude_generated should return 10 (13 public - 3 generated)"
         );
 
-        // Expected: fetch, create, index, show, subscribe, increment
+        // Expected: format_name, fetch, create, format_display, index, show, subscribe, increment, validate x2
         let names: std::collections::HashSet<_> = unused.iter().map(|f| f.name.as_str()).collect();
+        assert!(names.contains("format_name"));
         assert!(names.contains("fetch"));
         assert!(names.contains("index"));
         assert!(names.contains("show"));
         assert!(names.contains("create"));
+        assert!(names.contains("format_display"));
         assert!(names.contains("subscribe"));
         assert!(names.contains("increment"));
+        assert!(names.contains("validate"));
         assert!(!names.contains("__struct__"));
+        assert!(!names.contains("__generated__"));
     }
 
     #[test]
@@ -1177,13 +1211,15 @@ mod surrealdb_tests {
         )
         .expect("Query should succeed");
 
-        // Accounts has 2 unused (__struct__, validate_email), excluding generated = 1
+        // Accounts has 4 unused, excluding 2 generated (__struct__, __generated__) = 2
         assert_eq!(
             unused.len(),
-            1,
-            "Accounts with exclude_generated should return 1 (validate_email)"
+            2,
+            "Accounts with exclude_generated should return 2 (format_name, validate_email)"
         );
-        assert_eq!(unused[0].name, "validate_email");
+        let names: std::collections::HashSet<_> = unused.iter().map(|f| f.name.as_str()).collect();
+        assert!(names.contains("format_name"));
+        assert!(names.contains("validate_email"));
     }
 
     // ===== Edge case tests =====

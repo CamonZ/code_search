@@ -383,11 +383,11 @@ mod surrealdb_tests {
         let metrics = find_complexity_metrics(&*db, 0, 0, None, "default", false, false, 100)
             .expect("Query should succeed");
 
-        // The fixture has 31 functions, each with at least 1 clause
+        // The fixture has 37 functions, each with at least 1 clause
         assert_eq!(
             metrics.len(),
-            31,
-            "Should find exactly 31 functions with complexity metrics"
+            37,
+            "Should find exactly 37 functions with complexity metrics"
         );
     }
 
@@ -433,7 +433,7 @@ mod surrealdb_tests {
         let metrics = find_complexity_metrics(&*db, 0, 0, None, "default", false, false, 100)
             .expect("Query should succeed");
 
-        // Controller has 4 functions: index/2, show/2, create/2, handle_event/1
+        /// Controller has 6 functions: index/2, show/2, create/2, handle_event/1, format_display/1, __generated__/0
         let controller_funcs: Vec<_> = metrics
             .iter()
             .filter(|m| m.module == "MyApp.Controller")
@@ -441,8 +441,8 @@ mod surrealdb_tests {
 
         assert_eq!(
             controller_funcs.len(),
-            4,
-            "Controller should have exactly 4 functions"
+            6,
+            "Controller should have exactly 6 functions"
         );
 
         // Verify each has expected complexity
@@ -573,8 +573,8 @@ mod surrealdb_tests {
 
         assert_eq!(
             metrics.len(),
-            4,
-            "Should find exactly 4 functions in Controller module (index, show, create, handle_event)"
+            6,
+            "Should find exactly 6 functions in Controller module (index, show, create, handle_event, format_display, __generated__)"
         );
 
         for metric in &metrics {
@@ -593,8 +593,8 @@ mod surrealdb_tests {
 
         assert_eq!(
             metrics.len(),
-            6,
-            "Regex should match MyApp.Accounts (6 functions: get_user/1, get_user/2, list_users, validate_email, __struct__, notify_change)"
+            8,
+            "Regex should match MyApp.Accounts (8 functions: get_user/1, get_user/2, list_users, validate_email, __struct__, notify_change, format_name, __generated__)"
         );
 
         for metric in &metrics {
@@ -653,8 +653,8 @@ mod surrealdb_tests {
         assert!(metrics_10.len() <= 10, "Should respect limit of 10");
         assert_eq!(
             metrics_100.len(),
-            31,
-            "Should return all 31 functions with limit 100"
+            37,
+            "Should return all 37 functions with limit 100"
         );
 
         assert!(

@@ -908,23 +908,23 @@ mod surrealdb_tests {
         // Verify exact function counts per module from fixture
         assert_eq!(
             counts.get("MyApp.Controller"),
-            Some(&4),
-            "Controller should have 4 functions (index, show, create, handle_event)"
+            Some(&6),
+            "Controller should have 6 functions (index, show, create, handle_event, format_display, __generated__)"
         );
         assert_eq!(
             counts.get("MyApp.Accounts"),
-            Some(&6),
-            "Accounts should have 6 functions (get_user/1, get_user/2, list_users, validate_email, __struct__, notify_change)"
+            Some(&8),
+            "Accounts should have 8 functions (get_user/1, get_user/2, list_users, validate_email, __struct__, notify_change, format_name, __generated__)"
         );
         assert_eq!(
             counts.get("MyApp.Service"),
-            Some(&3),
-            "Service should have 3 functions (process_request, transform_data, get_context)"
+            Some(&4),
+            "Service should have 4 functions (process_request, transform_data, get_context, validate)"
         );
         assert_eq!(
             counts.get("MyApp.Repo"),
-            Some(&4),
-            "Repo should have 4 functions (get, all, insert, query)"
+            Some(&5),
+            "Repo should have 5 functions (get, all, insert, query, validate)"
         );
         assert_eq!(
             counts.get("MyApp.Notifier"),
@@ -960,7 +960,7 @@ mod surrealdb_tests {
             .expect("Query should succeed");
 
         let total: i64 = counts.values().sum();
-        assert_eq!(total, 31, "Total function count should be 31");
+        assert_eq!(total, 37, "Total function count should be 37");
     }
 
     #[test]
@@ -972,8 +972,8 @@ mod surrealdb_tests {
         assert_eq!(counts.len(), 1, "Should match exactly 1 module");
         assert_eq!(
             counts.get("MyApp.Controller"),
-            Some(&4),
-            "Controller should have 4 functions"
+            Some(&6),
+            "Controller should have 6 functions"
         );
     }
 
@@ -986,8 +986,8 @@ mod surrealdb_tests {
         assert_eq!(counts.len(), 1, "Should match exactly 1 module");
         assert_eq!(
             counts.get("MyApp.Accounts"),
-            Some(&6),
-            "Accounts should have 6 functions"
+            Some(&8),
+            "Accounts should have 8 functions"
         );
     }
 

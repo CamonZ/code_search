@@ -712,8 +712,8 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Should handle large limit");
         let functions = result.unwrap();
 
-        // Fixture has 31 functions, large limit should return all of them
-        assert_eq!(functions.len(), 31, "Should return all 31 functions");
+        // Fixture has 37 functions, large limit should return all of them
+        assert_eq!(functions.len(), 37, "Should return all 37 functions");
     }
 
     #[test]
@@ -771,16 +771,16 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Should match all functions with .*");
         let functions = result.unwrap();
 
-        // Fixture has 31 functions, limit is 20
+        // Fixture has 37 functions, limit is 20
         assert_eq!(functions.len(), 20, "Should return first 20 functions");
-        // First function: MyApp.Accounts.__struct__/0
+        // First function: MyApp.Accounts.__generated__/0 (alphabetically before __struct__)
         assert_eq!(functions[0].module, "MyApp.Accounts");
-        assert_eq!(functions[0].name, "__struct__");
+        assert_eq!(functions[0].name, "__generated__");
         assert_eq!(functions[0].arity, 0);
-        // Second function: MyApp.Accounts.get_user/1
+        // Second function: MyApp.Accounts.__struct__/0
         assert_eq!(functions[1].module, "MyApp.Accounts");
-        assert_eq!(functions[1].name, "get_user");
-        assert_eq!(functions[1].arity, 1);
+        assert_eq!(functions[1].name, "__struct__");
+        assert_eq!(functions[1].arity, 0);
     }
 
     #[test]
@@ -845,21 +845,21 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
 
-        // Fixture has 31 functions sorted by module_name, name, arity
-        assert_eq!(functions.len(), 31);
-        // First 6 are in MyApp.Accounts: __struct__/0, get_user/1, get_user/2, list_users/0, notify_change/1, validate_email/1
+        // Fixture has 37 functions sorted by module_name, name, arity
+        assert_eq!(functions.len(), 37);
+        // First 8 are in MyApp.Accounts: __generated__/0, __struct__/0, format_name/1, get_user/1, get_user/2, list_users/0, notify_change/1, validate_email/1
         assert_eq!(functions[0].module, "MyApp.Accounts");
-        assert_eq!(functions[0].name, "__struct__");
+        assert_eq!(functions[0].name, "__generated__");
         assert_eq!(functions[0].arity, 0);
         assert_eq!(functions[1].module, "MyApp.Accounts");
-        assert_eq!(functions[1].name, "get_user");
-        assert_eq!(functions[1].arity, 1);
+        assert_eq!(functions[1].name, "__struct__");
+        assert_eq!(functions[1].arity, 0);
         assert_eq!(functions[2].module, "MyApp.Accounts");
-        assert_eq!(functions[2].name, "get_user");
-        assert_eq!(functions[2].arity, 2);
+        assert_eq!(functions[2].name, "format_name");
+        assert_eq!(functions[2].arity, 1);
         assert_eq!(functions[3].module, "MyApp.Accounts");
-        assert_eq!(functions[3].name, "list_users");
-        assert_eq!(functions[3].arity, 0);
+        assert_eq!(functions[3].name, "get_user");
+        assert_eq!(functions[3].arity, 1);
     }
 
     #[test]

@@ -346,8 +346,8 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let functions = result.unwrap();
 
-        // Controller has 8 clauses: index/2 (2), show/2 (2), create/2 (3), handle_event/1 (1)
-        assert_eq!(functions.len(), 8, "Should find exactly 8 clauses in MyApp.Controller");
+        // Controller has 10 clauses: index/2 (2), show/2 (2), create/2 (3), handle_event/1 (1), format_display/1 (1), __generated__/0 (1)
+        assert_eq!(functions.len(), 10, "Should find exactly 10 clauses in MyApp.Controller");
 
         // First should be index/2 (line 5)
         assert_eq!(functions[0].module, "MyApp.Controller");
@@ -372,8 +372,8 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
 
-        // Fixture has 38 total clauses across all 9 modules
-        assert_eq!(functions.len(), 38, "Should find all 38 clauses");
+        // Fixture has 44 total clauses across all 9 modules
+        assert_eq!(functions.len(), 44, "Should find all 44 clauses");
     }
 
     #[test]
@@ -432,8 +432,8 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
 
-        // Fixture has 4 clauses for MyApp.Repo: get/2, all/1, insert/1, query/2
-        assert_eq!(functions.len(), 4, "Should find exactly 4 clauses in MyApp.Repo");
+        // Fixture has 5 clauses for MyApp.Repo: get/2, all/1, insert/1, query/2, validate/1
+        assert_eq!(functions.len(), 5, "Should find exactly 5 clauses in MyApp.Repo");
         assert_eq!(functions[0].module, "MyApp.Repo");
         assert_eq!(functions[0].name, "get");
         assert_eq!(functions[0].arity, 2);
@@ -492,14 +492,16 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
 
-        // MyApp.Accounts has 7 clauses sorted by line:
+        // MyApp.Accounts has 9 clauses sorted by line:
         // __struct__/0 at line 1
         // get_user/1 at lines 10, 12
         // get_user/2 at line 17
         // list_users/0 at line 24
         // validate_email/1 at line 30
         // notify_change/1 at line 40
-        assert_eq!(functions.len(), 7, "Should have 7 clauses");
+        // format_name/1 at line 50
+        // __generated__/0 at line 90
+        assert_eq!(functions.len(), 9, "Should have 9 clauses");
 
         // Verify sorted by line
         assert_eq!(functions[0].line, 1);  // __struct__
@@ -509,6 +511,8 @@ mod surrealdb_tests {
         assert_eq!(functions[4].line, 24);
         assert_eq!(functions[5].line, 30);
         assert_eq!(functions[6].line, 40);  // notify_change
+        assert_eq!(functions[7].line, 50);  // format_name
+        assert_eq!(functions[8].line, 90);  // __generated__
     }
 
     #[test]
@@ -521,8 +525,8 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Query should succeed with alternation regex");
         let functions = result.unwrap();
 
-        // Should find 15 clauses (8 from Controller + 7 from Accounts)
-        assert_eq!(functions.len(), 15, "Should find 15 clauses with alternation");
+        // Should find 19 clauses (10 from Controller + 9 from Accounts)
+        assert_eq!(functions.len(), 19, "Should find 19 clauses with alternation");
 
         for func in &functions {
             assert!(
@@ -571,7 +575,7 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
 
-        // Should find exactly 38 clauses (not more)
-        assert_eq!(functions.len(), 38, "Should find exactly 38 clauses, not more");
+        // Should find exactly 44 clauses (not more)
+        assert_eq!(functions.len(), 44, "Should find exactly 44 clauses, not more");
     }
 }

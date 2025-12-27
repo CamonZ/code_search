@@ -240,6 +240,91 @@ fn insert_clause(
     Ok(())
 }
 
+/// Insert a clause node with hash values for duplicate detection tests.
+///
+/// Creates a new clause record representing a function clause (pattern-matched head).
+/// This variant is used for testing duplicate detection queries and includes hash fields.
+/// The clause natural key is (module_name, function_name, arity, line) and must be unique.
+///
+/// # Arguments
+/// * `db` - Reference to the database instance
+/// * `module_name` - The module containing this clause
+/// * `function_name` - The name of the function this clause belongs to
+/// * `arity` - The arity of the function
+/// * `line` - The line number where this clause is defined
+/// * `source_file` - The source file path (relative)
+/// * `kind` - The function kind (def, defp, defmacro, etc.)
+/// * `complexity` - Code complexity metric for this clause
+/// * `depth` - Max nesting depth metric for this clause
+/// * `source_sha` - SHA hash of the source code (for exact duplicates)
+/// * `ast_sha` - SHA hash of the AST (for structural duplicates)
+/// * `generated_by` - Optional: name of tool that generated this (e.g., "phoenix")
+///
+/// # Returns
+/// * `Ok(())` if insertion succeeded
+/// * `Err` if the clause already exists or database operation fails
+#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+fn insert_clause_with_hash(
+    db: &dyn Database,
+    module_name: &str,
+    function_name: &str,
+    arity: i64,
+    line: i64,
+    source_file: &str,
+    kind: &str,
+    complexity: i64,
+    depth: i64,
+    source_sha: &str,
+    ast_sha: &str,
+    generated_by: Option<&str>,
+) -> Result<(), Box<dyn Error>> {
+    // Build the generated_by value based on whether it's provided
+    let generated_by_value = if let Some(generated) = generated_by {
+        format!("\"{}\"", generated)
+    } else {
+        "NONE".to_string()
+    };
+
+    let query = format!(
+        r#"
+        CREATE clauses:[$module_name, $function_name, $arity, $line] SET
+            module_name = $module_name,
+            function_name = $function_name,
+            arity = $arity,
+            line = $line,
+            source_file = $source_file,
+            source_file_absolute = "",
+            kind = $kind,
+            start_line = $line,
+            end_line = $line,
+            pattern = "",
+            guard = NONE,
+            source_sha = $source_sha,
+            ast_sha = $ast_sha,
+            complexity = $complexity,
+            max_nesting_depth = $depth,
+            generated_by = {},
+            macro_source = NONE;
+        "#,
+        generated_by_value
+    );
+
+    let params = QueryParams::new()
+        .with_str("module_name", module_name)
+        .with_str("function_name", function_name)
+        .with_int("arity", arity)
+        .with_int("line", line)
+        .with_str("source_file", source_file)
+        .with_str("kind", kind)
+        .with_int("complexity", complexity)
+        .with_int("depth", depth)
+        .with_str("source_sha", source_sha)
+        .with_str("ast_sha", ast_sha);
+
+    db.execute_query(&query, params)?;
+    Ok(())
+}
+
 /// Insert a type node directly into the database.
 ///
 /// Creates a new type/struct definition record. The type natural key is
@@ -1141,6 +1226,132 @@ pub fn surreal_call_graph_db_complex() -> Box<dyn Database> {
     )
     .expect("Failed to insert call: Cache.store -> Notifier.on_cache_update");
 
+    // ========== Duplicate Detection Test Data ==========
+    // Add duplicate test data as per TICKET_19 requirements
+
+    // AST duplicates: format_name and format_display have same AST structure
+    insert_clause_with_hash(
+        &*db,
+        "MyApp.Accounts",
+        "format_name",
+        1,
+        50,
+        "lib/my_app/accounts.ex",
+        "def",
+        2,
+        1,
+        "",
+        "ast_hash_001",
+        None,
+    )
+    .expect("Failed to insert clause for Accounts.format_name/1");
+    insert_function(&*db, "MyApp.Accounts", "format_name", 1)
+        .expect("Failed to insert format_name/1");
+    insert_has_clause(&*db, "MyApp.Accounts", "format_name", 1, 50)
+        .expect("Failed to insert has_clause for Accounts.format_name/1");
+
+    insert_clause_with_hash(
+        &*db,
+        "MyApp.Controller",
+        "format_display",
+        1,
+        60,
+        "lib/my_app/controller.ex",
+        "def",
+        2,
+        1,
+        "",
+        "ast_hash_001",
+        None,
+    )
+    .expect("Failed to insert clause for Controller.format_display/1");
+    insert_function(&*db, "MyApp.Controller", "format_display", 1)
+        .expect("Failed to insert format_display/1");
+    insert_has_clause(&*db, "MyApp.Controller", "format_display", 1, 60)
+        .expect("Failed to insert has_clause for Controller.format_display/1");
+
+    // Source duplicates: validate functions have exact same source
+    insert_clause_with_hash(
+        &*db,
+        "MyApp.Service",
+        "validate",
+        1,
+        70,
+        "lib/my_app/service.ex",
+        "def",
+        1,
+        1,
+        "src_hash_001",
+        "",
+        None,
+    )
+    .expect("Failed to insert clause for Service.validate/1");
+    insert_function(&*db, "MyApp.Service", "validate", 1)
+        .expect("Failed to insert validate/1");
+    insert_has_clause(&*db, "MyApp.Service", "validate", 1, 70)
+        .expect("Failed to insert has_clause for Service.validate/1");
+
+    insert_clause_with_hash(
+        &*db,
+        "MyApp.Repo",
+        "validate",
+        1,
+        80,
+        "lib/my_app/repo.ex",
+        "def",
+        1,
+        1,
+        "src_hash_001",
+        "",
+        None,
+    )
+    .expect("Failed to insert clause for Repo.validate/1");
+    insert_function(&*db, "MyApp.Repo", "validate", 1)
+        .expect("Failed to insert validate/1");
+    insert_has_clause(&*db, "MyApp.Repo", "validate", 1, 80)
+        .expect("Failed to insert has_clause for Repo.validate/1");
+
+    // Generated duplicates: same AST hash but marked as generated
+    insert_clause_with_hash(
+        &*db,
+        "MyApp.Accounts",
+        "__generated__",
+        0,
+        90,
+        "lib/my_app/accounts.ex",
+        "def",
+        1,
+        1,
+        "",
+        "ast_hash_002",
+        Some("phoenix"),
+    )
+    .expect("Failed to insert clause for Accounts.__generated__/0");
+    insert_function(&*db, "MyApp.Accounts", "__generated__", 0)
+        .expect("Failed to insert __generated__/0");
+    insert_has_clause(&*db, "MyApp.Accounts", "__generated__", 0, 90)
+        .expect("Failed to insert has_clause for Accounts.__generated__/0");
+
+    insert_clause_with_hash(
+        &*db,
+        "MyApp.Controller",
+        "__generated__",
+        0,
+        100,
+        "lib/my_app/controller.ex",
+        "def",
+        1,
+        1,
+        "",
+        "ast_hash_002",
+        Some("phoenix"),
+    )
+    .expect("Failed to insert clause for Controller.__generated__/0");
+    insert_function(&*db, "MyApp.Controller", "__generated__", 0)
+        .expect("Failed to insert __generated__/0");
+    insert_has_clause(&*db, "MyApp.Controller", "__generated__", 0, 100)
+        .expect("Failed to insert has_clause for Controller.__generated__/0");
+
     db
 }
 
@@ -1479,12 +1690,13 @@ mod surrealdb_fixture_tests {
     }
 
     #[test]
-    fn test_surreal_call_graph_db_complex_contains_thirtyone_functions() {
+    fn test_surreal_call_graph_db_complex_contains_thirtyseven_functions() {
         let db = surreal_call_graph_db_complex();
 
-        // Query to verify we have 31 functions:
+        // Query to verify we have 37 functions:
         // - Original 16 (15 regular + 1 __struct__)
         // - 15 new for cycle testing
+        // - 6 new for duplicate testing
         let result = db
             .execute_query_no_params("SELECT * FROM functions")
             .expect("Should be able to query functions");
@@ -1492,8 +1704,8 @@ mod surrealdb_fixture_tests {
         let rows = result.rows();
         assert_eq!(
             rows.len(),
-            31,
-            "Should have exactly 31 functions (16 original + 15 for cycles), got {}",
+            37,
+            "Should have exactly 37 functions (16 original + 15 for cycles + 6 for duplicates), got {}",
             rows.len()
         );
     }
