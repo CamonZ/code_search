@@ -870,6 +870,26 @@ pub fn surreal_call_graph_db_complex() -> Box<dyn Database> {
     )
     .expect("Failed to insert call: Notifier.send_email -> Notifier.format_message");
 
+    // Add alternate (shorter) path: Controller.create -> Notifier.send_email directly
+    // This creates two paths to Notifier.send_email from Controller.create:
+    // - Short path (1 hop): Controller.create/2 -> Notifier.send_email/2
+    // - Long path (2 hops): Controller.create/2 -> Service.process_request/2 -> Notifier.send_email/2
+    // Used to test that shortest path algorithm returns the shorter path
+    insert_clause(&*db, "MyApp.Controller", "create", 2, 28, 1, 1)
+        .expect("Failed to insert clause for Controller.create/2 at line 28");
+    insert_call(
+        &*db,
+        "MyApp.Controller",
+        "create",
+        2,
+        "MyApp.Notifier",
+        "send_email",
+        2,
+        "remote",
+        28,
+    )
+    .expect("Failed to insert call: Controller.create -> Notifier.send_email (direct)");
+
     db
 }
 
@@ -1217,10 +1237,10 @@ mod surrealdb_fixture_tests {
     }
 
     #[test]
-    fn test_surreal_call_graph_db_complex_contains_eleven_calls() {
+    fn test_surreal_call_graph_db_complex_contains_twelve_calls() {
         let db = surreal_call_graph_db_complex();
 
-        // Query to verify we have 11 call relationships
+        // Query to verify we have 12 call relationships (11 original + 1 direct path for shortest path testing)
         let result = db
             .execute_query_no_params("SELECT * FROM calls")
             .expect("Should be able to query calls");
@@ -1228,8 +1248,8 @@ mod surrealdb_fixture_tests {
         let rows = result.rows();
         assert_eq!(
             rows.len(),
-            11,
-            "Should have exactly 11 call relationships, got {}",
+            12,
+            "Should have exactly 12 call relationships, got {}",
             rows.len()
         );
     }

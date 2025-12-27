@@ -1048,12 +1048,12 @@ mod surrealdb_tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Trace from create/2 with depth 5
-        // Expected call tree:
-        //   Depth 1: create/2 -> process_request/2
-        //   Depth 2: process_request/2 -> get_user/1, process_request/2 -> send_email/2
-        //   Depth 3: get_user/1 -> get/2, send_email/2 -> format_message/1
+        // Expected call tree (with direct create->send_email path):
+        //   Depth 1: create/2 -> process_request/2, create/2 -> send_email/2
+        //   Depth 2: process_request/2 -> get_user/1, process_request/2 -> send_email/2, send_email/2 -> format_message/1
+        //   Depth 3: get_user/1 -> get/2
         //   Depth 4: get/2 -> query/2
-        // Total: 6 calls across depths 1-4
+        // Total: 7 calls across depths 1-4
         let result = trace_calls(
             &*db,
             "MyApp.Controller",
@@ -1069,8 +1069,8 @@ mod surrealdb_tests {
 
         assert_eq!(
             result.len(),
-            6,
-            "Should find exactly 6 calls in create trace"
+            7,
+            "Should find exactly 7 calls in create trace"
         );
 
         // Count calls at each depth
@@ -1078,15 +1078,17 @@ mod surrealdb_tests {
             .map(|d| (d, result.iter().filter(|c| c.depth == Some(d)).count()))
             .collect();
 
-        assert_eq!(depth_counts[0], (1, 1), "Should have 1 call at depth 1");
-        assert_eq!(depth_counts[1], (2, 2), "Should have 2 calls at depth 2");
-        assert_eq!(depth_counts[2], (3, 2), "Should have 2 calls at depth 3");
+        assert_eq!(depth_counts[0], (1, 2), "Should have 2 calls at depth 1 (process_request + send_email)");
+        assert_eq!(depth_counts[1], (2, 3), "Should have 3 calls at depth 2");
+        assert_eq!(depth_counts[2], (3, 1), "Should have 1 call at depth 3");
         assert_eq!(depth_counts[3], (4, 1), "Should have 1 call at depth 4");
 
-        // Verify depth 1 call
+        // Verify depth 1 calls include both process_request and send_email
         let d1_calls: Vec<_> = result.iter().filter(|c| c.depth == Some(1)).collect();
-        assert_eq!(d1_calls[0].caller.name.as_ref(), "create");
-        assert_eq!(d1_calls[0].callee.name.as_ref(), "process_request");
+        assert_eq!(d1_calls.len(), 2, "Should have 2 calls at depth 1");
+        let d1_callees: Vec<_> = d1_calls.iter().map(|c| c.callee.name.as_ref()).collect();
+        assert!(d1_callees.contains(&"process_request"), "Depth 1 should include call to process_request");
+        assert!(d1_callees.contains(&"send_email"), "Depth 1 should include direct call to send_email");
     }
 
     #[test]
@@ -1193,17 +1195,17 @@ mod surrealdb_tests {
             by_caller.entry(key).or_default().push(call);
         }
 
-        // Should find all 11 unique call edges since we're starting from all functions
-        // The complex fixture has exactly 11 call relationships
+        // Should find all 12 unique call edges since we're starting from all functions
+        // The complex fixture has exactly 12 call relationships (including direct create->send_email)
         assert_eq!(
             result.len(),
-            11,
-            "Should find exactly 11 unique calls (all edges in the graph), got {}",
+            12,
+            "Should find exactly 12 unique calls (all edges in the graph), got {}",
             result.len()
         );
 
         // Verify we have calls from multiple different callers
-        // Based on the fixture: Controller(3), Accounts(3), Service(1), Repo(2), Notifier(1) = 10 unique callers
+        // Based on the fixture: Controller(4), Accounts(3), Service(1), Repo(2), Notifier(1) = 11 unique callers
         assert!(
             by_caller.len() >= 9,
             "Should have calls from at least 9 different callers, got {}",
