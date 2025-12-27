@@ -204,6 +204,13 @@ fn convert_params(
             ValueType::Int(i) => surrealdb::sql::Value::Number((*i).into()),
             ValueType::Float(f) => surrealdb::sql::Value::Number((*f).into()),
             ValueType::Bool(b) => surrealdb::sql::Value::Bool(*b),
+            ValueType::StrArray(arr) => {
+                let values: Vec<surrealdb::sql::Value> = arr
+                    .iter()
+                    .map(|s| surrealdb::sql::Value::Strand(s.clone().into()))
+                    .collect();
+                surrealdb::sql::Value::Array(values.into())
+            }
         };
         surreal_params.insert(key.clone(), surreal_value);
     }

@@ -433,7 +433,7 @@ mod surrealdb_tests {
         let metrics = find_complexity_metrics(&*db, 0, 0, None, "default", false, false, 100)
             .expect("Query should succeed");
 
-        /// Controller has 6 functions: index/2, show/2, create/2, handle_event/1, format_display/1, __generated__/0
+        // Controller has 6 functions: index/2, show/2, create/2, handle_event/1, format_display/1, __generated__/0
         let controller_funcs: Vec<_> = metrics
             .iter()
             .filter(|m| m.module == "MyApp.Controller")

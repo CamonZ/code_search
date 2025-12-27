@@ -76,6 +76,11 @@ fn convert_query_params(params: QueryParams) -> BTreeMap<String, DataValue> {
                 ValueType::Int(i) => DataValue::Num(Num::Int(*i)),
                 ValueType::Float(f) => DataValue::Num(Num::Float(*f)),
                 ValueType::Bool(b) => DataValue::Bool(*b),
+                ValueType::StrArray(arr) => DataValue::List(
+                    arr.iter()
+                        .map(|s| DataValue::Str(s.clone().into()))
+                        .collect(),
+                ),
             };
             (k.clone(), data_value)
         })

@@ -4,13 +4,15 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::backend::{Database, QueryParams};
-use crate::db::{extract_i64, extract_string, extract_string_or};
 
 #[cfg(feature = "backend-cozo")]
-use crate::db::run_query;
+use crate::db::{extract_i64, extract_string, run_query};
 
 #[cfg(feature = "backend-cozo")]
 use crate::query_builders::{validate_regex_patterns, ConditionBuilder, OptionalConditionBuilder};
+
+#[cfg(feature = "backend-surrealdb")]
+use crate::db::{extract_i64, extract_string, extract_string_or};
 
 #[cfg(feature = "backend-surrealdb")]
 use crate::query_builders::validate_regex_patterns;

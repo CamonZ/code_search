@@ -21,6 +21,8 @@ pub enum ValueType {
     Float(f64),
     /// Boolean value
     Bool(bool),
+    /// Array of strings
+    StrArray(Vec<String>),
 }
 
 /// Container for query parameters.
@@ -61,6 +63,12 @@ impl QueryParams {
     /// Inserts a parameter with a boolean value.
     pub fn with_bool(mut self, key: impl Into<String>, value: bool) -> Self {
         self.params.insert(key.into(), ValueType::Bool(value));
+        self
+    }
+
+    /// Inserts a parameter with a string array value.
+    pub fn with_str_array(mut self, key: impl Into<String>, value: Vec<String>) -> Self {
+        self.params.insert(key.into(), ValueType::StrArray(value));
         self
     }
 

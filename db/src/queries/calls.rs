@@ -5,20 +5,27 @@
 //! - `To`: Find all calls made TO the matched functions (incoming calls)
 
 use std::error::Error;
-use std::rc::Rc;
 
 use thiserror::Error;
 
 use crate::backend::{Database, QueryParams};
-use crate::db::{extract_i64, extract_string, extract_string_or};
 use crate::query_builders::validate_regex_patterns;
-use crate::types::{Call, FunctionRef};
+use crate::types::Call;
 
 #[cfg(feature = "backend-cozo")]
 use crate::db::{extract_call_from_row_trait, run_query, CallRowLayout};
 
 #[cfg(feature = "backend-cozo")]
 use crate::query_builders::{ConditionBuilder, OptionalConditionBuilder};
+
+#[cfg(feature = "backend-surrealdb")]
+use std::rc::Rc;
+
+#[cfg(feature = "backend-surrealdb")]
+use crate::db::{extract_i64, extract_string, extract_string_or};
+
+#[cfg(feature = "backend-surrealdb")]
+use crate::types::FunctionRef;
 
 #[derive(Error, Debug)]
 pub enum CallsError {

@@ -121,7 +121,7 @@ pub fn find_accepts(
 
     // Build WHERE conditions based on what filters are present
     let mut conditions = Vec::new();
-    let mut params = QueryParams::new().with_int("limit", limit as i64);
+    let params = QueryParams::new().with_int("limit", limit as i64);
 
     // Add pattern filter if provided
     // Build the input_strings array matching condition
