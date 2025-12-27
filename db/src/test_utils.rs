@@ -484,16 +484,23 @@ fn insert_defines(
 /// * `Ok(())` if insertion succeeded
 /// * `Err` if the relationship cannot be created or database operation fails
 #[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
-#[allow(dead_code)] // Helper for future tests
 fn insert_has_clause(
     db: &dyn Database,
-    function_id: &str,
-    clause_id: &str,
+    module_name: &str,
+    function_name: &str,
+    arity: i64,
+    line: i64,
 ) -> Result<(), Box<dyn Error>> {
-    let query = "RELATE functions:⟨$function_id⟩ ->has_clause-> clauses:⟨$clause_id⟩;";
+    let query = r#"
+        RELATE functions:[$module_name, $function_name, $arity]
+        ->has_clause->
+        clauses:[$module_name, $function_name, $arity, $line];
+    "#;
     let params = QueryParams::new()
-        .with_str("function_id", function_id)
-        .with_str("clause_id", clause_id);
+        .with_str("module_name", module_name)
+        .with_str("function_name", function_name)
+        .with_int("arity", arity)
+        .with_int("line", line);
     db.execute_query(query, params)?;
     Ok(())
 }
@@ -674,66 +681,116 @@ pub fn surreal_call_graph_db_complex() -> Box<dyn Database> {
     // Controller.index/2 - calls Accounts.list_users/0
     insert_clause(&*db, "MyApp.Controller", "index", 2, 5, "lib/my_app/controller.ex", "def", 3, 2)
         .expect("Failed to insert clause for Controller.index/2");
+    insert_has_clause(&*db, "MyApp.Controller", "index", 2, 5)
+        .expect("Failed to insert has_clause for Controller.index/2 at line 5");
     insert_clause(&*db, "MyApp.Controller", "index", 2, 7, "lib/my_app/controller.ex", "def", 1, 1)
         .expect("Failed to insert clause for Controller.index/2 at line 7");
+    insert_has_clause(&*db, "MyApp.Controller", "index", 2, 7)
+        .expect("Failed to insert has_clause for Controller.index/2 at line 7");
 
     // Controller.show/2 - calls Accounts.get_user/2
     insert_clause(&*db, "MyApp.Controller", "show", 2, 12, "lib/my_app/controller.ex", "def", 3, 2)
         .expect("Failed to insert clause for Controller.show/2");
+    insert_has_clause(&*db, "MyApp.Controller", "show", 2, 12)
+        .expect("Failed to insert has_clause for Controller.show/2 at line 12");
     insert_clause(&*db, "MyApp.Controller", "show", 2, 15, "lib/my_app/controller.ex", "def", 1, 1)
         .expect("Failed to insert clause for Controller.show/2 at line 15");
+    insert_has_clause(&*db, "MyApp.Controller", "show", 2, 15)
+        .expect("Failed to insert has_clause for Controller.show/2 at line 15");
 
     // Controller.create/2 - calls Service.process_request/2
     insert_clause(&*db, "MyApp.Controller", "create", 2, 20, "lib/my_app/controller.ex", "def", 5, 3)
         .expect("Failed to insert clause for Controller.create/2");
+    insert_has_clause(&*db, "MyApp.Controller", "create", 2, 20)
+        .expect("Failed to insert has_clause for Controller.create/2 at line 20");
     insert_clause(&*db, "MyApp.Controller", "create", 2, 25, "lib/my_app/controller.ex", "def", 2, 2)
         .expect("Failed to insert clause for Controller.create/2 at line 25");
+    insert_has_clause(&*db, "MyApp.Controller", "create", 2, 25)
+        .expect("Failed to insert has_clause for Controller.create/2 at line 25");
 
     // Accounts.get_user/1 - calls Repo.get/2
     insert_clause(&*db, "MyApp.Accounts", "get_user", 1, 10, "lib/my_app/accounts.ex", "def", 2, 1)
         .expect("Failed to insert clause for Accounts.get_user/1");
+    insert_has_clause(&*db, "MyApp.Accounts", "get_user", 1, 10)
+        .expect("Failed to insert has_clause for Accounts.get_user/1 at line 10");
     insert_clause(&*db, "MyApp.Accounts", "get_user", 1, 12, "lib/my_app/accounts.ex", "def", 1, 1)
         .expect("Failed to insert clause for Accounts.get_user/1 at line 12");
+    insert_has_clause(&*db, "MyApp.Accounts", "get_user", 1, 12)
+        .expect("Failed to insert has_clause for Accounts.get_user/1 at line 12");
 
     // Accounts.get_user/2 - calls get_user/1
     insert_clause(&*db, "MyApp.Accounts", "get_user", 2, 17, "lib/my_app/accounts.ex", "def", 2, 1)
         .expect("Failed to insert clause for Accounts.get_user/2");
+    insert_has_clause(&*db, "MyApp.Accounts", "get_user", 2, 17)
+        .expect("Failed to insert has_clause for Accounts.get_user/2 at line 17");
 
     // Accounts.list_users/0 - calls Repo.all/1
     insert_clause(&*db, "MyApp.Accounts", "list_users", 0, 24, "lib/my_app/accounts.ex", "def", 2, 1)
         .expect("Failed to insert clause for Accounts.list_users/0");
+    insert_has_clause(&*db, "MyApp.Accounts", "list_users", 0, 24)
+        .expect("Failed to insert has_clause for Accounts.list_users/0 at line 24");
 
     // Accounts.validate_email/1
     insert_clause(&*db, "MyApp.Accounts", "validate_email", 1, 30, "lib/my_app/accounts.ex", "defp", 4, 2)
         .expect("Failed to insert clause for Accounts.validate_email/1");
+    insert_has_clause(&*db, "MyApp.Accounts", "validate_email", 1, 30)
+        .expect("Failed to insert has_clause for Accounts.validate_email/1 at line 30");
+
+    // Accounts.__struct__/0 - compiler-generated function (for testing exclude_generated)
+    insert_function(&*db, "MyApp.Accounts", "__struct__", 0)
+        .expect("Failed to insert __struct__/0");
+    insert_clause(&*db, "MyApp.Accounts", "__struct__", 0, 1, "lib/my_app/accounts.ex", "def", 1, 1)
+        .expect("Failed to insert clause for Accounts.__struct__/0");
+    insert_has_clause(&*db, "MyApp.Accounts", "__struct__", 0, 1)
+        .expect("Failed to insert has_clause for Accounts.__struct__/0 at line 1");
 
     // Service.process_request/2 - calls Accounts.get_user/1 and Notifier.send_email/2
     insert_clause(&*db, "MyApp.Service", "process_request", 2, 8, "lib/my_app/service.ex", "def", 5, 3)
         .expect("Failed to insert clause for Service.process_request/2");
+    insert_has_clause(&*db, "MyApp.Service", "process_request", 2, 8)
+        .expect("Failed to insert has_clause for Service.process_request/2 at line 8");
     insert_clause(&*db, "MyApp.Service", "process_request", 2, 12, "lib/my_app/service.ex", "def", 2, 2)
         .expect("Failed to insert clause for Service.process_request/2 at line 12");
+    insert_has_clause(&*db, "MyApp.Service", "process_request", 2, 12)
+        .expect("Failed to insert has_clause for Service.process_request/2 at line 12");
     insert_clause(&*db, "MyApp.Service", "process_request", 2, 16, "lib/my_app/service.ex", "def", 1, 1)
         .expect("Failed to insert clause for Service.process_request/2 at line 16");
+    insert_has_clause(&*db, "MyApp.Service", "process_request", 2, 16)
+        .expect("Failed to insert has_clause for Service.process_request/2 at line 16");
 
     // Service.transform_data/1
     insert_clause(&*db, "MyApp.Service", "transform_data", 1, 22, "lib/my_app/service.ex", "defp", 3, 2)
         .expect("Failed to insert clause for Service.transform_data/1");
+    insert_has_clause(&*db, "MyApp.Service", "transform_data", 1, 22)
+        .expect("Failed to insert has_clause for Service.transform_data/1 at line 22");
 
     // Repo functions
     insert_clause(&*db, "MyApp.Repo", "get", 2, 10, "lib/my_app/repo.ex", "def", 2, 1)
         .expect("Failed to insert clause for Repo.get/2");
+    insert_has_clause(&*db, "MyApp.Repo", "get", 2, 10)
+        .expect("Failed to insert has_clause for Repo.get/2 at line 10");
     insert_clause(&*db, "MyApp.Repo", "all", 1, 15, "lib/my_app/repo.ex", "def", 2, 1)
         .expect("Failed to insert clause for Repo.all/1");
+    insert_has_clause(&*db, "MyApp.Repo", "all", 1, 15)
+        .expect("Failed to insert has_clause for Repo.all/1 at line 15");
     insert_clause(&*db, "MyApp.Repo", "insert", 1, 20, "lib/my_app/repo.ex", "def", 3, 2)
         .expect("Failed to insert clause for Repo.insert/1");
+    insert_has_clause(&*db, "MyApp.Repo", "insert", 1, 20)
+        .expect("Failed to insert has_clause for Repo.insert/1 at line 20");
     insert_clause(&*db, "MyApp.Repo", "query", 2, 28, "lib/my_app/repo.ex", "defp", 4, 2)
         .expect("Failed to insert clause for Repo.query/2");
+    insert_has_clause(&*db, "MyApp.Repo", "query", 2, 28)
+        .expect("Failed to insert has_clause for Repo.query/2 at line 28");
 
     // Notifier functions
     insert_clause(&*db, "MyApp.Notifier", "send_email", 2, 6, "lib/my_app/notifier.ex", "def", 3, 2)
         .expect("Failed to insert clause for Notifier.send_email/2");
+    insert_has_clause(&*db, "MyApp.Notifier", "send_email", 2, 6)
+        .expect("Failed to insert has_clause for Notifier.send_email/2 at line 6");
     insert_clause(&*db, "MyApp.Notifier", "format_message", 1, 15, "lib/my_app/notifier.ex", "defp", 2, 1)
         .expect("Failed to insert clause for Notifier.format_message/1");
+    insert_has_clause(&*db, "MyApp.Notifier", "format_message", 1, 15)
+        .expect("Failed to insert has_clause for Notifier.format_message/1 at line 15");
 
     // Create call relationships (11 calls total, matching call_graph.json structure)
 
@@ -833,6 +890,8 @@ pub fn surreal_call_graph_db_complex() -> Box<dyn Database> {
     // Used to test that shortest path algorithm returns the shorter path
     insert_clause(&*db, "MyApp.Controller", "create", 2, 28, "lib/my_app/controller.ex", "def", 1, 1)
         .expect("Failed to insert clause for Controller.create/2 at line 28");
+    insert_has_clause(&*db, "MyApp.Controller", "create", 2, 28)
+        .expect("Failed to insert has_clause for Controller.create/2 at line 28");
     insert_call(
         &*db,
         "MyApp.Controller", "create", 2,
@@ -1179,10 +1238,10 @@ mod surrealdb_fixture_tests {
     }
 
     #[test]
-    fn test_surreal_call_graph_db_complex_contains_fifteen_functions() {
+    fn test_surreal_call_graph_db_complex_contains_sixteen_functions() {
         let db = surreal_call_graph_db_complex();
 
-        // Query to verify we have 15 functions
+        // Query to verify we have 16 functions (15 regular + 1 __struct__ for generated function testing)
         let result = db
             .execute_query_no_params("SELECT * FROM functions")
             .expect("Should be able to query functions");
@@ -1190,8 +1249,8 @@ mod surrealdb_fixture_tests {
         let rows = result.rows();
         assert_eq!(
             rows.len(),
-            15,
-            "Should have exactly 15 functions, got {}",
+            16,
+            "Should have exactly 16 functions (15 regular + 1 __struct__), got {}",
             rows.len()
         );
     }
