@@ -455,7 +455,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_calls_from_empty_results() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         let result = find_calls(
             &*db,
@@ -478,7 +478,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_calls_invalid_regex_pattern() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         let result = find_calls(
             &*db,
@@ -499,7 +499,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_calls_empty_when_no_match() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         let result = find_calls(
             &*db,

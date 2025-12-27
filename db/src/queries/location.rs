@@ -174,7 +174,7 @@ pub fn find_locations(
 
     let query = format!(
         r#"
-        SELECT "default" as project, file, line, start_line, end_line,
+        SELECT "default" as project, source_file as file, line, start_line, end_line,
                module_name as module, kind, function_name as name, arity, pattern, guard
         FROM `clause`
         WHERE {module_clause}
@@ -391,7 +391,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_locations_invalid_regex() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Invalid regex pattern: unclosed bracket
         let result = find_locations(&*db, None, "[invalid", None, "default", true, 100);
@@ -408,7 +408,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_locations_invalid_regex_module_pattern() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Invalid regex in module pattern
         let result = find_locations(&*db, Some("[invalid"), "foo", None, "default", true, 100);
@@ -425,7 +425,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_locations_valid_regex() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Valid regex pattern should not error on validation
         let result = find_locations(&*db, Some("^module.*$"), "^foo$", None, "default", true, 100);
@@ -440,7 +440,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_locations_non_regex_mode() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Even invalid regex should work in non-regex mode
         let result = find_locations(&*db, Some("[invalid"), "foo", None, "default", false, 100);
@@ -457,30 +457,30 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_locations_exact_match() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search for exact function name
-        let result = find_locations(&*db, Some("module_a"), "foo", None, "default", false, 100);
+        let result = find_locations(&*db, Some("MyApp.Controller"), "index", None, "default", false, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let locations = result.unwrap();
 
-        // Fixture has foo/1 in module_a with two clauses at lines 10 and 15
-        assert_eq!(locations.len(), 2, "Should find exactly two locations for foo/1");
-        assert_eq!(locations[0].name, "foo");
-        assert_eq!(locations[0].module, "module_a");
-        assert_eq!(locations[0].arity, 1);
-        assert_eq!(locations[0].line, 10);
+        // Fixture has index/2 in MyApp.Controller with two clauses at lines 5 and 7
+        assert_eq!(locations.len(), 2, "Should find exactly two locations for index/2");
+        assert_eq!(locations[0].name, "index");
+        assert_eq!(locations[0].module, "MyApp.Controller");
+        assert_eq!(locations[0].arity, 2);
+        assert_eq!(locations[0].line, 5);
         assert_eq!(locations[0].project, "default");
-        assert_eq!(locations[1].line, 15);
+        assert_eq!(locations[1].line, 7);
     }
 
     #[test]
     fn test_find_locations_empty_results() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search for function that doesn't exist
-        let result = find_locations(&*db, Some("module_a"), "nonexistent", None, "default", false, 100);
+        let result = find_locations(&*db, Some("MyApp.Controller"), "nonexistent", None, "default", false, 100);
 
         assert!(result.is_ok());
         let locations = result.unwrap();
@@ -489,13 +489,13 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_locations_nonexistent_module() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search in module that doesn't exist
         let result = find_locations(
             &*db,
             Some("nonexistent_module"),
-            "foo",
+            "index",
             None,
             "default",
             false,
@@ -509,26 +509,26 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_locations_with_arity_filter() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // Search with arity filter - bar has arity 2
-        let result = find_locations(&*db, Some("module_a"), "bar", Some(2), "default", false, 100);
+        // Search with arity filter - get_user has arities 1 and 2
+        let result = find_locations(&*db, Some("MyApp.Accounts"), "get_user", Some(1), "default", false, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let locations = result.unwrap();
 
-        // Fixture has bar/2 in module_a - verify arity filter works
+        // Fixture has get_user/1 in MyApp.Accounts - verify arity filter works
         for loc in &locations {
-            assert_eq!(loc.arity, 2, "All results should have arity 2");
+            assert_eq!(loc.arity, 1, "All results should have arity 1");
         }
     }
 
     #[test]
     fn test_find_locations_with_wrong_arity() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // Search with wrong arity (foo/1 exists, but search for foo/2)
-        let result = find_locations(&*db, Some("module_a"), "foo", Some(2), "default", false, 100);
+        // Search with wrong arity (index/2 exists, but search for index/5)
+        let result = find_locations(&*db, Some("MyApp.Controller"), "index", Some(5), "default", false, 100);
 
         assert!(result.is_ok());
         let locations = result.unwrap();
@@ -539,45 +539,45 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_locations_no_module_filter() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // Search without module filter - should find all occurrences
-        let result = find_locations(&*db, None, "foo", None, "default", false, 100);
+        // Search without module filter - should find all occurrences of get_user
+        let result = find_locations(&*db, None, "get_user", None, "default", false, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let locations = result.unwrap();
 
-        // Fixture has foo/1 in module_a with 2 clauses (at lines 10 and 15)
-        assert_eq!(locations.len(), 2, "Should find all foo occurrences");
+        // Fixture has get_user in MyApp.Accounts with 3 clauses total (2 for /1, 1 for /2)
+        assert_eq!(locations.len(), 3, "Should find all get_user occurrences");
         for loc in &locations {
-            assert_eq!(loc.name, "foo", "All results should be foo");
-            assert_eq!(loc.module, "module_a", "All results should be in module_a");
+            assert_eq!(loc.name, "get_user", "All results should be get_user");
+            assert_eq!(loc.module, "MyApp.Accounts", "All results should be in MyApp.Accounts");
         }
     }
 
     #[test]
     fn test_find_locations_module_pattern_exact() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search with exact module pattern
-        let result = find_locations(&*db, Some("module_b"), "baz", None, "default", false, 100);
+        let result = find_locations(&*db, Some("MyApp.Notifier"), "send_email", None, "default", false, 100);
 
         assert!(result.is_ok());
         let locations = result.unwrap();
 
-        // Fixture has baz/0 in module_b with one clause at line 3
-        assert_eq!(locations.len(), 1, "Should find exactly one baz in module_b");
-        assert_eq!(locations[0].module, "module_b");
-        assert_eq!(locations[0].name, "baz");
-        assert_eq!(locations[0].arity, 0);
-        assert_eq!(locations[0].line, 3);
+        // Fixture has send_email/2 in MyApp.Notifier with one clause at line 6
+        assert_eq!(locations.len(), 1, "Should find exactly one send_email in MyApp.Notifier");
+        assert_eq!(locations[0].module, "MyApp.Notifier");
+        assert_eq!(locations[0].name, "send_email");
+        assert_eq!(locations[0].arity, 2);
+        assert_eq!(locations[0].line, 6);
     }
 
     // ==================== Limit Tests ====================
 
     #[test]
     fn test_find_locations_respects_limit() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Use wildcard patterns to match all
         let limit_1 = find_locations(&*db, None, ".*", None, "default", true, 1).unwrap();
@@ -589,7 +589,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_locations_zero_limit() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with zero limit
         let result = find_locations(&*db, None, ".*", None, "default", true, 0);
@@ -601,7 +601,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_locations_large_limit() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with large limit (larger than fixture size)
         let result = find_locations(&*db, None, ".*", None, "default", true, 1000000);
@@ -609,15 +609,15 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Should handle large limit");
         let locations = result.unwrap();
 
-        // Fixture has: foo/1 (2 clauses), bar/2 (1 clause), baz/0 (1 clause)
-        assert_eq!(locations.len(), 4, "Should return all locations");
+        // Fixture has 22 total clauses
+        assert_eq!(locations.len(), 22, "Should return all locations");
     }
 
     // ==================== Pattern Matching Tests ====================
 
     #[test]
     fn test_find_locations_regex_dot_star() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Regex pattern that matches all functions
         let result = find_locations(&*db, None, ".*", None, "default", true, 100);
@@ -625,41 +625,41 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Should match all functions with .*");
         let locations = result.unwrap();
 
-        // Should find all 4 locations
-        assert_eq!(locations.len(), 4, "Should find exactly 4 locations");
+        // Should find all 22 locations
+        assert_eq!(locations.len(), 22, "Should find exactly 22 locations");
     }
 
     #[test]
     fn test_find_locations_regex_alternation() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // Test regex alternation pattern - matches foo or bar
-        let result = find_locations(&*db, Some("module_a"), "^(foo|bar)", None, "default", true, 100);
+        // Test regex alternation pattern - matches get_user or list_users
+        let result = find_locations(&*db, Some("MyApp.Accounts"), "^(get_user|list_users)", None, "default", true, 100);
 
         assert!(result.is_ok(), "Should handle regex alternation");
         let locations = result.unwrap();
 
-        // module_a has foo/1 (2 clauses) and bar/2 (1 clause) = 3 total
-        assert_eq!(locations.len(), 3, "Should match both foo and bar clauses");
+        // MyApp.Accounts has get_user/1 (2 clauses), get_user/2 (1 clause), list_users/0 (1 clause) = 4 total
+        assert_eq!(locations.len(), 4, "Should match get_user and list_users clauses");
         let names: Vec<_> = locations.iter().map(|l| l.name.clone()).collect();
-        assert!(names.iter().any(|n| n == "foo"), "Should contain foo");
-        assert!(names.iter().any(|n| n == "bar"), "Should contain bar");
+        assert!(names.iter().any(|n| n == "get_user"), "Should contain get_user");
+        assert!(names.iter().any(|n| n == "list_users"), "Should contain list_users");
     }
 
     #[test]
     fn test_find_locations_regex_anchors() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // Test with start anchor - matches foo but not foobar
-        let result = find_locations(&*db, Some("module_a"), "^foo$", None, "default", true, 100);
+        // Test with start anchor - matches index but not index_something
+        let result = find_locations(&*db, Some("MyApp.Controller"), "^index$", None, "default", true, 100);
 
         assert!(result.is_ok(), "Should handle regex anchors");
         let locations = result.unwrap();
 
-        // Should find foo clauses (2 total) but not bar
-        assert_eq!(locations.len(), 2, "Should find both foo clauses");
+        // Should find index clauses (2 total)
+        assert_eq!(locations.len(), 2, "Should find both index clauses");
         for loc in &locations {
-            assert_eq!(loc.name, "foo", "All results should be foo");
+            assert_eq!(loc.name, "index", "All results should be index");
         }
     }
 
@@ -667,7 +667,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_locations_returns_correct_fields() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         let result = find_locations(&*db, None, ".*", None, "default", true, 100);
 
@@ -689,19 +689,19 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_locations_all_fields_populated() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        let result = find_locations(&*db, Some("module_a"), "foo", None, "default", false, 100);
+        let result = find_locations(&*db, Some("MyApp.Controller"), "index", None, "default", false, 100);
 
         assert!(result.is_ok());
         let locations = result.unwrap();
 
-        assert_eq!(locations.len(), 2, "Should find 2 clauses for foo/1");
+        assert_eq!(locations.len(), 2, "Should find 2 clauses for index/2");
         let loc = &locations[0];
         assert_eq!(loc.project, "default");
-        assert_eq!(loc.module, "module_a");
-        assert_eq!(loc.name, "foo");
-        assert_eq!(loc.arity, 1);
+        assert_eq!(loc.module, "MyApp.Controller");
+        assert_eq!(loc.name, "index");
+        assert_eq!(loc.arity, 2);
         assert!(loc.line > 0);
         assert!(loc.start_line > 0);
         assert_eq!(loc.end_line, loc.start_line, "end_line should equal start_line in fixture");
@@ -712,7 +712,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_locations_sorted_by_module_name_arity_line() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Use wildcard pattern to get all locations
         let result = find_locations(&*db, None, ".*", None, "default", true, 100);
@@ -721,23 +721,21 @@ mod surrealdb_tests {
         let locations = result.unwrap();
 
         // Should be sorted by module_name, function_name, arity, line
-        // Fixture order: module_a::bar/2@8, module_a::foo/1@10, module_a::foo/1@15, module_b::baz/0@3
         assert!(locations.len() >= 3);
 
-        // Verify sorting: module_a comes before module_b
-        let module_a_locations: Vec<_> = locations.iter().filter(|l| l.module == "module_a").collect();
-        let module_b_locations: Vec<_> = locations.iter().filter(|l| l.module == "module_b").collect();
+        // Verify sorting: MyApp.Accounts comes before MyApp.Controller
+        let accounts_locations: Vec<_> = locations.iter().filter(|l| l.module == "MyApp.Accounts").collect();
+        let controller_locations: Vec<_> = locations.iter().filter(|l| l.module == "MyApp.Controller").collect();
 
-        if !module_a_locations.is_empty() && !module_b_locations.is_empty() {
-            let last_a = module_a_locations.last().unwrap();
-            let first_b = module_b_locations.first().unwrap();
-            assert!(last_a.line <= first_b.line || last_a.module < first_b.module);
+        if !accounts_locations.is_empty() && !controller_locations.is_empty() {
+            // Accounts should come before Controller alphabetically
+            assert!(accounts_locations[0].module < controller_locations[0].module);
         }
     }
 
     #[test]
     fn test_find_locations_sorted_consistently() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Multiple calls should return results in consistent order
         let result1 = find_locations(&*db, None, ".*", None, "default", true, 100).unwrap();
@@ -757,11 +755,11 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_locations_case_sensitive() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search should be case sensitive
-        let result_lower = find_locations(&*db, Some("module_a"), "foo", None, "default", false, 100);
-        let result_upper = find_locations(&*db, Some("module_a"), "FOO", None, "default", false, 100);
+        let result_lower = find_locations(&*db, Some("MyApp.Controller"), "index", None, "default", false, 100);
+        let result_upper = find_locations(&*db, Some("MyApp.Controller"), "INDEX", None, "default", false, 100);
 
         assert!(result_lower.is_ok());
         assert!(result_upper.is_ok());
@@ -770,33 +768,33 @@ mod surrealdb_tests {
         let upper_locations = result_upper.unwrap();
 
         // Lowercase should find the function, uppercase should not
-        assert_eq!(lower_locations.len(), 2, "Lowercase should find foo locations");
+        assert_eq!(lower_locations.len(), 2, "Lowercase should find index locations");
         assert_eq!(upper_locations.len(), 0, "Uppercase should find nothing");
     }
 
     #[test]
     fn test_find_locations_module_case_sensitive() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search should be case sensitive for module names
-        let result_lower = find_locations(&*db, Some("module_a"), ".*", None, "default", true, 100);
-        let result_upper = find_locations(&*db, Some("MODULE_A"), ".*", None, "default", true, 100);
+        let result_correct = find_locations(&*db, Some("MyApp.Controller"), ".*", None, "default", true, 100);
+        let result_lower = find_locations(&*db, Some("myapp.controller"), ".*", None, "default", true, 100);
 
+        assert!(result_correct.is_ok());
         assert!(result_lower.is_ok());
-        assert!(result_upper.is_ok());
 
+        let correct_locations = result_correct.unwrap();
         let lower_locations = result_lower.unwrap();
-        let upper_locations = result_upper.unwrap();
 
-        assert_eq!(lower_locations.len(), 3, "Lowercase module should find locations");
-        assert_eq!(upper_locations.len(), 0, "Uppercase module should find nothing");
+        assert_eq!(correct_locations.len(), 7, "Correct case module should find locations");
+        assert_eq!(lower_locations.len(), 0, "Lowercase module should find nothing");
     }
 
     // ==================== Edge Cases ====================
 
     #[test]
     fn test_find_locations_empty_pattern() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Empty patterns in exact match mode
         let result = find_locations(&*db, Some(""), "", None, "default", false, 100);
@@ -809,13 +807,13 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_locations_all_parameters_without_arity() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with module and function parameters (no arity to avoid query issues)
         let result = find_locations(
             &*db,
-            Some("module_a"),
-            "foo",
+            Some("MyApp.Controller"),
+            "index",
             None,
             "default",
             false,
@@ -825,35 +823,35 @@ mod surrealdb_tests {
         assert!(result.is_ok());
         let locations = result.unwrap();
 
-        // Should find foo/1 in module_a (2 clauses)
-        assert_eq!(locations.len(), 2, "Should find 2 clauses for foo/1");
+        // Should find index/2 in MyApp.Controller (2 clauses)
+        assert_eq!(locations.len(), 2, "Should find 2 clauses for index/2");
         for loc in &locations {
-            assert_eq!(loc.module, "module_a", "Module should be module_a");
-            assert_eq!(loc.name, "foo", "Name should be foo");
-            assert_eq!(loc.arity, 1, "Arity should be 1");
+            assert_eq!(loc.module, "MyApp.Controller", "Module should be MyApp.Controller");
+            assert_eq!(loc.name, "index", "Name should be index");
+            assert_eq!(loc.arity, 2, "Arity should be 2");
         }
     }
 
     #[test]
     fn test_find_locations_arity_zero() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // Search for zero-arity functions - baz has arity 0
-        let result = find_locations(&*db, Some("module_b"), "baz", None, "default", false, 100);
+        // Search for zero-arity functions - list_users has arity 0
+        let result = find_locations(&*db, Some("MyApp.Accounts"), "list_users", None, "default", false, 100);
 
         assert!(result.is_ok());
         let locations = result.unwrap();
 
-        // Should find baz/0 in module_b with one clause at line 3
-        assert_eq!(locations.len(), 1, "Should find exactly one baz location");
-        assert_eq!(locations[0].name, "baz");
+        // Should find list_users/0 in MyApp.Accounts with one clause at line 24
+        assert_eq!(locations.len(), 1, "Should find exactly one list_users location");
+        assert_eq!(locations[0].name, "list_users");
         assert_eq!(locations[0].arity, 0);
-        assert_eq!(locations[0].line, 3);
+        assert_eq!(locations[0].line, 24);
     }
 
     #[test]
     fn test_find_locations_project_field_always_default() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // All results should have project field set to "default"
         let result = find_locations(&*db, None, ".*", None, "default", true, 100);
@@ -871,35 +869,36 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_locations_multiple_clauses_same_function() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // foo/1 has 2 clauses (at lines 10 and 15)
-        let result = find_locations(&*db, Some("module_a"), "foo", None, "default", false, 100);
+        // index/2 has 2 clauses (at lines 5 and 7) - using function without arity filter
+        let result = find_locations(&*db, Some("MyApp.Controller"), "index", None, "default", false, 100);
 
         assert!(result.is_ok());
         let locations = result.unwrap();
 
-        assert_eq!(locations.len(), 2, "Should find both clauses of foo/1");
-        // Both should be foo/1 in module_a
+        assert_eq!(locations.len(), 2, "Should find both clauses of index/2");
+        // Both should be index/2 in MyApp.Controller
         for loc in &locations {
-            assert_eq!(loc.name, "foo");
-            assert_eq!(loc.arity, 1);
+            assert_eq!(loc.name, "index");
+            assert_eq!(loc.arity, 2);
+            assert_eq!(loc.module, "MyApp.Controller");
         }
     }
 
     #[test]
     fn test_find_locations_preserves_line_numbers() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Verify that line numbers are preserved correctly
-        // Test foo/1 which has clauses at specific line numbers
-        let result = find_locations(&*db, Some("module_a"), "foo", None, "default", false, 100);
+        // Test index/2 which has clauses at lines 5 and 7
+        let result = find_locations(&*db, Some("MyApp.Controller"), "index", None, "default", false, 100);
         assert!(result.is_ok());
         let locations = result.unwrap();
 
-        assert_eq!(locations.len(), 2, "Should find two foo/1 clauses");
+        assert_eq!(locations.len(), 2, "Should find two index/2 clauses");
         // Verify they're at the expected lines
-        assert_eq!(locations[0].line, 10, "First clause should be at line 10");
-        assert_eq!(locations[1].line, 15, "Second clause should be at line 15");
+        assert_eq!(locations[0].line, 5, "First clause should be at line 5");
+        assert_eq!(locations[1].line, 7, "Second clause should be at line 7");
     }
 }

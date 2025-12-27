@@ -551,32 +551,31 @@ mod surrealdb_tests {
 
     #[test]
     fn test_trace_calls_recursive_forward_traversal() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // Simple fixture has: module_a.foo/1 -> module_a.bar/2 and module_a.foo/1 -> module_b.baz/0
-        let result = trace_calls(&*db, "module_a", "foo", None, "default", false, 10, 100, TraceDirection::Forward);
+        // Complex fixture: Controller.create/2 calls Service.process_request/2 and Notifier.send_email/2
+        // This is a recursive trace, so it will find all downstream calls
+        let result = trace_calls(&*db, "MyApp.Controller", "create", None, "default", false, 10, 100, TraceDirection::Forward);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let calls = result.unwrap();
 
-        // Should find exactly 2 calls from module_a.foo/1
-        assert_eq!(calls.len(), 2, "Should find exactly 2 calls from foo");
+        // Should find multiple calls across multiple depths
+        assert!(calls.len() >= 2, "Should find at least 2 calls from create");
 
-        // Verify both calls are at depth 1
-        assert_eq!(calls[0].depth, Some(1), "First call should be at depth 1");
-        assert_eq!(calls[1].depth, Some(1), "Second call should be at depth 1");
+        // Filter for depth-1 calls (direct calls from Controller.create)
+        let depth_1_calls: Vec<_> = calls.iter().filter(|c| c.depth == Some(1)).collect();
+        assert_eq!(depth_1_calls.len(), 2, "Should find exactly 2 direct calls at depth 1");
 
-        // Verify caller is module_a.foo for both
-        assert_eq!(calls[0].caller.module.as_ref(), "module_a");
-        assert_eq!(calls[0].caller.name.as_ref(), "foo");
-        assert_eq!(calls[0].caller.arity, 1);
+        // Verify depth-1 callers are MyApp.Controller.create
+        for call in &depth_1_calls {
+            assert_eq!(call.caller.module.as_ref(), "MyApp.Controller");
+            assert_eq!(call.caller.name.as_ref(), "create");
+            assert_eq!(call.caller.arity, 2);
+        }
 
-        assert_eq!(calls[1].caller.module.as_ref(), "module_a");
-        assert_eq!(calls[1].caller.name.as_ref(), "foo");
-        assert_eq!(calls[1].caller.arity, 1);
-
-        // Verify callees (order may vary, so check both exist)
-        let callees: Vec<(&str, &str, i64)> = calls
+        // Verify depth-1 callees (order may vary, so check both exist)
+        let depth_1_callees: Vec<(&str, &str, i64)> = depth_1_calls
             .iter()
             .map(|c| {
                 (
@@ -588,18 +587,18 @@ mod surrealdb_tests {
             .collect();
 
         assert!(
-            callees.contains(&("module_a", "bar", 2)),
-            "Should call module_a.bar/2"
+            depth_1_callees.contains(&("MyApp.Service", "process_request", 2)),
+            "Should call MyApp.Service.process_request/2"
         );
         assert!(
-            callees.contains(&("module_b", "baz", 0)),
-            "Should call module_b.baz/0"
+            depth_1_callees.contains(&("MyApp.Notifier", "send_email", 2)),
+            "Should call MyApp.Notifier.send_email/2"
         );
     }
 
     #[test]
     fn test_trace_calls_empty_results() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         let result = trace_calls(
             &*db,
@@ -813,7 +812,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_trace_calls_invalid_regex() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         let result = trace_calls(&*db, "[invalid", "index", None, "default", true, 10, 100, TraceDirection::Forward);
 
@@ -886,39 +885,38 @@ mod surrealdb_tests {
 
     #[test]
     fn test_trace_calls_module_function_exact_match() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // Simple fixture: module_a.foo/1 calls module_a.bar/2 and module_b.baz/0
-        let result = trace_calls(&*db, "module_a", "foo", None, "default", false, 10, 100, TraceDirection::Forward)
+        // Complex fixture: Controller.create/2 calls Service.process_request/2 and Notifier.send_email/2
+        // Recursive trace returns all calls in the call chain
+        let result = trace_calls(&*db, "MyApp.Controller", "create", None, "default", false, 10, 100, TraceDirection::Forward)
             .expect("Query should succeed");
 
-        assert_eq!(result.len(), 2, "Should find exactly 2 calls from foo");
+        assert!(result.len() >= 2, "Should find at least 2 calls from create");
 
-        // All results should have module_a.foo as the caller (exact match requirement)
-        for (i, call) in result.iter().enumerate() {
+        // Filter for depth-1 calls only (exact match verification at first level)
+        let depth_1_calls: Vec<_> = result.iter().filter(|c| c.depth == Some(1)).collect();
+        assert_eq!(depth_1_calls.len(), 2, "Should find exactly 2 direct calls at depth 1");
+
+        // All depth-1 results should have MyApp.Controller.create as the caller
+        for (i, call) in depth_1_calls.iter().enumerate() {
             assert_eq!(
                 call.caller.module.as_ref(),
-                "module_a",
-                "Call {}: Caller module should be module_a",
+                "MyApp.Controller",
+                "Call {}: Caller module should be MyApp.Controller",
                 i
             );
             assert_eq!(
                 call.caller.name.as_ref(),
-                "foo",
-                "Call {}: Caller name should be foo",
+                "create",
+                "Call {}: Caller name should be create",
                 i
             );
-            assert_eq!(call.caller.arity, 1, "Call {}: Caller arity should be 1", i);
-            assert_eq!(
-                call.depth,
-                Some(1),
-                "Call {}: All calls should be at depth 1",
-                i
-            );
+            assert_eq!(call.caller.arity, 2, "Call {}: Caller arity should be 2", i);
         }
 
-        // Verify callees are bar/2 and baz/0 (order may vary)
-        let callees: Vec<(&str, &str, i64)> = result
+        // Verify depth-1 callees are process_request/2 and send_email/2 (order may vary)
+        let callees: Vec<(&str, &str, i64)> = depth_1_calls
             .iter()
             .map(|c| {
                 (
@@ -929,12 +927,12 @@ mod surrealdb_tests {
             })
             .collect();
         assert!(
-            callees.contains(&("module_a", "bar", 2)),
-            "Should call module_a.bar/2"
+            callees.contains(&("MyApp.Service", "process_request", 2)),
+            "Should call MyApp.Service.process_request/2"
         );
         assert!(
-            callees.contains(&("module_b", "baz", 0)),
-            "Should call module_b.baz/0"
+            callees.contains(&("MyApp.Notifier", "send_email", 2)),
+            "Should call MyApp.Notifier.send_email/2"
         );
     }
 

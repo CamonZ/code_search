@@ -122,21 +122,29 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_dependencies_returns_results() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        let result = find_dependencies(&*db, "module_a", "default", false, 100);
+        let result = find_dependencies(&*db, "MyApp.Service", "default", false, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let calls = result.unwrap();
-        // module_a.foo calls module_b.baz (cross-module dependency)
-        assert_eq!(calls.len(), 1, "Should find 1 outgoing dependency");
-        assert_eq!(calls[0].caller.module.as_ref(), "module_a");
-        assert_eq!(calls[0].callee.module.as_ref(), "module_b");
+        // MyApp.Service calls MyApp.Accounts and MyApp.Notifier (cross-module dependencies)
+        assert_eq!(calls.len(), 2, "Should find 2 outgoing dependencies");
+
+        // Verify callees (order may vary)
+        let callees: Vec<&str> = calls.iter().map(|c| c.callee.module.as_ref()).collect();
+        assert!(
+            callees.contains(&"MyApp.Accounts") && callees.contains(&"MyApp.Notifier"),
+            "Should find calls to Accounts and Notifier"
+        );
+        for call in &calls {
+            assert_eq!(call.caller.module.as_ref(), "MyApp.Service");
+        }
     }
 
     #[test]
     fn test_find_dependencies_empty_for_nonexistent() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         let result = find_dependencies(&*db, "NonExistent", "default", false, 100);
 
@@ -146,9 +154,9 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_dependencies_excludes_self_references() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        let result = find_dependencies(&*db, "module_a", "default", false, 100).unwrap();
+        let result = find_dependencies(&*db, "MyApp.Service", "default", false, 100).unwrap();
 
         for call in &result {
             assert_ne!(
@@ -160,7 +168,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_dependencies_invalid_regex() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         let result = find_dependencies(&*db, "[invalid", "default", true, 100);
 
@@ -175,7 +183,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_dependencies_non_regex_mode() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Invalid regex pattern should succeed in non-regex mode (treated as literal)
         let result = find_dependencies(&*db, "[invalid", "default", false, 100);

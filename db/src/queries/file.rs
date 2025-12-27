@@ -301,7 +301,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_functions_in_module_invalid_regex() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Invalid regex pattern: unclosed bracket
         let result = find_functions_in_module(&*db, "[invalid", "default", true, 100);
@@ -323,7 +323,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_functions_in_module_non_regex_mode() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Even invalid regex should work in non-regex mode (treated as literal string)
         let result = find_functions_in_module(&*db, "[invalid", "default", false, 100);
@@ -338,40 +338,33 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_functions_in_module_exact_match() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search for exact module name without regex
-        let result = find_functions_in_module(&*db, "module_a", "default", false, 100);
+        let result = find_functions_in_module(&*db, "MyApp.Controller", "default", false, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let functions = result.unwrap();
 
-        // Fixture has 2 clauses for module_a (foo/1 at lines 10,15 and bar/2 at line 8)
-        // Should find exactly 3 results (foo/1 x2, bar/2 x1)
-        assert_eq!(functions.len(), 3, "Should find exactly 3 clauses in module_a");
+        // MyApp.Controller has 7 clauses: index/2 (lines 5,7), show/2 (lines 12,15), create/2 (lines 20,25,28)
+        assert_eq!(functions.len(), 7, "Should find exactly 7 clauses in MyApp.Controller");
 
-        // First should be bar/2 (line 8, alphabetically first when sorted by module then line)
-        assert_eq!(functions[0].module, "module_a");
-        assert_eq!(functions[0].name, "bar");
+        // First should be index/2 (line 5)
+        assert_eq!(functions[0].module, "MyApp.Controller");
+        assert_eq!(functions[0].name, "index");
         assert_eq!(functions[0].arity, 2);
-        assert_eq!(functions[0].line, 8);
+        assert_eq!(functions[0].line, 5);
 
-        // Second should be foo/1 (line 10)
-        assert_eq!(functions[1].module, "module_a");
-        assert_eq!(functions[1].name, "foo");
-        assert_eq!(functions[1].arity, 1);
-        assert_eq!(functions[1].line, 10);
-
-        // Third should be foo/1 (line 15)
-        assert_eq!(functions[2].module, "module_a");
-        assert_eq!(functions[2].name, "foo");
-        assert_eq!(functions[2].arity, 1);
-        assert_eq!(functions[2].line, 15);
+        // Second should be index/2 (line 7)
+        assert_eq!(functions[1].module, "MyApp.Controller");
+        assert_eq!(functions[1].name, "index");
+        assert_eq!(functions[1].arity, 2);
+        assert_eq!(functions[1].line, 7);
     }
 
     #[test]
     fn test_find_functions_in_module_returns_results() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Query all modules with regex pattern that matches all
         let result = find_functions_in_module(&*db, ".*", "default", true, 100);
@@ -379,13 +372,13 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
 
-        // Fixture has 4 total clauses (3 in module_a, 1 in module_b)
-        assert_eq!(functions.len(), 4, "Should find all 4 clauses");
+        // Fixture has 22 total clauses across all modules
+        assert_eq!(functions.len(), 22, "Should find all 22 clauses");
     }
 
     #[test]
     fn test_find_functions_in_module_respects_limit() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with limit=2 using regex to match all modules
         let result = find_functions_in_module(&*db, ".*", "default", true, 2);
@@ -398,7 +391,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_functions_in_module_respects_zero_limit() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with limit=0 using regex pattern
         let result = find_functions_in_module(&*db, ".*", "default", true, 0);
@@ -411,7 +404,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_functions_in_module_with_valid_regex() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search with regex pattern
         let result = find_functions_in_module(&*db, "^module_.*$", "default", true, 100);
@@ -431,25 +424,25 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_functions_in_module_with_module_b() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // Search for module_b specifically
-        let result = find_functions_in_module(&*db, "module_b", "default", false, 100);
+        // Search for MyApp.Repo specifically
+        let result = find_functions_in_module(&*db, "MyApp.Repo", "default", false, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
 
-        // Fixture has 1 clause for module_b (baz/0 at line 3)
-        assert_eq!(functions.len(), 1, "Should find exactly 1 clause in module_b");
-        assert_eq!(functions[0].module, "module_b");
-        assert_eq!(functions[0].name, "baz");
-        assert_eq!(functions[0].arity, 0);
-        assert_eq!(functions[0].line, 3);
+        // Fixture has 4 clauses for MyApp.Repo: get/2, all/1, insert/1, query/2
+        assert_eq!(functions.len(), 4, "Should find exactly 4 clauses in MyApp.Repo");
+        assert_eq!(functions[0].module, "MyApp.Repo");
+        assert_eq!(functions[0].name, "get");
+        assert_eq!(functions[0].arity, 2);
+        assert_eq!(functions[0].line, 10);
     }
 
     #[test]
     fn test_find_functions_in_module_nonexistent_module() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search for non-existent module
         let result = find_functions_in_module(&*db, "nonexistent_module", "default", false, 100);
@@ -462,7 +455,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_functions_in_module_returns_correct_fields() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Get all clauses using regex pattern
         let result = find_functions_in_module(&*db, ".*", "default", true, 100);
@@ -491,64 +484,45 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_functions_in_module_sorted_order() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // Get all clauses to verify sorting using regex pattern
-        let result = find_functions_in_module(&*db, ".*", "default", true, 100);
+        // Get clauses for a specific module to verify sorting using regex pattern
+        let result = find_functions_in_module(&*db, "MyApp.Accounts", "default", false, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
 
-        // Results should be sorted by: module, line, name, arity
-        // Verify the expected order from fixture:
-        // 1. module_a, bar/2, line 8
-        // 2. module_a, foo/1, line 10
-        // 3. module_a, foo/1, line 15
-        // 4. module_b, baz/0, line 3
+        // MyApp.Accounts has 5 clauses sorted by line:
+        // get_user/1 at lines 10, 12
+        // get_user/2 at line 17
+        // list_users/0 at line 24
+        // validate_email/1 at line 30
+        assert_eq!(functions.len(), 5, "Should have 5 clauses");
 
-        // Actually, sorting by module first means:
-        // 1. module_a results first (sorted by line, then name, then arity)
-        // 2. module_b results second
-
-        let expected_order = vec![
-            ("module_a", "bar", 2, 8),
-            ("module_a", "foo", 1, 10),
-            ("module_a", "foo", 1, 15),
-            ("module_b", "baz", 0, 3),
-        ];
-
-        assert_eq!(
-            functions.len(),
-            expected_order.len(),
-            "Should have {} clauses",
-            expected_order.len()
-        );
-
-        for (i, (exp_module, exp_name, exp_arity, exp_line)) in expected_order.iter().enumerate() {
-            let func = &functions[i];
-            assert_eq!(func.module, *exp_module, "Item {}: module mismatch", i);
-            assert_eq!(func.name, *exp_name, "Item {}: name mismatch", i);
-            assert_eq!(func.arity, *exp_arity, "Item {}: arity mismatch", i);
-            assert_eq!(func.line, *exp_line, "Item {}: line mismatch", i);
-        }
+        // Verify sorted by line
+        assert_eq!(functions[0].line, 10);
+        assert_eq!(functions[1].line, 12);
+        assert_eq!(functions[2].line, 17);
+        assert_eq!(functions[3].line, 24);
+        assert_eq!(functions[4].line, 30);
     }
 
     #[test]
     fn test_find_functions_in_module_regex_alternation() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // Search with regex alternation pattern
-        let result = find_functions_in_module(&*db, "^(module_a|module_b)$", "default", true, 100);
+        // Search with regex alternation pattern for Controller and Accounts
+        let result = find_functions_in_module(&*db, "MyApp\\.(Controller|Accounts)", "default", true, 100);
 
         assert!(result.is_ok(), "Query should succeed with alternation regex");
         let functions = result.unwrap();
 
-        // Should find all 4 clauses
-        assert_eq!(functions.len(), 4, "Should find all 4 clauses with alternation");
+        // Should find 12 clauses (7 from Controller + 5 from Accounts)
+        assert_eq!(functions.len(), 12, "Should find 12 clauses with alternation");
 
         for func in &functions {
             assert!(
-                func.module == "module_a" || func.module == "module_b",
+                func.module == "MyApp.Controller" || func.module == "MyApp.Accounts",
                 "Module {} should match alternation pattern",
                 func.module
             );
@@ -557,21 +531,21 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_functions_in_module_case_sensitive() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search with wrong case (should not match due to case sensitivity)
-        let result = find_functions_in_module(&*db, "Module_A", "default", false, 100);
+        let result = find_functions_in_module(&*db, "myapp.controller", "default", false, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
 
         // Should find no results due to case sensitivity
-        assert_eq!(functions.len(), 0, "Should be case sensitive - no match for 'Module_A'");
+        assert_eq!(functions.len(), 0, "Should be case sensitive - no match for 'myapp.controller'");
     }
 
     #[test]
     fn test_find_functions_in_module_empty_pattern_exact() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Empty pattern in exact match mode should find no results
         let result = find_functions_in_module(&*db, "", "default", false, 100);
@@ -585,7 +559,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_functions_in_module_large_limit() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with very large limit using regex pattern
         let result = find_functions_in_module(&*db, ".*", "default", true, 1000);
@@ -593,7 +567,7 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
 
-        // Should find exactly 4 clauses (not more)
-        assert_eq!(functions.len(), 4, "Should find exactly 4 clauses, not more");
+        // Should find exactly 22 clauses (not more)
+        assert_eq!(functions.len(), 22, "Should find exactly 22 clauses, not more");
     }
 }

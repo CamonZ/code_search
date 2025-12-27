@@ -788,17 +788,17 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_paths_simple_graph() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // foo/1 -> bar/2 (direct call in simple graph)
+        // Controller.index/2 -> Accounts.list_users/0 (direct call in complex fixture)
         let result = find_paths(
             &*db,
-            "module_a",
-            "foo",
-            1,
-            "module_a",
-            "bar",
+            "MyApp.Controller",
+            "index",
             2,
+            "MyApp.Accounts",
+            "list_users",
+            0,
             "default",
             10,
             100,
@@ -810,10 +810,10 @@ mod surrealdb_tests {
 
         let path = &paths[0];
         assert_eq!(path.steps.len(), 1, "Direct call should have 1 step");
-        assert_eq!(path.steps[0].caller_module, "module_a");
-        assert_eq!(path.steps[0].caller_function, "foo");
-        assert_eq!(path.steps[0].callee_module, "module_a");
-        assert_eq!(path.steps[0].callee_function, "bar");
+        assert_eq!(path.steps[0].caller_module, "MyApp.Controller");
+        assert_eq!(path.steps[0].caller_function, "index");
+        assert_eq!(path.steps[0].callee_module, "MyApp.Accounts");
+        assert_eq!(path.steps[0].callee_function, "list_users");
         assert_eq!(path.steps[0].depth, 1);
     }
 }

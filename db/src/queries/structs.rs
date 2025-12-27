@@ -129,9 +129,11 @@ pub fn find_struct_fields(
         "WHERE module_name = $module_pattern".to_string()
     };
 
+    // Note: field table no longer has inferred_type in SurrealDB schema
+    // We return empty string for inferred_type to maintain API compatibility
     let query = format!(
         r#"
-        SELECT "default" as project, module_name, name, default_value, required, inferred_type
+        SELECT "default" as project, module_name, name, default_value, required
         FROM `field`
         {where_clause}
         ORDER BY module_name, name
@@ -149,20 +151,20 @@ pub fn find_struct_fields(
 
     let mut results = Vec::new();
     for row in result.rows() {
-        // SurrealDB returns columns in alphabetical order: default_value, inferred_type, module_name, name, project, required
-        if row.len() >= 6 {
+        // SurrealDB returns columns in alphabetical order: default_value, module_name, name, project, required
+        // Note: inferred_type is no longer in the schema, we return empty string
+        if row.len() >= 5 {
             let default_value = extract_string_or(row.get(0).unwrap(), "");
-            let inferred_type = extract_string_or(row.get(1).unwrap(), "");
-            let Some(module) = extract_string(row.get(2).unwrap()) else {
+            let Some(module) = extract_string(row.get(1).unwrap()) else {
                 continue;
             };
-            let Some(field) = extract_string(row.get(3).unwrap()) else {
+            let Some(field) = extract_string(row.get(2).unwrap()) else {
                 continue;
             };
-            let Some(project) = extract_string(row.get(4).unwrap()) else {
+            let Some(project) = extract_string(row.get(3).unwrap()) else {
                 continue;
             };
-            let required = extract_bool(row.get(5).unwrap(), false);
+            let required = extract_bool(row.get(4).unwrap(), false);
 
             results.push(StructField {
                 project,
@@ -170,7 +172,7 @@ pub fn find_struct_fields(
                 field,
                 default_value,
                 required,
-                inferred_type,
+                inferred_type: String::new(), // Not stored in SurrealDB schema
             });
         }
     }
@@ -337,10 +339,9 @@ mod tests {
             // Verify field properties
             assert_eq!(fields[0].module, "structs_module");
             assert_eq!(fields[0].field, "age");
-            assert_eq!(fields[0].inferred_type, "integer()");
             assert_eq!(fields[1].module, "structs_module");
             assert_eq!(fields[1].field, "name");
-            assert_eq!(fields[1].inferred_type, "string()");
+            // Note: inferred_type is not stored in SurrealDB schema (empty string)
         }
 
         #[rstest]
@@ -389,7 +390,7 @@ mod tests {
             assert_eq!(field.project, "default", "Project should be 'default'");
             assert!(!field.module.is_empty(), "Module should not be empty");
             assert!(!field.field.is_empty(), "Field name should not be empty");
-            assert!(!field.inferred_type.is_empty(), "Field type should not be empty");
+            // Note: inferred_type is not stored in SurrealDB schema (empty string)
         }
 
         #[rstest]

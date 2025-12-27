@@ -20,20 +20,12 @@ DEFINE INDEX idx_module_name ON module FIELDS name UNIQUE;
 /// Schema definition for the function node table.
 ///
 /// Represents function identities with signature (module_name, name, arity).
-/// Merged from CozoDB's `functions` and `specs` tables.
+/// Derived from function_locations - represents a unique function regardless of clause count.
 pub const SCHEMA_FUNCTION: &str = r#"
 DEFINE TABLE function SCHEMAFULL;
 DEFINE FIELD module_name ON function TYPE string;
 DEFINE FIELD name ON function TYPE string;
 DEFINE FIELD arity ON function TYPE int;
-DEFINE FIELD return_type ON function TYPE string DEFAULT "";
-DEFINE FIELD args ON function TYPE string DEFAULT "";
-DEFINE FIELD source ON function TYPE string DEFAULT "unknown";
-DEFINE FIELD spec_kind ON function TYPE string DEFAULT "";
-DEFINE FIELD spec_line ON function TYPE int DEFAULT 0;
-DEFINE FIELD inputs_string ON function TYPE string DEFAULT "";
-DEFINE FIELD return_string ON function TYPE string DEFAULT "";
-DEFINE FIELD spec_full ON function TYPE string DEFAULT "";
 DEFINE INDEX idx_function_natural_key ON function FIELDS module_name, name, arity UNIQUE;
 DEFINE INDEX idx_function_module ON function FIELDS module_name;
 DEFINE INDEX idx_function_name ON function FIELDS name;
@@ -50,27 +42,48 @@ DEFINE FIELD module_name ON clause TYPE string;
 DEFINE FIELD function_name ON clause TYPE string;
 DEFINE FIELD arity ON clause TYPE int;
 DEFINE FIELD line ON clause TYPE int;
-DEFINE FIELD file ON clause TYPE string;
+DEFINE FIELD source_file ON clause TYPE string;
 DEFINE FIELD source_file_absolute ON clause TYPE string DEFAULT "";
-DEFINE FIELD column ON clause TYPE int;
 DEFINE FIELD kind ON clause TYPE string;
 DEFINE FIELD start_line ON clause TYPE int;
 DEFINE FIELD end_line ON clause TYPE int;
 DEFINE FIELD pattern ON clause TYPE string DEFAULT "";
-DEFINE FIELD guard ON clause TYPE string DEFAULT "";
+DEFINE FIELD guard ON clause TYPE option<string>;
 DEFINE FIELD source_sha ON clause TYPE string DEFAULT "";
 DEFINE FIELD ast_sha ON clause TYPE string DEFAULT "";
 DEFINE FIELD complexity ON clause TYPE int DEFAULT 1;
 DEFINE FIELD max_nesting_depth ON clause TYPE int DEFAULT 0;
-DEFINE FIELD generated_by ON clause TYPE string DEFAULT "";
-DEFINE FIELD macro_source ON clause TYPE string DEFAULT "";
+DEFINE FIELD generated_by ON clause TYPE option<string>;
+DEFINE FIELD macro_source ON clause TYPE option<string>;
 DEFINE INDEX idx_clause_natural_key ON clause FIELDS module_name, function_name, arity, line UNIQUE;
 DEFINE INDEX idx_clause_function ON clause FIELDS module_name, function_name, arity;
 "#;
 
+/// Schema definition for the spec node table.
+///
+/// Represents @spec and @callback definitions.
+/// A spec belongs to a module and references a function (by name and arity).
+/// Specs can have multiple clauses (for overloaded functions), each stored as a separate row.
+/// Unique key: (module_name, function_name, arity, clause_index)
+pub const SCHEMA_SPEC: &str = r#"
+DEFINE TABLE spec SCHEMAFULL;
+DEFINE FIELD module_name ON spec TYPE string;
+DEFINE FIELD function_name ON spec TYPE string;
+DEFINE FIELD arity ON spec TYPE int;
+DEFINE FIELD kind ON spec TYPE string;
+DEFINE FIELD line ON spec TYPE int;
+DEFINE FIELD clause_index ON spec TYPE int DEFAULT 0;
+DEFINE FIELD input_strings ON spec TYPE array<string> DEFAULT [];
+DEFINE FIELD return_strings ON spec TYPE array<string> DEFAULT [];
+DEFINE FIELD full ON spec TYPE string DEFAULT "";
+DEFINE INDEX idx_spec_natural_key ON spec FIELDS module_name, function_name, arity, clause_index UNIQUE;
+DEFINE INDEX idx_spec_module ON spec FIELDS module_name;
+DEFINE INDEX idx_spec_function ON spec FIELDS module_name, function_name, arity;
+"#;
+
 /// Schema definition for the type node table.
 ///
-/// Represents type/struct definitions within modules.
+/// Represents @type, @typep, and @opaque definitions within modules.
 /// Unique key: (module_name, name)
 pub const SCHEMA_TYPE: &str = r#"
 DEFINE TABLE type SCHEMAFULL;
@@ -87,19 +100,17 @@ DEFINE INDEX idx_type_name ON type FIELDS name;
 
 /// Schema definition for the field node table.
 ///
-/// Represents struct/type fields within types.
-/// Renamed from CozoDB's `struct_fields` for clarity.
-/// Unique key: (module_name, type_name, name)
+/// Represents struct fields within a module.
+/// A module can define at most one struct, and the struct name equals the module name.
+/// Unique key: (module_name, name)
 pub const SCHEMA_FIELD: &str = r#"
 DEFINE TABLE field SCHEMAFULL;
 DEFINE FIELD module_name ON field TYPE string;
-DEFINE FIELD type_name ON field TYPE string;
 DEFINE FIELD name ON field TYPE string;
 DEFINE FIELD default_value ON field TYPE string;
 DEFINE FIELD required ON field TYPE bool;
-DEFINE FIELD inferred_type ON field TYPE string;
-DEFINE INDEX idx_field_natural_key ON field FIELDS module_name, type_name, name UNIQUE;
-DEFINE INDEX idx_field_type ON field FIELDS module_name, type_name;
+DEFINE INDEX idx_field_natural_key ON field FIELDS module_name, name UNIQUE;
+DEFINE INDEX idx_field_module ON field FIELDS module_name;
 DEFINE INDEX idx_field_name ON field FIELDS name;
 "#;
 
@@ -107,10 +118,10 @@ DEFINE INDEX idx_field_name ON field FIELDS name;
 
 /// Schema definition for the defines relationship table.
 ///
-/// Represents module containment: module -> function | type
+/// Represents module containment: module -> function | type | spec
 /// Graph edge enabling traversal of what entities a module defines.
 pub const SCHEMA_DEFINES: &str = r#"
-DEFINE TABLE defines SCHEMAFULL TYPE RELATION FROM module TO function | type;
+DEFINE TABLE defines SCHEMAFULL TYPE RELATION FROM module TO function | type | spec;
 DEFINE INDEX idx_defines_in ON defines FIELDS in;
 DEFINE INDEX idx_defines_out ON defines FIELDS out;
 "#;
@@ -133,11 +144,9 @@ pub const SCHEMA_CALLS: &str = r#"
 DEFINE TABLE calls SCHEMAFULL TYPE RELATION FROM function TO function;
 DEFINE FIELD call_type ON calls TYPE string DEFAULT "remote";
 DEFINE FIELD caller_kind ON calls TYPE string DEFAULT "";
-DEFINE FIELD callee_args ON calls TYPE string DEFAULT "";
 DEFINE FIELD file ON calls TYPE string;
 DEFINE FIELD line ON calls TYPE int;
-DEFINE FIELD column ON calls TYPE int;
-DEFINE FIELD caller_clause_id ON calls TYPE record<clause>;
+DEFINE FIELD caller_clause_id ON calls TYPE option<record<clause>>;
 DEFINE INDEX idx_calls_in ON calls FIELDS in;
 DEFINE INDEX idx_calls_out ON calls FIELDS out;
 DEFINE INDEX idx_calls_file ON calls FIELDS file;
@@ -146,10 +155,10 @@ DEFINE INDEX idx_calls_caller_clause ON calls FIELDS caller_clause_id;
 
 /// Schema definition for the has_field relationship table.
 ///
-/// Represents type field membership: type -> field
-/// Graph edge linking types to their constituent fields.
+/// Represents struct field membership: module -> field
+/// Graph edge linking modules (that define structs) to their fields.
 pub const SCHEMA_HAS_FIELD: &str = r#"
-DEFINE TABLE has_field SCHEMAFULL TYPE RELATION FROM type TO field;
+DEFINE TABLE has_field SCHEMAFULL TYPE RELATION FROM module TO field;
 DEFINE INDEX idx_has_field_in ON has_field FIELDS in;
 DEFINE INDEX idx_has_field_out ON has_field FIELDS out;
 "#;
@@ -159,7 +168,7 @@ DEFINE INDEX idx_has_field_out ON has_field FIELDS out;
 /// Returns the complete schema DDL for the requested table, or None if not found.
 ///
 /// # Arguments
-/// * `name` - Table name ("module", "function", "clause", "type", "field", "defines", "has_clause", "calls", "has_field")
+/// * `name` - Table name ("module", "function", "clause", "spec", "type", "field", "defines", "has_clause", "calls", "has_field")
 ///
 /// # Returns
 /// * `Some(&str)` - The schema DDL for the table
@@ -169,6 +178,7 @@ pub fn schema_for_table(name: &str) -> Option<&'static str> {
         "module" => Some(SCHEMA_MODULE),
         "function" => Some(SCHEMA_FUNCTION),
         "clause" => Some(SCHEMA_CLAUSE),
+        "spec" => Some(SCHEMA_SPEC),
         "type" => Some(SCHEMA_TYPE),
         "field" => Some(SCHEMA_FIELD),
         "defines" => Some(SCHEMA_DEFINES),
@@ -183,7 +193,7 @@ pub fn schema_for_table(name: &str) -> Option<&'static str> {
 ///
 /// Node tables have no external dependencies and should be created first.
 pub fn node_tables() -> &'static [&'static str] {
-    &["module", "function", "clause", "type", "field"]
+    &["module", "function", "clause", "spec", "type", "field"]
 }
 
 /// Returns a slice of all relationship table names in dependency order.
@@ -200,7 +210,7 @@ mod tests {
     #[test]
     fn test_all_tables_have_schemas() {
         let all_tables = [
-            "module", "function", "clause", "type", "field",
+            "module", "function", "clause", "spec", "type", "field",
             "defines", "has_clause", "calls", "has_field",
         ];
 
@@ -216,7 +226,7 @@ mod tests {
     #[test]
     fn test_schema_strings_are_valid_sql() {
         let all_tables = [
-            "module", "function", "clause", "type", "field",
+            "module", "function", "clause", "spec", "type", "field",
             "defines", "has_clause", "calls", "has_field",
         ];
 
@@ -234,7 +244,7 @@ mod tests {
     #[test]
     fn test_all_schemas_use_schemafull() {
         let all_tables = [
-            "module", "function", "clause", "type", "field",
+            "module", "function", "clause", "spec", "type", "field",
             "defines", "has_clause", "calls", "has_field",
         ];
 
@@ -260,7 +270,7 @@ mod tests {
             all_from_functions.insert(*table);
         }
 
-        assert_eq!(all_from_functions.len(), 9, "Should have 9 total tables");
+        assert_eq!(all_from_functions.len(), 10, "Should have 10 total tables");
     }
 
     #[test]

@@ -344,31 +344,47 @@ mod surrealdb_tests {
 
     #[test]
     fn test_reverse_trace_calls_recursive_reverse_traversal() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // Simple fixture has: module_a.foo/1 -> module_a.bar/2 and module_a.foo/1 -> module_b.baz/0
-        // Reverse tracing should find who calls these functions
-        // module_a.bar is called by module_a.foo
-        // module_b.baz is called by module_a.foo
-        let result = reverse_trace_calls(&*db, "module_a", "bar", None, "default", false, 10, 100);
+        // Complex fixture: Notifier.send_email/2 is called by Service.process_request/2 and Controller.create/2
+        // Recursive trace will also find Controller.create as depth-2 caller (via Service.process_request)
+        let result = reverse_trace_calls(&*db, "MyApp.Notifier", "send_email", None, "default", false, 10, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let steps = result.unwrap();
 
-        // Should find module_a.foo as the caller of module_a.bar
-        assert_eq!(steps.len(), 1, "Should find exactly 1 caller of bar");
-        assert_eq!(steps[0].caller_module, "module_a");
-        assert_eq!(steps[0].caller_function, "foo");
-        assert_eq!(steps[0].caller_arity, 1);
-        assert_eq!(steps[0].callee_module, "module_a");
-        assert_eq!(steps[0].callee_function, "bar");
-        assert_eq!(steps[0].callee_arity, 2);
-        assert_eq!(steps[0].depth, 1);
+        // Should find at least 2 callers (recursive trace includes transitive callers)
+        assert!(steps.len() >= 2, "Should find at least 2 callers of send_email");
+
+        // Filter for depth-1 callers
+        let depth_1_steps: Vec<_> = steps.iter().filter(|s| s.depth == 1).collect();
+        assert_eq!(depth_1_steps.len(), 2, "Should find exactly 2 direct callers at depth 1");
+
+        // All depth-1 steps should have Notifier.send_email as callee
+        for step in &depth_1_steps {
+            assert_eq!(step.callee_module, "MyApp.Notifier");
+            assert_eq!(step.callee_function, "send_email");
+            assert_eq!(step.callee_arity, 2);
+        }
+
+        // Verify depth-1 callers (order may vary)
+        let callers: Vec<(&str, &str, i64)> = depth_1_steps
+            .iter()
+            .map(|s| (s.caller_module.as_str(), s.caller_function.as_str(), s.caller_arity))
+            .collect();
+        assert!(
+            callers.contains(&("MyApp.Controller", "create", 2)),
+            "Should be called by Controller.create/2"
+        );
+        assert!(
+            callers.contains(&("MyApp.Service", "process_request", 2)),
+            "Should be called by Service.process_request/2"
+        );
     }
 
     #[test]
     fn test_reverse_trace_calls_empty_results() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         let result = reverse_trace_calls(
             &*db,
@@ -466,7 +482,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_reverse_trace_calls_invalid_regex() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         let result = reverse_trace_calls(&*db, "[invalid", "index", None, "default", true, 10, 100);
 
@@ -500,41 +516,45 @@ mod surrealdb_tests {
 
     #[test]
     fn test_reverse_trace_calls_module_function_exact_match() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // Simple fixture: module_a.foo/1 calls module_a.bar/2
-        // Reverse trace of bar should find foo
-        let result = reverse_trace_calls(&*db, "module_a", "bar", None, "default", false, 10, 100)
+        // Complex fixture: Notifier.send_email/2 calls Notifier.format_message/1
+        // Reverse trace of format_message should find send_email as the only caller
+        // But trace is recursive, so it will also find callers of send_email
+        let result = reverse_trace_calls(&*db, "MyApp.Notifier", "format_message", None, "default", false, 10, 100)
             .expect("Query should succeed");
 
-        assert_eq!(result.len(), 1, "Should find exactly 1 caller of bar");
+        assert!(result.len() >= 1, "Should find at least 1 caller of format_message");
 
-        // The caller should be module_a.foo
-        assert_eq!(
-            result[0].caller_module,
-            "module_a",
-            "Caller module should be module_a"
-        );
-        assert_eq!(
-            result[0].caller_function,
-            "foo",
-            "Caller name should be foo"
-        );
-        assert_eq!(result[0].caller_arity, 1, "Caller arity should be 1");
+        // Filter for depth-1 callers
+        let depth_1_steps: Vec<_> = result.iter().filter(|s| s.depth == 1).collect();
+        assert_eq!(depth_1_steps.len(), 1, "Should find exactly 1 direct caller at depth 1");
 
-        // The callee should be module_a.bar
+        // The direct caller should be MyApp.Notifier.send_email
         assert_eq!(
-            result[0].callee_module,
-            "module_a",
-            "Callee module should be module_a"
+            depth_1_steps[0].caller_module,
+            "MyApp.Notifier",
+            "Caller module should be MyApp.Notifier"
         );
         assert_eq!(
-            result[0].callee_function,
-            "bar",
-            "Callee name should be bar"
+            depth_1_steps[0].caller_function,
+            "send_email",
+            "Caller name should be send_email"
         );
-        assert_eq!(result[0].callee_arity, 2, "Callee arity should be 2");
-        assert_eq!(result[0].depth, 1, "Should be at depth 1");
+        assert_eq!(depth_1_steps[0].caller_arity, 2, "Caller arity should be 2");
+
+        // The callee should be MyApp.Notifier.format_message
+        assert_eq!(
+            depth_1_steps[0].callee_module,
+            "MyApp.Notifier",
+            "Callee module should be MyApp.Notifier"
+        );
+        assert_eq!(
+            depth_1_steps[0].callee_function,
+            "format_message",
+            "Callee name should be format_message"
+        );
+        assert_eq!(depth_1_steps[0].callee_arity, 1, "Callee arity should be 1");
     }
 
     #[test]

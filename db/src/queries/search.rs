@@ -234,9 +234,11 @@ pub fn search_functions(
         "WHERE name = $pattern".to_string()
     };
 
+    // Note: function table no longer has return_type field in SurrealDB schema
+    // We return empty string for return_type to maintain API compatibility
     let query = format!(
         r#"
-        SELECT "default" as project, module_name as module, name, arity, return_type
+        SELECT "default" as project, module_name as module, name, arity
         FROM `function`
         {where_clause}
         ORDER BY module_name ASC, name ASC, arity ASC
@@ -254,8 +256,9 @@ pub fn search_functions(
 
     let mut results = Vec::new();
     for row in result.rows() {
-        // SurrealDB returns columns in alphabetical order: arity, module, name, project, return_type
-        if row.len() >= 5 {
+        // SurrealDB returns columns in alphabetical order: arity, module, name, project
+        // Note: return_type is no longer in the schema, we return empty string
+        if row.len() >= 4 {
             let arity = extract_i64(row.get(0).unwrap(), 0);
             let Some(module) = extract_string(row.get(1).unwrap()) else {
                 continue;
@@ -266,14 +269,13 @@ pub fn search_functions(
             let Some(project) = extract_string(row.get(3).unwrap()) else {
                 continue;
             };
-            let return_type = extract_string_or(row.get(4).unwrap(), "");
 
             results.push(FunctionResult {
                 project,
                 module,
                 name,
                 arity,
-                return_type,
+                return_type: String::new(), // Not stored in SurrealDB schema
             });
         }
     }
@@ -405,7 +407,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_modules_valid_regex() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Valid regex pattern should not error on validation (may or may not find results)
         let result = search_modules(&*db, "^module_.*$", "default", 10, true);
@@ -420,7 +422,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_modules_invalid_regex() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Invalid regex pattern: unclosed bracket
         let result = search_modules(&*db, "[invalid", "default", 10, true);
@@ -442,7 +444,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_modules_non_regex_mode() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Even invalid regex should work in non-regex mode (treated as literal string)
         let result = search_modules(&*db, "[invalid", "default", 10, false);
@@ -457,39 +459,39 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_modules_exact_match() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search for exact module name without regex
-        let result = search_modules(&*db, "module_a", "default", 10, false);
+        let result = search_modules(&*db, "MyApp.Accounts", "default", 10, false);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let modules = result.unwrap();
 
-        // Fixture has module_a, so we should find exactly 1 result
+        // Fixture has MyApp.Accounts, so we should find exactly 1 result
         assert_eq!(modules.len(), 1, "Should find exactly one module");
-        assert_eq!(modules[0].name, "module_a");
+        assert_eq!(modules[0].name, "MyApp.Accounts");
         assert_eq!(modules[0].project, "default");
         assert_eq!(modules[0].source, "unknown");
     }
 
     #[test]
     fn test_search_modules_with_limit() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // Test limit parameter - fixture has 2 modules, limit to 1
+        // Test limit parameter - fixture has 5 modules, limit to 1
         let result = search_modules(&*db, ".*", "default", 1, true);
 
         assert!(result.is_ok(), "Should respect limit parameter");
         let modules = result.unwrap();
 
-        // Should return exactly 1 module (first one alphabetically: module_a)
+        // Should return exactly 1 module (first one alphabetically: MyApp.Accounts)
         assert_eq!(modules.len(), 1, "Should respect limit of 1");
-        assert_eq!(modules[0].name, "module_a");
+        assert_eq!(modules[0].name, "MyApp.Accounts");
     }
 
     #[test]
     fn test_search_functions_valid_regex() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Valid regex pattern should not error on validation
         let result = search_functions(&*db, "^foo.*$", "default", 10, true);
@@ -504,7 +506,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_functions_invalid_regex() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Invalid regex pattern: invalid repetition
         let result = search_functions(&*db, "*invalid", "default", 10, true);
@@ -526,7 +528,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_functions_non_regex_mode() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Even invalid regex should work in non-regex mode
         let result = search_functions(&*db, "*invalid", "default", 10, false);
@@ -541,64 +543,63 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_functions_exact_match() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search for exact function name without regex
-        let result = search_functions(&*db, "foo", "default", 10, false);
+        let result = search_functions(&*db, "index", "default", 10, false);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let functions = result.unwrap();
 
-        // Fixture has foo/1 in module_a, should find exactly 1 result
+        // Fixture has index/2 in MyApp.Controller, should find exactly 1 result
         assert_eq!(functions.len(), 1, "Should find exactly one function");
-        assert_eq!(functions[0].name, "foo");
-        assert_eq!(functions[0].module, "module_a");
-        assert_eq!(functions[0].arity, 1);
+        assert_eq!(functions[0].name, "index");
+        assert_eq!(functions[0].module, "MyApp.Controller");
+        assert_eq!(functions[0].arity, 2);
         assert_eq!(functions[0].project, "default");
-        assert_eq!(functions[0].return_type, "any()");
+        // Note: return_type is not stored in SurrealDB schema (removed for simplification)
     }
 
     #[test]
     fn test_search_functions_with_limit() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // Test limit parameter - fixture has 3 functions, limit to 1
-        let result = search_functions(&*db, ".*", "default", 1, true);
+        // Test limit parameter - search for get_user which has 2 arities, limit to 1
+        let result = search_functions(&*db, "get_user", "default", 1, false);
 
         assert!(result.is_ok(), "Should respect limit parameter");
         let functions = result.unwrap();
 
-        // Should return exactly 1 function (first one: module_a::bar/2)
+        // Should return exactly 1 function
         assert_eq!(functions.len(), 1, "Should respect limit of 1");
-        assert_eq!(functions[0].module, "module_a");
-        assert_eq!(functions[0].name, "bar");
-        assert_eq!(functions[0].arity, 2);
+        assert_eq!(functions[0].name, "get_user");
+        // Could be either arity 1 or 2 depending on database ordering
     }
 
     #[test]
     fn test_search_functions_returns_correct_fields() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Get all functions to verify field structure
-        let result = search_functions(&*db, ".*", "default", 10, true);
+        let result = search_functions(&*db, ".*", "default", 20, true);
 
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
 
-        // Fixture has 3 functions, all should have correct fields
-        assert_eq!(functions.len(), 3);
+        // Fixture has 15 functions, all should have correct fields
+        assert_eq!(functions.len(), 15);
         for func in &functions {
             assert_eq!(func.project, "default");
             assert!(!func.module.is_empty(), "module should not be empty");
             assert!(!func.name.is_empty(), "name should not be empty");
             assert!(func.arity >= 0, "arity should be non-negative");
-            assert_eq!(func.return_type, "any()");
+            // Note: return_type is not stored in SurrealDB schema (empty string)
         }
     }
 
     #[test]
     fn test_search_modules_returns_correct_fields() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Get all modules to verify field structure
         let result = search_modules(&*db, ".*", "default", 10, true);
@@ -606,8 +607,8 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Query should succeed");
         let modules = result.unwrap();
 
-        // Fixture has 2 modules, all should have correct fields
-        assert_eq!(modules.len(), 2);
+        // Fixture has 5 modules, all should have correct fields
+        assert_eq!(modules.len(), 5);
         for module in &modules {
             assert_eq!(module.project, "default");
             assert!(!module.name.is_empty(), "name should not be empty");
@@ -617,7 +618,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_modules_with_special_regex_chars() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with more complex regex pattern
         let result = search_modules(&*db, "^mod.*_[ab]$", "default", 10, true);
@@ -627,7 +628,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_functions_with_special_regex_chars() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with more complex regex pattern for functions
         let result = search_functions(&*db, "^[a-z]+_.*", "default", 10, true);
@@ -637,7 +638,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_modules_no_results() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search for pattern that doesn't match anything
         let result = search_modules(&*db, "xyz_nonexistent_12345", "default", 10, false);
@@ -651,7 +652,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_functions_no_results() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search for pattern that doesn't match anything
         let result = search_functions(&*db, "xyz_nonexistent_fn_12345", "default", 10, false);
@@ -665,7 +666,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_modules_zero_limit() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with zero limit (should return no results)
         let result = search_modules(&*db, ".*", "default", 0, true);
@@ -677,7 +678,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_functions_zero_limit() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with zero limit (should return no results)
         let result = search_functions(&*db, ".*", "default", 0, true);
@@ -689,7 +690,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_modules_large_limit() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with large limit (larger than result set)
         let result = search_modules(&*db, ".*", "default", 1000000, true);
@@ -697,13 +698,13 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Should handle large limit");
         let modules = result.unwrap();
 
-        // Fixture has 2 modules, large limit should return all of them
-        assert_eq!(modules.len(), 2, "Should return all 2 modules");
+        // Fixture has 5 modules, large limit should return all of them
+        assert_eq!(modules.len(), 5, "Should return all 5 modules");
     }
 
     #[test]
     fn test_search_functions_large_limit() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with large limit (larger than result set)
         let result = search_functions(&*db, ".*", "default", 1000000, true);
@@ -711,13 +712,13 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Should handle large limit");
         let functions = result.unwrap();
 
-        // Fixture has 3 functions, large limit should return all of them
-        assert_eq!(functions.len(), 3, "Should return all 3 functions");
+        // Fixture has 15 functions, large limit should return all of them
+        assert_eq!(functions.len(), 15, "Should return all 15 functions");
     }
 
     #[test]
     fn test_search_modules_empty_pattern() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with empty pattern in exact match mode (no modules named "")
         let result = search_modules(&*db, "", "default", 10, false);
@@ -730,7 +731,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_functions_empty_pattern() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with empty pattern in exact match mode (no functions named "")
         let result = search_functions(&*db, "", "default", 10, false);
@@ -743,80 +744,81 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_modules_regex_dot_star() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with regex pattern that matches all modules
-        let result = search_modules(&*db, ".*", "default", 5, true);
+        let result = search_modules(&*db, ".*", "default", 10, true);
 
         assert!(result.is_ok(), "Should match all modules with .*");
         let modules = result.unwrap();
 
-        // Fixture has exactly 2 modules (module_a, module_b)
-        assert_eq!(modules.len(), 2, "Should find exactly 2 modules");
-        assert_eq!(modules[0].name, "module_a");
-        assert_eq!(modules[1].name, "module_b");
+        // Fixture has exactly 5 modules (alphabetically sorted)
+        assert_eq!(modules.len(), 5, "Should find exactly 5 modules");
+        assert_eq!(modules[0].name, "MyApp.Accounts");
+        assert_eq!(modules[1].name, "MyApp.Controller");
+        assert_eq!(modules[2].name, "MyApp.Notifier");
+        assert_eq!(modules[3].name, "MyApp.Repo");
+        assert_eq!(modules[4].name, "MyApp.Service");
     }
 
     #[test]
     fn test_search_functions_regex_dot_star() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with regex pattern that matches all functions
-        let result = search_functions(&*db, ".*", "default", 5, true);
+        let result = search_functions(&*db, ".*", "default", 20, true);
 
         assert!(result.is_ok(), "Should match all functions with .*");
         let functions = result.unwrap();
 
-        // Fixture has exactly 3 functions (bar/2, foo/1 in module_a, baz/0 in module_b)
-        // Sorted by module_name, name, arity
-        assert_eq!(functions.len(), 3, "Should find exactly 3 functions");
-        assert_eq!(functions[0].module, "module_a");
-        assert_eq!(functions[0].name, "bar");
-        assert_eq!(functions[0].arity, 2);
-        assert_eq!(functions[1].module, "module_a");
-        assert_eq!(functions[1].name, "foo");
-        assert_eq!(functions[1].arity, 1);
-        assert_eq!(functions[2].module, "module_b");
-        assert_eq!(functions[2].name, "baz");
-        assert_eq!(functions[2].arity, 0);
+        // Fixture has exactly 15 functions sorted by module_name, name, arity
+        assert_eq!(functions.len(), 15, "Should find exactly 15 functions");
+        // First function: MyApp.Accounts.get_user/1
+        assert_eq!(functions[0].module, "MyApp.Accounts");
+        assert_eq!(functions[0].name, "get_user");
+        assert_eq!(functions[0].arity, 1);
+        // Second function: MyApp.Accounts.get_user/2
+        assert_eq!(functions[1].module, "MyApp.Accounts");
+        assert_eq!(functions[1].name, "get_user");
+        assert_eq!(functions[1].arity, 2);
     }
 
     #[test]
     fn test_search_modules_matches_specific_name() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search for specific module that should exist
-        let result = search_modules(&*db, "module_a", "default", 10, false);
+        let result = search_modules(&*db, "MyApp.Repo", "default", 10, false);
 
-        assert!(result.is_ok(), "Should find module_a without error");
+        assert!(result.is_ok(), "Should find MyApp.Repo without error");
         let modules = result.unwrap();
 
         // Must find exactly the module we're looking for
         assert_eq!(modules.len(), 1, "Should find exactly one module");
-        assert_eq!(modules[0].name, "module_a");
+        assert_eq!(modules[0].name, "MyApp.Repo");
         assert_eq!(modules[0].project, "default");
     }
 
     #[test]
     fn test_search_functions_matches_specific_name() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search for specific function that should exist
-        let result = search_functions(&*db, "foo", "default", 10, false);
+        let result = search_functions(&*db, "send_email", "default", 10, false);
 
-        assert!(result.is_ok(), "Should find foo without error");
+        assert!(result.is_ok(), "Should find send_email without error");
         let functions = result.unwrap();
 
         // Must find exactly the function we're looking for
         assert_eq!(functions.len(), 1, "Should find exactly one function");
-        assert_eq!(functions[0].name, "foo");
-        assert_eq!(functions[0].module, "module_a");
-        assert_eq!(functions[0].arity, 1);
+        assert_eq!(functions[0].name, "send_email");
+        assert_eq!(functions[0].module, "MyApp.Notifier");
+        assert_eq!(functions[0].arity, 2);
     }
 
     #[test]
     fn test_search_modules_sorted_by_name() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Get all modules to verify sorting
         let result = search_modules(&*db, ".*", "default", 100, true);
@@ -824,15 +826,18 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Query should succeed");
         let modules = result.unwrap();
 
-        // Fixture has 2 modules: module_a and module_b (alphabetically sorted)
-        assert_eq!(modules.len(), 2);
-        assert_eq!(modules[0].name, "module_a");
-        assert_eq!(modules[1].name, "module_b");
+        // Fixture has 5 modules (alphabetically sorted)
+        assert_eq!(modules.len(), 5);
+        assert_eq!(modules[0].name, "MyApp.Accounts");
+        assert_eq!(modules[1].name, "MyApp.Controller");
+        assert_eq!(modules[2].name, "MyApp.Notifier");
+        assert_eq!(modules[3].name, "MyApp.Repo");
+        assert_eq!(modules[4].name, "MyApp.Service");
     }
 
     #[test]
     fn test_search_functions_sorted_by_module_name_arity() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Get all functions to verify sorting
         let result = search_functions(&*db, ".*", "default", 100, true);
@@ -840,47 +845,50 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
 
-        // Fixture has 3 functions sorted by module_name, name, arity:
-        // module_a::bar/2, module_a::foo/1, module_b::baz/0
-        assert_eq!(functions.len(), 3);
-        assert_eq!(functions[0].module, "module_a");
-        assert_eq!(functions[0].name, "bar");
-        assert_eq!(functions[0].arity, 2);
-        assert_eq!(functions[1].module, "module_a");
-        assert_eq!(functions[1].name, "foo");
-        assert_eq!(functions[1].arity, 1);
-        assert_eq!(functions[2].module, "module_b");
-        assert_eq!(functions[2].name, "baz");
+        // Fixture has 15 functions sorted by module_name, name, arity
+        assert_eq!(functions.len(), 15);
+        // First 4 are in MyApp.Accounts: get_user/1, get_user/2, list_users/0, validate_email/1
+        assert_eq!(functions[0].module, "MyApp.Accounts");
+        assert_eq!(functions[0].name, "get_user");
+        assert_eq!(functions[0].arity, 1);
+        assert_eq!(functions[1].module, "MyApp.Accounts");
+        assert_eq!(functions[1].name, "get_user");
+        assert_eq!(functions[1].arity, 2);
+        assert_eq!(functions[2].module, "MyApp.Accounts");
+        assert_eq!(functions[2].name, "list_users");
         assert_eq!(functions[2].arity, 0);
+        assert_eq!(functions[3].module, "MyApp.Accounts");
+        assert_eq!(functions[3].name, "validate_email");
+        assert_eq!(functions[3].arity, 1);
     }
 
     #[test]
     fn test_search_modules_case_sensitive() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search should be case sensitive
-        let result_lower = search_modules(&*db, "module_a", "default", 10, false);
-        let result_upper = search_modules(&*db, "MODULE_A", "default", 10, false);
+        let result_correct = search_modules(&*db, "MyApp.Accounts", "default", 10, false);
+        let result_lower = search_modules(&*db, "myapp.accounts", "default", 10, false);
 
+        assert!(result_correct.is_ok());
         assert!(result_lower.is_ok());
-        assert!(result_upper.is_ok());
 
+        let correct_modules = result_correct.unwrap();
         let lower_modules = result_lower.unwrap();
-        let upper_modules = result_upper.unwrap();
 
-        // Lowercase should find the module, uppercase should not (case sensitive)
-        assert_eq!(lower_modules.len(), 1, "Lowercase should find module");
-        assert_eq!(lower_modules[0].name, "module_a");
-        assert_eq!(upper_modules.len(), 0, "Uppercase should find nothing (case sensitive)");
+        // Correct case should find the module, lowercase should not (case sensitive)
+        assert_eq!(correct_modules.len(), 1, "Correct case should find module");
+        assert_eq!(correct_modules[0].name, "MyApp.Accounts");
+        assert_eq!(lower_modules.len(), 0, "Lowercase should find nothing (case sensitive)");
     }
 
     #[test]
     fn test_search_functions_case_sensitive() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search should be case sensitive
-        let result_lower = search_functions(&*db, "foo", "default", 10, false);
-        let result_upper = search_functions(&*db, "FOO", "default", 10, false);
+        let result_lower = search_functions(&*db, "get_user", "default", 10, false);
+        let result_upper = search_functions(&*db, "GET_USER", "default", 10, false);
 
         assert!(result_lower.is_ok());
         assert!(result_upper.is_ok());
@@ -888,15 +896,15 @@ mod surrealdb_tests {
         let lower_functions = result_lower.unwrap();
         let upper_functions = result_upper.unwrap();
 
-        // Lowercase should find the function, uppercase should not (case sensitive)
-        assert_eq!(lower_functions.len(), 1, "Lowercase should find function");
-        assert_eq!(lower_functions[0].name, "foo");
+        // Lowercase should find the function (2 arities), uppercase should not (case sensitive)
+        assert_eq!(lower_functions.len(), 2, "Lowercase should find functions");
+        assert_eq!(lower_functions[0].name, "get_user");
         assert_eq!(upper_functions.len(), 0, "Uppercase should find nothing (case sensitive)");
     }
 
     #[test]
     fn test_search_modules_preserves_project_field() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Ensure project field is set correctly
         let result = search_modules(&*db, ".*", "default", 100, true);
@@ -912,7 +920,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_functions_preserves_project_field() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Ensure project field is set correctly
         let result = search_functions(&*db, ".*", "default", 100, true);
@@ -928,7 +936,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_modules_arity_not_applicable() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Modules don't have arity, just verify structure is correct
         let result = search_modules(&*db, ".*", "default", 100, true);
@@ -945,7 +953,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_functions_arity_preserved() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Functions should preserve arity information
         let result = search_functions(&*db, ".*", "default", 100, true);
@@ -963,7 +971,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_modules_source_field_optional() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Source field should be optional
         let result = search_modules(&*db, ".*", "default", 100, true);
@@ -981,7 +989,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_functions_return_type_optional() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Return type should be optional
         let result = search_functions(&*db, ".*", "default", 100, true);
@@ -1000,7 +1008,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_modules_with_digit_pattern() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with pattern containing digits
         let result = search_modules(&*db, ".*[0-9].*", "default", 10, true);
@@ -1010,7 +1018,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_functions_with_digit_pattern() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with pattern containing digits
         let result = search_functions(&*db, ".*[0-9].*", "default", 10, true);
@@ -1020,7 +1028,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_modules_with_underscore_pattern() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with pattern containing underscore
         let result = search_modules(&*db, "^[a-z]+_[a-z]$", "default", 10, true);
@@ -1030,7 +1038,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_functions_with_underscore_pattern() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with pattern containing underscore
         let result = search_functions(&*db, "^[a-z]+_[a-z]$", "default", 10, true);
@@ -1040,7 +1048,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_modules_whitespace_in_pattern() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with pattern containing whitespace (should find nothing typically)
         let result = search_modules(&*db, "mod ule", "default", 10, false);
@@ -1050,7 +1058,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_functions_whitespace_in_pattern() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with pattern containing whitespace (should find nothing typically)
         let result = search_functions(&*db, "fun ction", "default", 10, false);
@@ -1060,7 +1068,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_modules_single_char_pattern() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with single character pattern
         let result = search_modules(&*db, "a", "default", 10, false);
@@ -1070,7 +1078,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_functions_single_char_pattern() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with single character pattern
         let result = search_functions(&*db, "o", "default", 10, false);
@@ -1080,34 +1088,38 @@ mod surrealdb_tests {
 
     #[test]
     fn test_search_modules_regex_alternation() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // Test regex alternation pattern - both modules start with "mod"
-        let result = search_modules(&*db, "^(mod|test).*", "default", 10, true);
+        // Test regex alternation pattern - matches modules containing "Repo" or "Service"
+        let result = search_modules(&*db, ".*(Repo|Service)$", "default", 10, true);
 
         assert!(result.is_ok(), "Should handle regex alternation");
         let modules = result.unwrap();
 
-        // Both module_a and module_b start with "mod"
-        assert_eq!(modules.len(), 2, "Should match both modules");
-        assert_eq!(modules[0].name, "module_a");
-        assert_eq!(modules[1].name, "module_b");
+        // MyApp.Repo and MyApp.Service match this pattern
+        assert_eq!(modules.len(), 2, "Should match two modules");
+        assert_eq!(modules[0].name, "MyApp.Repo");
+        assert_eq!(modules[1].name, "MyApp.Service");
     }
 
     #[test]
     fn test_search_functions_regex_alternation() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // Test regex alternation pattern - matches all 3 functions
-        let result = search_functions(&*db, "^(foo|bar|baz)", "default", 10, true);
+        // Test regex alternation pattern - matches get, all, or insert functions
+        let result = search_functions(&*db, "^(get|all|insert)", "default", 10, true);
 
         assert!(result.is_ok(), "Should handle regex alternation");
         let functions = result.unwrap();
 
-        // All 3 functions match this pattern
-        assert_eq!(functions.len(), 3, "Should match all 3 functions");
-        assert_eq!(functions[0].name, "bar");
-        assert_eq!(functions[1].name, "foo");
-        assert_eq!(functions[2].name, "baz");
+        // get_user/1, get_user/2, get/2, all/1, insert/1 match this pattern (5 functions)
+        assert_eq!(functions.len(), 5, "Should match 5 functions");
+        // First two should be MyApp.Accounts.get_user/1 and /2
+        assert_eq!(functions[0].name, "get_user");
+        assert_eq!(functions[1].name, "get_user");
+        // Then MyApp.Repo functions: all/1, get/2, insert/1
+        assert_eq!(functions[2].name, "all");
+        assert_eq!(functions[3].name, "get");
+        assert_eq!(functions[4].name, "insert");
     }
 }

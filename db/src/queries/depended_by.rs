@@ -122,21 +122,29 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_dependents_returns_results() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        let result = find_dependents(&*db, "module_b", "default", false, 100);
+        let result = find_dependents(&*db, "MyApp.Notifier", "default", false, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let calls = result.unwrap();
-        // module_a.foo calls module_b.baz - module_b is depended on by module_a
-        assert_eq!(calls.len(), 1, "Should find 1 incoming dependency");
-        assert_eq!(calls[0].caller.module.as_ref(), "module_a");
-        assert_eq!(calls[0].callee.module.as_ref(), "module_b");
+        // MyApp.Notifier is called by MyApp.Service.process_request and MyApp.Controller.create
+        assert_eq!(calls.len(), 2, "Should find 2 incoming dependencies");
+
+        // Verify callers (order may vary)
+        let callers: Vec<&str> = calls.iter().map(|c| c.caller.module.as_ref()).collect();
+        assert!(
+            callers.contains(&"MyApp.Service") && callers.contains(&"MyApp.Controller"),
+            "Should find calls from Service and Controller"
+        );
+        for call in &calls {
+            assert_eq!(call.callee.module.as_ref(), "MyApp.Notifier");
+        }
     }
 
     #[test]
     fn test_find_dependents_empty_for_nonexistent() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         let result = find_dependents(&*db, "NonExistent", "default", false, 100);
 
@@ -146,9 +154,9 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_dependents_excludes_self_references() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        let result = find_dependents(&*db, "module_b", "default", false, 100).unwrap();
+        let result = find_dependents(&*db, "MyApp.Notifier", "default", false, 100).unwrap();
 
         for call in &result {
             assert_ne!(
@@ -160,7 +168,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_dependents_invalid_regex() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         let result = find_dependents(&*db, "[invalid", "default", true, 100);
 
@@ -175,7 +183,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_dependents_non_regex_mode() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Invalid regex pattern should succeed in non-regex mode (treated as literal)
         let result = find_dependents(&*db, "[invalid", "default", false, 100);

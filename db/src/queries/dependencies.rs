@@ -349,14 +349,14 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_dependencies_outgoing_forward() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // Simple fixture: module_a.foo/1 calls module_a.bar/2 and module_b.baz/0
-        // Outgoing dependencies for module_a should only include cross-module call (foo -> baz)
+        // Complex fixture: MyApp.Service calls MyApp.Accounts and MyApp.Notifier
+        // Outgoing dependencies for MyApp.Service should include cross-module calls
         let result = find_dependencies(
             &*db,
             DependencyDirection::Outgoing,
-            "module_a",
+            "MyApp.Service",
             "default",
             false,
             100,
@@ -365,26 +365,39 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let deps = result.unwrap();
 
-        // Should find call from module_a to module_b (foo -> baz)
-        assert_eq!(deps.len(), 1, "Should find exactly 1 outgoing cross-module dependency");
-        assert_eq!(deps[0].caller.module.as_ref(), "module_a");
-        assert_eq!(deps[0].caller.name.as_ref(), "foo");
-        assert_eq!(deps[0].caller.arity, 1);
-        assert_eq!(deps[0].callee.module.as_ref(), "module_b");
-        assert_eq!(deps[0].callee.name.as_ref(), "baz");
-        assert_eq!(deps[0].callee.arity, 0);
+        // Should find calls from MyApp.Service to MyApp.Accounts and MyApp.Notifier
+        assert_eq!(deps.len(), 2, "Should find exactly 2 outgoing cross-module dependencies");
+
+        // Verify all callers are from MyApp.Service
+        for dep in &deps {
+            assert_eq!(dep.caller.module.as_ref(), "MyApp.Service");
+        }
+
+        // Verify callees (order may vary)
+        let callees: Vec<(&str, &str)> = deps
+            .iter()
+            .map(|d| (d.callee.module.as_ref(), d.callee.name.as_ref()))
+            .collect();
+        assert!(
+            callees.contains(&("MyApp.Accounts", "get_user")),
+            "Should call MyApp.Accounts.get_user"
+        );
+        assert!(
+            callees.contains(&("MyApp.Notifier", "send_email")),
+            "Should call MyApp.Notifier.send_email"
+        );
     }
 
     #[test]
     fn test_find_dependencies_incoming_reverse() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // Simple fixture: module_a.foo/1 -> module_b.baz/0
-        // Incoming dependencies for module_b: calls FROM other modules TO module_b
+        // Complex fixture: MyApp.Notifier is called by MyApp.Service and MyApp.Controller
+        // Incoming dependencies for MyApp.Notifier: calls FROM other modules TO MyApp.Notifier
         let result = find_dependencies(
             &*db,
             DependencyDirection::Incoming,
-            "module_b",
+            "MyApp.Notifier",
             "default",
             false,
             100,
@@ -393,12 +406,27 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let deps = result.unwrap();
 
-        // Should find call from module_a.foo/1 to module_b.baz/0
-        assert_eq!(deps.len(), 1, "Should find exactly 1 incoming cross-module dependency");
-        assert_eq!(deps[0].caller.module.as_ref(), "module_a");
-        assert_eq!(deps[0].caller.name.as_ref(), "foo");
-        assert_eq!(deps[0].callee.module.as_ref(), "module_b");
-        assert_eq!(deps[0].callee.name.as_ref(), "baz");
+        // Should find calls from MyApp.Service and MyApp.Controller to MyApp.Notifier
+        assert_eq!(deps.len(), 2, "Should find exactly 2 incoming cross-module dependencies");
+
+        // All callees should be to MyApp.Notifier
+        for dep in &deps {
+            assert_eq!(dep.callee.module.as_ref(), "MyApp.Notifier");
+        }
+
+        // Verify callers (order may vary)
+        let callers: Vec<(&str, &str)> = deps
+            .iter()
+            .map(|d| (d.caller.module.as_ref(), d.caller.name.as_ref()))
+            .collect();
+        assert!(
+            callers.contains(&("MyApp.Service", "process_request")),
+            "Should be called by MyApp.Service.process_request"
+        );
+        assert!(
+            callers.contains(&("MyApp.Controller", "create")),
+            "Should be called by MyApp.Controller.create"
+        );
     }
 
     #[test]
@@ -516,7 +544,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_dependencies_empty_results_nonexistent() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         let result = find_dependencies(
             &*db,
@@ -598,7 +626,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_dependencies_invalid_regex() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         let result = find_dependencies(
             &*db,
@@ -617,7 +645,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_dependencies_all_fields_populated() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         let result = find_dependencies(
             &*db,
@@ -725,12 +753,12 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_dependencies_outgoing_field_values() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         let result = find_dependencies(
             &*db,
             DependencyDirection::Outgoing,
-            "module_a",
+            "MyApp.Service",
             "default",
             false,
             100,
@@ -739,30 +767,30 @@ mod surrealdb_tests {
         assert!(result.is_ok());
         let deps = result.unwrap();
 
-        // Verify we have the expected call from module_a.foo/1 to module_b.baz/0
+        // Verify we have the expected call from MyApp.Service.process_request/2 to MyApp.Notifier.send_email/2
         let has_expected = deps.iter().any(|d| {
-            d.caller.module.as_ref() == "module_a"
-                && d.caller.name.as_ref() == "foo"
-                && d.caller.arity == 1
-                && d.callee.module.as_ref() == "module_b"
-                && d.callee.name.as_ref() == "baz"
-                && d.callee.arity == 0
+            d.caller.module.as_ref() == "MyApp.Service"
+                && d.caller.name.as_ref() == "process_request"
+                && d.caller.arity == 2
+                && d.callee.module.as_ref() == "MyApp.Notifier"
+                && d.callee.name.as_ref() == "send_email"
+                && d.callee.arity == 2
         });
 
         assert!(
             has_expected,
-            "Should find expected call: module_a.foo/1 -> module_b.baz/0"
+            "Should find expected call: MyApp.Service.process_request/2 -> MyApp.Notifier.send_email/2"
         );
     }
 
     #[test]
     fn test_find_dependencies_incoming_field_values() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         let result = find_dependencies(
             &*db,
             DependencyDirection::Incoming,
-            "module_b",
+            "MyApp.Notifier",
             "default",
             false,
             100,
@@ -771,25 +799,25 @@ mod surrealdb_tests {
         assert!(result.is_ok());
         let deps = result.unwrap();
 
-        // Verify we have the expected call from module_a.foo/1 to module_b.baz/0
+        // Verify we have the expected call from MyApp.Service.process_request/2 to MyApp.Notifier.send_email/2
         let has_expected = deps.iter().any(|d| {
-            d.caller.module.as_ref() == "module_a"
-                && d.caller.name.as_ref() == "foo"
-                && d.caller.arity == 1
-                && d.callee.module.as_ref() == "module_b"
-                && d.callee.name.as_ref() == "baz"
-                && d.callee.arity == 0
+            d.caller.module.as_ref() == "MyApp.Service"
+                && d.caller.name.as_ref() == "process_request"
+                && d.caller.arity == 2
+                && d.callee.module.as_ref() == "MyApp.Notifier"
+                && d.callee.name.as_ref() == "send_email"
+                && d.callee.arity == 2
         });
 
         assert!(
             has_expected,
-            "Should find expected call: module_a.foo/1 -> module_b.baz/0"
+            "Should find expected call: MyApp.Service.process_request/2 -> MyApp.Notifier.send_email/2"
         );
     }
 
     #[test]
     fn test_find_dependencies_zero_limit() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Zero limit should return empty results
         let result = find_dependencies(

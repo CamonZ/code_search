@@ -123,7 +123,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_calls_to_returns_ok() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         let result = find_calls_to(
             &*db,
@@ -140,7 +140,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_calls_to_empty_for_nonexistent() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         let result = find_calls_to(
             &*db,
@@ -177,7 +177,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_calls_to_with_function_pattern() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         let result = find_calls_to(
             &*db,
@@ -194,7 +194,7 @@ mod surrealdb_tests {
 
     #[test]
     fn test_find_calls_to_with_invalid_regex() {
-        let db = crate::test_utils::surreal_call_graph_db();
+        let db = crate::test_utils::surreal_call_graph_db_complex();
 
         let result = find_calls_to(
             &*db,

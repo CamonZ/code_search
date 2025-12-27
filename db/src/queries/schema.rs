@@ -324,12 +324,12 @@ mod surrealdb_tests {
     use crate::db::open_mem_db;
 
     #[test]
-    fn test_create_schema_creates_nine_tables() {
+    fn test_create_schema_creates_ten_tables() {
         let db = open_mem_db().expect("Failed to create in-memory DB");
         let result = create_schema(&*db).expect("Schema creation should succeed");
 
-        // SurrealDB should create 9 tables (5 nodes + 4 relationships)
-        assert_eq!(result.len(), 9, "Should create exactly 9 tables");
+        // SurrealDB should create 10 tables (6 nodes + 4 relationships)
+        assert_eq!(result.len(), 10, "Should create exactly 10 tables");
 
         // All should be newly created
         assert!(
@@ -346,7 +346,7 @@ mod surrealdb_tests {
         let table_names: Vec<_> = result.iter().map(|r| r.relation.as_str()).collect();
 
         // Verify all expected table names are present
-        // Node tables
+        // Node tables (6)
         assert!(
             table_names.contains(&"module"),
             "Should include module node table"
@@ -360,6 +360,10 @@ mod surrealdb_tests {
             "Should include clause node table"
         );
         assert!(
+            table_names.contains(&"spec"),
+            "Should include spec node table"
+        );
+        assert!(
             table_names.contains(&"type"),
             "Should include type node table"
         );
@@ -368,7 +372,7 @@ mod surrealdb_tests {
             "Should include field node table"
         );
 
-        // Relationship tables
+        // Relationship tables (4)
         assert!(
             table_names.contains(&"defines"),
             "Should include defines relationship table"
@@ -395,8 +399,8 @@ mod surrealdb_tests {
         // Extract table names in creation order
         let table_names: Vec<_> = result.iter().map(|r| r.relation.as_str()).collect();
 
-        // Node tables should come first (5 tables)
-        let node_tables = &table_names[0..5];
+        // Node tables should come first (6 tables)
+        let node_tables = &table_names[0..6];
         assert!(
             node_tables.contains(&"module"),
             "Node tables should include module"
@@ -410,6 +414,10 @@ mod surrealdb_tests {
             "Node tables should include clause"
         );
         assert!(
+            node_tables.contains(&"spec"),
+            "Node tables should include spec"
+        );
+        assert!(
             node_tables.contains(&"type"),
             "Node tables should include type"
         );
@@ -419,7 +427,7 @@ mod surrealdb_tests {
         );
 
         // Relationship tables should come after (4 tables)
-        let rel_tables = &table_names[5..9];
+        let rel_tables = &table_names[6..10];
         assert!(
             rel_tables.contains(&"defines"),
             "Relationship tables should include defines"
@@ -444,7 +452,7 @@ mod surrealdb_tests {
 
         // First call should create all tables
         let result1 = create_schema(&*db).expect("First schema creation should succeed");
-        assert_eq!(result1.len(), 9);
+        assert_eq!(result1.len(), 10);
         assert!(
             result1.iter().all(|r| r.created),
             "First call should create all tables"
@@ -452,7 +460,7 @@ mod surrealdb_tests {
 
         // Second call should find existing tables
         let result2 = create_schema(&*db).expect("Second schema creation should succeed");
-        assert_eq!(result2.len(), 9);
+        assert_eq!(result2.len(), 10);
         assert!(
             result2.iter().all(|r| !r.created),
             "Second call should find all tables already exist"
@@ -463,16 +471,17 @@ mod surrealdb_tests {
     fn test_relation_names_returns_correct_list() {
         let names = relation_names();
 
-        assert_eq!(names.len(), 9, "Should return 9 table names");
+        assert_eq!(names.len(), 10, "Should return 10 table names");
 
-        // Node tables
+        // Node tables (6)
         assert!(names.contains(&"module"));
         assert!(names.contains(&"function"));
         assert!(names.contains(&"clause"));
+        assert!(names.contains(&"spec"));
         assert!(names.contains(&"type"));
         assert!(names.contains(&"field"));
 
-        // Relationship tables
+        // Relationship tables (4)
         assert!(names.contains(&"defines"));
         assert!(names.contains(&"has_clause"));
         assert!(names.contains(&"calls"));
@@ -483,16 +492,17 @@ mod surrealdb_tests {
     fn test_relation_names_preserves_creation_order() {
         let names = relation_names();
 
-        // First 5 should be node tables
-        let node_tables = &names[0..5];
+        // First 6 should be node tables
+        let node_tables = &names[0..6];
         assert!(node_tables.contains(&"module"));
         assert!(node_tables.contains(&"function"));
         assert!(node_tables.contains(&"clause"));
+        assert!(node_tables.contains(&"spec"));
         assert!(node_tables.contains(&"type"));
         assert!(node_tables.contains(&"field"));
 
         // Last 4 should be relationship tables
-        let rel_tables = &names[5..9];
+        let rel_tables = &names[6..10];
         assert!(rel_tables.contains(&"defines"));
         assert!(rel_tables.contains(&"has_clause"));
         assert!(rel_tables.contains(&"calls"));
@@ -506,6 +516,7 @@ mod surrealdb_tests {
             "module",
             "function",
             "clause",
+            "spec",
             "type",
             "field",
             "defines",
@@ -547,7 +558,7 @@ mod surrealdb_tests {
         let rel_tables = surrealdb_schema::relationship_tables();
 
         // Verify we have the expected counts
-        assert_eq!(node_tables.len(), 5, "Should have 5 node tables");
+        assert_eq!(node_tables.len(), 6, "Should have 6 node tables");
         assert_eq!(rel_tables.len(), 4, "Should have 4 relationship tables");
 
         // Verify relationship tables reference node tables
