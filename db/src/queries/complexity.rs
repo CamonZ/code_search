@@ -383,11 +383,11 @@ mod surrealdb_tests {
         let metrics = find_complexity_metrics(&*db, 0, 0, None, "default", false, false, 100)
             .expect("Query should succeed");
 
-        // The fixture has 15 functions, each with at least 1 clause
+        // The fixture has 31 functions, each with at least 1 clause
         assert_eq!(
             metrics.len(),
-            15,
-            "Should find exactly 15 functions with complexity metrics"
+            31,
+            "Should find exactly 31 functions with complexity metrics"
         );
     }
 
@@ -433,7 +433,7 @@ mod surrealdb_tests {
         let metrics = find_complexity_metrics(&*db, 0, 0, None, "default", false, false, 100)
             .expect("Query should succeed");
 
-        // Controller has 3 functions: index/2, show/2, create/2
+        // Controller has 4 functions: index/2, show/2, create/2, handle_event/1
         let controller_funcs: Vec<_> = metrics
             .iter()
             .filter(|m| m.module == "MyApp.Controller")
@@ -441,8 +441,8 @@ mod surrealdb_tests {
 
         assert_eq!(
             controller_funcs.len(),
-            3,
-            "Controller should have exactly 3 functions"
+            4,
+            "Controller should have exactly 4 functions"
         );
 
         // Verify each has expected complexity
@@ -463,6 +463,12 @@ mod surrealdb_tests {
             .find(|m| m.name == "create")
             .expect("create should exist");
         assert_eq!(create.complexity, 8, "Controller.create should have complexity=8 (5+2+1)");
+
+        let handle_event = controller_funcs
+            .iter()
+            .find(|m| m.name == "handle_event")
+            .expect("handle_event should exist");
+        assert_eq!(handle_event.complexity, 2, "Controller.handle_event should have complexity=2");
     }
 
     #[test]
@@ -567,8 +573,8 @@ mod surrealdb_tests {
 
         assert_eq!(
             metrics.len(),
-            3,
-            "Should find exactly 3 functions in Controller module"
+            4,
+            "Should find exactly 4 functions in Controller module (index, show, create, handle_event)"
         );
 
         for metric in &metrics {
@@ -587,8 +593,8 @@ mod surrealdb_tests {
 
         assert_eq!(
             metrics.len(),
-            4,
-            "Regex should match MyApp.Accounts (4 functions)"
+            6,
+            "Regex should match MyApp.Accounts (6 functions: get_user/1, get_user/2, list_users, validate_email, __struct__, notify_change)"
         );
 
         for metric in &metrics {
@@ -647,8 +653,8 @@ mod surrealdb_tests {
         assert!(metrics_10.len() <= 10, "Should respect limit of 10");
         assert_eq!(
             metrics_100.len(),
-            15,
-            "Should return all 15 functions with limit 100"
+            31,
+            "Should return all 31 functions with limit 100"
         );
 
         assert!(

@@ -324,12 +324,12 @@ mod surrealdb_tests {
         let functions = find_large_functions(&*db, 0, None, "default", false, true, 100)
             .expect("Query should succeed");
 
-        // The complex fixture has 22 clauses total with varying sizes
+        // The complex fixture has 38 clauses total with varying sizes
         // All should be included with min_lines=0
         assert_eq!(
             functions.len(),
-            22,
-            "Should find exactly 22 clauses (one per clause in fixture)"
+            38,
+            "Should find exactly 38 clauses (one per clause in fixture)"
         );
     }
 
@@ -535,8 +535,8 @@ mod surrealdb_tests {
         assert!(functions_10.len() <= 10, "Should respect limit of 10");
         assert_eq!(
             functions_100.len(),
-            22,
-            "Should return all 22 clauses with limit 100"
+            38,
+            "Should return all 38 clauses with limit 100"
         );
 
         assert!(

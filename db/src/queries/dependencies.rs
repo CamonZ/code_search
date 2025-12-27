@@ -351,7 +351,7 @@ mod surrealdb_tests {
     fn test_find_dependencies_outgoing_forward() {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // Complex fixture: MyApp.Service calls MyApp.Accounts and MyApp.Notifier
+        // Complex fixture: MyApp.Service calls MyApp.Accounts, MyApp.Notifier, and MyApp.Logger
         // Outgoing dependencies for MyApp.Service should include cross-module calls
         let result = find_dependencies(
             &*db,
@@ -365,8 +365,8 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let deps = result.unwrap();
 
-        // Should find calls from MyApp.Service to MyApp.Accounts and MyApp.Notifier
-        assert_eq!(deps.len(), 2, "Should find exactly 2 outgoing cross-module dependencies");
+        // Should find calls from MyApp.Service to MyApp.Accounts, MyApp.Notifier, MyApp.Logger
+        assert_eq!(deps.len(), 3, "Should find exactly 3 outgoing cross-module dependencies");
 
         // Verify all callers are from MyApp.Service
         for dep in &deps {
@@ -406,8 +406,9 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let deps = result.unwrap();
 
-        // Should find calls from MyApp.Service and MyApp.Controller to MyApp.Notifier
-        assert_eq!(deps.len(), 2, "Should find exactly 2 incoming cross-module dependencies");
+        // Should find calls from MyApp.Service, MyApp.Controller, and MyApp.Cache to MyApp.Notifier
+        // (Cache calls Notifier as part of Cycle C)
+        assert_eq!(deps.len(), 3, "Should find exactly 3 incoming cross-module dependencies");
 
         // All callees should be to MyApp.Notifier
         for dep in &deps {
@@ -426,6 +427,10 @@ mod surrealdb_tests {
         assert!(
             callers.contains(&("MyApp.Controller", "create")),
             "Should be called by MyApp.Controller.create"
+        );
+        assert!(
+            callers.contains(&("MyApp.Cache", "store")),
+            "Should be called by MyApp.Cache.store (Cycle C)"
         );
     }
 

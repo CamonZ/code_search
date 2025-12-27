@@ -637,6 +637,12 @@ pub fn surreal_call_graph_db_complex() -> Box<dyn Database> {
     insert_module(&*db, "MyApp.Repo").expect("Failed to insert MyApp.Repo");
     insert_module(&*db, "MyApp.Notifier").expect("Failed to insert MyApp.Notifier");
 
+    // Additional modules for cycle testing
+    insert_module(&*db, "MyApp.Logger").expect("Failed to insert MyApp.Logger");
+    insert_module(&*db, "MyApp.Events").expect("Failed to insert MyApp.Events");
+    insert_module(&*db, "MyApp.Cache").expect("Failed to insert MyApp.Cache");
+    insert_module(&*db, "MyApp.Metrics").expect("Failed to insert MyApp.Metrics");
+
     // Controller functions (public API)
     insert_function(&*db, "MyApp.Controller", "index", 2)
         .expect("Failed to insert index/2");
@@ -676,6 +682,50 @@ pub fn surreal_call_graph_db_complex() -> Box<dyn Database> {
         .expect("Failed to insert send_email/2");
     insert_function(&*db, "MyApp.Notifier", "format_message", 1)
         .expect("Failed to insert format_message/1");
+    insert_function(&*db, "MyApp.Notifier", "on_cache_update", 1)
+        .expect("Failed to insert on_cache_update/1");
+
+    // Controller - additional function for cycle B
+    insert_function(&*db, "MyApp.Controller", "handle_event", 1)
+        .expect("Failed to insert handle_event/1");
+
+    // Accounts - additional function for cycle B
+    insert_function(&*db, "MyApp.Accounts", "notify_change", 1)
+        .expect("Failed to insert notify_change/1");
+
+    // Service - additional function for cycle A
+    insert_function(&*db, "MyApp.Service", "get_context", 1)
+        .expect("Failed to insert get_context/1");
+
+    // Logger functions (for cycles A and C)
+    insert_function(&*db, "MyApp.Logger", "log_query", 2)
+        .expect("Failed to insert log_query/2");
+    insert_function(&*db, "MyApp.Logger", "log_metric", 1)
+        .expect("Failed to insert log_metric/1");
+    insert_function(&*db, "MyApp.Logger", "debug", 1)
+        .expect("Failed to insert debug/1");
+
+    // Events functions (for cycles B and C)
+    insert_function(&*db, "MyApp.Events", "publish", 2)
+        .expect("Failed to insert publish/2");
+    insert_function(&*db, "MyApp.Events", "emit", 2)
+        .expect("Failed to insert emit/2");
+    insert_function(&*db, "MyApp.Events", "subscribe", 2)
+        .expect("Failed to insert subscribe/2");
+
+    // Cache functions (for cycles B and C)
+    insert_function(&*db, "MyApp.Cache", "invalidate", 1)
+        .expect("Failed to insert invalidate/1");
+    insert_function(&*db, "MyApp.Cache", "store", 2)
+        .expect("Failed to insert store/2");
+    insert_function(&*db, "MyApp.Cache", "fetch", 1)
+        .expect("Failed to insert fetch/1");
+
+    // Metrics functions (for cycle C)
+    insert_function(&*db, "MyApp.Metrics", "record", 2)
+        .expect("Failed to insert record/2");
+    insert_function(&*db, "MyApp.Metrics", "increment", 1)
+        .expect("Failed to insert increment/1");
 
     // Create clauses with realistic line numbers and file paths
     // Controller.index/2 - calls Accounts.list_users/0
@@ -791,8 +841,82 @@ pub fn surreal_call_graph_db_complex() -> Box<dyn Database> {
         .expect("Failed to insert clause for Notifier.format_message/1");
     insert_has_clause(&*db, "MyApp.Notifier", "format_message", 1, 15)
         .expect("Failed to insert has_clause for Notifier.format_message/1 at line 15");
+    insert_clause(&*db, "MyApp.Notifier", "on_cache_update", 1, 22, "lib/my_app/notifier.ex", "def", 2, 1)
+        .expect("Failed to insert clause for Notifier.on_cache_update/1");
+    insert_has_clause(&*db, "MyApp.Notifier", "on_cache_update", 1, 22)
+        .expect("Failed to insert has_clause for Notifier.on_cache_update/1 at line 22");
 
-    // Create call relationships (11 calls total, matching call_graph.json structure)
+    // Controller.handle_event/1 - for cycle B
+    insert_clause(&*db, "MyApp.Controller", "handle_event", 1, 35, "lib/my_app/controller.ex", "def", 2, 1)
+        .expect("Failed to insert clause for Controller.handle_event/1");
+    insert_has_clause(&*db, "MyApp.Controller", "handle_event", 1, 35)
+        .expect("Failed to insert has_clause for Controller.handle_event/1 at line 35");
+
+    // Accounts.notify_change/1 - for cycle B
+    insert_clause(&*db, "MyApp.Accounts", "notify_change", 1, 40, "lib/my_app/accounts.ex", "def", 2, 1)
+        .expect("Failed to insert clause for Accounts.notify_change/1");
+    insert_has_clause(&*db, "MyApp.Accounts", "notify_change", 1, 40)
+        .expect("Failed to insert has_clause for Accounts.notify_change/1 at line 40");
+
+    // Service.get_context/1 - for cycle A
+    insert_clause(&*db, "MyApp.Service", "get_context", 1, 28, "lib/my_app/service.ex", "def", 1, 1)
+        .expect("Failed to insert clause for Service.get_context/1");
+    insert_has_clause(&*db, "MyApp.Service", "get_context", 1, 28)
+        .expect("Failed to insert has_clause for Service.get_context/1 at line 28");
+
+    // Logger functions
+    insert_clause(&*db, "MyApp.Logger", "log_query", 2, 5, "lib/my_app/logger.ex", "def", 3, 2)
+        .expect("Failed to insert clause for Logger.log_query/2");
+    insert_has_clause(&*db, "MyApp.Logger", "log_query", 2, 5)
+        .expect("Failed to insert has_clause for Logger.log_query/2 at line 5");
+    insert_clause(&*db, "MyApp.Logger", "log_metric", 1, 12, "lib/my_app/logger.ex", "def", 2, 1)
+        .expect("Failed to insert clause for Logger.log_metric/1");
+    insert_has_clause(&*db, "MyApp.Logger", "log_metric", 1, 12)
+        .expect("Failed to insert has_clause for Logger.log_metric/1 at line 12");
+    insert_clause(&*db, "MyApp.Logger", "debug", 1, 18, "lib/my_app/logger.ex", "defp", 1, 1)
+        .expect("Failed to insert clause for Logger.debug/1");
+    insert_has_clause(&*db, "MyApp.Logger", "debug", 1, 18)
+        .expect("Failed to insert has_clause for Logger.debug/1 at line 18");
+
+    // Events functions
+    insert_clause(&*db, "MyApp.Events", "publish", 2, 5, "lib/my_app/events.ex", "def", 3, 2)
+        .expect("Failed to insert clause for Events.publish/2");
+    insert_has_clause(&*db, "MyApp.Events", "publish", 2, 5)
+        .expect("Failed to insert has_clause for Events.publish/2 at line 5");
+    insert_clause(&*db, "MyApp.Events", "emit", 2, 12, "lib/my_app/events.ex", "def", 2, 1)
+        .expect("Failed to insert clause for Events.emit/2");
+    insert_has_clause(&*db, "MyApp.Events", "emit", 2, 12)
+        .expect("Failed to insert has_clause for Events.emit/2 at line 12");
+    insert_clause(&*db, "MyApp.Events", "subscribe", 2, 18, "lib/my_app/events.ex", "def", 2, 1)
+        .expect("Failed to insert clause for Events.subscribe/2");
+    insert_has_clause(&*db, "MyApp.Events", "subscribe", 2, 18)
+        .expect("Failed to insert has_clause for Events.subscribe/2 at line 18");
+
+    // Cache functions
+    insert_clause(&*db, "MyApp.Cache", "invalidate", 1, 5, "lib/my_app/cache.ex", "def", 2, 1)
+        .expect("Failed to insert clause for Cache.invalidate/1");
+    insert_has_clause(&*db, "MyApp.Cache", "invalidate", 1, 5)
+        .expect("Failed to insert has_clause for Cache.invalidate/1 at line 5");
+    insert_clause(&*db, "MyApp.Cache", "store", 2, 10, "lib/my_app/cache.ex", "def", 2, 1)
+        .expect("Failed to insert clause for Cache.store/2");
+    insert_has_clause(&*db, "MyApp.Cache", "store", 2, 10)
+        .expect("Failed to insert has_clause for Cache.store/2 at line 10");
+    insert_clause(&*db, "MyApp.Cache", "fetch", 1, 16, "lib/my_app/cache.ex", "def", 2, 1)
+        .expect("Failed to insert clause for Cache.fetch/1");
+    insert_has_clause(&*db, "MyApp.Cache", "fetch", 1, 16)
+        .expect("Failed to insert has_clause for Cache.fetch/1 at line 16");
+
+    // Metrics functions
+    insert_clause(&*db, "MyApp.Metrics", "record", 2, 5, "lib/my_app/metrics.ex", "def", 2, 1)
+        .expect("Failed to insert clause for Metrics.record/2");
+    insert_has_clause(&*db, "MyApp.Metrics", "record", 2, 5)
+        .expect("Failed to insert has_clause for Metrics.record/2 at line 5");
+    insert_clause(&*db, "MyApp.Metrics", "increment", 1, 12, "lib/my_app/metrics.ex", "def", 1, 1)
+        .expect("Failed to insert clause for Metrics.increment/1");
+    insert_has_clause(&*db, "MyApp.Metrics", "increment", 1, 12)
+        .expect("Failed to insert has_clause for Metrics.increment/1 at line 12");
+
+    // Create call relationships
 
     // Controller -> Accounts
     insert_call(
@@ -899,6 +1023,123 @@ pub fn surreal_call_graph_db_complex() -> Box<dyn Database> {
         "remote", "def", "lib/my_app/controller.ex", 28,
     )
     .expect("Failed to insert call: Controller.create -> Notifier.send_email (direct)");
+
+    // =======================================================================
+    // CYCLE A (3 nodes): Service → Logger → Repo → Service
+    // =======================================================================
+    // Service.process_request -> Logger.log_query (logs the request)
+    insert_call(
+        &*db,
+        "MyApp.Service", "process_request", 2,
+        "MyApp.Logger", "log_query", 2,
+        "remote", "def", "lib/my_app/service.ex", 10,
+    )
+    .expect("Failed to insert call: Service.process_request -> Logger.log_query");
+
+    // Logger.log_query -> Repo.insert (persists log entry)
+    insert_call(
+        &*db,
+        "MyApp.Logger", "log_query", 2,
+        "MyApp.Repo", "insert", 1,
+        "remote", "def", "lib/my_app/logger.ex", 8,
+    )
+    .expect("Failed to insert call: Logger.log_query -> Repo.insert");
+
+    // Repo.insert -> Service.get_context (gets request context for audit)
+    insert_call(
+        &*db,
+        "MyApp.Repo", "insert", 1,
+        "MyApp.Service", "get_context", 1,
+        "remote", "def", "lib/my_app/repo.ex", 22,
+    )
+    .expect("Failed to insert call: Repo.insert -> Service.get_context");
+
+    // =======================================================================
+    // CYCLE B (4 nodes): Controller → Events → Cache → Accounts → Controller
+    // =======================================================================
+    // Controller.create -> Events.publish (publishes create event)
+    insert_call(
+        &*db,
+        "MyApp.Controller", "create", 2,
+        "MyApp.Events", "publish", 2,
+        "remote", "def", "lib/my_app/controller.ex", 27,
+    )
+    .expect("Failed to insert call: Controller.create -> Events.publish");
+
+    // Events.publish -> Cache.invalidate (invalidates related cache)
+    insert_call(
+        &*db,
+        "MyApp.Events", "publish", 2,
+        "MyApp.Cache", "invalidate", 1,
+        "remote", "def", "lib/my_app/events.ex", 8,
+    )
+    .expect("Failed to insert call: Events.publish -> Cache.invalidate");
+
+    // Cache.invalidate -> Accounts.notify_change (notifies affected module)
+    insert_call(
+        &*db,
+        "MyApp.Cache", "invalidate", 1,
+        "MyApp.Accounts", "notify_change", 1,
+        "remote", "def", "lib/my_app/cache.ex", 7,
+    )
+    .expect("Failed to insert call: Cache.invalidate -> Accounts.notify_change");
+
+    // Accounts.notify_change -> Controller.handle_event (triggers UI refresh)
+    insert_call(
+        &*db,
+        "MyApp.Accounts", "notify_change", 1,
+        "MyApp.Controller", "handle_event", 1,
+        "remote", "def", "lib/my_app/accounts.ex", 42,
+    )
+    .expect("Failed to insert call: Accounts.notify_change -> Controller.handle_event");
+
+    // =======================================================================
+    // CYCLE C (5 nodes): Notifier → Metrics → Logger → Events → Cache → Notifier
+    // =======================================================================
+    // Notifier.send_email -> Metrics.record (records email metric)
+    insert_call(
+        &*db,
+        "MyApp.Notifier", "send_email", 2,
+        "MyApp.Metrics", "record", 2,
+        "remote", "def", "lib/my_app/notifier.ex", 9,
+    )
+    .expect("Failed to insert call: Notifier.send_email -> Metrics.record");
+
+    // Metrics.record -> Logger.log_metric (logs the metric)
+    insert_call(
+        &*db,
+        "MyApp.Metrics", "record", 2,
+        "MyApp.Logger", "log_metric", 1,
+        "remote", "def", "lib/my_app/metrics.ex", 8,
+    )
+    .expect("Failed to insert call: Metrics.record -> Logger.log_metric");
+
+    // Logger.log_metric -> Events.emit (emits metric event)
+    insert_call(
+        &*db,
+        "MyApp.Logger", "log_metric", 1,
+        "MyApp.Events", "emit", 2,
+        "remote", "def", "lib/my_app/logger.ex", 14,
+    )
+    .expect("Failed to insert call: Logger.log_metric -> Events.emit");
+
+    // Events.emit -> Cache.store (caches the event)
+    insert_call(
+        &*db,
+        "MyApp.Events", "emit", 2,
+        "MyApp.Cache", "store", 2,
+        "remote", "def", "lib/my_app/events.ex", 15,
+    )
+    .expect("Failed to insert call: Events.emit -> Cache.store");
+
+    // Cache.store -> Notifier.on_cache_update (notifies about cache update)
+    insert_call(
+        &*db,
+        "MyApp.Cache", "store", 2,
+        "MyApp.Notifier", "on_cache_update", 1,
+        "remote", "def", "lib/my_app/cache.ex", 13,
+    )
+    .expect("Failed to insert call: Cache.store -> Notifier.on_cache_update");
 
     db
 }
@@ -1220,10 +1461,10 @@ mod surrealdb_fixture_tests {
     }
 
     #[test]
-    fn test_surreal_call_graph_db_complex_contains_five_modules() {
+    fn test_surreal_call_graph_db_complex_contains_nine_modules() {
         let db = surreal_call_graph_db_complex();
 
-        // Query to verify we have exactly 5 modules
+        // Query to verify we have exactly 9 modules
         let result = db
             .execute_query_no_params("SELECT * FROM modules")
             .expect("Should be able to query modules");
@@ -1231,17 +1472,19 @@ mod surrealdb_fixture_tests {
         let rows = result.rows();
         assert_eq!(
             rows.len(),
-            5,
-            "Should have exactly 5 modules (Controller, Accounts, Service, Repo, Notifier), got {}",
+            9,
+            "Should have exactly 9 modules (Controller, Accounts, Service, Repo, Notifier, Logger, Events, Cache, Metrics), got {}",
             rows.len()
         );
     }
 
     #[test]
-    fn test_surreal_call_graph_db_complex_contains_sixteen_functions() {
+    fn test_surreal_call_graph_db_complex_contains_thirtyone_functions() {
         let db = surreal_call_graph_db_complex();
 
-        // Query to verify we have 16 functions (15 regular + 1 __struct__ for generated function testing)
+        // Query to verify we have 31 functions:
+        // - Original 16 (15 regular + 1 __struct__)
+        // - 15 new for cycle testing
         let result = db
             .execute_query_no_params("SELECT * FROM functions")
             .expect("Should be able to query functions");
@@ -1249,17 +1492,21 @@ mod surrealdb_fixture_tests {
         let rows = result.rows();
         assert_eq!(
             rows.len(),
-            16,
-            "Should have exactly 16 functions (15 regular + 1 __struct__), got {}",
+            31,
+            "Should have exactly 31 functions (16 original + 15 for cycles), got {}",
             rows.len()
         );
     }
 
     #[test]
-    fn test_surreal_call_graph_db_complex_contains_twelve_calls() {
+    fn test_surreal_call_graph_db_complex_contains_twentyfour_calls() {
         let db = surreal_call_graph_db_complex();
 
-        // Query to verify we have 12 call relationships (11 original + 1 direct path for shortest path testing)
+        // Query to verify we have 24 call relationships:
+        // - 12 original calls
+        // - 3 for Cycle A (Service → Logger → Repo → Service)
+        // - 4 for Cycle B (Controller → Events → Cache → Accounts → Controller)
+        // - 5 for Cycle C (Notifier → Metrics → Logger → Events → Cache → Notifier)
         let result = db
             .execute_query_no_params("SELECT * FROM calls")
             .expect("Should be able to query calls");
@@ -1267,8 +1514,8 @@ mod surrealdb_fixture_tests {
         let rows = result.rows();
         assert_eq!(
             rows.len(),
-            12,
-            "Should have exactly 12 call relationships, got {}",
+            24,
+            "Should have exactly 24 call relationships (12 original + 12 for cycles), got {}",
             rows.len()
         );
     }

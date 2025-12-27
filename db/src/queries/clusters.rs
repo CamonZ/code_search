@@ -184,17 +184,17 @@ mod surrealdb_tests {
         let db = get_db();
         let calls = get_module_calls(&*db, "default").expect("Query should succeed");
 
-        // The complex fixture has 12 inter-module calls:
-        // Controller -> Accounts (2): index->list_users, show->get_user/2
-        // Controller -> Service (1): create->process_request
-        // Controller -> Notifier (1): create->send_email (direct)
-        // Accounts -> Repo (2): get_user/1->get, list_users->all
-        // Service -> Accounts (1): process_request->get_user/1
-        // Service -> Notifier (1): process_request->send_email
+        // The complex fixture has 20 inter-module calls:
+        // Original (8):
+        //   Controller -> Accounts (2), Controller -> Service (1), Controller -> Notifier (1)
+        //   Accounts -> Repo (2), Service -> Accounts (1), Service -> Notifier (1)
+        // Cycle A (3): Service -> Logger, Logger -> Repo, Repo -> Service
+        // Cycle B (4): Controller -> Events, Events -> Cache, Cache -> Accounts, Accounts -> Controller
+        // Cycle C (5): Notifier -> Metrics, Metrics -> Logger, Logger -> Events, Events -> Cache, Cache -> Notifier
         assert_eq!(
             calls.len(),
-            8,
-            "Should find exactly 8 inter-module calls (excluding intra-module calls)"
+            20,
+            "Should find exactly 20 inter-module calls (excluding intra-module calls)"
         );
     }
 

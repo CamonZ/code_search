@@ -530,21 +530,27 @@ mod surrealdb_tests {
     use super::*;
 
     // The complex fixture contains:
-    // - 5 modules: Controller (3 funcs), Accounts (5 including __struct__), Service (2), Repo (4), Notifier (2)
-    // - 16 functions total (15 regular + 1 __struct__ for generated testing)
-    // - 12 calls (edges)
+    // - 9 modules: Controller, Accounts, Service, Repo, Notifier, Logger, Events, Cache, Metrics
+    // - 31 functions total
+    // - 24 calls (edges) including 3 cycles:
+    //   - Cycle A (3 nodes): Service → Logger → Repo → Service
+    //   - Cycle B (4 nodes): Controller → Events → Cache → Accounts → Controller
+    //   - Cycle C (5 nodes): Notifier → Metrics → Logger → Events → Cache → Notifier
     //
-    // Unused functions (7 total):
+    // Unused functions (10 total):
     // 1. MyApp.Accounts.__struct__/0 - def - line 1 (generated)
     // 2. MyApp.Accounts.validate_email/1 - defp - line 30
-    // 3. MyApp.Controller.create/2 - def - line 20
-    // 4. MyApp.Controller.index/2 - def - line 5
-    // 5. MyApp.Controller.show/2 - def - line 12
-    // 6. MyApp.Repo.insert/1 - def - line 20
-    // 7. MyApp.Service.transform_data/1 - defp - line 22
+    // 3. MyApp.Cache.fetch/1 - def - line 16
+    // 4. MyApp.Controller.create/2 - def - line 20
+    // 5. MyApp.Controller.index/2 - def - line 5
+    // 6. MyApp.Controller.show/2 - def - line 12
+    // 7. MyApp.Events.subscribe/2 - def - line 18
+    // 8. MyApp.Logger.debug/1 - defp - line 18
+    // 9. MyApp.Metrics.increment/1 - def - line 12
+    // 10. MyApp.Service.transform_data/1 - defp - line 22
     //
-    // Called functions (9): list_users, get_user/1, get_user/2, process_request,
-    //                       get, all, query, send_email, format_message
+    // Private unused (3): validate_email, debug, transform_data
+    // Public unused (7): __struct__, fetch, create, index, show, subscribe, increment
     fn get_db() -> Box<dyn crate::backend::Database> {
         crate::test_utils::surreal_call_graph_db_complex()
     }
@@ -552,16 +558,16 @@ mod surrealdb_tests {
     // ===== Basic functionality tests =====
 
     #[test]
-    fn test_find_unused_functions_returns_exactly_7() {
+    fn test_find_unused_functions_returns_exactly_10() {
         let db = get_db();
         let unused = find_unused_functions(&*db, None, "default", false, false, false, false, 100)
             .expect("Query should succeed");
 
-        // Exactly 7 unused functions in fixture (including __struct__)
+        // Exactly 10 unused functions in fixture (including __struct__)
         assert_eq!(
             unused.len(),
-            7,
-            "Should find exactly 7 unused functions, got {}: {:?}",
+            10,
+            "Should find exactly 10 unused functions, got {}: {:?}",
             unused.len(),
             unused.iter().map(|f| format!("{}.{}/{}", f.module, f.name, f.arity)).collect::<Vec<_>>()
         );
@@ -577,10 +583,13 @@ mod surrealdb_tests {
         let expected = vec![
             ("MyApp.Accounts", "__struct__", 0),
             ("MyApp.Accounts", "validate_email", 1),
+            ("MyApp.Cache", "fetch", 1),
             ("MyApp.Controller", "create", 2),
             ("MyApp.Controller", "index", 2),
             ("MyApp.Controller", "show", 2),
-            ("MyApp.Repo", "insert", 1),
+            ("MyApp.Events", "subscribe", 2),
+            ("MyApp.Logger", "debug", 1),
+            ("MyApp.Metrics", "increment", 1),
             ("MyApp.Service", "transform_data", 1),
         ];
 
@@ -670,16 +679,16 @@ mod surrealdb_tests {
     // ===== Visibility filtering tests =====
 
     #[test]
-    fn test_find_unused_functions_private_only_returns_exactly_2() {
+    fn test_find_unused_functions_private_only_returns_exactly_3() {
         let db = get_db();
         let unused = find_unused_functions(&*db, None, "default", false, true, false, false, 100)
             .expect("Query should succeed");
 
-        // Exactly 2 unused private functions: validate_email/1 and transform_data/1
+        // Exactly 3 unused private functions: validate_email/1, debug/1, transform_data/1
         assert_eq!(
             unused.len(),
-            2,
-            "Should find exactly 2 unused private functions, got {}: {:?}",
+            3,
+            "Should find exactly 3 unused private functions, got {}: {:?}",
             unused.len(),
             unused.iter().map(|f| format!("{}.{}/{}", f.module, f.name, f.arity)).collect::<Vec<_>>()
         );
@@ -687,6 +696,7 @@ mod surrealdb_tests {
         // Verify they are the expected functions
         let names: std::collections::HashSet<_> = unused.iter().map(|f| f.name.as_str()).collect();
         assert!(names.contains("validate_email"), "Should contain validate_email");
+        assert!(names.contains("debug"), "Should contain debug");
         assert!(names.contains("transform_data"), "Should contain transform_data");
 
         // All should be private
@@ -701,16 +711,16 @@ mod surrealdb_tests {
     }
 
     #[test]
-    fn test_find_unused_functions_public_only_returns_exactly_5() {
+    fn test_find_unused_functions_public_only_returns_exactly_7() {
         let db = get_db();
         let unused = find_unused_functions(&*db, None, "default", false, false, true, false, 100)
             .expect("Query should succeed");
 
-        // Exactly 5 unused public functions: __struct__, index, show, create, insert
+        // Exactly 7 unused public functions: __struct__, fetch, create, index, show, subscribe, increment
         assert_eq!(
             unused.len(),
-            5,
-            "Should find exactly 5 unused public functions, got {}: {:?}",
+            7,
+            "Should find exactly 7 unused public functions, got {}: {:?}",
             unused.len(),
             unused.iter().map(|f| format!("{}.{}/{}", f.module, f.name, f.arity)).collect::<Vec<_>>()
         );
@@ -762,11 +772,11 @@ mod surrealdb_tests {
         let public = find_unused_functions(&*db, None, "default", false, false, true, false, 100)
             .expect("Query should succeed");
 
-        // Private (2) + Public (5) = Total (7)
+        // Private (3) + Public (7) = Total (10)
         assert_eq!(
             private.len() + public.len(),
-            7,
-            "Private ({}) + Public ({}) should equal total unused (7)",
+            10,
+            "Private ({}) + Public ({}) should equal total unused (10)",
             private.len(),
             public.len()
         );
@@ -775,16 +785,16 @@ mod surrealdb_tests {
     // ===== Generated function filtering tests =====
 
     #[test]
-    fn test_find_unused_functions_exclude_generated_returns_exactly_6() {
+    fn test_find_unused_functions_exclude_generated_returns_exactly_9() {
         let db = get_db();
         let without_generated = find_unused_functions(&*db, None, "default", false, false, false, true, 100)
             .expect("Query should succeed");
 
-        // 7 total unused - 1 __struct__ = 6
+        // 10 total unused - 1 __struct__ = 9
         assert_eq!(
             without_generated.len(),
-            6,
-            "Should find exactly 6 non-generated unused functions, got {}: {:?}",
+            9,
+            "Should find exactly 9 non-generated unused functions, got {}: {:?}",
             without_generated.len(),
             without_generated.iter().map(|f| format!("{}.{}/{}", f.module, f.name, f.arity)).collect::<Vec<_>>()
         );
@@ -890,7 +900,7 @@ mod surrealdb_tests {
     }
 
     #[test]
-    fn test_find_unused_functions_repo_module_returns_exactly_1() {
+    fn test_find_unused_functions_repo_module_returns_0() {
         let db = get_db();
         let unused = find_unused_functions(
             &*db,
@@ -904,11 +914,13 @@ mod surrealdb_tests {
         )
         .expect("Query should succeed");
 
-        // Repo has 1 unused function: insert
-        assert_eq!(unused.len(), 1, "Should find exactly 1 unused Repo function");
-        assert_eq!(unused[0].name, "insert");
-        assert_eq!(unused[0].arity, 1);
-        assert_eq!(unused[0].kind, "def");
+        // Repo has 0 unused functions (insert is now called by Logger.log_query in Cycle A)
+        assert!(
+            unused.is_empty(),
+            "Should find no unused Repo functions (insert is now called), got {}: {:?}",
+            unused.len(),
+            unused.iter().map(|f| f.name.as_str()).collect::<Vec<_>>()
+        );
     }
 
     #[test]
@@ -1044,12 +1056,12 @@ mod surrealdb_tests {
     }
 
     #[test]
-    fn test_find_unused_functions_limit_100_returns_all_7() {
+    fn test_find_unused_functions_limit_100_returns_all_10() {
         let db = get_db();
         let unused = find_unused_functions(&*db, None, "default", false, false, false, false, 100)
             .expect("Query should succeed");
 
-        assert_eq!(unused.len(), 7, "Limit 100 should return all 7 unused functions");
+        assert_eq!(unused.len(), 10, "Limit 100 should return all 10 unused functions");
     }
 
     // ===== Ordering tests =====
@@ -1070,10 +1082,13 @@ mod surrealdb_tests {
         let expected = vec![
             ("MyApp.Accounts", "__struct__", 0),
             ("MyApp.Accounts", "validate_email", 1),
+            ("MyApp.Cache", "fetch", 1),
             ("MyApp.Controller", "create", 2),
             ("MyApp.Controller", "index", 2),
             ("MyApp.Controller", "show", 2),
-            ("MyApp.Repo", "insert", 1),
+            ("MyApp.Events", "subscribe", 2),
+            ("MyApp.Logger", "debug", 1),
+            ("MyApp.Metrics", "increment", 1),
             ("MyApp.Service", "transform_data", 1),
         ];
 
@@ -1088,11 +1103,11 @@ mod surrealdb_tests {
         let unused = find_unused_functions(&*db, None, "default", false, true, false, true, 100)
             .expect("Query should succeed");
 
-        // Private (2) - none are generated = 2
+        // Private (3) - none are generated = 3
         assert_eq!(
             unused.len(),
-            2,
-            "Private + exclude_generated should return 2"
+            3,
+            "Private + exclude_generated should return 3"
         );
 
         for func in &unused {
@@ -1107,19 +1122,21 @@ mod surrealdb_tests {
         let unused = find_unused_functions(&*db, None, "default", false, false, true, true, 100)
             .expect("Query should succeed");
 
-        // Public (5) - 1 __struct__ = 4
+        // Public (7) - 1 __struct__ = 6
         assert_eq!(
             unused.len(),
-            4,
-            "Public + exclude_generated should return 4 (5 public - 1 __struct__)"
+            6,
+            "Public + exclude_generated should return 6 (7 public - 1 __struct__)"
         );
 
-        // Expected: index, show, create, insert
+        // Expected: fetch, create, index, show, subscribe, increment
         let names: std::collections::HashSet<_> = unused.iter().map(|f| f.name.as_str()).collect();
+        assert!(names.contains("fetch"));
         assert!(names.contains("index"));
         assert!(names.contains("show"));
         assert!(names.contains("create"));
-        assert!(names.contains("insert"));
+        assert!(names.contains("subscribe"));
+        assert!(names.contains("increment"));
         assert!(!names.contains("__struct__"));
     }
 

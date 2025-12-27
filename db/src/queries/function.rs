@@ -536,8 +536,8 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Should handle large limit");
         let functions = result.unwrap();
 
-        // Fixture has 15 functions
-        assert_eq!(functions.len(), 15, "Should return all functions");
+        // Fixture has 31 functions
+        assert_eq!(functions.len(), 31, "Should return all functions");
     }
 
     // ==================== Pattern Matching Tests ====================
@@ -552,8 +552,8 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Should match all functions with .*");
         let functions = result.unwrap();
 
-        // Fixture has exactly 15 functions
-        assert_eq!(functions.len(), 15, "Should find exactly 15 functions");
+        // Fixture has exactly 31 functions
+        assert_eq!(functions.len(), 31, "Should find exactly 31 functions");
     }
 
     #[test]
@@ -600,8 +600,8 @@ mod surrealdb_tests {
         assert!(result.is_ok());
         let functions = result.unwrap();
 
-        // MyApp.Controller has 3 functions: create/2, index/2, show/2
-        assert_eq!(functions.len(), 3, "Should find 3 functions in MyApp.Controller");
+        // MyApp.Controller has 4 functions: create/2, index/2, show/2, handle_event/1
+        assert_eq!(functions.len(), 4, "Should find 4 functions in MyApp.Controller");
         assert!(
             functions.iter().all(|f| f.module == "MyApp.Controller"),
             "All results should be in MyApp.Controller"
@@ -680,18 +680,18 @@ mod surrealdb_tests {
         assert!(result.is_ok());
         let functions = result.unwrap();
 
-        // Fixture has 15 functions sorted by module_name, name, arity
-        // First 4 are MyApp.Accounts: get_user/1, get_user/2, list_users/0, validate_email/1
-        assert_eq!(functions.len(), 15);
+        // Fixture has 31 functions sorted by module_name, name, arity
+        // First are MyApp.Accounts: __struct__/0, get_user/1, get_user/2, list_users/0, notify_change/1, validate_email/1
+        assert_eq!(functions.len(), 31);
         assert_eq!(functions[0].module, "MyApp.Accounts");
-        assert_eq!(functions[0].name, "get_user");
-        assert_eq!(functions[0].arity, 1);
+        assert_eq!(functions[0].name, "__struct__");
+        assert_eq!(functions[0].arity, 0);
         assert_eq!(functions[1].module, "MyApp.Accounts");
         assert_eq!(functions[1].name, "get_user");
-        assert_eq!(functions[1].arity, 2);
+        assert_eq!(functions[1].arity, 1);
         assert_eq!(functions[2].module, "MyApp.Accounts");
-        assert_eq!(functions[2].name, "list_users");
-        assert_eq!(functions[2].arity, 0);
+        assert_eq!(functions[2].name, "get_user");
+        assert_eq!(functions[2].arity, 2);
     }
 
     #[test]
@@ -750,7 +750,7 @@ mod surrealdb_tests {
         let correct_functions = result_correct.unwrap();
         let lower_functions = result_lower.unwrap();
 
-        assert_eq!(correct_functions.len(), 3, "Correct case module should find functions");
+        assert_eq!(correct_functions.len(), 4, "Correct case module should find functions");
         assert_eq!(lower_functions.len(), 0, "Lowercase module should find nothing");
     }
 

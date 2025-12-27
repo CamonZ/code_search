@@ -128,14 +128,14 @@ mod surrealdb_tests {
 
         assert!(result.is_ok(), "Query should succeed");
         let calls = result.unwrap();
-        // MyApp.Notifier is called by MyApp.Service.process_request and MyApp.Controller.create
-        assert_eq!(calls.len(), 2, "Should find 2 incoming dependencies");
+        // MyApp.Notifier is called by MyApp.Service, MyApp.Controller, and MyApp.Cache (Cycle C)
+        assert_eq!(calls.len(), 3, "Should find 3 incoming dependencies");
 
         // Verify callers (order may vary)
         let callers: Vec<&str> = calls.iter().map(|c| c.caller.module.as_ref()).collect();
         assert!(
-            callers.contains(&"MyApp.Service") && callers.contains(&"MyApp.Controller"),
-            "Should find calls from Service and Controller"
+            callers.contains(&"MyApp.Service") && callers.contains(&"MyApp.Controller") && callers.contains(&"MyApp.Cache"),
+            "Should find calls from Service, Controller, and Cache"
         );
         for call in &calls {
             assert_eq!(call.callee.module.as_ref(), "MyApp.Notifier");

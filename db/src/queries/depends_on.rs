@@ -128,14 +128,14 @@ mod surrealdb_tests {
 
         assert!(result.is_ok(), "Query should succeed");
         let calls = result.unwrap();
-        // MyApp.Service calls MyApp.Accounts and MyApp.Notifier (cross-module dependencies)
-        assert_eq!(calls.len(), 2, "Should find 2 outgoing dependencies");
+        // MyApp.Service calls MyApp.Accounts, MyApp.Notifier, and MyApp.Logger (Cycle A)
+        assert_eq!(calls.len(), 3, "Should find 3 outgoing dependencies");
 
         // Verify callees (order may vary)
         let callees: Vec<&str> = calls.iter().map(|c| c.callee.module.as_ref()).collect();
         assert!(
-            callees.contains(&"MyApp.Accounts") && callees.contains(&"MyApp.Notifier"),
-            "Should find calls to Accounts and Notifier"
+            callees.contains(&"MyApp.Accounts") && callees.contains(&"MyApp.Notifier") && callees.contains(&"MyApp.Logger"),
+            "Should find calls to Accounts, Notifier, and Logger"
         );
         for call in &calls {
             assert_eq!(call.caller.module.as_ref(), "MyApp.Service");

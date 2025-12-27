@@ -895,7 +895,8 @@ mod surrealdb_tests {
         let counts = get_function_counts(&*db, "default", None, false)
             .expect("Query should succeed");
 
-        assert_eq!(counts.len(), 5, "Should have exactly 5 modules");
+        // 9 modules: Controller, Accounts, Service, Repo, Notifier, Logger, Events, Cache, Metrics
+        assert_eq!(counts.len(), 9, "Should have exactly 9 modules");
     }
 
     #[test]
@@ -907,39 +908,59 @@ mod surrealdb_tests {
         // Verify exact function counts per module from fixture
         assert_eq!(
             counts.get("MyApp.Controller"),
-            Some(&3),
-            "Controller should have 3 functions (index/2, show/2, create/2)"
+            Some(&4),
+            "Controller should have 4 functions (index, show, create, handle_event)"
         );
         assert_eq!(
             counts.get("MyApp.Accounts"),
-            Some(&4),
-            "Accounts should have 4 functions (get_user/1, get_user/2, list_users/0, validate_email/1)"
+            Some(&6),
+            "Accounts should have 6 functions (get_user/1, get_user/2, list_users, validate_email, __struct__, notify_change)"
         );
         assert_eq!(
             counts.get("MyApp.Service"),
-            Some(&2),
-            "Service should have 2 functions (process_request/2, transform_data/1)"
+            Some(&3),
+            "Service should have 3 functions (process_request, transform_data, get_context)"
         );
         assert_eq!(
             counts.get("MyApp.Repo"),
             Some(&4),
-            "Repo should have 4 functions (get/2, all/1, insert/1, query/2)"
+            "Repo should have 4 functions (get, all, insert, query)"
         );
         assert_eq!(
             counts.get("MyApp.Notifier"),
+            Some(&3),
+            "Notifier should have 3 functions (send_email, format_message, on_cache_update)"
+        );
+        assert_eq!(
+            counts.get("MyApp.Logger"),
+            Some(&3),
+            "Logger should have 3 functions (log_query, log_metric, debug)"
+        );
+        assert_eq!(
+            counts.get("MyApp.Events"),
+            Some(&3),
+            "Events should have 3 functions (publish, emit, subscribe)"
+        );
+        assert_eq!(
+            counts.get("MyApp.Cache"),
+            Some(&3),
+            "Cache should have 3 functions (invalidate, store, fetch)"
+        );
+        assert_eq!(
+            counts.get("MyApp.Metrics"),
             Some(&2),
-            "Notifier should have 2 functions (send_email/2, format_message/1)"
+            "Metrics should have 2 functions (record, increment)"
         );
     }
 
     #[test]
-    fn test_get_function_counts_total_is_fifteen() {
+    fn test_get_function_counts_total_is_thirtyone() {
         let db = get_db();
         let counts = get_function_counts(&*db, "default", None, false)
             .expect("Query should succeed");
 
         let total: i64 = counts.values().sum();
-        assert_eq!(total, 15, "Total function count should be 15");
+        assert_eq!(total, 31, "Total function count should be 31");
     }
 
     #[test]
@@ -951,8 +972,8 @@ mod surrealdb_tests {
         assert_eq!(counts.len(), 1, "Should match exactly 1 module");
         assert_eq!(
             counts.get("MyApp.Controller"),
-            Some(&3),
-            "Controller should have 3 functions"
+            Some(&4),
+            "Controller should have 4 functions"
         );
     }
 
@@ -965,8 +986,8 @@ mod surrealdb_tests {
         assert_eq!(counts.len(), 1, "Should match exactly 1 module");
         assert_eq!(
             counts.get("MyApp.Accounts"),
-            Some(&4),
-            "Accounts should have 4 functions"
+            Some(&6),
+            "Accounts should have 6 functions"
         );
     }
 
@@ -1024,7 +1045,7 @@ mod surrealdb_tests {
     }
 
     // ===== get_module_connectivity tests =====
-    // Tests connectivity based on the 12 call edges in the fixture
+    // Tests connectivity based on the 24 call edges in the fixture (12 original + 12 for cycles)
 
     #[test]
     fn test_get_module_connectivity_exact_module_count() {
@@ -1032,7 +1053,8 @@ mod surrealdb_tests {
         let connectivity = get_module_connectivity(&*db, "default", None, false)
             .expect("Query should succeed");
 
-        assert_eq!(connectivity.len(), 5, "Should have exactly 5 modules");
+        // 9 modules: Controller, Accounts, Service, Repo, Notifier, Logger, Events, Cache, Metrics
+        assert_eq!(connectivity.len(), 9, "Should have exactly 9 modules");
     }
 
     #[test]
@@ -1041,17 +1063,18 @@ mod surrealdb_tests {
         let connectivity = get_module_connectivity(&*db, "default", None, false)
             .expect("Query should succeed");
 
-        // Controller: no incoming calls, calls 3 modules (Accounts, Service, Notifier)
+        // Controller: 1 incoming unique module (Accounts)
+        // 4 outgoing unique modules: Accounts, Service, Notifier, Events
         let (incoming, outgoing) = connectivity
             .get("MyApp.Controller")
             .expect("Controller should be present");
         assert_eq!(
-            *incoming, 0,
-            "Controller should have 0 incoming (no one calls Controller)"
+            *incoming, 1,
+            "Controller should have 1 unique incoming module (Accounts)"
         );
         assert_eq!(
-            *outgoing, 3,
-            "Controller should have 3 outgoing (calls Accounts, Service, Notifier)"
+            *outgoing, 4,
+            "Controller should have 4 unique outgoing modules (Accounts, Service, Notifier, Events)"
         );
     }
 
@@ -1061,18 +1084,18 @@ mod surrealdb_tests {
         let connectivity = get_module_connectivity(&*db, "default", None, false)
             .expect("Query should succeed");
 
-        // Accounts: called by Controller, Accounts (self), Service
-        // Calls: Repo, Accounts (self)
+        // Accounts: 4 unique incoming modules (Controller, Service, Cache, self)
+        // 3 unique outgoing modules: Repo, Controller, self
         let (incoming, outgoing) = connectivity
             .get("MyApp.Accounts")
             .expect("Accounts should be present");
         assert_eq!(
-            *incoming, 3,
-            "Accounts should have 3 incoming (Controller, Accounts-self, Service)"
+            *incoming, 4,
+            "Accounts should have 4 unique incoming modules (Controller, Service, Cache, self)"
         );
         assert_eq!(
-            *outgoing, 2,
-            "Accounts should have 2 outgoing (Repo, Accounts-self)"
+            *outgoing, 3,
+            "Accounts should have 3 unique outgoing modules (Repo, Controller, self)"
         );
     }
 
@@ -1082,15 +1105,15 @@ mod surrealdb_tests {
         let connectivity = get_module_connectivity(&*db, "default", None, false)
             .expect("Query should succeed");
 
-        // Service: called by Controller only
-        // Calls: Accounts, Notifier
+        // Service: called by Controller, Repo (insert->get_context)
+        // Calls: Accounts, Notifier, Logger
         let (incoming, outgoing) = connectivity
             .get("MyApp.Service")
             .expect("Service should be present");
-        assert_eq!(*incoming, 1, "Service should have 1 incoming (Controller)");
+        assert_eq!(*incoming, 2, "Service should have 2 incoming (Controller, Repo)");
         assert_eq!(
-            *outgoing, 2,
-            "Service should have 2 outgoing (Accounts, Notifier)"
+            *outgoing, 3,
+            "Service should have 3 outgoing (Accounts, Notifier, Logger)"
         );
     }
 
@@ -1100,16 +1123,16 @@ mod surrealdb_tests {
         let connectivity = get_module_connectivity(&*db, "default", None, false)
             .expect("Query should succeed");
 
-        // Repo: called by Accounts, Repo (self)
-        // Calls: Repo (self only)
+        // Repo: 3 unique incoming modules (Accounts, Logger, self)
+        // 2 unique outgoing modules: Service, self
         let (incoming, outgoing) = connectivity
             .get("MyApp.Repo")
             .expect("Repo should be present");
         assert_eq!(
-            *incoming, 2,
-            "Repo should have 2 incoming (Accounts, Repo-self)"
+            *incoming, 3,
+            "Repo should have 3 unique incoming modules (Accounts, Logger, self)"
         );
-        assert_eq!(*outgoing, 1, "Repo should have 1 outgoing (Repo-self)");
+        assert_eq!(*outgoing, 2, "Repo should have 2 unique outgoing modules (Service, self)");
     }
 
     #[test]
@@ -1118,18 +1141,18 @@ mod surrealdb_tests {
         let connectivity = get_module_connectivity(&*db, "default", None, false)
             .expect("Query should succeed");
 
-        // Notifier: called by Service, Controller, Notifier (self)
-        // Calls: Notifier (self only)
+        // Notifier: called by Service, Controller, Notifier (self), Cache (store->on_cache_update)
+        // Calls: Notifier (self), Metrics
         let (incoming, outgoing) = connectivity
             .get("MyApp.Notifier")
             .expect("Notifier should be present");
         assert_eq!(
-            *incoming, 3,
-            "Notifier should have 3 incoming (Service, Controller, Notifier-self)"
+            *incoming, 4,
+            "Notifier should have 4 incoming (Service, Controller, Notifier-self, Cache)"
         );
         assert_eq!(
-            *outgoing, 1,
-            "Notifier should have 1 outgoing (Notifier-self)"
+            *outgoing, 2,
+            "Notifier should have 2 outgoing (Notifier-self, Metrics)"
         );
     }
 
@@ -1144,8 +1167,8 @@ mod surrealdb_tests {
         let (incoming, outgoing) = connectivity
             .get("MyApp.Controller")
             .expect("Controller should be present");
-        assert_eq!(*incoming, 0);
-        assert_eq!(*outgoing, 3);
+        assert_eq!(*incoming, 1, "Controller has 1 unique incoming module (Accounts)");
+        assert_eq!(*outgoing, 4, "Controller has 4 unique outgoing modules");
     }
 
     #[test]
@@ -1209,6 +1232,10 @@ mod surrealdb_tests {
             "MyApp.Service",
             "MyApp.Repo",
             "MyApp.Notifier",
+            "MyApp.Logger",
+            "MyApp.Events",
+            "MyApp.Cache",
+            "MyApp.Metrics",
         ];
 
         for module in expected_modules {

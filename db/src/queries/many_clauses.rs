@@ -336,12 +336,12 @@ mod surrealdb_tests {
         let clauses = find_many_clauses(&*db, 0, None, "default", false, true, 100)
             .expect("Query should succeed");
 
-        // The fixture has 15 functions with 22 clauses total
-        // With min_clauses=0, should return 15 functions (grouped by function)
+        // The fixture has 31 functions with 38 clauses total
+        // With min_clauses=0, should return 31 functions (grouped by function)
         assert_eq!(
             clauses.len(),
-            15,
-            "Should find exactly 15 functions with clauses"
+            31,
+            "Should find exactly 31 functions with clauses"
         );
     }
 
@@ -563,8 +563,8 @@ mod surrealdb_tests {
         assert!(clauses_10.len() <= 10, "Should respect limit of 10");
         assert_eq!(
             clauses_100.len(),
-            15,
-            "Should return all 15 functions with limit 100"
+            31,
+            "Should return all 31 functions with limit 100"
         );
 
         assert!(
@@ -654,11 +654,11 @@ mod surrealdb_tests {
         )
         .expect("Query should succeed");
 
-        // Controller has 3 functions in fixture
+        // Controller has 4 functions in fixture (index, show, create, handle_event)
         assert_eq!(
             clauses.len(),
-            3,
-            "Should find exactly 3 Controller functions"
+            4,
+            "Should find exactly 4 Controller functions"
         );
 
         for clause in &clauses {
@@ -680,11 +680,11 @@ mod surrealdb_tests {
         )
         .expect("Query should succeed");
 
-        // Accounts has 4 functions in fixture
+        // Accounts has 6 functions in fixture (get_user/1, get_user/2, list_users, validate_email, __struct__, notify_change)
         assert_eq!(
             clauses.len(),
-            4,
-            "Should find exactly 4 Accounts functions"
+            6,
+            "Should find exactly 6 Accounts functions"
         );
 
         for clause in &clauses {

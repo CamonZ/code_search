@@ -586,8 +586,8 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
 
-        // Fixture has 15 functions, all should have correct fields
-        assert_eq!(functions.len(), 15);
+        // Fixture has 31 functions, limit is 20 so we get 20
+        assert_eq!(functions.len(), 20);
         for func in &functions {
             assert_eq!(func.project, "default");
             assert!(!func.module.is_empty(), "module should not be empty");
@@ -607,8 +607,8 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Query should succeed");
         let modules = result.unwrap();
 
-        // Fixture has 5 modules, all should have correct fields
-        assert_eq!(modules.len(), 5);
+        // Fixture has 9 modules, all should have correct fields
+        assert_eq!(modules.len(), 9);
         for module in &modules {
             assert_eq!(module.project, "default");
             assert!(!module.name.is_empty(), "name should not be empty");
@@ -698,8 +698,8 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Should handle large limit");
         let modules = result.unwrap();
 
-        // Fixture has 5 modules, large limit should return all of them
-        assert_eq!(modules.len(), 5, "Should return all 5 modules");
+        // Fixture has 9 modules, large limit should return all of them
+        assert_eq!(modules.len(), 9, "Should return all 9 modules");
     }
 
     #[test]
@@ -712,8 +712,8 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Should handle large limit");
         let functions = result.unwrap();
 
-        // Fixture has 15 functions, large limit should return all of them
-        assert_eq!(functions.len(), 15, "Should return all 15 functions");
+        // Fixture has 31 functions, large limit should return all of them
+        assert_eq!(functions.len(), 31, "Should return all 31 functions");
     }
 
     #[test]
@@ -752,35 +752,35 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Should match all modules with .*");
         let modules = result.unwrap();
 
-        // Fixture has exactly 5 modules (alphabetically sorted)
-        assert_eq!(modules.len(), 5, "Should find exactly 5 modules");
+        // Fixture has exactly 9 modules (limit is 10)
+        assert_eq!(modules.len(), 9, "Should find exactly 9 modules");
         assert_eq!(modules[0].name, "MyApp.Accounts");
-        assert_eq!(modules[1].name, "MyApp.Controller");
-        assert_eq!(modules[2].name, "MyApp.Notifier");
-        assert_eq!(modules[3].name, "MyApp.Repo");
-        assert_eq!(modules[4].name, "MyApp.Service");
+        assert_eq!(modules[1].name, "MyApp.Cache");
+        assert_eq!(modules[2].name, "MyApp.Controller");
+        assert_eq!(modules[3].name, "MyApp.Events");
+        assert_eq!(modules[4].name, "MyApp.Logger");
     }
 
     #[test]
     fn test_search_functions_regex_dot_star() {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        // Test with regex pattern that matches all functions
+        // Test with regex pattern that matches all functions (limit 20 returns first 20)
         let result = search_functions(&*db, ".*", "default", 20, true);
 
         assert!(result.is_ok(), "Should match all functions with .*");
         let functions = result.unwrap();
 
-        // Fixture has exactly 15 functions sorted by module_name, name, arity
-        assert_eq!(functions.len(), 15, "Should find exactly 15 functions");
-        // First function: MyApp.Accounts.get_user/1
+        // Fixture has 31 functions, limit is 20
+        assert_eq!(functions.len(), 20, "Should return first 20 functions");
+        // First function: MyApp.Accounts.__struct__/0
         assert_eq!(functions[0].module, "MyApp.Accounts");
-        assert_eq!(functions[0].name, "get_user");
-        assert_eq!(functions[0].arity, 1);
-        // Second function: MyApp.Accounts.get_user/2
+        assert_eq!(functions[0].name, "__struct__");
+        assert_eq!(functions[0].arity, 0);
+        // Second function: MyApp.Accounts.get_user/1
         assert_eq!(functions[1].module, "MyApp.Accounts");
         assert_eq!(functions[1].name, "get_user");
-        assert_eq!(functions[1].arity, 2);
+        assert_eq!(functions[1].arity, 1);
     }
 
     #[test]
@@ -826,13 +826,13 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Query should succeed");
         let modules = result.unwrap();
 
-        // Fixture has 5 modules (alphabetically sorted)
-        assert_eq!(modules.len(), 5);
+        // Fixture has 9 modules (alphabetically sorted)
+        assert_eq!(modules.len(), 9);
         assert_eq!(modules[0].name, "MyApp.Accounts");
-        assert_eq!(modules[1].name, "MyApp.Controller");
-        assert_eq!(modules[2].name, "MyApp.Notifier");
-        assert_eq!(modules[3].name, "MyApp.Repo");
-        assert_eq!(modules[4].name, "MyApp.Service");
+        assert_eq!(modules[1].name, "MyApp.Cache");
+        assert_eq!(modules[2].name, "MyApp.Controller");
+        assert_eq!(modules[3].name, "MyApp.Events");
+        assert_eq!(modules[4].name, "MyApp.Logger");
     }
 
     #[test]
@@ -845,21 +845,21 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
 
-        // Fixture has 15 functions sorted by module_name, name, arity
-        assert_eq!(functions.len(), 15);
-        // First 4 are in MyApp.Accounts: get_user/1, get_user/2, list_users/0, validate_email/1
+        // Fixture has 31 functions sorted by module_name, name, arity
+        assert_eq!(functions.len(), 31);
+        // First 6 are in MyApp.Accounts: __struct__/0, get_user/1, get_user/2, list_users/0, notify_change/1, validate_email/1
         assert_eq!(functions[0].module, "MyApp.Accounts");
-        assert_eq!(functions[0].name, "get_user");
-        assert_eq!(functions[0].arity, 1);
+        assert_eq!(functions[0].name, "__struct__");
+        assert_eq!(functions[0].arity, 0);
         assert_eq!(functions[1].module, "MyApp.Accounts");
         assert_eq!(functions[1].name, "get_user");
-        assert_eq!(functions[1].arity, 2);
+        assert_eq!(functions[1].arity, 1);
         assert_eq!(functions[2].module, "MyApp.Accounts");
-        assert_eq!(functions[2].name, "list_users");
-        assert_eq!(functions[2].arity, 0);
+        assert_eq!(functions[2].name, "get_user");
+        assert_eq!(functions[2].arity, 2);
         assert_eq!(functions[3].module, "MyApp.Accounts");
-        assert_eq!(functions[3].name, "validate_email");
-        assert_eq!(functions[3].arity, 1);
+        assert_eq!(functions[3].name, "list_users");
+        assert_eq!(functions[3].arity, 0);
     }
 
     #[test]
@@ -1112,8 +1112,8 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Should handle regex alternation");
         let functions = result.unwrap();
 
-        // get_user/1, get_user/2, get/2, all/1, insert/1 match this pattern (5 functions)
-        assert_eq!(functions.len(), 5, "Should match 5 functions");
+        // get_user/1, get_user/2, get/2, all/1, insert/1, get_context/1 match this pattern (6 functions)
+        assert_eq!(functions.len(), 6, "Should match 6 functions");
         // First two should be MyApp.Accounts.get_user/1 and /2
         assert_eq!(functions[0].name, "get_user");
         assert_eq!(functions[1].name, "get_user");
@@ -1121,5 +1121,7 @@ mod surrealdb_tests {
         assert_eq!(functions[2].name, "all");
         assert_eq!(functions[3].name, "get");
         assert_eq!(functions[4].name, "insert");
+        // Then MyApp.Service.get_context/1
+        assert_eq!(functions[5].name, "get_context");
     }
 }

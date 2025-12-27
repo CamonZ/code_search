@@ -609,8 +609,8 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Should handle large limit");
         let locations = result.unwrap();
 
-        // Fixture has 22 total clauses
-        assert_eq!(locations.len(), 22, "Should return all locations");
+        // Fixture has 38 total clauses
+        assert_eq!(locations.len(), 38, "Should return all locations");
     }
 
     // ==================== Pattern Matching Tests ====================
@@ -625,8 +625,8 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Should match all functions with .*");
         let locations = result.unwrap();
 
-        // Should find all 22 locations
-        assert_eq!(locations.len(), 22, "Should find exactly 22 locations");
+        // Should find all 38 locations
+        assert_eq!(locations.len(), 38, "Should find exactly 38 locations");
     }
 
     #[test]
@@ -786,7 +786,7 @@ mod surrealdb_tests {
         let correct_locations = result_correct.unwrap();
         let lower_locations = result_lower.unwrap();
 
-        assert_eq!(correct_locations.len(), 7, "Correct case module should find locations");
+        assert_eq!(correct_locations.len(), 8, "Correct case module should find locations");
         assert_eq!(lower_locations.len(), 0, "Lowercase module should find nothing");
     }
 
