@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fs;
 
-use db::DbInstance;
+use db::backend::Database;
 
 use super::ImportCmd;
 use crate::commands::Execute;
@@ -11,7 +11,7 @@ use db::queries::import_models::CallGraph;
 impl Execute for ImportCmd {
     type Output = ImportResult;
 
-    fn execute(self, db: &DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn Database) -> Result<Self::Output, Box<dyn Error>> {
         // Read and parse call graph
         let content = fs::read_to_string(&self.file).map_err(|e| ImportError::FileReadFailed {
             path: self.file.display().to_string(),
@@ -130,7 +130,7 @@ mod tests {
             clear: false,
         };
         let db = open_db(db_file.path()).expect("Failed to open db");
-        cmd.execute(&db).expect("Import should succeed")
+        cmd.execute(&*db).expect("Import should succeed")
     }
 
     #[rstest]
@@ -172,7 +172,7 @@ mod tests {
             clear: false,
         };
         let db = open_db(db_file.path()).expect("Failed to open db");
-        cmd1.execute(&db)
+        cmd1.execute(&*db)
             .expect("First import should succeed");
 
         // Second import with clear
@@ -182,7 +182,7 @@ mod tests {
             clear: true,
         };
         let result = cmd2
-            .execute(&db)
+            .execute(&*db)
             .expect("Second import should succeed");
 
         assert!(result.cleared);
@@ -207,7 +207,7 @@ mod tests {
         };
 
         let db = open_db(db_file.path()).expect("Failed to open db");
-        let result = cmd.execute(&db).expect("Import should succeed");
+        let result = cmd.execute(&*db).expect("Import should succeed");
 
         assert_eq!(result.modules_imported, 0);
         assert_eq!(result.functions_imported, 0);
@@ -228,7 +228,7 @@ mod tests {
         };
 
         let db = open_db(db_file.path()).expect("Failed to open db");
-        let result = cmd.execute(&db);
+        let result = cmd.execute(&*db);
         assert!(result.is_err());
     }
 
@@ -241,7 +241,7 @@ mod tests {
         };
 
         let db = open_db(db_file.path()).expect("Failed to open db");
-        let result = cmd.execute(&db);
+        let result = cmd.execute(&*db);
         assert!(result.is_err());
     }
 }

@@ -46,7 +46,7 @@ fn build_return_info_result(
 impl Execute for ReturnsCmd {
     type Output = ModuleGroupResult<ReturnInfo>;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         let entries = find_returns(
             db,
             &self.pattern,

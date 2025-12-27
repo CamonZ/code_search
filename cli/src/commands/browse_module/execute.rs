@@ -119,7 +119,7 @@ impl Definition {
 impl Execute for BrowseModuleCmd {
     type Output = BrowseModuleResult;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         let mut definitions = Vec::new();
 
         // Determine what to query based on kind filter

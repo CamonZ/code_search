@@ -20,7 +20,7 @@ pub struct PathResult {
 impl Execute for PathCmd {
     type Output = PathResult;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         let mut result = PathResult {
             from_module: self.from_module.clone(),
             from_function: self.from_function.clone(),

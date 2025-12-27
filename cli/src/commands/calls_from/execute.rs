@@ -78,7 +78,7 @@ struct CallerFunctionKey {
 impl Execute for CallsFromCmd {
     type Output = ModuleGroupResult<CallerFunction>;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         let calls = find_calls_from(
             db,
             &self.module,

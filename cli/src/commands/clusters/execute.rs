@@ -44,7 +44,7 @@ pub struct ClustersResult {
 impl Execute for ClustersCmd {
     type Output = ClustersResult;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         // Get all inter-module calls
         let calls = get_module_calls(db, &self.common.project)?;
 

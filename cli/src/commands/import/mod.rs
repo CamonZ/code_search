@@ -7,7 +7,7 @@ use std::error::Error;
 use std::path::PathBuf;
 
 use clap::Args;
-use db::DbInstance;
+use db::backend::Database;
 
 use crate::commands::{CommandRunner, Execute};
 use crate::output::{OutputFormat, Outputable};
@@ -43,7 +43,7 @@ pub struct ImportCmd {
 }
 
 impl CommandRunner for ImportCmd {
-    fn run(self, db: &DbInstance, format: OutputFormat) -> Result<String, Box<dyn Error>> {
+    fn run(self, db: &dyn Database, format: OutputFormat) -> Result<String, Box<dyn Error>> {
         let result = self.execute(db)?;
         Ok(result.format(format))
     }
