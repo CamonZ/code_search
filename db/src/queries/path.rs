@@ -59,7 +59,7 @@ pub fn find_paths(
     // {..max_depth+shortest=target+inclusive} finds shortest path from source to target
     // +inclusive includes the origin in the result
     let query = format!(
-        r#"SELECT @.{{..{}+shortest=`function`:[$target_module, $target_fn, $target_arity]+inclusive}}->calls->function AS path FROM `function`:[$source_module, $source_fn, $source_arity];"#,
+        r#"SELECT @.{{..{}+shortest=functions:[$target_module, $target_fn, $target_arity]+inclusive}}->calls->functions AS path FROM functions:[$source_module, $source_fn, $source_arity];"#,
         max_depth
     );
 

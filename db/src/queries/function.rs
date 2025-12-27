@@ -148,7 +148,7 @@ pub fn find_functions(
     let query = format!(
         r#"
         SELECT "default" as project, module_name as module, name, arity, "" as args, return_type
-        FROM `function`
+        FROM functions
         WHERE {module_clause}
           AND {function_clause}
           {arity_clause}

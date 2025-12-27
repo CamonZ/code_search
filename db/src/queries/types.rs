@@ -171,7 +171,7 @@ pub fn find_types(
     let query = format!(
         r#"
         SELECT "default" as project, module_name as module, name, kind, params, line, definition
-        FROM `type`
+        FROM types
         WHERE {module_clause}
           {name_clause}
           {kind_clause}

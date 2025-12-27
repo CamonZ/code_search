@@ -134,7 +134,7 @@ use std::error::Error;
 /// * `Err` if the module already exists or database operation fails
 #[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
 fn insert_module(db: &dyn Database, name: &str) -> Result<(), Box<dyn Error>> {
-    let query = "CREATE `module`:[$name] SET name = $name, file = \"\", source = \"unknown\";";
+    let query = "CREATE modules:[$name] SET name = $name, file = \"\", source = \"unknown\";";
     let params = QueryParams::new().with_str("name", name);
     db.execute_query(query, params)?;
     Ok(())
@@ -163,7 +163,7 @@ fn insert_function(
     arity: i64,
 ) -> Result<(), Box<dyn Error>> {
     let query = r#"
-        CREATE `function`:[$module_name, $name, $arity] SET
+        CREATE functions:[$module_name, $name, $arity] SET
             module_name = $module_name,
             name = $name,
             arity = $arity;
@@ -208,7 +208,7 @@ fn insert_clause(
     depth: i64,
 ) -> Result<(), Box<dyn Error>> {
     let query = r#"
-        CREATE clause:[$module_name, $function_name, $arity, $line] SET
+        CREATE clauses:[$module_name, $function_name, $arity, $line] SET
             module_name = $module_name,
             function_name = $function_name,
             arity = $arity,
@@ -264,7 +264,7 @@ fn insert_type(
     definition: &str,
 ) -> Result<(), Box<dyn Error>> {
     let query = r#"
-        CREATE `type`:[$module_name, $name] SET
+        CREATE types:[$module_name, $name] SET
             module_name = $module_name,
             name = $name,
             kind = $kind,
@@ -311,7 +311,7 @@ fn insert_spec(
     full: &str,
 ) -> Result<(), Box<dyn Error>> {
     let query = r#"
-        CREATE spec:[$module_name, $function_name, $arity, $clause_index] SET
+        CREATE specs:[$module_name, $function_name, $arity, $clause_index] SET
             module_name = $module_name,
             function_name = $function_name,
             arity = $arity,
@@ -358,7 +358,7 @@ fn insert_field(
     required: bool,
 ) -> Result<(), Box<dyn Error>> {
     let query = r#"
-        CREATE `field`:[$module_name, $field_name] SET
+        CREATE fields:[$module_name, $field_name] SET
             module_name = $module_name,
             name = $field_name,
             default_value = $default_value,
@@ -411,15 +411,15 @@ fn insert_call(
 ) -> Result<(), Box<dyn Error>> {
     let query = r#"
         RELATE
-            `function`:[$from_module, $from_fn, $from_arity]
+            functions:[$from_module, $from_fn, $from_arity]
             ->calls->
-            `function`:[$to_module, $to_fn, $to_arity]
+            functions:[$to_module, $to_fn, $to_arity]
         SET
             call_type = $call_type,
             caller_kind = $caller_kind,
             file = $file,
             line = $line,
-            caller_clause_id = clause:[$from_module, $from_fn, $from_arity, $line];
+            caller_clause_id = clauses:[$from_module, $from_fn, $from_arity, $line];
     "#;
     let params = QueryParams::new()
         .with_str("from_module", from_module)
@@ -444,7 +444,7 @@ fn insert_call(
 /// # Arguments
 /// * `db` - Reference to the database instance
 /// * `module_name` - The module that defines the entity
-/// * `entity_type` - The entity type: "function" or "type"
+/// * `entity_type` - The entity type: "functions" or "types"
 /// * `entity_id` - The record ID of the entity (e.g., "module:name:arity" for function)
 ///
 /// # Returns
@@ -459,7 +459,7 @@ fn insert_defines(
     entity_id: &str,
 ) -> Result<(), Box<dyn Error>> {
     let query = format!(
-        "RELATE module:⟨$module_name⟩ ->defines-> {}:⟨$entity_id⟩;",
+        "RELATE modules:⟨$module_name⟩ ->defines-> {}:⟨$entity_id⟩;",
         entity_type
     );
     let params = QueryParams::new()
@@ -490,7 +490,7 @@ fn insert_has_clause(
     function_id: &str,
     clause_id: &str,
 ) -> Result<(), Box<dyn Error>> {
-    let query = "RELATE `function`:⟨$function_id⟩ ->has_clause-> clause:⟨$clause_id⟩;";
+    let query = "RELATE functions:⟨$function_id⟩ ->has_clause-> clauses:⟨$clause_id⟩;";
     let params = QueryParams::new()
         .with_str("function_id", function_id)
         .with_str("clause_id", clause_id);
@@ -517,7 +517,7 @@ fn insert_has_field(
     module_name: &str,
     field_name: &str,
 ) -> Result<(), Box<dyn Error>> {
-    let query = "RELATE `module`:[$module_name] ->has_field-> `field`:[$module_name, $field_name];";
+    let query = "RELATE modules:[$module_name] ->has_field-> fields:[$module_name, $field_name];";
     let params = QueryParams::new()
         .with_str("module_name", module_name)
         .with_str("field_name", field_name);
@@ -1030,7 +1030,7 @@ mod surrealdb_fixture_tests {
         let db = surreal_call_graph_db();
 
         // Verify database is accessible by running a simple query
-        let result = db.execute_query_no_params("SELECT * FROM `function` LIMIT 1");
+        let result = db.execute_query_no_params("SELECT * FROM functions LIMIT 1");
         assert!(
             result.is_ok(),
             "Should be able to query the database: {:?}",
@@ -1044,7 +1044,7 @@ mod surrealdb_fixture_tests {
 
         // Query to verify modules exist
         let result = db
-            .execute_query_no_params("SELECT * FROM `module`")
+            .execute_query_no_params("SELECT * FROM modules")
             .expect("Should be able to query modules");
 
         let rows = result.rows();
@@ -1062,7 +1062,7 @@ mod surrealdb_fixture_tests {
 
         // Query to verify functions exist
         let result = db
-            .execute_query_no_params("SELECT * FROM `function`")
+            .execute_query_no_params("SELECT * FROM functions")
             .expect("Should be able to query functions");
 
         let rows = result.rows();
@@ -1095,7 +1095,7 @@ mod surrealdb_fixture_tests {
         let db = surreal_type_signatures_db();
 
         // Verify database is accessible
-        let result = db.execute_query_no_params("SELECT * FROM `type`");
+        let result = db.execute_query_no_params("SELECT * FROM types");
         assert!(result.is_ok(), "Should be able to query the database");
     }
 
@@ -1105,7 +1105,7 @@ mod surrealdb_fixture_tests {
 
         // Query to verify types exist
         let result = db
-            .execute_query_no_params("SELECT * FROM `type`")
+            .execute_query_no_params("SELECT * FROM types")
             .expect("Should be able to query types");
 
         let rows = result.rows();
@@ -1117,7 +1117,7 @@ mod surrealdb_fixture_tests {
         let db = surreal_structs_db();
 
         // Verify database is accessible
-        let result = db.execute_query_no_params("SELECT * FROM `field`");
+        let result = db.execute_query_no_params("SELECT * FROM fields");
         assert!(result.is_ok(), "Should be able to query the database");
     }
 
@@ -1127,7 +1127,7 @@ mod surrealdb_fixture_tests {
 
         // Query to verify fields exist
         let result = db
-            .execute_query_no_params("SELECT * FROM `field`")
+            .execute_query_no_params("SELECT * FROM fields")
             .expect("Should be able to query fields");
 
         let rows = result.rows();
@@ -1152,7 +1152,7 @@ mod surrealdb_fixture_tests {
         let db = surreal_call_graph_db_complex();
 
         // Verify database is accessible
-        let result = db.execute_query_no_params("SELECT * FROM `module` LIMIT 1");
+        let result = db.execute_query_no_params("SELECT * FROM modules LIMIT 1");
         assert!(
             result.is_ok(),
             "Should be able to query the database: {:?}",
@@ -1166,7 +1166,7 @@ mod surrealdb_fixture_tests {
 
         // Query to verify we have exactly 5 modules
         let result = db
-            .execute_query_no_params("SELECT * FROM `module`")
+            .execute_query_no_params("SELECT * FROM modules")
             .expect("Should be able to query modules");
 
         let rows = result.rows();
@@ -1184,7 +1184,7 @@ mod surrealdb_fixture_tests {
 
         // Query to verify we have 15 functions
         let result = db
-            .execute_query_no_params("SELECT * FROM `function`")
+            .execute_query_no_params("SELECT * FROM functions")
             .expect("Should be able to query functions");
 
         let rows = result.rows();
@@ -1220,7 +1220,7 @@ mod surrealdb_fixture_tests {
 
         // Verify get_user function exists with both arity 1 and 2
         let result = db
-            .execute_query_no_params("SELECT * FROM `function` WHERE module_name = 'MyApp.Accounts' AND name = 'get_user'")
+            .execute_query_no_params("SELECT * FROM functions WHERE module_name = 'MyApp.Accounts' AND name = 'get_user'")
             .expect("Should be able to query get_user functions");
 
         let rows = result.rows();

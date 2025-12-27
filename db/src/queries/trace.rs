@@ -220,7 +220,7 @@ pub fn trace_calls(
     // {1..max_depth} limits traversal depth, +inclusive includes the starting node
     let query = format!(
         r#"
-        SELECT * FROM (SELECT VALUE id FROM `function` WHERE {}{}).{{1..{}+path+inclusive}}{}`function` LIMIT {};
+        SELECT * FROM (SELECT VALUE id FROM functions WHERE {}{}).{{1..{}+path+inclusive}}{}functions LIMIT {};
         "#,
         module_function_condition, arity_condition, max_depth, traversal_op, limit
     );

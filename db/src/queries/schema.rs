@@ -348,28 +348,28 @@ mod surrealdb_tests {
         // Verify all expected table names are present
         // Node tables (6)
         assert!(
-            table_names.contains(&"module"),
-            "Should include module node table"
+            table_names.contains(&"modules"),
+            "Should include modules node table"
         );
         assert!(
-            table_names.contains(&"function"),
-            "Should include function node table"
+            table_names.contains(&"functions"),
+            "Should include functions node table"
         );
         assert!(
-            table_names.contains(&"clause"),
-            "Should include clause node table"
+            table_names.contains(&"clauses"),
+            "Should include clauses node table"
         );
         assert!(
-            table_names.contains(&"spec"),
-            "Should include spec node table"
+            table_names.contains(&"specs"),
+            "Should include specs node table"
         );
         assert!(
-            table_names.contains(&"type"),
-            "Should include type node table"
+            table_names.contains(&"types"),
+            "Should include types node table"
         );
         assert!(
-            table_names.contains(&"field"),
-            "Should include field node table"
+            table_names.contains(&"fields"),
+            "Should include fields node table"
         );
 
         // Relationship tables (4)
@@ -402,28 +402,28 @@ mod surrealdb_tests {
         // Node tables should come first (6 tables)
         let node_tables = &table_names[0..6];
         assert!(
-            node_tables.contains(&"module"),
-            "Node tables should include module"
+            node_tables.contains(&"modules"),
+            "Node tables should include modules"
         );
         assert!(
-            node_tables.contains(&"function"),
-            "Node tables should include function"
+            node_tables.contains(&"functions"),
+            "Node tables should include functions"
         );
         assert!(
-            node_tables.contains(&"clause"),
-            "Node tables should include clause"
+            node_tables.contains(&"clauses"),
+            "Node tables should include clauses"
         );
         assert!(
-            node_tables.contains(&"spec"),
-            "Node tables should include spec"
+            node_tables.contains(&"specs"),
+            "Node tables should include specs"
         );
         assert!(
-            node_tables.contains(&"type"),
-            "Node tables should include type"
+            node_tables.contains(&"types"),
+            "Node tables should include types"
         );
         assert!(
-            node_tables.contains(&"field"),
-            "Node tables should include field"
+            node_tables.contains(&"fields"),
+            "Node tables should include fields"
         );
 
         // Relationship tables should come after (4 tables)
@@ -474,12 +474,12 @@ mod surrealdb_tests {
         assert_eq!(names.len(), 10, "Should return 10 table names");
 
         // Node tables (6)
-        assert!(names.contains(&"module"));
-        assert!(names.contains(&"function"));
-        assert!(names.contains(&"clause"));
-        assert!(names.contains(&"spec"));
-        assert!(names.contains(&"type"));
-        assert!(names.contains(&"field"));
+        assert!(names.contains(&"modules"));
+        assert!(names.contains(&"functions"));
+        assert!(names.contains(&"clauses"));
+        assert!(names.contains(&"specs"));
+        assert!(names.contains(&"types"));
+        assert!(names.contains(&"fields"));
 
         // Relationship tables (4)
         assert!(names.contains(&"defines"));
@@ -494,12 +494,12 @@ mod surrealdb_tests {
 
         // First 6 should be node tables
         let node_tables = &names[0..6];
-        assert!(node_tables.contains(&"module"));
-        assert!(node_tables.contains(&"function"));
-        assert!(node_tables.contains(&"clause"));
-        assert!(node_tables.contains(&"spec"));
-        assert!(node_tables.contains(&"type"));
-        assert!(node_tables.contains(&"field"));
+        assert!(node_tables.contains(&"modules"));
+        assert!(node_tables.contains(&"functions"));
+        assert!(node_tables.contains(&"clauses"));
+        assert!(node_tables.contains(&"specs"));
+        assert!(node_tables.contains(&"types"));
+        assert!(node_tables.contains(&"fields"));
 
         // Last 4 should be relationship tables
         let rel_tables = &names[6..10];
@@ -513,12 +513,12 @@ mod surrealdb_tests {
     fn test_schema_for_table_returns_valid_ddl() {
         // Test that each table has a valid schema definition
         let tables = [
-            "module",
-            "function",
-            "clause",
-            "spec",
-            "type",
-            "field",
+            "modules",
+            "functions",
+            "clauses",
+            "specs",
+            "types",
+            "fields",
             "defines",
             "has_clause",
             "calls",

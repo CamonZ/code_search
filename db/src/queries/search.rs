@@ -113,7 +113,7 @@ pub fn search_modules(
     let query = format!(
         r#"
         SELECT "default" as project, name, source
-        FROM `module`
+        FROM modules
         {where_clause}
         ORDER BY name
         LIMIT $limit
@@ -239,7 +239,7 @@ pub fn search_functions(
     let query = format!(
         r#"
         SELECT "default" as project, module_name as module, name, arity
-        FROM `function`
+        FROM functions
         {where_clause}
         ORDER BY module_name ASC, name ASC, arity ASC
         LIMIT $limit

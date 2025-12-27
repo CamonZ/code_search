@@ -176,7 +176,7 @@ pub fn find_locations(
         r#"
         SELECT "default" as project, source_file as file, line, start_line, end_line,
                module_name as module, kind, function_name as name, arity, pattern, guard
-        FROM `clause`
+        FROM clauses
         WHERE {module_clause}
           AND {function_clause}
           {arity_clause}

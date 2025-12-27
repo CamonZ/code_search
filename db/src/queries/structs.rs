@@ -134,7 +134,7 @@ pub fn find_struct_fields(
     let query = format!(
         r#"
         SELECT "default" as project, module_name, name, default_value, required
-        FROM `field`
+        FROM fields
         {where_clause}
         ORDER BY module_name, name
         LIMIT $limit

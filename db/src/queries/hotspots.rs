@@ -133,7 +133,7 @@ pub fn get_module_loc(
     let _query = format!(
         r#"
         SELECT module_name as module, COUNT(name) as function_count
-        FROM `function`
+        FROM functions
         {module_clause}
         GROUP BY module_name
         ORDER BY function_count DESC
@@ -223,7 +223,7 @@ pub fn get_function_counts(
     let query = format!(
         r#"
         SELECT module_name, count() as function_count
-        FROM `function`
+        FROM functions
         {module_clause}
         GROUP BY module_name
         ORDER BY function_count DESC

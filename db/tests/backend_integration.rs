@@ -17,11 +17,11 @@ fn test_setup_command_with_backend() {
     let db = open_mem_db().expect("Failed to open database");
     let result = create_schema(db.as_ref()).expect("Failed to create schema");
 
-    // Should create 9 tables (5 nodes + 4 relationships)
+    // Should create 10 tables (6 nodes + 4 relationships)
     assert_eq!(
         result.len(),
-        9,
-        "Should create exactly 9 tables (5 nodes + 4 relationships)"
+        10,
+        "Should create exactly 10 tables (6 nodes + 4 relationships)"
     );
 
     // Verify all are created
@@ -57,7 +57,7 @@ fn test_setup_creates_node_tables() {
     let db = open_mem_db().expect("Failed to open database");
     let result = create_schema(db.as_ref()).expect("Failed to create schema");
 
-    let node_table_names = ["module", "function", "clause", "type", "field"];
+    let node_table_names = ["modules", "functions", "clauses", "specs", "types", "fields"];
 
     for name in &node_table_names {
         assert!(
@@ -91,15 +91,15 @@ fn test_node_tables_created_first() {
     let db = open_mem_db().expect("Failed to open database");
     let result = create_schema(db.as_ref()).expect("Failed to create schema");
 
-    // Verify creation order: first 5 should be nodes, last 4 should be relationships
-    let node_tables = vec!["module", "function", "clause", "type", "field"];
+    // Verify creation order: first 6 should be nodes, last 4 should be relationships
+    let node_tables = vec!["modules", "functions", "clauses", "specs", "types", "fields"];
     let rel_tables = vec!["defines", "has_clause", "calls", "has_field"];
 
     // Extract table names in order
     let table_names: Vec<_> = result.iter().map(|r| r.relation.as_str()).collect();
 
-    // First 5 should be node tables
-    for (i, table_name) in table_names.iter().enumerate().take(5) {
+    // First 6 should be node tables
+    for (i, table_name) in table_names.iter().enumerate().take(6) {
         assert!(
             node_tables.contains(table_name),
             "Position {} should be a node table, got {}",
@@ -109,7 +109,7 @@ fn test_node_tables_created_first() {
     }
 
     // Last 4 should be relationship tables
-    for (i, table_name) in table_names.iter().enumerate().skip(5) {
+    for (i, table_name) in table_names.iter().enumerate().skip(6) {
         assert!(
             rel_tables.contains(table_name),
             "Position {} should be a relationship table, got {}",
@@ -127,7 +127,7 @@ fn test_setup_idempotency() {
 
     // First run - creates tables
     let result1 = create_schema(db.as_ref()).expect("Failed to create schema (first run)");
-    assert_eq!(result1.len(), 9);
+    assert_eq!(result1.len(), 10);
     assert!(
         result1.iter().all(|r| r.created),
         "All tables should be newly created on first run"
@@ -135,7 +135,7 @@ fn test_setup_idempotency() {
 
     // Second run - should be idempotent
     let result2 = create_schema(db.as_ref()).expect("Failed to create schema (second run)");
-    assert_eq!(result2.len(), 9);
+    assert_eq!(result2.len(), 10);
     assert!(
         result2.iter().all(|r| !r.created),
         "All tables should already exist on second run"
@@ -150,7 +150,7 @@ fn test_setup_idempotency_multiple_runs() {
     for run in 1..=3 {
         let result = create_schema(db.as_ref())
             .expect(&format!("Failed to create schema (run {})", run));
-        assert_eq!(result.len(), 9, "Run {}: Should always have 9 tables", run);
+        assert_eq!(result.len(), 10, "Run {}: Should always have 10 tables", run);
 
         let expected_created = run == 1;
         for r in &result {
@@ -246,8 +246,8 @@ fn test_multiple_in_memory_databases_are_independent() {
     let result2 = create_schema(db2.as_ref()).expect("Failed to create schema in db2");
 
     // Both should have schema
-    assert_eq!(result1.len(), 9);
-    assert_eq!(result2.len(), 9);
+    assert_eq!(result1.len(), 10);
+    assert_eq!(result2.len(), 10);
 
     // Verify we can execute queries independently in each
     let query1 = db1.execute_query(

@@ -140,7 +140,7 @@ pub fn find_functions_in_module(
     let query = format!(
         r#"
         SELECT arity, file, function_name, line, module_name, source_file_absolute
-        FROM `clause`
+        FROM clauses
         {where_clause}
         ORDER BY module_name ASC, line ASC, function_name ASC, arity ASC
         LIMIT $limit
