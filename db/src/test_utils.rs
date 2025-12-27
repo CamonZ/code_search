@@ -1526,6 +1526,254 @@ pub fn surreal_type_db() -> Box<dyn Database> {
     db
 }
 
+/// Create a test database with spec data for specs query testing.
+///
+/// Sets up an in-memory SurrealDB instance with:
+/// - Three modules: MyApp.Accounts, MyApp.Behaviour, MyApp.Repo
+/// - Nine @spec definitions with varied signatures
+/// - Three @callback definitions
+/// - Total 12 specs for comprehensive testing
+///
+/// Spec data:
+/// - MyApp.Accounts: get_user/1, get_user/2, list_users/0, create_user/1
+/// - MyApp.Repo: get/2, insert/2, all/1
+/// - MyApp.Accounts additional: find/1
+/// - MyApp.Behaviour: init/1, handle_call/3, handle_cast/2 (callbacks)
+///
+/// This fixture is suitable for testing:
+/// - Module filtering (string contains and regex)
+/// - Function name filtering
+/// - Kind filtering (spec vs callback)
+/// - Combined filters (module + function + kind)
+/// - Array-based type matching (input_strings and return_strings)
+/// - Regex pattern matching
+/// - Result sorting (by module, function_name, arity)
+/// - Limit enforcement
+///
+/// # Returns
+/// A boxed trait object containing the configured database instance
+///
+/// # Panics
+/// Panics if database creation or schema setup fails
+#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+pub fn surreal_specs_db() -> Box<dyn Database> {
+    let db = open_mem_db().expect("Failed to create in-memory database");
+    schema::create_schema(&*db).expect("Failed to create schema");
+
+    // Create modules
+    insert_module(&*db, "MyApp.Accounts").expect("Failed to insert MyApp.Accounts");
+    insert_module(&*db, "MyApp.Behaviour").expect("Failed to insert MyApp.Behaviour");
+    insert_module(&*db, "MyApp.Repo").expect("Failed to insert MyApp.Repo");
+
+    // Create functions
+    insert_function(&*db, "MyApp.Accounts", "get_user", 1)
+        .expect("Failed to insert get_user/1");
+    insert_function(&*db, "MyApp.Accounts", "get_user", 2)
+        .expect("Failed to insert get_user/2");
+    insert_function(&*db, "MyApp.Accounts", "list_users", 0)
+        .expect("Failed to insert list_users/0");
+    insert_function(&*db, "MyApp.Accounts", "create_user", 1)
+        .expect("Failed to insert create_user/1");
+    insert_function(&*db, "MyApp.Accounts", "find", 1)
+        .expect("Failed to insert find/1");
+    insert_function(&*db, "MyApp.Repo", "get", 2)
+        .expect("Failed to insert Repo.get/2");
+    insert_function(&*db, "MyApp.Repo", "insert", 2)
+        .expect("Failed to insert Repo.insert/2");
+    insert_function(&*db, "MyApp.Repo", "all", 1)
+        .expect("Failed to insert Repo.all/1");
+    insert_function(&*db, "MyApp.Behaviour", "init", 1)
+        .expect("Failed to insert init/1");
+    insert_function(&*db, "MyApp.Behaviour", "handle_call", 3)
+        .expect("Failed to insert handle_call/3");
+    insert_function(&*db, "MyApp.Behaviour", "handle_cast", 2)
+        .expect("Failed to insert handle_cast/2");
+
+    // Insert 9 @spec entries
+    // 1. MyApp.Accounts.get_user/1
+    insert_spec(
+        &*db,
+        "MyApp.Accounts",
+        "get_user",
+        1,
+        "spec",
+        10,
+        0,
+        "@spec get_user(integer()) :: {:ok, user()} | {:error, :not_found}",
+        &["integer()"],
+        &["{:ok, user()}", "{:error, :not_found}"],
+    )
+    .expect("Failed to insert get_user/1 spec");
+
+    // 2. MyApp.Accounts.get_user/2
+    insert_spec(
+        &*db,
+        "MyApp.Accounts",
+        "get_user",
+        2,
+        "spec",
+        12,
+        0,
+        "@spec get_user(integer(), keyword()) :: {:ok, user()} | {:error, :not_found}",
+        &["integer()", "keyword()"],
+        &["{:ok, user()}", "{:error, :not_found}"],
+    )
+    .expect("Failed to insert get_user/2 spec");
+
+    // 3. MyApp.Accounts.list_users/0
+    insert_spec(
+        &*db,
+        "MyApp.Accounts",
+        "list_users",
+        0,
+        "spec",
+        14,
+        0,
+        "@spec list_users() :: {:ok, [user()]} | {:error, reason()}",
+        &[],
+        &["{:ok, [user()]}", "{:error, reason()}"],
+    )
+    .expect("Failed to insert list_users/0 spec");
+
+    // 4. MyApp.Accounts.create_user/1
+    insert_spec(
+        &*db,
+        "MyApp.Accounts",
+        "create_user",
+        1,
+        "spec",
+        16,
+        0,
+        "@spec create_user(map()) :: {:ok, user()} | {:error, reason()}",
+        &["map()"],
+        &["{:ok, user()}", "{:error, reason()}"],
+    )
+    .expect("Failed to insert create_user/1 spec");
+
+    // 5. MyApp.Accounts.find/1
+    insert_spec(
+        &*db,
+        "MyApp.Accounts",
+        "find",
+        1,
+        "spec",
+        18,
+        0,
+        "@spec find(String.t()) :: user() | nil",
+        &["String.t()"],
+        &["user()", "nil"],
+    )
+    .expect("Failed to insert find/1 spec");
+
+    // 6. MyApp.Repo.get/2
+    insert_spec(
+        &*db,
+        "MyApp.Repo",
+        "get",
+        2,
+        "spec",
+        30,
+        0,
+        "@spec get(module(), integer()) :: any() | nil",
+        &["module()", "integer()"],
+        &["any()", "nil"],
+    )
+    .expect("Failed to insert Repo.get/2 spec");
+
+    // 7. MyApp.Repo.insert/2
+    insert_spec(
+        &*db,
+        "MyApp.Repo",
+        "insert",
+        2,
+        "spec",
+        32,
+        0,
+        "@spec insert(struct(), keyword()) :: {:ok, result()} | {:error, reason()}",
+        &["struct()", "keyword()"],
+        &["{:ok, result()}", "{:error, reason()}"],
+    )
+    .expect("Failed to insert Repo.insert/2 spec");
+
+    // 8. MyApp.Repo.all/1
+    insert_spec(
+        &*db,
+        "MyApp.Repo",
+        "all",
+        1,
+        "spec",
+        34,
+        0,
+        "@spec all(Ecto.Queryable.t()) :: [any()]",
+        &["Ecto.Queryable.t()"],
+        &["[any()]"],
+    )
+    .expect("Failed to insert Repo.all/1 spec");
+
+    // 9. MyApp.Accounts.get_user/1 (alternate spec for multiple clause testing)
+    insert_spec(
+        &*db,
+        "MyApp.Accounts",
+        "get_user",
+        1,
+        "spec",
+        11,
+        1,
+        "@spec get_user(String.t()) :: {:ok, user()} | {:error, :not_found}",
+        &["String.t()"],
+        &["{:ok, user()}", "{:error, :not_found}"],
+    )
+    .expect("Failed to insert get_user/1 spec (clause 1)");
+
+    // Insert 3 @callback entries for MyApp.Behaviour
+    // 10. MyApp.Behaviour.init/1
+    insert_spec(
+        &*db,
+        "MyApp.Behaviour",
+        "init",
+        1,
+        "callback",
+        40,
+        0,
+        "@callback init(args()) :: {:ok, state}",
+        &["args()"],
+        &["{:ok, state}"],
+    )
+    .expect("Failed to insert init/1 callback");
+
+    // 11. MyApp.Behaviour.handle_call/3
+    insert_spec(
+        &*db,
+        "MyApp.Behaviour",
+        "handle_call",
+        3,
+        "callback",
+        42,
+        0,
+        "@callback handle_call(request(), from(), state()) :: {:reply, reply(), new_state}",
+        &["request()", "from()", "state()"],
+        &["{:reply, reply(), new_state}"],
+    )
+    .expect("Failed to insert handle_call/3 callback");
+
+    // 12. MyApp.Behaviour.handle_cast/2
+    insert_spec(
+        &*db,
+        "MyApp.Behaviour",
+        "handle_cast",
+        2,
+        "callback",
+        44,
+        0,
+        "@callback handle_cast(message(), state()) :: {:noreply, new_state}",
+        &["message()", "state()"],
+        &["{:noreply, new_state}"],
+    )
+    .expect("Failed to insert handle_cast/2 callback");
+
+    db
+}
+
 /// Create a test database with spec data for accepts query testing.
 ///
 /// Sets up an in-memory SurrealDB instance with:
@@ -2046,5 +2294,74 @@ mod surrealdb_fixture_tests {
         let rows = result.rows();
         // Simple check that we can query the data
         assert!(!rows.is_empty(), "Should have specs with input_strings");
+    }
+
+    #[test]
+    fn test_surreal_specs_db_creates_valid_database() {
+        let db = surreal_specs_db();
+
+        // Verify database is accessible
+        let result = db.execute_query_no_params("SELECT * FROM modules LIMIT 1");
+        assert!(
+            result.is_ok(),
+            "Should be able to query the database: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn test_surreal_specs_db_contains_modules() {
+        let db = surreal_specs_db();
+
+        // Query to verify modules exist
+        let result = db
+            .execute_query_no_params("SELECT * FROM modules")
+            .expect("Should be able to query modules");
+
+        let rows = result.rows();
+        assert_eq!(
+            rows.len(),
+            3,
+            "Should have exactly 3 modules (MyApp.Accounts, MyApp.Behaviour, MyApp.Repo), got {}",
+            rows.len()
+        );
+    }
+
+    #[test]
+    fn test_surreal_specs_db_contains_twelve_specs() {
+        let db = surreal_specs_db();
+
+        // Query to verify specs exist (9 @spec + 3 @callback)
+        let result = db
+            .execute_query_no_params("SELECT * FROM specs")
+            .expect("Should be able to query specs");
+
+        let rows = result.rows();
+        assert_eq!(
+            rows.len(),
+            12,
+            "Should have exactly 12 specs (9 @spec + 3 @callback), got {}",
+            rows.len()
+        );
+    }
+
+    #[test]
+    fn test_surreal_specs_db_contains_mixed_kinds() {
+        let db = surreal_specs_db();
+
+        // Query to verify we have both spec and callback kinds
+        let spec_result = db
+            .execute_query_no_params("SELECT * FROM specs WHERE kind = 'spec'")
+            .expect("Should be able to query specs");
+
+        let callback_result = db
+            .execute_query_no_params("SELECT * FROM specs WHERE kind = 'callback'")
+            .expect("Should be able to query callbacks");
+
+        let spec_rows = spec_result.rows();
+        let callback_rows = callback_result.rows();
+
+        assert_eq!(spec_rows.len(), 9, "Should have 9 spec entries");
+        assert_eq!(callback_rows.len(), 3, "Should have 3 callback entries");
     }
 }
