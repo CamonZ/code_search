@@ -166,14 +166,17 @@ pub fn trace_calls(
 
 // ==================== SurrealDB Implementation ====================
 #[cfg(feature = "backend-surrealdb")]
-/// Trace call chains in the specified direction using graph traversal.
+/// Internal implementation of trace_calls with explicit direction parameter.
 ///
 /// Supports both forward tracing (following calls from a function) and
 /// reverse tracing (finding callers of a function) using SurrealDB's
 /// graph traversal operators:
 /// - Forward: `->calls->` (follows function -> calls -> next_function)
 /// - Reverse: `<-calls<-` (follows callers <- calls <- function)
-pub fn trace_calls(
+///
+/// This function is used internally by trace_calls and reverse_trace_calls
+/// to support both forward and reverse tracing.
+pub(crate) fn trace_calls_impl(
     db: &dyn Database,
     module_pattern: &str,
     function_pattern: &str,
@@ -298,6 +301,45 @@ pub fn trace_calls(
     }
 
     Ok(deduped_calls)
+}
+
+#[cfg(feature = "backend-surrealdb")]
+/// Trace call chains starting from the given function (forward direction).
+///
+/// This is the public API that matches the CozoDB signature. It calls
+/// trace_calls_impl with TraceDirection::Forward to trace calls made by
+/// the starting function.
+///
+/// # Arguments
+/// * `db` - Database instance
+/// * `module_pattern` - Module name or regex pattern to search
+/// * `function_pattern` - Function name or regex pattern to search
+/// * `arity` - Optional function arity filter
+/// * `project` - Project name for the query
+/// * `use_regex` - Whether to use regex patterns
+/// * `max_depth` - Maximum depth to traverse
+/// * `limit` - Maximum number of results to return
+pub fn trace_calls(
+    db: &dyn Database,
+    module_pattern: &str,
+    function_pattern: &str,
+    arity: Option<i64>,
+    project: &str,
+    use_regex: bool,
+    max_depth: u32,
+    limit: u32,
+) -> Result<Vec<Call>, Box<dyn Error>> {
+    trace_calls_impl(
+        db,
+        module_pattern,
+        function_pattern,
+        arity,
+        project,
+        use_regex,
+        max_depth,
+        limit,
+        TraceDirection::Forward,
+    )
 }
 
 /// Extract a FunctionRef from a SurrealDB Thing value.
@@ -555,7 +597,7 @@ mod surrealdb_tests {
 
         // Complex fixture: Controller.create/2 calls Service.process_request/2 and Notifier.send_email/2
         // This is a recursive trace, so it will find all downstream calls
-        let result = trace_calls(&*db, "MyApp.Controller", "create", None, "default", false, 10, 100, TraceDirection::Forward);
+        let result = trace_calls(&*db, "MyApp.Controller", "create", None, "default", false, 10, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let calls = result.unwrap();
@@ -614,7 +656,6 @@ mod surrealdb_tests {
             false,
             10,
             100,
-            TraceDirection::Forward,
         );
 
         assert!(result.is_ok(), "Query should succeed");
@@ -640,7 +681,6 @@ mod surrealdb_tests {
             false,
             1,
             100,
-            TraceDirection::Forward,
         )
         .expect("Shallow query should succeed");
 
@@ -666,7 +706,6 @@ mod surrealdb_tests {
             false,
             5,
             100,
-            TraceDirection::Forward,
         )
         .expect("Deep query should succeed");
 
@@ -698,7 +737,6 @@ mod surrealdb_tests {
             false,
             10,
             1,
-            TraceDirection::Forward,
         )
         .unwrap_or_default();
         let limit_10 = trace_calls(
@@ -710,7 +748,6 @@ mod surrealdb_tests {
             false,
             10,
             10,
-            TraceDirection::Forward,
         )
         .unwrap_or_default();
 
@@ -742,7 +779,6 @@ mod surrealdb_tests {
             false,
             10,
             100,
-            TraceDirection::Forward,
         )
         .expect("Query should succeed");
 
@@ -791,7 +827,6 @@ mod surrealdb_tests {
             false,
             10,
             100,
-            TraceDirection::Forward,
         )
         .expect("Query should succeed");
 
@@ -819,7 +854,7 @@ mod surrealdb_tests {
     fn test_trace_calls_invalid_regex() {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        let result = trace_calls(&*db, "[invalid", "index", None, "default", true, 10, 100, TraceDirection::Forward);
+        let result = trace_calls(&*db, "[invalid", "index", None, "default", true, 10, 100);
 
         assert!(result.is_err(), "Should reject invalid regex pattern");
         let err = result.unwrap_err();
@@ -844,7 +879,6 @@ mod surrealdb_tests {
             false,
             10,
             100,
-            TraceDirection::Forward,
         );
 
         assert!(result.is_ok(), "Query with arity filter should succeed");
@@ -863,7 +897,6 @@ mod surrealdb_tests {
             false,
             10,
             100,
-            TraceDirection::Forward,
         )
         .expect("Query should succeed");
 
@@ -894,7 +927,7 @@ mod surrealdb_tests {
 
         // Complex fixture: Controller.create/2 calls Service.process_request/2, Notifier.send_email/2, and Events.publish/1
         // Recursive trace returns all calls in the call chain
-        let result = trace_calls(&*db, "MyApp.Controller", "create", None, "default", false, 10, 100, TraceDirection::Forward)
+        let result = trace_calls(&*db, "MyApp.Controller", "create", None, "default", false, 10, 100)
             .expect("Query should succeed");
 
         assert!(result.len() >= 3, "Should find at least 3 calls from create");
@@ -959,7 +992,6 @@ mod surrealdb_tests {
             false,
             0,
             100,
-            TraceDirection::Forward,
         )
         .unwrap_or_default();
 
@@ -981,7 +1013,6 @@ mod surrealdb_tests {
             false,
             10,
             100,
-            TraceDirection::Forward,
         )
         .expect("Query should succeed");
 
@@ -1067,7 +1098,6 @@ mod surrealdb_tests {
             false,
             5,
             100,
-            TraceDirection::Forward,
         )
         .expect("Query should succeed");
 
@@ -1111,7 +1141,6 @@ mod surrealdb_tests {
             false,
             3,
             100,
-            TraceDirection::Forward,
         );
 
         assert!(
@@ -1134,7 +1163,6 @@ mod surrealdb_tests {
             false,
             10,
             1,
-            TraceDirection::Forward,
         )
         .unwrap_or_default();
 
@@ -1159,7 +1187,6 @@ mod surrealdb_tests {
             false,
             10,
             100,
-            TraceDirection::Forward,
         )
         .unwrap_or_default();
 
@@ -1186,7 +1213,6 @@ mod surrealdb_tests {
             true, // Enable regex (uses string::matches)
             10,
             1000, // High limit to get all paths
-            TraceDirection::Forward,
         )
         .expect("Query should succeed");
 

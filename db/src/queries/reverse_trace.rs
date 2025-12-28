@@ -50,8 +50,8 @@ pub fn reverse_trace_calls(
     max_depth: u32,
     limit: u32,
 ) -> Result<Vec<ReverseTraceStep>, Box<dyn Error>> {
-    // Use trace_calls with Reverse direction
-    let calls = crate::queries::trace::trace_calls(
+    // Use trace_calls_impl with Reverse direction
+    let calls = crate::queries::trace::trace_calls_impl(
         db,
         module_pattern,
         function_pattern,
