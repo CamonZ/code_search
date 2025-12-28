@@ -143,22 +143,23 @@ pub fn find_paths(
     db: &dyn Database,
     from_module: &str,
     from_function: &str,
-    from_arity: Option<i64>,
+    from_arity: i64,
     to_module: &str,
     to_function: &str,
-    to_arity: Option<i64>,
+    to_arity: i64,
     project: &str,
     max_depth: u32,
     limit: u32,
 ) -> Result<Vec<CallPath>, Box<dyn Error>> {
     // Build conditions using the ConditionBuilder utilities
+    // Arity is now required, so we always include the condition
     let from_arity_cond = OptionalConditionBuilder::new("caller_arity", "from_arity")
         .when_none("true")
-        .build(from_arity.is_some());
+        .build(true);
 
     let to_arity_cond = OptionalConditionBuilder::new("callee_arity", "to_arity")
         .when_none("true")
-        .build(to_arity.is_some());
+        .build(true);
 
     // Simpler approach: trace forward from source to find all reachable calls,
     // then filter to paths that end at the target.
@@ -207,19 +208,14 @@ pub fn find_paths(
         "#,
     );
 
-    let mut params = QueryParams::new()
+    let params = QueryParams::new()
         .with_str("from_module", from_module)
         .with_str("from_function", from_function)
+        .with_int("from_arity", from_arity)
         .with_str("to_module", to_module)
         .with_str("to_function", to_function)
+        .with_int("to_arity", to_arity)
         .with_str("project", project);
-
-    if let Some(a) = from_arity {
-        params = params.with_int("from_arity", a);
-    }
-    if let Some(a) = to_arity {
-        params = params.with_int("to_arity", a);
-    }
 
     let result = run_query(db, &script, params).map_err(|e| PathError::QueryFailed {
         message: e.to_string(),
@@ -295,7 +291,7 @@ fn dfs_find_paths(
     current_edge: &PathStep,
     to_module: &str,
     to_function: &str,
-    to_arity: Option<i64>,
+    to_arity: i64,
     adj: &HashMap<(String, String), Vec<&PathStep>>,
     current_path: &mut Vec<PathStep>,
     all_paths: &mut Vec<CallPath>,
@@ -307,7 +303,7 @@ fn dfs_find_paths(
     // Check if we reached the target
     let at_target = current_edge.callee_module == to_module
         && current_edge.callee_function == to_function
-        && to_arity.is_none_or(|a| current_edge.callee_arity == a);
+        && current_edge.callee_arity == to_arity;
 
     if at_target {
         // Found a complete path
@@ -367,18 +363,30 @@ mod tests {
             &*populated_db,
             "MyApp.Controller",
             "index",
-            None,
+            2,
             "MyApp.Accounts",
-            "list_users",  // This is directly called
-            None,
+            "list_users",
+            0,
             "default",
             10,
             100,
         );
         assert!(result.is_ok());
         let paths = result.unwrap();
-        // Should find at least one path
-        assert!(!paths.is_empty(), "Should find paths from MyApp.Controller.index to MyApp.Accounts.list_users");
+        // Should find exactly one path: Controller.index/2 -> Accounts.list_users/0
+        assert_eq!(paths.len(), 1, "Should find exactly 1 path from Controller.index/2 to Accounts.list_users/0");
+
+        // Verify the path structure
+        let path = &paths[0];
+        assert_eq!(path.steps.len(), 1, "Should be a direct call (1 step)");
+
+        let step = &path.steps[0];
+        assert_eq!(step.caller_module, "MyApp.Controller", "Caller module mismatch");
+        // caller_function may have arity suffix from fixture (e.g., "index/2")
+        assert!(step.caller_function.starts_with("index"), "Caller function should be index");
+        assert_eq!(step.callee_module, "MyApp.Accounts", "Callee module mismatch");
+        assert_eq!(step.callee_function, "list_users", "Callee function mismatch");
+        assert_eq!(step.callee_arity, 0, "Callee arity should be 0");
     }
 
     #[rstest]
@@ -387,10 +395,10 @@ mod tests {
             &*populated_db,
             "NonExistent",
             "nonexistent",
-            None,
-            "Accounts",
-            "validate",
-            None,
+            1,
+            "MyApp.Accounts",
+            "validate_email",
+            1,
             "default",
             10,
             100,
@@ -398,55 +406,68 @@ mod tests {
         assert!(result.is_ok());
         let paths = result.unwrap();
         // No paths from non-existent source
-        assert!(paths.is_empty());
+        assert_eq!(paths.len(), 0, "No paths should be found from non-existent source");
     }
 
     #[rstest]
     fn test_find_paths_unreachable_target(populated_db: Box<dyn crate::backend::Database>) {
         let result = find_paths(
             &*populated_db,
-            "Accounts",
-            "validate",
-            None,
-            "Controller",
+            "MyApp.Accounts",
+            "validate_email",
+            1,
+            "MyApp.Controller",
             "index",
-            None,
+            2,
             "default",
             10,
             100,
         );
         assert!(result.is_ok());
         let paths = result.unwrap();
-        // No paths if target is not reachable from source
-        // (depends on fixture data structure, but should handle gracefully)
-        // Just verify it doesn't error
-        let _ = paths;
+        // No paths if target is not reachable from source (Accounts does not call Controller)
+        assert_eq!(paths.len(), 0, "No paths should be found to unreachable target");
     }
 
     #[rstest]
     fn test_find_paths_with_arity_filters(populated_db: Box<dyn crate::backend::Database>) {
+        // Test with correct arity - should find no path (Controller.index is /2, not /1)
         let result = find_paths(
             &*populated_db,
-            "Controller",
+            "MyApp.Controller",
             "index",
-            Some(1),
-            "Accounts",
-            "validate",
-            Some(1),
+            1,  // Wrong arity - Controller.index is /2
+            "MyApp.Accounts",
+            "validate_email",
+            1,
             "default",
             10,
             100,
         );
         assert!(result.is_ok());
-        // Should execute without error
         let paths = result.unwrap();
-        // Verify all paths respect arity constraints if found
-        for path in &paths {
-            if !path.steps.is_empty() {
-                let first_step = &path.steps[0];
-                // First step should start with arity 1
-                assert!(first_step.caller_function.contains("1") || first_step.caller_function.len() > 0);
-            }
+        // Should return empty because Controller.index/1 doesn't exist
+        assert_eq!(paths.len(), 0, "Wrong arity should return no paths");
+
+        // Test with correct arity - should find path
+        let result_correct = find_paths(
+            &*populated_db,
+            "MyApp.Controller",
+            "index",
+            2,  // Correct arity - Controller.index is /2
+            "MyApp.Accounts",
+            "list_users",
+            0,
+            "default",
+            10,
+            100,
+        );
+        assert!(result_correct.is_ok());
+        let paths_correct = result_correct.unwrap();
+        // Should find paths with correct arity
+        assert!(!paths_correct.is_empty(), "Correct arity should find paths");
+        for path in &paths_correct {
+            assert!(!path.steps.is_empty(), "Path should have at least one step");
         }
     }
 
@@ -456,10 +477,10 @@ mod tests {
             &*populated_db,
             "MyApp.Controller",
             "index",
-            None,
+            2,
             "MyApp.Accounts",
             "get_user",
-            None,
+            1,
             "default",
             2,
             100,
@@ -470,10 +491,10 @@ mod tests {
             &*populated_db,
             "MyApp.Controller",
             "index",
-            None,
+            2,
             "MyApp.Accounts",
             "get_user",
-            None,
+            1,
             "default",
             10,
             100,
@@ -482,7 +503,7 @@ mod tests {
 
         // Deeper search may find more paths
         // Shallow should have same or fewer
-        assert!(shallow.len() <= deep.len());
+        assert!(shallow.len() <= deep.len(), "Shallow depth should find same or fewer paths than deep depth");
     }
 
     #[rstest]
@@ -491,10 +512,10 @@ mod tests {
             &*populated_db,
             "MyApp.Controller",
             "index",
-            None,
+            2,
             "MyApp.Accounts",
             "get_user",
-            None,
+            1,
             "default",
             10,
             1,
@@ -505,45 +526,57 @@ mod tests {
             &*populated_db,
             "MyApp.Controller",
             "index",
-            None,
+            2,
             "MyApp.Accounts",
             "get_user",
-            None,
+            1,
             "default",
             10,
             10,
         )
         .unwrap();
 
-        // Smaller limit should return fewer paths
-        assert!(limit_1.len() <= limit_10.len());
-        assert!(limit_1.len() <= 1);
+        // Smaller limit should return fewer or equal paths
+        assert!(limit_1.len() <= limit_10.len(), "Smaller limit should return fewer paths");
+        assert!(limit_1.len() <= 1, "Limit of 1 should return at most 1 path");
     }
 
     #[rstest]
     fn test_find_paths_path_steps_valid(populated_db: Box<dyn crate::backend::Database>) {
+        // Controller.show/2 -> Accounts.get_user/1 -> Repo.get/2 (2 hop path)
         let result = find_paths(
             &*populated_db,
             "MyApp.Controller",
-            "index",
-            None,
-            "MyApp.Accounts",
-            "get_user",
-            None,
+            "show",
+            2,
+            "MyApp.Repo",
+            "get",
+            2,
             "default",
             10,
             100,
         )
         .unwrap();
 
+        assert!(!result.is_empty(), "Should find at least one path");
         for path in &result {
             assert!(!path.steps.is_empty(), "Each path should have at least one step");
+            // Verify path continuity - each step's callee should match next step's caller
+            for i in 0..path.steps.len() - 1 {
+                let current = &path.steps[i];
+                let next = &path.steps[i + 1];
+                assert_eq!(current.callee_module, next.caller_module, "Step {} callee should match next step caller module", i);
+                // Caller function may have arity suffix (e.g., "get_user/2"), so check that it starts with the callee function name
+                assert!(next.caller_function.starts_with(&current.callee_function),
+                    "Step {} callee {} should match next step caller function {}", i, current.callee_function, next.caller_function);
+            }
             // Each step should have valid data
-            for step in &path.steps {
-                assert!(!step.caller_module.is_empty(), "Caller module should not be empty");
-                assert!(!step.caller_function.is_empty(), "Caller function should not be empty");
-                assert!(!step.callee_module.is_empty(), "Callee module should not be empty");
-                assert!(!step.callee_function.is_empty(), "Callee function should not be empty");
+            for (idx, step) in path.steps.iter().enumerate() {
+                assert!(!step.caller_module.is_empty(), "Step {} caller module should not be empty", idx);
+                assert!(!step.caller_function.is_empty(), "Step {} caller function should not be empty", idx);
+                assert!(!step.callee_module.is_empty(), "Step {} callee module should not be empty", idx);
+                assert!(!step.callee_function.is_empty(), "Step {} callee function should not be empty", idx);
+                assert!(step.callee_arity >= 0, "Step {} callee arity should be non-negative", idx);
             }
         }
     }
@@ -554,17 +587,17 @@ mod tests {
             &*populated_db,
             "MyApp.Controller",
             "index",
-            None,
+            2,
             "MyApp.Accounts",
             "get_user",
-            None,
+            1,
             "nonexistent",
             10,
             100,
         );
         assert!(result.is_ok());
         let paths = result.unwrap();
-        assert!(paths.is_empty(), "Nonexistent project should return no paths");
+        assert_eq!(paths.len(), 0, "Nonexistent project should return no paths");
     }
 }
 

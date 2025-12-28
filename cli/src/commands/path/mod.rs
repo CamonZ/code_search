@@ -29,9 +29,9 @@ pub struct PathCmd {
     #[arg(long)]
     pub from_function: String,
 
-    /// Source function arity (optional)
+    /// Source function arity
     #[arg(long)]
-    pub from_arity: Option<i64>,
+    pub from_arity: i64,
 
     /// Target module name
     #[arg(long)]
@@ -41,9 +41,9 @@ pub struct PathCmd {
     #[arg(long)]
     pub to_function: String,
 
-    /// Target function arity (optional)
+    /// Target function arity
     #[arg(long)]
-    pub to_arity: Option<i64>,
+    pub to_arity: i64,
 
     /// Project to search in
     #[arg(long, default_value = "default")]
