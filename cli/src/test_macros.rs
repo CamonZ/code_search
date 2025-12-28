@@ -271,7 +271,32 @@ macro_rules! shared_fixture {
     };
 }
 
+/// Generate a fixture using the SurrealDB complex call graph fixture.
+///
+/// This fixture uses programmatically created data that works with SurrealDB queries.
+///
+/// # Example
+/// ```ignore
+/// crate::surreal_fixture! {
+///     fixture_name: populated_db,
+/// }
+/// ```
+#[macro_export]
+macro_rules! surreal_fixture {
+    (
+        fixture_name: $name:ident $(,)?
+    ) => {
+        #[fixture]
+        fn $name() -> Box<dyn db::backend::Database> {
+            db::test_utils::surreal_call_graph_db_complex()
+        }
+    };
+}
+
 /// Generate a test that verifies command execution against an empty database fails.
+///
+/// This test is only run with the CozoDB backend because CozoDB returns errors
+/// when querying non-existent relations, while SurrealDB returns empty results.
 #[macro_export]
 macro_rules! execute_empty_db_test {
     (
@@ -279,6 +304,7 @@ macro_rules! execute_empty_db_test {
         cmd: $cmd:expr $(,)?
     ) => {
         #[rstest]
+        #[cfg(not(feature = "backend-surrealdb"))]
         fn test_empty_db() {
             use $crate::commands::Execute;
             let db = db::test_utils::setup_empty_test_db();

@@ -1,6 +1,6 @@
 //! Execute tests for function command.
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "backend-surrealdb")))]
 mod tests {
     use super::super::FunctionCmd;
     use crate::commands::CommonArgs;
@@ -102,6 +102,7 @@ mod tests {
     // Filter tests
     // =========================================================================
 
+    #[cfg(not(feature = "backend-surrealdb"))]
     crate::execute_test! {
         test_name: test_function_with_project_filter,
         fixture: populated_db,

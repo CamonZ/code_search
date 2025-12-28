@@ -306,17 +306,33 @@ fn import_functions_cozo(
     )
 }
 
-/// Import functions from specs to SurrealDB
+/// Import functions from function_locations to SurrealDB
+///
+/// Functions are created from function_locations, which contains the actual
+/// function definitions. Specs are metadata that belong to functions and are
+/// linked via name/arity matching, not imported as separate function records.
 #[cfg(feature = "backend-surrealdb")]
 fn import_functions_surrealdb(
     db: &dyn Database,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
+    use std::collections::HashSet;
     let mut count = 0;
+    let mut seen: HashSet<(String, String, i64)> = HashSet::new();
 
-    // Import functions from specs data
-    for (module_name, specs) in &graph.specs {
-        for spec in specs {
+    // Import functions from function_locations data
+    for (module_name, locations) in &graph.function_locations {
+        for location in locations.values() {
+            let key = (
+                module_name.clone(),
+                location.name.clone(),
+                location.arity as i64,
+            );
+            if seen.contains(&key) {
+                continue;
+            }
+            seen.insert(key);
+
             let query = r#"
                 CREATE functions:[$module_name, $name, $arity] SET
                     module_name = $module_name,
@@ -325,8 +341,8 @@ fn import_functions_surrealdb(
             "#;
             let params = QueryParams::new()
                 .with_str("module_name", module_name)
-                .with_str("name", &spec.name)
-                .with_int("arity", spec.arity as i64);
+                .with_str("name", &location.name)
+                .with_int("arity", location.arity as i64);
             run_query(db, query, params)?;
             count += 1;
         }
@@ -1376,7 +1392,7 @@ mod tests_surrealdb {
         assert!(names.contains(&"MyApp.Repo".to_string()));
     }
 
-    /// Test import_functions creates function nodes from specs
+    /// Test import_functions creates function nodes from function_locations
     #[test]
     fn test_import_functions_creates_nodes() {
         let db = crate::open_mem_db().unwrap();
@@ -1390,7 +1406,13 @@ mod tests_surrealdb {
                     {"name": "list_users", "arity": 0, "line": 14, "kind": "spec", "clauses": [{"full": "@spec", "input_strings": [], "return_strings": []}]}
                 ]
             },
-            "function_locations": {},
+            "function_locations": {
+                "MyApp.Accounts": {
+                    "Accounts.get_user/1:10": {"name": "get_user", "arity": 1, "line": 10, "start_line": 10, "end_line": 15, "kind": "def", "source_file": "lib/accounts.ex"},
+                    "Accounts.get_user/2:16": {"name": "get_user", "arity": 2, "line": 16, "start_line": 16, "end_line": 21, "kind": "def", "source_file": "lib/accounts.ex"},
+                    "Accounts.list_users/0:22": {"name": "list_users", "arity": 0, "line": 22, "start_line": 22, "end_line": 26, "kind": "def", "source_file": "lib/accounts.ex"}
+                }
+            },
             "calls": [],
             "structs": {},
             "types": {}

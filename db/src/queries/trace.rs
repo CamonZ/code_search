@@ -1254,4 +1254,5 @@ mod surrealdb_tests {
             "All calls should be at depth 1 when starting from all functions"
         );
     }
+
 }

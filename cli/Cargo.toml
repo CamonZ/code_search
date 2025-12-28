@@ -19,6 +19,8 @@ regex = "1"
 include_dir = "0.7"
 home = "0.5.12"
 
+# Note: The 'db' dev-dependency inherits backend features from the main dependency
+# via Cargo's feature unification. We only need to specify test-utils here.
 [dev-dependencies]
 db = { path = "../db", features = ["test-utils"], default-features = false }
 tempfile = "3"

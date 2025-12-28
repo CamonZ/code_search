@@ -110,16 +110,16 @@ pub fn get_module_loc(
 #[cfg(feature = "backend-surrealdb")]
 /// Get lines of code per module (sum of function line counts)
 pub fn get_module_loc(
-    _db: &dyn Database,
+    db: &dyn Database,
     _project: &str,
     module_pattern: Option<&str>,
     use_regex: bool,
 ) -> Result<std::collections::HashMap<String, i64>, Box<dyn Error>> {
     validate_regex_patterns(use_regex, &[module_pattern])?;
 
-    let module_clause = if let Some(_pattern) = module_pattern {
+    let module_clause = if module_pattern.is_some() {
         if use_regex {
-            "WHERE module_name = <regex>$module_pattern"
+            "WHERE string::matches(module_name, $module_pattern)"
         } else {
             "WHERE module_name = $module_pattern"
         }
@@ -127,22 +127,39 @@ pub fn get_module_loc(
         ""
     };
 
-    // SurrealDB doesn't support computed fields in aggregations easily,
-    // so we return an empty map for now. The CozoDB implementation handles this.
-    // In a production system, LOC would be stored as a field in the function record.
-    let _query = format!(
+    // LOC per module is sum of (end_line - start_line + 1) for all clauses
+    let query = format!(
         r#"
-        SELECT module_name as module, COUNT(name) as function_count
-        FROM functions
+        SELECT module_name, math::sum(end_line - start_line + 1) as loc
+        FROM clauses
         {module_clause}
         GROUP BY module_name
-        ORDER BY function_count DESC
+        ORDER BY loc DESC
         "#
     );
 
-    // Return empty map for now - SurrealDB test fixture doesn't include LOC fields
-    // A production system would store LOC as a field in the function record
-    Ok(std::collections::HashMap::new())
+    let mut params = QueryParams::new();
+    if let Some(pattern) = module_pattern {
+        params = params.with_str("module_pattern", pattern);
+    }
+
+    let result = db.execute_query(&query, params).map_err(|e| HotspotsError::QueryFailed {
+        message: e.to_string(),
+    })?;
+
+    let mut loc_map = std::collections::HashMap::new();
+    for row in result.rows() {
+        // SurrealDB returns columns alphabetically: loc, module_name
+        if row.len() >= 2 {
+            let loc = extract_i64(row.get(0).unwrap(), 0);
+            let Some(module) = extract_string(row.get(1).unwrap()) else {
+                continue;
+            };
+            loc_map.insert(module, loc);
+        }
+    }
+
+    Ok(loc_map)
 }
 
 // ==================== CozoDB Implementation ====================
@@ -210,9 +227,9 @@ pub fn get_function_counts(
 ) -> Result<std::collections::HashMap<String, i64>, Box<dyn Error>> {
     validate_regex_patterns(use_regex, &[module_pattern])?;
 
-    let module_clause = if let Some(_pattern) = module_pattern {
+    let module_clause = if module_pattern.is_some() {
         if use_regex {
-            "WHERE module_name = <regex>$module_pattern"
+            "WHERE string::matches(module_name, $module_pattern)"
         } else {
             "WHERE module_name = $module_pattern"
         }
@@ -220,11 +237,17 @@ pub fn get_function_counts(
         ""
     };
 
+    // Query clauses table, count unique functions per module
+    // Group by module_name, function_name, arity to count distinct function signatures
     let query = format!(
         r#"
         SELECT module_name, count() as function_count
-        FROM functions
-        {module_clause}
+        FROM (
+            SELECT module_name, function_name, arity
+            FROM clauses
+            {module_clause}
+            GROUP BY module_name, function_name, arity
+        )
         GROUP BY module_name
         ORDER BY function_count DESC
         "#
@@ -1137,25 +1160,47 @@ mod surrealdb_tests {
     }
 
     // ===== get_module_loc tests =====
-    // Note: SurrealDB implementation returns empty for LOC queries
-    // since the test fixture doesn't include LOC (start_line/end_line) fields.
+    // LOC is calculated as sum of (end_line - start_line + 1) per clause.
+    // In the test fixture, start_line == end_line, so each clause has LOC=1.
+    // Total module LOC = number of clauses in that module.
 
     #[test]
-    fn test_get_module_loc_returns_empty() {
+    fn test_get_module_loc_returns_module_count() {
         let db = get_db();
         let loc_map = get_module_loc(&*db, "default", None, false)
             .expect("Query should succeed");
 
-        assert!(loc_map.is_empty(), "SurrealDB test fixture doesn't include LOC data");
+        // 9 modules should have LOC data
+        assert_eq!(loc_map.len(), 9, "Should have LOC for all 9 modules");
     }
 
     #[test]
-    fn test_get_module_loc_with_pattern_returns_empty() {
+    fn test_get_module_loc_exact_values() {
+        let db = get_db();
+        let loc_map = get_module_loc(&*db, "default", None, false)
+            .expect("Query should succeed");
+
+        // Each clause has LOC=1, so module LOC = number of clauses
+        // Controller: 10 clauses (index x2, show x2, create x3, handle_event, format_display, __generated__)
+        assert_eq!(loc_map.get("MyApp.Controller"), Some(&10), "Controller LOC");
+        // Accounts: 8 clauses (get_user/1 x2, get_user/2, list_users, notify_change, validate_email, __struct__, format_name) + 1 __generated__ = 9
+        assert_eq!(loc_map.get("MyApp.Accounts"), Some(&9), "Accounts LOC");
+        // Service: 5 clauses (process_request x3, transform_data, get_context) + 1 validate = 6
+        assert_eq!(loc_map.get("MyApp.Service"), Some(&6), "Service LOC");
+        // Repo: 4 clauses + 1 validate = 5
+        assert_eq!(loc_map.get("MyApp.Repo"), Some(&5), "Repo LOC");
+        // Notifier: 3 clauses
+        assert_eq!(loc_map.get("MyApp.Notifier"), Some(&3), "Notifier LOC");
+    }
+
+    #[test]
+    fn test_get_module_loc_with_pattern() {
         let db = get_db();
         let loc_map = get_module_loc(&*db, "default", Some("MyApp.Accounts"), false)
             .expect("Query should succeed");
 
-        assert!(loc_map.is_empty(), "SurrealDB test fixture doesn't include LOC data");
+        assert_eq!(loc_map.len(), 1, "Should match exactly 1 module");
+        assert_eq!(loc_map.get("MyApp.Accounts"), Some(&9), "Accounts should have 9 LOC");
     }
 
     #[test]

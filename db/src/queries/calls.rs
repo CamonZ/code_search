@@ -166,13 +166,20 @@ pub fn find_calls(
 
     // Build query based on direction using dot notation (in.field / out.field)
     // SurrealDB supports both arrow syntax and dot notation in WHERE clauses
+    //
+    // Note: SurrealDB has a quirk where combining `in.module_name = X AND in.name = Y`
+    // in a WHERE clause returns 0 rows, but using `type::string(in.name) = Y` works.
+    // This appears to be a SurrealDB edge-property access issue when multiple conditions
+    // reference the same edge endpoint.
     let (where_clause_base, fn_pattern_field, arity_field, order_by) = match direction {
         CallDirection::From => {
             // For outgoing: filter by caller properties (in.*)
-            let fn_field = if use_regex {
-                " AND in.name = <regex>$function_pattern".to_string()
+            // Only add function pattern condition if pattern is provided
+            // Using type::string() to work around SurrealDB multi-condition quirk
+            let fn_field = if use_regex && function_pattern.is_some() {
+                " AND string::matches(in.name, $function_pattern)".to_string()
             } else if function_pattern.is_some() {
-                " AND in.name = $function_pattern".to_string()
+                " AND type::string(in.name) = $function_pattern".to_string()
             } else {
                 String::new()
             };
@@ -190,10 +197,12 @@ pub fn find_calls(
         }
         CallDirection::To => {
             // For incoming: filter by callee properties (out.*)
-            let fn_field = if use_regex {
-                " AND out.name = <regex>$function_pattern".to_string()
+            // Only add function pattern condition if pattern is provided
+            // Using type::string() to work around SurrealDB multi-condition quirk
+            let fn_field = if use_regex && function_pattern.is_some() {
+                " AND string::matches(out.name, $function_pattern)".to_string()
             } else if function_pattern.is_some() {
-                " AND out.name = $function_pattern".to_string()
+                " AND type::string(out.name) = $function_pattern".to_string()
             } else {
                 String::new()
             };
@@ -213,7 +222,7 @@ pub fn find_calls(
 
     // Build the WHERE clause dynamically based on regex or exact match
     let where_module = if use_regex {
-        format!("{} = <regex>$module_pattern", where_clause_base)
+        format!("string::matches({}, $module_pattern)", where_clause_base)
     } else {
         format!("{} = $module_pattern", where_clause_base)
     };
@@ -244,6 +253,8 @@ pub fn find_calls(
         where_module, fn_pattern_field, arity_field, order_by
     );
 
+    eprintln!("Query: {}", query);
+
     let mut params = QueryParams::new()
         .with_str("module_pattern", module_pattern)
         .with_int("limit", limit as i64);
@@ -262,32 +273,33 @@ pub fn find_calls(
         })?;
 
     // Parse results from SurrealDB rows
-    // SurrealDB returns columns in alphabetical order:
-    // callee_arity, callee_function, callee_line, callee_module, call_type, caller_arity,
-    // caller_kind, caller_module, caller_name, caller_start_line, caller_end_line, file, project
+    // SurrealDB returns columns in alphabetical order by alias name:
+    // 0: call_type, 1: callee_arity, 2: callee_function, 3: callee_line, 4: callee_module,
+    // 5: caller_arity, 6: caller_end_line, 7: caller_kind, 8: caller_module, 9: caller_name,
+    // 10: caller_start_line, 11: file, 12: project
     let mut results = Vec::new();
     for row in result.rows() {
         if row.len() >= 13 {
-            let callee_arity = extract_i64(row.get(0).unwrap(), 0);
-            let Some(callee_function) = extract_string(row.get(1).unwrap()) else {
+            let call_type_str = extract_string_or(row.get(0).unwrap(), "");
+            let callee_arity = extract_i64(row.get(1).unwrap(), 0);
+            let Some(callee_function) = extract_string(row.get(2).unwrap()) else {
                 // Skip rows where callee_function is NULL (no call found)
                 continue;
             };
-            let callee_line = extract_i64(row.get(2).unwrap(), 0);
-            let Some(callee_module) = extract_string(row.get(3).unwrap()) else {
+            let callee_line = extract_i64(row.get(3).unwrap(), 0);
+            let Some(callee_module) = extract_string(row.get(4).unwrap()) else {
                 continue;
             };
-            let call_type_str = extract_string_or(row.get(4).unwrap(), "");
             let caller_arity = extract_i64(row.get(5).unwrap(), 0);
-            let _caller_kind = extract_string_or(row.get(6).unwrap(), "");
-            let Some(caller_module) = extract_string(row.get(7).unwrap()) else {
+            let _caller_end_line = extract_i64(row.get(6).unwrap(), 0);
+            let _caller_kind = extract_string_or(row.get(7).unwrap(), "");
+            let Some(caller_module) = extract_string(row.get(8).unwrap()) else {
                 continue;
             };
-            let Some(caller_name) = extract_string(row.get(8).unwrap()) else {
+            let Some(caller_name) = extract_string(row.get(9).unwrap()) else {
                 continue;
             };
-            let _caller_start_line = extract_i64(row.get(9).unwrap(), 0);
-            let _caller_end_line = extract_i64(row.get(10).unwrap(), 0);
+            let _caller_start_line = extract_i64(row.get(10).unwrap(), 0);
             let _file = extract_string_or(row.get(11).unwrap(), "");
 
             let caller =

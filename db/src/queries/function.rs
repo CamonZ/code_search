@@ -128,19 +128,19 @@ pub fn find_functions(
     // SurrealDB removed the ~ operator in v3.0
     // Use regex type casting: <regex>$pattern creates a regex from the string parameter
     let module_clause = if use_regex {
-        "module_name = <regex>$module_pattern"
+        "string::matches(module_name, $module_pattern)"
     } else {
-        "module_name = $module_pattern"
+        "type::string(module_name) = $module_pattern"
     };
 
     let function_clause = if use_regex {
-        "name = <regex>$function_pattern"
+        "string::matches(name, $function_pattern)"
     } else {
-        "name = $function_pattern"
+        "type::string(name) = $function_pattern"
     };
 
     let arity_clause = if arity.is_some() {
-        "AND arity = $arity"
+        "AND type::int(arity) = $arity"
     } else {
         ""
     };
@@ -166,9 +166,11 @@ pub fn find_functions(
         params = params.with_int("arity", a);
     }
 
-    let result = db.execute_query(&query, params).map_err(|e| FunctionError::QueryFailed {
-        message: e.to_string(),
-    })?;
+    let result = db
+        .execute_query(&query, params)
+        .map_err(|e| FunctionError::QueryFailed {
+            message: e.to_string(),
+        })?;
 
     let mut results = Vec::new();
     for row in result.rows() {
@@ -222,19 +224,14 @@ mod tests {
 
     #[rstest]
     fn test_find_functions_returns_results(populated_db: Box<dyn crate::backend::Database>) {
-        let result = find_functions(
-            &*populated_db,
-            "",
-            "",
-            None,
-            "default",
-            false,
-            100,
-        );
+        let result = find_functions(&*populated_db, "", "", None, "default", false, 100);
         assert!(result.is_ok());
         let functions = result.unwrap();
         // May be empty if fixture doesn't have functions, just verify query executes
-        assert!(functions.is_empty() || !functions.is_empty(), "Query should execute");
+        assert!(
+            functions.is_empty() || !functions.is_empty(),
+            "Query should execute"
+        );
     }
 
     #[rstest]
@@ -250,7 +247,10 @@ mod tests {
         );
         assert!(result.is_ok());
         let functions = result.unwrap();
-        assert!(functions.is_empty(), "Should return empty results for non-existent module");
+        assert!(
+            functions.is_empty(),
+            "Should return empty results for non-existent module"
+        );
     }
 
     #[rstest]
@@ -274,13 +274,16 @@ mod tests {
 
     #[rstest]
     fn test_find_functions_respects_limit(populated_db: Box<dyn crate::backend::Database>) {
-        let limit_1 = find_functions(&*populated_db, "MyApp", "", None, "default", false, 1)
-            .unwrap();
-        let limit_100 = find_functions(&*populated_db, "MyApp", "", None, "default", false, 100)
-            .unwrap();
+        let limit_1 =
+            find_functions(&*populated_db, "MyApp", "", None, "default", false, 1).unwrap();
+        let limit_100 =
+            find_functions(&*populated_db, "MyApp", "", None, "default", false, 100).unwrap();
 
         assert!(limit_1.len() <= 1, "Limit should be respected");
-        assert!(limit_1.len() <= limit_100.len(), "Higher limit should return >= results");
+        assert!(
+            limit_1.len() <= limit_100.len(),
+            "Higher limit should return >= results"
+        );
     }
 
     #[rstest]
@@ -299,7 +302,10 @@ mod tests {
         // Should find functions matching the regex pattern
         if !functions.is_empty() {
             for func in &functions {
-                assert!(func.module.starts_with("MyApp"), "Module should match regex");
+                assert!(
+                    func.module.starts_with("MyApp"),
+                    "Module should match regex"
+                );
                 assert_eq!(func.name, "index", "Name should match regex");
             }
         }
@@ -307,7 +313,15 @@ mod tests {
 
     #[rstest]
     fn test_find_functions_invalid_regex(populated_db: Box<dyn crate::backend::Database>) {
-        let result = find_functions(&*populated_db, "[invalid", "index", None, "default", true, 100);
+        let result = find_functions(
+            &*populated_db,
+            "[invalid",
+            "index",
+            None,
+            "default",
+            true,
+            100,
+        );
         assert!(result.is_err(), "Should reject invalid regex");
     }
 
@@ -324,7 +338,10 @@ mod tests {
         );
         assert!(result.is_ok());
         let functions = result.unwrap();
-        assert!(functions.is_empty(), "Non-existent project should return no results");
+        assert!(
+            functions.is_empty(),
+            "Non-existent project should return no results"
+        );
     }
 
     #[rstest]
@@ -395,7 +412,7 @@ mod surrealdb_tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Valid regex pattern should not error on validation
-        let result = find_functions(&*db, "^module.*$", "^foo$", None, "default", true, 100);
+        let result = find_functions(&*db, "^MyApp.*$", "^query$", None, "default", true, 100);
 
         // Should not fail on validation
         assert!(
@@ -427,7 +444,15 @@ mod surrealdb_tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search for exact function name without regex
-        let result = find_functions(&*db, "MyApp.Controller", "index", None, "default", false, 100);
+        let result = find_functions(
+            &*db,
+            "MyApp.Controller",
+            "index",
+            None,
+            "default",
+            false,
+            100,
+        );
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let functions = result.unwrap();
@@ -445,11 +470,22 @@ mod surrealdb_tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search for function that doesn't exist
-        let result = find_functions(&*db, "MyApp.Controller", "nonexistent", None, "default", false, 100);
+        let result = find_functions(
+            &*db,
+            "MyApp.Controller",
+            "nonexistent",
+            None,
+            "default",
+            false,
+            100,
+        );
 
         assert!(result.is_ok());
         let functions = result.unwrap();
-        assert!(functions.is_empty(), "Should find no results for nonexistent function");
+        assert!(
+            functions.is_empty(),
+            "Should find no results for nonexistent function"
+        );
     }
 
     #[test]
@@ -469,7 +505,10 @@ mod surrealdb_tests {
 
         assert!(result.is_ok());
         let functions = result.unwrap();
-        assert!(functions.is_empty(), "Should find no results for nonexistent module");
+        assert!(
+            functions.is_empty(),
+            "Should find no results for nonexistent module"
+        );
     }
 
     #[test]
@@ -477,13 +516,25 @@ mod surrealdb_tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search with arity filter - get_user has arities 1 and 2
-        let result = find_functions(&*db, "MyApp.Accounts", "get_user", Some(1), "default", false, 100);
+        let result = find_functions(
+            &*db,
+            "MyApp.Accounts",
+            "get_user",
+            Some(1),
+            "default",
+            false,
+            100,
+        );
 
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
 
         // Fixture has get_user/1 in MyApp.Accounts, should find exactly 1 result
-        assert_eq!(functions.len(), 1, "Should find exactly one function with matching arity");
+        assert_eq!(
+            functions.len(),
+            1,
+            "Should find exactly one function with matching arity"
+        );
         assert_eq!(functions[0].name, "get_user");
         assert_eq!(functions[0].arity, 1);
     }
@@ -493,11 +544,22 @@ mod surrealdb_tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search with wrong arity (index/2 exists, but search for index/5)
-        let result = find_functions(&*db, "MyApp.Controller", "index", Some(5), "default", false, 100);
+        let result = find_functions(
+            &*db,
+            "MyApp.Controller",
+            "index",
+            Some(5),
+            "default",
+            false,
+            100,
+        );
 
         assert!(result.is_ok());
         let functions = result.unwrap();
-        assert!(functions.is_empty(), "Should find no results with wrong arity");
+        assert!(
+            functions.is_empty(),
+            "Should find no results with wrong arity"
+        );
     }
 
     // ==================== Limit Tests ====================
@@ -511,7 +573,10 @@ mod surrealdb_tests {
         let limit_100 = find_functions(&*db, ".*", ".*", None, "default", true, 100).unwrap();
 
         assert!(limit_1.len() <= 1, "Limit should be respected");
-        assert!(limit_1.len() <= limit_100.len(), "Higher limit should return >= results");
+        assert!(
+            limit_1.len() <= limit_100.len(),
+            "Higher limit should return >= results"
+        );
     }
 
     #[test]
@@ -561,7 +626,15 @@ mod surrealdb_tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test regex alternation pattern - matches get_user or list_users
-        let result = find_functions(&*db, "MyApp.Accounts", "^(get_user|list_users)", None, "default", true, 100);
+        let result = find_functions(
+            &*db,
+            "MyApp.Accounts",
+            "^(get_user|list_users)",
+            None,
+            "default",
+            true,
+            100,
+        );
 
         assert!(result.is_ok(), "Should handle regex alternation");
         let functions = result.unwrap();
@@ -601,7 +674,11 @@ mod surrealdb_tests {
         let functions = result.unwrap();
 
         // MyApp.Controller has 6 functions: create/2, index/2, show/2, handle_event/1, format_display/1, __generated__/0
-        assert_eq!(functions.len(), 6, "Should find 6 functions in MyApp.Controller");
+        assert_eq!(
+            functions.len(),
+            6,
+            "Should find 6 functions in MyApp.Controller"
+        );
         assert!(
             functions.iter().all(|f| f.module == "MyApp.Controller"),
             "All results should be in MyApp.Controller"
@@ -633,7 +710,15 @@ mod surrealdb_tests {
     fn test_find_functions_returns_proper_fields() {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        let result = find_functions(&*db, "MyApp.Controller", "index", None, "default", false, 100);
+        let result = find_functions(
+            &*db,
+            "MyApp.Controller",
+            "index",
+            None,
+            "default",
+            false,
+            100,
+        );
 
         assert!(result.is_ok());
         let functions = result.unwrap();
@@ -644,7 +729,10 @@ mod surrealdb_tests {
             assert_eq!(func.module, "MyApp.Controller");
             assert_eq!(func.name, "index");
             assert_eq!(func.arity, 2);
-            assert!(!func.args.is_empty() || func.args.is_empty(), "args should be present");
+            assert!(
+                !func.args.is_empty() || func.args.is_empty(),
+                "args should be present"
+            );
             // return_type might be empty or have a value
         }
     }
@@ -718,8 +806,24 @@ mod surrealdb_tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search should be case sensitive
-        let result_lower = find_functions(&*db, "MyApp.Controller", "index", None, "default", false, 100);
-        let result_upper = find_functions(&*db, "MyApp.Controller", "INDEX", None, "default", false, 100);
+        let result_lower = find_functions(
+            &*db,
+            "MyApp.Controller",
+            "index",
+            None,
+            "default",
+            false,
+            100,
+        );
+        let result_upper = find_functions(
+            &*db,
+            "MyApp.Controller",
+            "INDEX",
+            None,
+            "default",
+            false,
+            100,
+        );
 
         assert!(result_lower.is_ok());
         assert!(result_upper.is_ok());
@@ -741,8 +845,10 @@ mod surrealdb_tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search should be case sensitive for module names (use wildcard function pattern)
-        let result_correct = find_functions(&*db, "MyApp.Controller", ".*", None, "default", true, 100);
-        let result_lower = find_functions(&*db, "myapp.controller", ".*", None, "default", true, 100);
+        let result_correct =
+            find_functions(&*db, "MyApp.Controller", ".*", None, "default", true, 100);
+        let result_lower =
+            find_functions(&*db, "myapp.controller", ".*", None, "default", true, 100);
 
         assert!(result_correct.is_ok());
         assert!(result_lower.is_ok());
@@ -750,8 +856,16 @@ mod surrealdb_tests {
         let correct_functions = result_correct.unwrap();
         let lower_functions = result_lower.unwrap();
 
-        assert_eq!(correct_functions.len(), 6, "Correct case module should find functions");
-        assert_eq!(lower_functions.len(), 0, "Lowercase module should find nothing");
+        assert_eq!(
+            correct_functions.len(),
+            6,
+            "Correct case module should find functions"
+        );
+        assert_eq!(
+            lower_functions.len(),
+            0,
+            "Lowercase module should find nothing"
+        );
     }
 
     // ==================== Edge Cases ====================
@@ -799,7 +913,15 @@ mod surrealdb_tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search for zero-arity functions
-        let result = find_functions(&*db, "MyApp.Accounts", "list_users", Some(0), "default", false, 100);
+        let result = find_functions(
+            &*db,
+            "MyApp.Accounts",
+            "list_users",
+            Some(0),
+            "default",
+            false,
+            100,
+        );
 
         assert!(result.is_ok());
         let functions = result.unwrap();

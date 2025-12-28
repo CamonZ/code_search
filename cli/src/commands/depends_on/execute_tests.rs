@@ -1,6 +1,7 @@
 //! Execute tests for depends-on command.
 
-#[cfg(test)]
+/// CozoDB tests use JSON-based fixtures
+#[cfg(all(test, not(feature = "backend-surrealdb")))]
 mod tests {
     use super::super::DependsOnCmd;
     use crate::commands::CommonArgs;

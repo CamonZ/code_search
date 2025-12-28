@@ -36,74 +36,76 @@ impl Execute for ImportCmd {
     }
 }
 
-#[cfg(test)]
+/// Sample call graph JSON for testing
+fn sample_call_graph_json() -> &'static str {
+    r#"{
+        "structs": {
+            "MyApp.User": {
+                "fields": [
+                    {"default": "nil", "field": "name", "required": true, "inferred_type": "binary()"},
+                    {"default": "0", "field": "age", "required": false, "inferred_type": "integer()"}
+                ]
+            }
+        },
+        "function_locations": {
+            "MyApp.Accounts": {
+                "get_user/1:10": {
+                    "name": "get_user",
+                    "arity": 1,
+                    "file": "lib/my_app/accounts.ex",
+                    "column": 7,
+                    "kind": "def",
+                    "line": 10,
+                    "start_line": 10,
+                    "end_line": 15,
+                    "pattern": "id",
+                    "guard": null,
+                    "source_sha": "",
+                    "ast_sha": ""
+                }
+            }
+        },
+        "calls": [
+            {
+                "caller": {
+                    "function": "get_user/1",
+                    "line": 12,
+                    "module": "MyApp.Accounts",
+                    "file": "lib/my_app/accounts.ex",
+                    "column": 5
+                },
+                "type": "remote",
+                "callee": {
+                    "arity": 2,
+                    "function": "get",
+                    "module": "MyApp.Repo"
+                }
+            }
+        ],
+        "specs": {
+            "MyApp.Accounts": [
+                {
+                    "arity": 1,
+                    "name": "get_user",
+                    "line": 9,
+                    "kind": "spec",
+                    "clauses": [
+                        {"full": "@spec get_user(integer()) :: dynamic()", "input_strings": ["integer()"], "return_strings": ["dynamic()"]}
+                    ]
+                }
+            ]
+        }
+    }"#
+}
+
+/// CozoDB tests use file-based databases via NamedTempFile + open_db
+#[cfg(all(test, not(feature = "backend-surrealdb")))]
 mod tests {
     use super::*;
     use db::open_db;
     use rstest::{fixture, rstest};
     use std::io::Write;
     use tempfile::NamedTempFile;
-
-    fn sample_call_graph_json() -> &'static str {
-        r#"{
-            "structs": {
-                "MyApp.User": {
-                    "fields": [
-                        {"default": "nil", "field": "name", "required": true, "inferred_type": "binary()"},
-                        {"default": "0", "field": "age", "required": false, "inferred_type": "integer()"}
-                    ]
-                }
-            },
-            "function_locations": {
-                "MyApp.Accounts": {
-                    "get_user/1:10": {
-                        "name": "get_user",
-                        "arity": 1,
-                        "file": "lib/my_app/accounts.ex",
-                        "column": 7,
-                        "kind": "def",
-                        "line": 10,
-                        "start_line": 10,
-                        "end_line": 15,
-                        "pattern": "id",
-                        "guard": null,
-                        "source_sha": "",
-                        "ast_sha": ""
-                    }
-                }
-            },
-            "calls": [
-                {
-                    "caller": {
-                        "function": "get_user/1",
-                        "line": 12,
-                        "module": "MyApp.Accounts",
-                        "file": "lib/my_app/accounts.ex",
-                        "column": 5
-                    },
-                    "type": "remote",
-                    "callee": {
-                        "arity": 2,
-                        "function": "get",
-                        "module": "MyApp.Repo"
-                    }
-                }
-            ],
-            "specs": {
-                "MyApp.Accounts": [
-                    {
-                        "arity": 1,
-                        "name": "get_user",
-                        "line": 9,
-                        "kind": "spec",
-                        "clauses": [
-                            {"full": "@spec get_user(integer()) :: dynamic()", "input_strings": ["integer()"], "return_strings": ["dynamic()"]}
-                        ]
-                    }
-                ]
-            }
-        }"#
-    }
 
     fn create_temp_json_file(content: &str) -> NamedTempFile {
         let mut file = NamedTempFile::new().expect("Failed to create temp file");
@@ -241,6 +243,141 @@ mod tests {
         };
 
         let db = open_db(db_file.path()).expect("Failed to open db");
+        let result = cmd.execute(&*db);
+        assert!(result.is_err());
+    }
+}
+
+/// SurrealDB tests use in-memory databases via open_mem_db + import_json_str
+#[cfg(all(test, feature = "backend-surrealdb"))]
+mod tests_surrealdb {
+    use super::*;
+    use db::open_mem_db;
+    use db::queries::import::import_json_str;
+    use rstest::{fixture, rstest};
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    fn create_temp_json_file(content: &str) -> NamedTempFile {
+        let mut file = NamedTempFile::new().expect("Failed to create temp file");
+        file.write_all(content.as_bytes())
+            .expect("Failed to write temp file");
+        file
+    }
+
+    #[fixture]
+    fn json_file() -> NamedTempFile {
+        create_temp_json_file(sample_call_graph_json())
+    }
+
+    /// For SurrealDB, we test import via import_json_str with in-memory DB
+    #[fixture]
+    fn import_result() -> ImportResult {
+        let db = open_mem_db().expect("Failed to create in-memory db");
+        import_json_str(&*db, sample_call_graph_json(), "test_project")
+            .expect("Import should succeed")
+    }
+
+    #[rstest]
+    fn test_import_creates_schemas(import_result: ImportResult) {
+        assert!(
+            !import_result.schemas.created.is_empty()
+                || !import_result.schemas.already_existed.is_empty()
+        );
+    }
+
+    #[rstest]
+    fn test_import_modules(import_result: ImportResult) {
+        assert_eq!(import_result.modules_imported, 2); // MyApp.Accounts + MyApp.User (from structs)
+    }
+
+    #[rstest]
+    fn test_import_functions(import_result: ImportResult) {
+        assert_eq!(import_result.functions_imported, 1); // get_user/1
+    }
+
+    #[rstest]
+    fn test_import_calls(import_result: ImportResult) {
+        assert_eq!(import_result.calls_imported, 1);
+    }
+
+    #[rstest]
+    fn test_import_structs(import_result: ImportResult) {
+        assert_eq!(import_result.structs_imported, 2); // 2 fields in MyApp.User
+    }
+
+    #[rstest]
+    fn test_import_function_locations(import_result: ImportResult) {
+        assert_eq!(import_result.function_locations_imported, 1);
+    }
+
+    #[rstest]
+    fn test_import_with_clear_flag(json_file: NamedTempFile) {
+        let db = open_mem_db().expect("Failed to create in-memory db");
+
+        // First import
+        let cmd1 = ImportCmd {
+            file: json_file.path().to_path_buf(),
+            project: "test_project".to_string(),
+            clear: false,
+        };
+        cmd1.execute(&*db).expect("First import should succeed");
+
+        // Second import with clear
+        let cmd2 = ImportCmd {
+            file: json_file.path().to_path_buf(),
+            project: "test_project".to_string(),
+            clear: true,
+        };
+        let result = cmd2.execute(&*db).expect("Second import should succeed");
+
+        assert!(result.cleared);
+        assert_eq!(result.modules_imported, 2);
+    }
+
+    #[rstest]
+    fn test_import_empty_graph() {
+        let empty_json = r#"{
+            "structs": {},
+            "function_locations": {},
+            "calls": [],
+            "type_signatures": {}
+        }"#;
+
+        let db = open_mem_db().expect("Failed to create in-memory db");
+        let result =
+            import_json_str(&*db, empty_json, "test_project").expect("Import should succeed");
+
+        assert_eq!(result.modules_imported, 0);
+        assert_eq!(result.functions_imported, 0);
+        assert_eq!(result.calls_imported, 0);
+        assert_eq!(result.structs_imported, 0);
+        assert_eq!(result.function_locations_imported, 0);
+    }
+
+    #[rstest]
+    fn test_import_invalid_json_fails() {
+        let invalid_json = "{ not valid json }";
+        let json_file = create_temp_json_file(invalid_json);
+
+        let db = open_mem_db().expect("Failed to create in-memory db");
+        let cmd = ImportCmd {
+            file: json_file.path().to_path_buf(),
+            project: "test_project".to_string(),
+            clear: false,
+        };
+        let result = cmd.execute(&*db);
+        assert!(result.is_err());
+    }
+
+    #[rstest]
+    fn test_import_nonexistent_file_fails() {
+        let db = open_mem_db().expect("Failed to create in-memory db");
+        let cmd = ImportCmd {
+            file: "/nonexistent/path/call_graph.json".into(),
+            project: "test_project".to_string(),
+            clear: false,
+        };
         let result = cmd.execute(&*db);
         assert!(result.is_err());
     }

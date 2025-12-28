@@ -384,7 +384,8 @@ impl Execute for SetupCmd {
     }
 }
 
-#[cfg(test)]
+/// CozoDB tests use file-based databases via NamedTempFile + open_db
+#[cfg(all(test, not(feature = "backend-surrealdb")))]
 mod tests {
     use super::*;
     use db::open_db;
@@ -923,6 +924,441 @@ mod tests {
 
         // Restore original directory
         std::env::set_current_dir(&original_dir).ok(); // Ignore error if original_dir was deleted
+
+        // Should fail because we're not in a git repo
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("Not in a git repository"));
+    }
+}
+
+/// SurrealDB tests use in-memory databases via open_mem_db
+#[cfg(all(test, feature = "backend-surrealdb"))]
+mod tests_surrealdb {
+    use super::*;
+    use db::open_mem_db;
+    use rstest::rstest;
+
+    #[rstest]
+    fn test_setup_creates_all_relations() {
+        let cmd = SetupCmd {
+            force: false,
+            dry_run: false,
+            install_skills: false,
+            install_hooks: false,
+            project_name: None,
+            mix_env: None,
+        };
+
+        let db = open_mem_db().expect("Failed to create in-memory db");
+        let result = cmd.execute(&*db).expect("Setup should succeed");
+
+        // SurrealDB has 10 relations (tables)
+        assert!(!result.relations.is_empty());
+
+        // All should be created
+        assert!(result
+            .relations
+            .iter()
+            .all(|r| matches!(r.status, RelationState::Created)));
+
+        assert!(result.created_new);
+        assert!(result.templates.is_none());
+        assert!(result.hooks.is_none());
+    }
+
+    #[rstest]
+    fn test_setup_idempotent() {
+        let db = open_mem_db().expect("Failed to create in-memory db");
+
+        // First setup
+        let cmd1 = SetupCmd {
+            force: false,
+            dry_run: false,
+            install_skills: false,
+            install_hooks: false,
+            project_name: None,
+            mix_env: None,
+        };
+        let result1 = cmd1.execute(&*db).expect("First setup should succeed");
+        assert!(result1.created_new);
+
+        // Second setup should find existing relations
+        let cmd2 = SetupCmd {
+            force: false,
+            dry_run: false,
+            install_skills: false,
+            install_hooks: false,
+            project_name: None,
+            mix_env: None,
+        };
+        let result2 = cmd2.execute(&*db).expect("Second setup should succeed");
+
+        // All should already exist
+        assert!(result2
+            .relations
+            .iter()
+            .all(|r| matches!(r.status, RelationState::AlreadyExists)));
+
+        assert!(!result2.created_new);
+    }
+
+    #[rstest]
+    fn test_setup_dry_run() {
+        let cmd = SetupCmd {
+            force: false,
+            dry_run: true,
+            install_skills: false,
+            install_hooks: false,
+            project_name: None,
+            mix_env: None,
+        };
+
+        let db = open_mem_db().expect("Failed to create in-memory db");
+        let result = cmd.execute(&*db).expect("Setup should succeed");
+
+        assert!(result.dry_run);
+        assert!(!result.relations.is_empty());
+
+        // All should be in would_create state
+        assert!(result
+            .relations
+            .iter()
+            .all(|r| matches!(r.status, RelationState::WouldCreate)));
+
+        // Should not have actually created anything
+        assert!(!result.created_new);
+    }
+
+    #[rstest]
+    fn test_setup_relations_have_correct_names() {
+        let cmd = SetupCmd {
+            force: false,
+            dry_run: true,
+            install_skills: false,
+            install_hooks: false,
+            project_name: None,
+            mix_env: None,
+        };
+
+        let db = open_mem_db().expect("Failed to create in-memory db");
+        let result = cmd.execute(&*db).expect("Setup should succeed");
+
+        let relation_names: Vec<_> = result.relations.iter().map(|r| r.name.as_str()).collect();
+
+        // SurrealDB uses different table names
+        assert!(relation_names.contains(&"modules"));
+        assert!(relation_names.contains(&"functions"));
+        assert!(relation_names.contains(&"calls"));
+    }
+
+    // Template tests don't use databases, so they're shared via the main test module
+    // They're already tested in the CozoDB tests module which will run when not using SurrealDB
+
+    #[rstest]
+    fn test_no_templates_when_not_requested() {
+        let cmd = SetupCmd {
+            force: false,
+            dry_run: false,
+            install_skills: false,
+            install_hooks: false,
+            project_name: None,
+            mix_env: None,
+        };
+
+        let db = open_mem_db().expect("Failed to create in-memory db");
+        let result = cmd.execute(&*db).expect("Setup should succeed");
+
+        // Templates and hooks should be None when not requested
+        assert!(result.templates.is_none());
+        assert!(result.hooks.is_none());
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_install_hooks_in_git_repo() {
+        use std::process::Command;
+        use tempfile::TempDir;
+
+        // Create a temporary directory and initialize a git repo
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let temp_path = temp_dir.path();
+
+        // Initialize git repo
+        Command::new("git")
+            .args(["init"])
+            .current_dir(temp_path)
+            .output()
+            .expect("Failed to initialize git repo");
+
+        // Change to the temp directory for the test
+        let original_dir = std::env::current_dir().expect("Failed to get current dir");
+        std::env::set_current_dir(temp_path).expect("Failed to change directory");
+
+        let db = open_mem_db().expect("Failed to create in-memory db");
+
+        let cmd = SetupCmd {
+            force: false,
+            dry_run: false,
+            install_skills: false,
+            install_hooks: true,
+            project_name: Some("test_project".to_string()),
+            mix_env: Some("test".to_string()),
+        };
+
+        let result = cmd.execute(&*db).expect("Setup with hooks should succeed");
+
+        // Verify hook file exists and is executable BEFORE restoring directory
+        let hook_path = temp_path.join(".git").join("hooks").join("post-commit");
+        assert!(hook_path.exists(), "Hook file should exist");
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let metadata = fs::metadata(&hook_path).expect("Failed to get hook metadata");
+            let permissions = metadata.permissions();
+            assert!(permissions.mode() & 0o111 != 0, "Hook should be executable");
+        }
+
+        // Verify hook content
+        let hook_content = fs::read_to_string(&hook_path).expect("Failed to read hook");
+        assert!(hook_content.contains("#!/usr/bin/env bash"));
+        assert!(hook_content.contains("ex_ast --git-diff"));
+        assert!(hook_content.contains("code_search"));
+        assert!(hook_content.contains("GIT_REF")); // Uses variable for git reference
+
+        // Verify hooks were installed
+        assert!(result.hooks.is_some());
+        let hooks = result.hooks.unwrap();
+
+        // Should have installed 1 hook (post-commit)
+        assert_eq!(hooks.hooks_installed, 1);
+        assert_eq!(hooks.hooks_skipped, 0);
+        assert_eq!(hooks.hooks_overwritten, 0);
+
+        // Should have 1 hook file
+        assert_eq!(hooks.hooks.len(), 1);
+        assert_eq!(hooks.hooks[0].path, "post-commit");
+        assert!(matches!(
+            hooks.hooks[0].status,
+            TemplateFileState::Installed
+        ));
+
+        // Should have configured 2 git settings (project-name and mix-env)
+        assert_eq!(hooks.git_config.len(), 2);
+
+        // Verify git config values
+        let project_config = hooks
+            .git_config
+            .iter()
+            .find(|c| c.key == "code-search.project-name");
+        assert!(project_config.is_some());
+        assert_eq!(project_config.unwrap().value, "test_project");
+        assert!(project_config.unwrap().set);
+
+        let mix_env_config = hooks
+            .git_config
+            .iter()
+            .find(|c| c.key == "code-search.mix-env");
+        assert!(mix_env_config.is_some());
+        assert_eq!(mix_env_config.unwrap().value, "test");
+        assert!(mix_env_config.unwrap().set);
+
+        // Restore original directory
+        std::env::set_current_dir(&original_dir).ok();
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_install_hooks_with_defaults() {
+        use std::process::Command;
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let temp_path = temp_dir.path();
+
+        Command::new("git")
+            .args(["init"])
+            .current_dir(temp_path)
+            .output()
+            .expect("Failed to initialize git repo");
+
+        let original_dir = std::env::current_dir().expect("Failed to get current dir");
+        std::env::set_current_dir(temp_path).expect("Failed to change directory");
+
+        let db = open_mem_db().expect("Failed to create in-memory db");
+
+        let cmd = SetupCmd {
+            force: false,
+            dry_run: false,
+            install_skills: false,
+            install_hooks: true,
+            project_name: None,
+            mix_env: None,
+        };
+
+        let result = cmd.execute(&*db).expect("Setup with hooks should succeed");
+
+        assert!(result.hooks.is_some());
+        let hooks = result.hooks.unwrap();
+
+        // Should only set mix-env (project-name not set when None)
+        assert_eq!(hooks.git_config.len(), 1);
+
+        // Verify default values were used
+        let mix_env_config = hooks
+            .git_config
+            .iter()
+            .find(|c| c.key == "code-search.mix-env");
+        assert!(mix_env_config.is_some());
+        assert_eq!(mix_env_config.unwrap().value, "dev");
+
+        // Verify project-name was NOT set
+        let project_config = hooks
+            .git_config
+            .iter()
+            .find(|c| c.key == "code-search.project-name");
+        assert!(project_config.is_none());
+
+        // Restore original directory
+        std::env::set_current_dir(&original_dir).ok();
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_install_hooks_skips_existing() {
+        use std::process::Command;
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let temp_path = temp_dir.path();
+
+        Command::new("git")
+            .args(["init"])
+            .current_dir(temp_path)
+            .output()
+            .expect("Failed to initialize git repo");
+
+        let original_dir = std::env::current_dir().expect("Failed to get current dir");
+        std::env::set_current_dir(temp_path).expect("Failed to change directory");
+
+        let db = open_mem_db().expect("Failed to create in-memory db");
+
+        // First installation
+        let cmd1 = SetupCmd {
+            force: false,
+            dry_run: false,
+            install_skills: false,
+            install_hooks: true,
+            project_name: None,
+            mix_env: None,
+        };
+
+        let result1 = cmd1.execute(&*db).expect("First install should succeed");
+        assert_eq!(result1.hooks.as_ref().unwrap().hooks_installed, 1);
+
+        // Second installation without force
+        let cmd2 = SetupCmd {
+            force: false,
+            dry_run: false,
+            install_skills: false,
+            install_hooks: true,
+            project_name: None,
+            mix_env: None,
+        };
+
+        let result2 = cmd2.execute(&*db).expect("Second install should succeed");
+
+        // Should skip existing hook
+        assert_eq!(result2.hooks.as_ref().unwrap().hooks_installed, 0);
+        assert_eq!(result2.hooks.as_ref().unwrap().hooks_skipped, 1);
+        assert_eq!(result2.hooks.as_ref().unwrap().hooks_overwritten, 0);
+
+        // Restore original directory
+        std::env::set_current_dir(&original_dir).ok();
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_install_hooks_force_overwrites() {
+        use std::process::Command;
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let temp_path = temp_dir.path();
+
+        Command::new("git")
+            .args(["init"])
+            .current_dir(temp_path)
+            .output()
+            .expect("Failed to initialize git repo");
+
+        let original_dir = std::env::current_dir().expect("Failed to get current dir");
+        std::env::set_current_dir(temp_path).expect("Failed to change directory");
+
+        let db = open_mem_db().expect("Failed to create in-memory db");
+
+        // First installation
+        let cmd1 = SetupCmd {
+            force: false,
+            dry_run: false,
+            install_skills: false,
+            install_hooks: true,
+            project_name: None,
+            mix_env: None,
+        };
+
+        cmd1.execute(&*db).expect("First install should succeed");
+
+        // Second installation with force
+        let cmd2 = SetupCmd {
+            force: true,
+            dry_run: false,
+            install_skills: false,
+            install_hooks: true,
+            project_name: None,
+            mix_env: None,
+        };
+
+        let result2 = cmd2
+            .execute(&*db)
+            .expect("Second install with force should succeed");
+
+        // Should overwrite existing hook
+        assert_eq!(result2.hooks.as_ref().unwrap().hooks_installed, 0);
+        assert_eq!(result2.hooks.as_ref().unwrap().hooks_skipped, 0);
+        assert_eq!(result2.hooks.as_ref().unwrap().hooks_overwritten, 1);
+
+        // Restore original directory
+        std::env::set_current_dir(&original_dir).ok();
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_install_hooks_fails_outside_git_repo() {
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let temp_path = temp_dir.path();
+
+        let original_dir = std::env::current_dir().expect("Failed to get current dir");
+        std::env::set_current_dir(temp_path).expect("Failed to change directory");
+
+        let db = open_mem_db().expect("Failed to create in-memory db");
+
+        let cmd = SetupCmd {
+            force: false,
+            dry_run: false,
+            install_skills: false,
+            install_hooks: true,
+            project_name: None,
+            mix_env: None,
+        };
+
+        let result = cmd.execute(&*db);
+
+        // Restore original directory
+        std::env::set_current_dir(&original_dir).ok();
 
         // Should fail because we're not in a git repo
         assert!(result.is_err());

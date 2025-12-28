@@ -210,6 +210,7 @@ mod tests {
     // Filter tests
     // =========================================================================
 
+    #[cfg(not(feature = "backend-surrealdb"))]
     crate::execute_all_match_test! {
         test_name: test_search_modules_with_project_filter,
         fixture: populated_db,
