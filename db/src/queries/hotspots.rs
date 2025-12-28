@@ -605,10 +605,132 @@ pub fn find_hotspots(
     Ok(results)
 }
 
+// ==================== SurrealDB Implementation ====================
+#[cfg(feature = "backend-surrealdb")]
+pub fn find_hotspots(
+    db: &dyn Database,
+    kind: HotspotKind,
+    module_pattern: Option<&str>,
+    _project: &str,
+    use_regex: bool,
+    limit: u32,
+    _exclude_generated: bool,
+    require_outgoing: bool,
+) -> Result<Vec<Hotspot>, Box<dyn Error>> {
+    validate_regex_patterns(use_regex, &[module_pattern])?;
+
+    // Query to get incoming call counts per function
+    let incoming_query = r#"
+        SELECT in.module_name as module, in.name as function, count() as incoming
+        FROM calls
+        GROUP BY in.module_name, in.name
+    "#;
+
+    let incoming_result = db.execute_query(incoming_query, QueryParams::new())
+        .map_err(|e| HotspotsError::QueryFailed {
+            message: format!("Failed to get incoming calls: {}", e),
+        })?;
+
+    // Query to get outgoing call counts per function
+    let outgoing_query = r#"
+        SELECT out.module_name as module, out.name as function, count() as outgoing
+        FROM calls
+        GROUP BY out.module_name, out.name
+    "#;
+
+    let outgoing_result = db.execute_query(outgoing_query, QueryParams::new())
+        .map_err(|e| HotspotsError::QueryFailed {
+            message: format!("Failed to get outgoing calls: {}", e),
+        })?;
+
+    // Build hashmaps from query results
+    let mut incoming_counts: std::collections::HashMap<(String, String), i64> = std::collections::HashMap::new();
+    for row in incoming_result.rows() {
+        if row.len() >= 3 {
+            if let (Some(module), Some(function)) = (extract_string(row.get(0).unwrap()), extract_string(row.get(1).unwrap())) {
+                let count = extract_i64(row.get(2).unwrap(), 0);
+                incoming_counts.insert((module, function), count);
+            }
+        }
+    }
+
+    let mut outgoing_counts: std::collections::HashMap<(String, String), i64> = std::collections::HashMap::new();
+    for row in outgoing_result.rows() {
+        if row.len() >= 3 {
+            if let (Some(module), Some(function)) = (extract_string(row.get(0).unwrap()), extract_string(row.get(1).unwrap())) {
+                let count = extract_i64(row.get(2).unwrap(), 0);
+                outgoing_counts.insert((module, function), count);
+            }
+        }
+    }
+
+    // Get all functions to combine incoming and outgoing
+    let functions_query = "SELECT module_name as module, name as function FROM functions";
+    let functions_result = db.execute_query(functions_query, QueryParams::new())
+        .map_err(|e| HotspotsError::QueryFailed {
+            message: format!("Failed to get functions: {}", e),
+        })?;
+
+    let mut hotspots = Vec::new();
+    for row in functions_result.rows() {
+        if row.len() >= 2 {
+            if let (Some(module), Some(function)) = (extract_string(row.get(0).unwrap()), extract_string(row.get(1).unwrap())) {
+                let key = (module.clone(), function.clone());
+                let incoming = *incoming_counts.get(&key).unwrap_or(&0);
+                let outgoing = *outgoing_counts.get(&key).unwrap_or(&0);
+                let total = incoming + outgoing;
+                let ratio = if outgoing == 0 {
+                    if incoming > 0 { 9999.0 } else { 0.0 }
+                } else {
+                    incoming as f64 / outgoing as f64
+                };
+
+                // Apply filters
+                if require_outgoing && outgoing == 0 {
+                    continue;
+                }
+
+                hotspots.push(Hotspot {
+                    module,
+                    function,
+                    incoming,
+                    outgoing,
+                    total,
+                    ratio,
+                });
+            }
+        }
+    }
+
+    // Filter by module pattern if specified
+    if let Some(pattern) = module_pattern {
+        if use_regex {
+            let re = regex::Regex::new(pattern)
+                .map_err(|e| HotspotsError::QueryFailed { message: e.to_string() })?;
+            hotspots.retain(|h| re.is_match(&h.module));
+        } else {
+            hotspots.retain(|h| h.module == pattern);
+        }
+    }
+
+    // Sort by the specified kind
+    match kind {
+        HotspotKind::Incoming => hotspots.sort_by(|a, b| b.incoming.cmp(&a.incoming)),
+        HotspotKind::Outgoing => hotspots.sort_by(|a, b| b.outgoing.cmp(&a.outgoing)),
+        HotspotKind::Total => hotspots.sort_by(|a, b| b.total.cmp(&a.total)),
+        HotspotKind::Ratio => hotspots.sort_by(|a, b| b.ratio.partial_cmp(&a.ratio).unwrap_or(std::cmp::Ordering::Equal)),
+    }
+
+    // Apply limit
+    hotspots.truncate(limit as usize);
+
+    Ok(hotspots)
+}
+
 #[cfg(all(test, feature = "backend-cozo"))]
 mod tests {
     use super::*;
-    use rstest::{fixture, rstest};
+    use rstest::fixture;
 
     #[fixture]
     fn populated_db() -> Box<dyn crate::backend::Database> {
@@ -1248,6 +1370,329 @@ mod surrealdb_tests {
                 connectivity.contains_key(module),
                 "Module {} should be in connectivity",
                 module
+            );
+        }
+    }
+
+    // ===== find_hotspots tests =====
+
+    #[test]
+    fn test_find_hotspots_returns_results() {
+        let db = get_db();
+        let hotspots = find_hotspots(
+            &*db,
+            HotspotKind::Incoming,
+            None,
+            "default",
+            false,
+            100,
+            false,
+            false,
+        ).expect("Query should succeed");
+
+        assert!(!hotspots.is_empty(), "Should return hotspots from fixture");
+    }
+
+    #[test]
+    fn test_find_hotspots_has_valid_structure() {
+        let db = get_db();
+        let hotspots = find_hotspots(
+            &*db,
+            HotspotKind::Incoming,
+            None,
+            "default",
+            false,
+            100,
+            false,
+            false,
+        ).expect("Query should succeed");
+
+        // All hotspots should have valid structure
+        for hotspot in &hotspots {
+            assert!(!hotspot.module.is_empty(), "Module should not be empty");
+            assert!(!hotspot.function.is_empty(), "Function should not be empty");
+            assert!(hotspot.incoming >= 0, "Incoming should be non-negative");
+            assert!(hotspot.outgoing >= 0, "Outgoing should be non-negative");
+            assert!(hotspot.total >= 0, "Total should be non-negative");
+            assert_eq!(
+                hotspot.total,
+                hotspot.incoming + hotspot.outgoing,
+                "Total should equal incoming + outgoing"
+            );
+        }
+    }
+
+    #[test]
+    fn test_find_hotspots_incoming_sort_order() {
+        let db = get_db();
+        let hotspots = find_hotspots(
+            &*db,
+            HotspotKind::Incoming,
+            None,
+            "default",
+            false,
+            100,
+            false,
+            false,
+        ).expect("Query should succeed");
+
+        // Should be sorted by incoming in descending order
+        for i in 0..hotspots.len().saturating_sub(1) {
+            assert!(
+                hotspots[i].incoming >= hotspots[i + 1].incoming,
+                "Hotspots should be sorted by incoming (descending)"
+            );
+        }
+    }
+
+    #[test]
+    fn test_find_hotspots_outgoing_sort_order() {
+        let db = get_db();
+        let hotspots = find_hotspots(
+            &*db,
+            HotspotKind::Outgoing,
+            None,
+            "default",
+            false,
+            100,
+            false,
+            false,
+        ).expect("Query should succeed");
+
+        // Should be sorted by outgoing in descending order
+        for i in 0..hotspots.len().saturating_sub(1) {
+            assert!(
+                hotspots[i].outgoing >= hotspots[i + 1].outgoing,
+                "Hotspots should be sorted by outgoing (descending)"
+            );
+        }
+    }
+
+    #[test]
+    fn test_find_hotspots_total_sort_order() {
+        let db = get_db();
+        let hotspots = find_hotspots(
+            &*db,
+            HotspotKind::Total,
+            None,
+            "default",
+            false,
+            100,
+            false,
+            false,
+        ).expect("Query should succeed");
+
+        // Should be sorted by total in descending order
+        for i in 0..hotspots.len().saturating_sub(1) {
+            assert!(
+                hotspots[i].total >= hotspots[i + 1].total,
+                "Hotspots should be sorted by total (descending)"
+            );
+        }
+    }
+
+    #[test]
+    fn test_find_hotspots_ratio_sort_order() {
+        let db = get_db();
+        let hotspots = find_hotspots(
+            &*db,
+            HotspotKind::Ratio,
+            None,
+            "default",
+            false,
+            100,
+            false,
+            false,
+        ).expect("Query should succeed");
+
+        // Should be sorted by ratio in descending order
+        for i in 0..hotspots.len().saturating_sub(1) {
+            let ratio_cmp = hotspots[i].ratio.partial_cmp(&hotspots[i + 1].ratio)
+                .unwrap_or(std::cmp::Ordering::Equal);
+            assert!(
+                ratio_cmp == std::cmp::Ordering::Greater || ratio_cmp == std::cmp::Ordering::Equal,
+                "Hotspots should be sorted by ratio (descending)"
+            );
+        }
+    }
+
+    #[test]
+    fn test_find_hotspots_respects_limit() {
+        let db = get_db();
+        let limit_5 = find_hotspots(
+            &*db,
+            HotspotKind::Incoming,
+            None,
+            "default",
+            false,
+            5,
+            false,
+            false,
+        ).expect("Query should succeed");
+
+        let limit_100 = find_hotspots(
+            &*db,
+            HotspotKind::Incoming,
+            None,
+            "default",
+            false,
+            100,
+            false,
+            false,
+        ).expect("Query should succeed");
+
+        assert!(limit_5.len() <= 5, "Should respect limit of 5");
+        assert!(limit_5.len() <= limit_100.len(), "Smaller limit should return <= results");
+    }
+
+    #[test]
+    fn test_find_hotspots_with_module_pattern() {
+        let db = get_db();
+        let hotspots = find_hotspots(
+            &*db,
+            HotspotKind::Incoming,
+            Some("MyApp.Controller"),
+            "default",
+            false,
+            100,
+            false,
+            false,
+        ).expect("Query should succeed");
+
+        // All results should match the module pattern
+        for hotspot in &hotspots {
+            assert_eq!(
+                hotspot.module,
+                "MyApp.Controller",
+                "All hotspots should be from MyApp.Controller"
+            );
+        }
+    }
+
+    #[test]
+    fn test_find_hotspots_with_regex_pattern() {
+        let db = get_db();
+        let hotspots = find_hotspots(
+            &*db,
+            HotspotKind::Incoming,
+            Some("^MyApp\\.Accounts$"),
+            "default",
+            true, // use_regex = true
+            100,
+            false,
+            false,
+        ).expect("Query should succeed");
+
+        // All results should match the regex pattern
+        for hotspot in &hotspots {
+            assert_eq!(
+                hotspot.module,
+                "MyApp.Accounts",
+                "All hotspots should match regex pattern"
+            );
+        }
+    }
+
+    #[test]
+    fn test_find_hotspots_with_invalid_regex() {
+        let db = get_db();
+        let result = find_hotspots(
+            &*db,
+            HotspotKind::Incoming,
+            Some("[invalid"),
+            "default",
+            true, // use_regex = true
+            100,
+            false,
+            false,
+        );
+
+        assert!(result.is_err(), "Should reject invalid regex pattern");
+    }
+
+    #[test]
+    fn test_find_hotspots_require_outgoing_excludes_leaf_nodes() {
+        let db = get_db();
+        let with_leaves = find_hotspots(
+            &*db,
+            HotspotKind::Incoming,
+            None,
+            "default",
+            false,
+            100,
+            false,
+            false, // require_outgoing = false
+        ).expect("Query should succeed");
+
+        let no_leaves = find_hotspots(
+            &*db,
+            HotspotKind::Incoming,
+            None,
+            "default",
+            false,
+            100,
+            false,
+            true, // require_outgoing = true
+        ).expect("Query should succeed");
+
+        // Excluding leaf nodes should return same or fewer results
+        assert!(no_leaves.len() <= with_leaves.len(),
+            "Excluding leaf nodes should return <= results"
+        );
+
+        // All results in no_leaves should have outgoing > 0
+        for hotspot in &no_leaves {
+            assert!(
+                hotspot.outgoing > 0,
+                "All hotspots should have outgoing > 0 when require_outgoing=true"
+            );
+        }
+    }
+
+    #[test]
+    fn test_find_hotspots_nonexistent_module_pattern_returns_empty() {
+        let db = get_db();
+        let hotspots = find_hotspots(
+            &*db,
+            HotspotKind::Incoming,
+            Some("NonExistentModule"),
+            "default",
+            false,
+            100,
+            false,
+            false,
+        ).expect("Query should succeed");
+
+        assert!(hotspots.is_empty(), "Should return empty for non-existent module");
+    }
+
+    #[test]
+    fn test_find_hotspots_ratio_calculation() {
+        let db = get_db();
+        let hotspots = find_hotspots(
+            &*db,
+            HotspotKind::Ratio,
+            None,
+            "default",
+            false,
+            100,
+            false,
+            false,
+        ).expect("Query should succeed");
+
+        // Verify ratio calculation
+        for hotspot in &hotspots {
+            let expected_ratio = if hotspot.outgoing == 0 {
+                if hotspot.incoming > 0 { 9999.0 } else { 0.0 }
+            } else {
+                hotspot.incoming as f64 / hotspot.outgoing as f64
+            };
+
+            assert!(
+                (hotspot.ratio - expected_ratio).abs() < 0.0001,
+                "Ratio should be incoming/outgoing. Got {}, expected {}",
+                hotspot.ratio,
+                expected_ratio
             );
         }
     }
