@@ -253,8 +253,6 @@ pub fn find_calls(
         where_module, fn_pattern_field, arity_field, order_by
     );
 
-    eprintln!("Query: {}", query);
-
     let mut params = QueryParams::new()
         .with_str("module_pattern", module_pattern)
         .with_int("limit", limit as i64);
