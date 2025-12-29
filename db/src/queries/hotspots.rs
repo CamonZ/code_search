@@ -642,49 +642,68 @@ pub fn find_hotspots(
 ) -> Result<Vec<Hotspot>, Box<dyn Error>> {
     validate_regex_patterns(use_regex, &[module_pattern])?;
 
-    // Query to get incoming call counts per function
-    let incoming_query = r#"
-        SELECT in.module_name as module, in.name as function, count() as incoming
-        FROM calls
-        GROUP BY in.module_name, in.name
-    "#;
+    // SurrealDB has a bug where GROUP BY with field traversal (out.module_name) doesn't work
+    // (see https://github.com/surrealdb/surrealdb/issues/2695)
+    // Workaround: GROUP BY the whole record (out/in), then extract fields from the Thing ID
+    // The Thing ID is an array: [module_name, function_name, arity]
 
+    // Helper to extract (module, function) from a Thing ID's array
+    fn extract_function_key(val: &dyn crate::Value) -> Option<(String, String)> {
+        val.as_thing_id()
+            .and_then(|thing| thing.as_array())
+            .and_then(|arr| {
+                let module = arr.first().and_then(|v| v.as_str())?;
+                let function = arr.get(1).and_then(|v| v.as_str())?;
+                Some((module.to_string(), function.to_string()))
+            })
+    }
+
+    // Query incoming call counts: GROUP BY callee (out)
+    // In graph edges: out = callee (target), so grouping by out gives us incoming counts
+    let incoming_query = "SELECT out, count() as cnt FROM calls GROUP BY out";
     let incoming_result = db.execute_query(incoming_query, QueryParams::new())
         .map_err(|e| HotspotsError::QueryFailed {
             message: format!("Failed to get incoming calls: {}", e),
         })?;
 
-    // Query to get outgoing call counts per function
-    let outgoing_query = r#"
-        SELECT out.module_name as module, out.name as function, count() as outgoing
-        FROM calls
-        GROUP BY out.module_name, out.name
-    "#;
-
+    // Query outgoing call counts: GROUP BY caller (in)
+    // In graph edges: in = caller (source), so grouping by in gives us outgoing counts
+    let outgoing_query = "SELECT in, count() as cnt FROM calls GROUP BY in";
     let outgoing_result = db.execute_query(outgoing_query, QueryParams::new())
         .map_err(|e| HotspotsError::QueryFailed {
             message: format!("Failed to get outgoing calls: {}", e),
         })?;
 
-    // Build hashmaps from query results
-    let mut incoming_counts: std::collections::HashMap<(String, String), i64> = std::collections::HashMap::new();
+    // Build count hashmaps from query results
+    // Key: (module, function), Value: count
+    let mut incoming_counts: std::collections::HashMap<(String, String), i64> =
+        std::collections::HashMap::new();
+    let mut outgoing_counts: std::collections::HashMap<(String, String), i64> =
+        std::collections::HashMap::new();
+
+    // Process incoming results - headers are alphabetically sorted: ["cnt", "out"]
     for row in incoming_result.rows() {
-        if row.len() >= 3 {
-            if let (Some(module), Some(function)) = (extract_string(row.get(0).unwrap()), extract_string(row.get(1).unwrap())) {
-                let count = extract_i64(row.get(2).unwrap(), 0);
-                incoming_counts.insert((module, function), count);
+        if row.len() >= 2 {
+            let cnt = row.get(0).and_then(|v| v.as_i64()).unwrap_or(0);
+            if let Some(key) = row.get(1).and_then(|v| extract_function_key(v)) {
+                incoming_counts.insert(key, cnt);
             }
         }
     }
 
-    let mut outgoing_counts: std::collections::HashMap<(String, String), i64> = std::collections::HashMap::new();
+    // Process outgoing results - headers are alphabetically sorted: ["cnt", "in"]
     for row in outgoing_result.rows() {
-        if row.len() >= 3 {
-            if let (Some(module), Some(function)) = (extract_string(row.get(0).unwrap()), extract_string(row.get(1).unwrap())) {
-                let count = extract_i64(row.get(2).unwrap(), 0);
-                outgoing_counts.insert((module, function), count);
+        if row.len() >= 2 {
+            let cnt = row.get(0).and_then(|v| v.as_i64()).unwrap_or(0);
+            if let Some(key) = row.get(1).and_then(|v| extract_function_key(v)) {
+                outgoing_counts.insert(key, cnt);
             }
         }
+    }
+
+    // Helper to find column index by header name
+    fn find_col(headers: &[String], name: &str) -> Option<usize> {
+        headers.iter().position(|h| h == name)
     }
 
     // Get all functions to combine incoming and outgoing
@@ -695,32 +714,41 @@ pub fn find_hotspots(
         })?;
 
     let mut hotspots = Vec::new();
-    for row in functions_result.rows() {
-        if row.len() >= 2 {
-            if let (Some(module), Some(function)) = (extract_string(row.get(0).unwrap()), extract_string(row.get(1).unwrap())) {
-                let key = (module.clone(), function.clone());
-                let incoming = *incoming_counts.get(&key).unwrap_or(&0);
-                let outgoing = *outgoing_counts.get(&key).unwrap_or(&0);
-                let total = incoming + outgoing;
-                let ratio = if outgoing == 0 {
-                    if incoming > 0 { 9999.0 } else { 0.0 }
-                } else {
-                    incoming as f64 / outgoing as f64
-                };
+    let func_headers = functions_result.headers();
+    let func_mod_idx = find_col(func_headers, "module");
+    let func_fn_idx = find_col(func_headers, "function");
 
-                // Apply filters
-                if require_outgoing && outgoing == 0 {
-                    continue;
+    if let (Some(mod_idx), Some(fn_idx)) = (func_mod_idx, func_fn_idx) {
+        for row in functions_result.rows() {
+            if row.len() >= 2 {
+                if let (Some(module), Some(function)) = (
+                    row.get(mod_idx).and_then(|v| extract_string(v)),
+                    row.get(fn_idx).and_then(|v| extract_string(v)),
+                ) {
+                    let key = (module.clone(), function.clone());
+                    let incoming = *incoming_counts.get(&key).unwrap_or(&0);
+                    let outgoing = *outgoing_counts.get(&key).unwrap_or(&0);
+                    let total = incoming + outgoing;
+                    let ratio = if outgoing == 0 {
+                        if incoming > 0 { 9999.0 } else { 0.0 }
+                    } else {
+                        incoming as f64 / outgoing as f64
+                    };
+
+                    // Apply filters
+                    if require_outgoing && outgoing == 0 {
+                        continue;
+                    }
+
+                    hotspots.push(Hotspot {
+                        module,
+                        function,
+                        incoming,
+                        outgoing,
+                        total,
+                        ratio,
+                    });
                 }
-
-                hotspots.push(Hotspot {
-                    module,
-                    function,
-                    incoming,
-                    outgoing,
-                    total,
-                    ratio,
-                });
             }
         }
     }
@@ -1436,6 +1464,47 @@ mod surrealdb_tests {
         ).expect("Query should succeed");
 
         assert!(!hotspots.is_empty(), "Should return hotspots from fixture");
+    }
+
+    #[test]
+    fn test_find_hotspots_verifies_fixture_values() {
+        let db = get_db();
+        let hotspots = find_hotspots(
+            &*db,
+            HotspotKind::Total,
+            None,
+            "default",
+            false,
+            100,
+            false,
+            false,
+        ).expect("Query should succeed");
+
+        // Verify we have functions with non-zero counts (the old buggy code returned all zeros)
+        let non_zero_hotspots: Vec<_> = hotspots.iter().filter(|h| h.total > 0).collect();
+        assert!(
+            non_zero_hotspots.len() >= 5,
+            "Should have at least 5 functions with non-zero call counts, got {}",
+            non_zero_hotspots.len()
+        );
+
+        // Verify specific function from fixture: MyApp.Accounts.get_user should have calls
+        let get_user = hotspots.iter().find(|h|
+            h.module == "MyApp.Accounts" && h.function == "get_user"
+        );
+        assert!(get_user.is_some(), "Should find MyApp.Accounts.get_user");
+        let get_user = get_user.unwrap();
+        assert!(get_user.incoming > 0, "get_user should have incoming calls, got {}", get_user.incoming);
+        assert!(get_user.outgoing > 0, "get_user should have outgoing calls, got {}", get_user.outgoing);
+
+        // Verify Repo.query is a leaf node (called but doesn't call others)
+        let repo_query = hotspots.iter().find(|h|
+            h.module == "MyApp.Repo" && h.function == "query"
+        );
+        assert!(repo_query.is_some(), "Should find MyApp.Repo.query");
+        let repo_query = repo_query.unwrap();
+        assert!(repo_query.incoming > 0, "Repo.query should have incoming calls");
+        assert_eq!(repo_query.outgoing, 0, "Repo.query should be a leaf node with no outgoing calls");
     }
 
     #[test]
