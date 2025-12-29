@@ -328,6 +328,13 @@ impl Value for surrealdb::sql::Value {
             _ => None,
         }
     }
+
+    fn get(&self, field: &str) -> Option<&dyn Value> {
+        match self {
+            surrealdb::sql::Value::Object(obj) => obj.get(field).map(|v| v as &dyn Value),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]

@@ -174,6 +174,10 @@ pub fn trace_calls(
 /// - Forward: `->calls->` (follows function -> calls -> next_function)
 /// - Reverse: `<-calls<-` (follows callers <- calls <- function)
 ///
+/// Uses the +path+inclusive syntax to get full paths, then extracts
+/// function data from the path nodes. Edge properties (call line, clause info)
+/// are looked up separately via the calls table.
+///
 /// This function is used internally by trace_calls and reverse_trace_calls
 /// to support both forward and reverse tracing.
 pub(crate) fn trace_calls_impl(
@@ -221,9 +225,10 @@ pub(crate) fn trace_calls_impl(
 
     // Use a subquery to find starting function IDs, then traverse calls graph
     // {1..max_depth} limits traversal depth, +inclusive includes the starting node
+    // Use .* to fetch full function records instead of just IDs
     let query = format!(
         r#"
-        SELECT * FROM (SELECT VALUE id FROM functions WHERE {}{}).{{1..{}+path+inclusive}}{}functions LIMIT {};
+        SELECT * FROM (SELECT VALUE id FROM functions WHERE {}{}).{{1..{}+path+inclusive}}{}functions.* LIMIT {};
         "#,
         module_function_condition, arity_condition, max_depth, traversal_op, limit
     );
@@ -242,15 +247,15 @@ pub(crate) fn trace_calls_impl(
             message: e.to_string(),
         })?;
 
-    // Each row contains a path: Array([start_thing, next_thing, ...])
+    // Each row contains a path: Array([func1_obj, func2_obj, func3_obj...])
     // Use windows(2) to get each (start, next) pair in the path
     // For forward: path is [func1, func2, func3...] -> extract as (func1->func2), (func2->func3), etc.
     // For reverse: path is [func1, func2, func3...] -> extract as (func2->func1), (func3->func2), etc.
     for row in result.rows().iter() {
         if let Some(path) = row.get(0).and_then(|v| v.as_array()) {
             for (depth, window) in path.windows(2).enumerate() {
-                let first = extract_function_ref(window[0]);
-                let second = extract_function_ref(window[1]);
+                let first = extract_function_ref_from_object(window[0]);
+                let second = extract_function_ref_from_object(window[1]);
 
                 if let (Some(first), Some(second)) = (first, second) {
                     // For reverse, swap the order so that the starting function is the callee
@@ -259,10 +264,52 @@ pub(crate) fn trace_calls_impl(
                         TraceDirection::Reverse => (second, first),
                     };
 
+                    // Look up the call edge to get the line number and clause info
+                    // Use inline subqueries to find record IDs since parameterized record ID
+                    // construction in WHERE clause comparisons is unreliable
+                    let edge_query = r#"
+                        SELECT line as call_line, caller_clause_id.start_line as clause_start, caller_clause_id.end_line as clause_end
+                        FROM calls
+                        WHERE in = functions:[$caller_module, $caller_name, $caller_arity] 
+                          AND out = functions:[$callee_module, $callee_name, $callee_arity]
+                        LIMIT 1;
+                        "#;
+                    let edge_params = QueryParams::new()
+                        .with_str("caller_module", caller.module.as_ref())
+                        .with_str("caller_name", caller.name.as_ref())
+                        .with_int("caller_arity", caller.arity)
+                        .with_str("callee_module", callee.module.as_ref())
+                        .with_str("callee_name", callee.name.as_ref())
+                        .with_int("callee_arity", callee.arity);
+
+                    let (call_line, clause_start, clause_end) = match db
+                        .execute_query(edge_query, edge_params)
+                    {
+                        Ok(edge_result) => {
+                            if let Some(edge_row) = edge_result.rows().first() {
+                                let line = edge_row.get(0).and_then(|v| v.as_i64()).unwrap_or(0);
+                                let start = edge_row.get(2).and_then(|v| v.as_i64());
+                                let end = edge_row.get(1).and_then(|v| v.as_i64());
+
+                                (line, start, end)
+                            } else {
+                                (0, None, None)
+                            }
+                        }
+                        Err(_) => (0, None, None),
+                    };
+
+                    // Update caller with clause line info if available
+                    let caller = FunctionRef {
+                        start_line: clause_start.or(caller.start_line),
+                        end_line: clause_end.or(caller.end_line),
+                        ..caller
+                    };
+
                     all_calls.push(Call {
                         caller,
                         callee,
-                        line: 0, // Not available from graph traversal
+                        line: call_line,
                         call_type: None,
                         depth: Some((depth + 1) as i64),
                     });
@@ -303,6 +350,56 @@ pub(crate) fn trace_calls_impl(
     Ok(deduped_calls)
 }
 
+/// Extract a FunctionRef from a SurrealDB function object.
+/// The object should have fields: module_name, name, arity, kind, file, start_line
+#[cfg(feature = "backend-surrealdb")]
+fn extract_function_ref_from_object(value: &dyn crate::backend::Value) -> Option<FunctionRef> {
+    use std::rc::Rc;
+
+    // Try to extract from a full object (from .* query)
+    if let Some(module_val) = value.get("module_name") {
+        let module = module_val.as_str()?;
+        let name = value.get("name")?.as_str()?;
+        let arity = value.get("arity")?.as_i64()?;
+
+        let kind = value.get("kind").and_then(|v| v.as_str()).map(Rc::from);
+        let file = value.get("file").and_then(|v| v.as_str()).map(Rc::from);
+        let start_line = value.get("start_line").and_then(|v| v.as_i64());
+
+        return Some(FunctionRef {
+            module: Rc::from(module),
+            name: Rc::from(name),
+            arity,
+            kind,
+            file,
+            start_line,
+            end_line: None, // Not available on functions table
+            args: None,
+            return_type: None,
+        });
+    }
+
+    // Fall back to Thing ID format (record ID only)
+    let id = value.as_thing_id()?;
+    let parts = id.as_array()?;
+
+    let module = parts.get(0)?.as_str()?;
+    let name = parts.get(1)?.as_str()?;
+    let arity = parts.get(2)?.as_i64()?;
+
+    Some(FunctionRef {
+        module: Rc::from(module),
+        name: Rc::from(name),
+        arity,
+        kind: None,
+        file: None,
+        start_line: None,
+        end_line: None,
+        args: None,
+        return_type: None,
+    })
+}
+
 #[cfg(feature = "backend-surrealdb")]
 /// Trace call chains starting from the given function (forward direction).
 ///
@@ -340,32 +437,6 @@ pub fn trace_calls(
         limit,
         TraceDirection::Forward,
     )
-}
-
-/// Extract a FunctionRef from a SurrealDB Thing value.
-/// Expects: Thing { id: Array([module, name, arity]) }
-#[cfg(feature = "backend-surrealdb")]
-fn extract_function_ref(value: &dyn crate::backend::Value) -> Option<FunctionRef> {
-    use std::rc::Rc;
-
-    let id = value.as_thing_id()?;
-    let parts = id.as_array()?;
-
-    let module = parts.get(0)?.as_str()?;
-    let name = parts.get(1)?.as_str()?;
-    let arity = parts.get(2)?.as_i64()?;
-
-    Some(FunctionRef {
-        module: Rc::from(module),
-        name: Rc::from(name),
-        arity,
-        kind: None,
-        file: None,
-        start_line: None,
-        end_line: None,
-        args: None,
-        return_type: None,
-    })
 }
 
 #[cfg(all(test, feature = "backend-cozo"))]
@@ -597,7 +668,16 @@ mod surrealdb_tests {
 
         // Complex fixture: Controller.create/2 calls Service.process_request/2 and Notifier.send_email/2
         // This is a recursive trace, so it will find all downstream calls
-        let result = trace_calls(&*db, "MyApp.Controller", "create", None, "default", false, 10, 100);
+        let result = trace_calls(
+            &*db,
+            "MyApp.Controller",
+            "create",
+            None,
+            "default",
+            false,
+            10,
+            100,
+        );
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let calls = result.unwrap();
@@ -608,7 +688,11 @@ mod surrealdb_tests {
         // Filter for depth-1 calls (direct calls from Controller.create)
         // Now includes Events.publish from Cycle B
         let depth_1_calls: Vec<_> = calls.iter().filter(|c| c.depth == Some(1)).collect();
-        assert_eq!(depth_1_calls.len(), 3, "Should find exactly 3 direct calls at depth 1");
+        assert_eq!(
+            depth_1_calls.len(),
+            3,
+            "Should find exactly 3 direct calls at depth 1"
+        );
 
         // Verify depth-1 callers are MyApp.Controller.create
         for call in &depth_1_calls {
@@ -927,14 +1011,30 @@ mod surrealdb_tests {
 
         // Complex fixture: Controller.create/2 calls Service.process_request/2, Notifier.send_email/2, and Events.publish/1
         // Recursive trace returns all calls in the call chain
-        let result = trace_calls(&*db, "MyApp.Controller", "create", None, "default", false, 10, 100)
-            .expect("Query should succeed");
+        let result = trace_calls(
+            &*db,
+            "MyApp.Controller",
+            "create",
+            None,
+            "default",
+            false,
+            10,
+            100,
+        )
+        .expect("Query should succeed");
 
-        assert!(result.len() >= 3, "Should find at least 3 calls from create");
+        assert!(
+            result.len() >= 3,
+            "Should find at least 3 calls from create"
+        );
 
         // Filter for depth-1 calls only (exact match verification at first level)
         let depth_1_calls: Vec<_> = result.iter().filter(|c| c.depth == Some(1)).collect();
-        assert_eq!(depth_1_calls.len(), 3, "Should find exactly 3 direct calls at depth 1");
+        assert_eq!(
+            depth_1_calls.len(),
+            3,
+            "Should find exactly 3 direct calls at depth 1"
+        );
 
         // All depth-1 results should have MyApp.Controller.create as the caller
         for (i, call) in depth_1_calls.iter().enumerate() {
@@ -1112,13 +1212,26 @@ mod surrealdb_tests {
         let d1_calls: Vec<_> = result.iter().filter(|c| c.depth == Some(1)).collect();
         assert_eq!(d1_calls.len(), 3, "Should have 3 calls at depth 1");
         let d1_callees: Vec<_> = d1_calls.iter().map(|c| c.callee.name.as_ref()).collect();
-        assert!(d1_callees.contains(&"process_request"), "Depth 1 should include call to process_request");
-        assert!(d1_callees.contains(&"send_email"), "Depth 1 should include direct call to send_email");
-        assert!(d1_callees.contains(&"publish"), "Depth 1 should include call to publish/2 (Cycle B)");
+        assert!(
+            d1_callees.contains(&"process_request"),
+            "Depth 1 should include call to process_request"
+        );
+        assert!(
+            d1_callees.contains(&"send_email"),
+            "Depth 1 should include direct call to send_email"
+        );
+        assert!(
+            d1_callees.contains(&"publish"),
+            "Depth 1 should include call to publish/2 (Cycle B)"
+        );
 
         // Verify we have calls at multiple depths (cycles create deeper traversals)
         let max_depth = result.iter().filter_map(|c| c.depth).max().unwrap_or(0);
-        assert!(max_depth >= 3, "Should reach at least depth 3, got {}", max_depth);
+        assert!(
+            max_depth >= 3,
+            "Should reach at least depth 3, got {}",
+            max_depth
+        );
 
         // Verify all depth-1 callers are Controller.create
         for call in &d1_calls {
@@ -1254,5 +1367,4 @@ mod surrealdb_tests {
             "All calls should be at depth 1 when starting from all functions"
         );
     }
-
 }

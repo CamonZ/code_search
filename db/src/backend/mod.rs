@@ -101,6 +101,12 @@ pub trait Value: Send + Sync + std::fmt::Debug {
     /// Attempts to extract the id from a SurrealDB Thing (record reference).
     /// Returns the id as a Value which can be further extracted (e.g., as an array).
     fn as_thing_id(&self) -> Option<&dyn Value>;
+
+    /// Attempts to extract a field from an object value by name.
+    /// Returns the field value if this is an object and the field exists.
+    fn get(&self, _field: &str) -> Option<&dyn Value> {
+        None
+    }
 }
 
 /// Trait for accessing column values in a database row.

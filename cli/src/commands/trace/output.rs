@@ -95,11 +95,17 @@ fn format_reverse_entry(lines: &mut Vec<String>, entries: &[db::types::TraceEntr
         ));
     }
 
-    // Find children (additional callers going up the chain)
-    for (child_idx, child) in entries.iter().enumerate() {
-        if child.parent_index == Some(idx) {
-            format_reverse_entry(lines, entries, child_idx, depth + 1);
-        }
+    // Find children (additional callers going up the chain) and sort by line number
+    let mut children: Vec<usize> = entries
+        .iter()
+        .enumerate()
+        .filter(|(_, child)| child.parent_index == Some(idx))
+        .map(|(child_idx, _)| child_idx)
+        .collect();
+    children.sort_by_key(|&child_idx| entries[child_idx].line);
+
+    for child_idx in children {
+        format_reverse_entry(lines, entries, child_idx, depth + 1);
     }
 }
 
@@ -122,11 +128,17 @@ fn format_entry(lines: &mut Vec<String>, entries: &[db::types::TraceEntry], idx:
         filename, entry.start_line, entry.end_line
     ));
 
-    // Find children of this entry
-    for (child_idx, child) in entries.iter().enumerate() {
-        if child.parent_index == Some(idx) {
-            format_call(lines, entries, child_idx, depth + 1, &entry.module, &entry.file);
-        }
+    // Find children of this entry and sort by line number
+    let mut children: Vec<usize> = entries
+        .iter()
+        .enumerate()
+        .filter(|(_, child)| child.parent_index == Some(idx))
+        .map(|(child_idx, _)| child_idx)
+        .collect();
+    children.sort_by_key(|&child_idx| entries[child_idx].line);
+
+    for child_idx in children {
+        format_call(lines, entries, child_idx, depth + 1, &entry.module, &entry.file);
     }
 }
 
@@ -170,10 +182,16 @@ fn format_call(
         indent, entry.line, name, kind_str, location
     ));
 
-    // Recurse into children of this entry
-    for (child_idx, child) in entries.iter().enumerate() {
-        if child.parent_index == Some(idx) {
-            format_call(lines, entries, child_idx, depth + 1, &entry.module, &entry.file);
-        }
+    // Find children and sort by line number
+    let mut children: Vec<usize> = entries
+        .iter()
+        .enumerate()
+        .filter(|(_, child)| child.parent_index == Some(idx))
+        .map(|(child_idx, _)| child_idx)
+        .collect();
+    children.sort_by_key(|&child_idx| entries[child_idx].line);
+
+    for child_idx in children {
+        format_call(lines, entries, child_idx, depth + 1, &entry.module, &entry.file);
     }
 }
