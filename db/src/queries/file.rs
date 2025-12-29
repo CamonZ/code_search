@@ -132,15 +132,24 @@ pub fn find_functions_in_module(
     };
 
     // Query to find all clauses in matching modules
-    // In SurrealDB, clauses (function_locations) store the location info (file, line)
-    // We select: arity, file, function_name, line, module_name, source_file_absolute
-    // Returns in alphabetical order
+    // In SurrealDB, clauses (function_locations) store the location info
+    // Select all fields needed for FileFunctionDef
     let query = format!(
         r#"
-        SELECT arity, file, function_name, line, module_name, source_file_absolute
+        SELECT
+            arity,
+            end_line,
+            function_name,
+            guard,
+            kind,
+            line,
+            module_name,
+            pattern,
+            source_file,
+            start_line
         FROM clauses
         {where_clause}
-        ORDER BY module_name ASC, line ASC, function_name ASC, arity ASC
+        ORDER BY module_name ASC, start_line ASC, function_name ASC, arity ASC, line ASC
         LIMIT $limit
         "#,
     );
@@ -159,43 +168,48 @@ pub fn find_functions_in_module(
 
     for row in result.rows() {
         // SurrealDB returns columns in alphabetical order:
-        // arity (0), file (1), function_name (2), line (3), module_name (4), source_file_absolute (5)
-        if row.len() >= 5 {
+        // arity (0), end_line (1), function_name (2), guard (3), kind (4),
+        // line (5), module_name (6), pattern (7), source_file (8), start_line (9)
+        if row.len() >= 10 {
             let arity = extract_i64(row.get(0).unwrap(), 0);
-            let file = extract_string(row.get(1).unwrap()).unwrap_or_default();
+            let end_line = extract_i64(row.get(1).unwrap(), 0);
             let Some(name) = extract_string(row.get(2).unwrap()) else {
                 continue;
             };
-            let line = extract_i64(row.get(3).unwrap(), 0);
-            let Some(module) = extract_string(row.get(4).unwrap()) else {
+            let guard = extract_string(row.get(3).unwrap()).unwrap_or_default();
+            let kind = extract_string(row.get(4).unwrap()).unwrap_or_default();
+            let line = extract_i64(row.get(5).unwrap(), 0);
+            let Some(module) = extract_string(row.get(6).unwrap()) else {
                 continue;
             };
+            let pattern = extract_string(row.get(7).unwrap()).unwrap_or_default();
+            let file = extract_string(row.get(8).unwrap()).unwrap_or_default();
+            let start_line = extract_i64(row.get(9).unwrap(), 0);
 
-            // SurrealDB clause table doesn't have kind, start_line, end_line, pattern, guard
-            // Fill with default/empty values for compatibility
             results.push(FileFunctionDef {
                 module,
                 name,
                 arity,
-                kind: String::new(),
+                kind,
                 line,
-                start_line: 0,
-                end_line: 0,
-                pattern: String::new(),
-                guard: String::new(),
+                start_line,
+                end_line,
+                pattern,
+                guard,
                 file,
             });
         }
     }
 
     // SurrealDB doesn't honor ORDER BY when using regex WHERE clauses
-    // Sort results in Rust to ensure consistent ordering
+    // Sort results in Rust to ensure consistent ordering: module, start_line, name, arity, line
     results.sort_by(|a, b| {
         a.module
             .cmp(&b.module)
-            .then_with(|| a.line.cmp(&b.line))
+            .then_with(|| a.start_line.cmp(&b.start_line))
             .then_with(|| a.name.cmp(&b.name))
             .then_with(|| a.arity.cmp(&b.arity))
+            .then_with(|| a.line.cmp(&b.line))
     });
 
     Ok(results)
@@ -497,12 +511,11 @@ mod surrealdb_tests {
             assert!(func.arity >= 0, "arity should be non-negative");
             assert!(func.line > 0, "line should be positive");
 
-            // SurrealDB fields that may be empty (not available in clause table)
-            assert_eq!(func.kind, "", "kind should be empty for SurrealDB");
-            assert_eq!(func.start_line, 0, "start_line should be 0 for SurrealDB");
-            assert_eq!(func.end_line, 0, "end_line should be 0 for SurrealDB");
-            assert_eq!(func.pattern, "", "pattern should be empty for SurrealDB");
-            assert_eq!(func.guard, "", "guard should be empty for SurrealDB");
+            // All clause fields should now be populated from the clauses table
+            assert!(!func.kind.is_empty(), "kind should be populated");
+            assert!(func.start_line > 0, "start_line should be positive");
+            assert!(func.end_line >= func.start_line, "end_line should be >= start_line");
+            // pattern and guard may be empty for some functions
         }
     }
 
@@ -516,27 +529,27 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
 
-        // MyApp.Accounts has 9 clauses sorted by line:
-        // __struct__/0 at line 1
-        // get_user/1 at lines 10, 12
-        // get_user/2 at line 17
-        // list_users/0 at line 24
-        // validate_email/1 at line 30
-        // notify_change/1 at line 40
-        // format_name/1 at line 50
-        // __generated__/0 at line 90
+        // MyApp.Accounts has 9 clauses sorted by start_line:
+        // __struct__/0 at start_line 1
+        // get_user/1 at start_lines 10, 12
+        // get_user/2 at start_line 17
+        // list_users/0 at start_line 24
+        // validate_email/1 at start_line 30
+        // notify_change/1 at start_line 40
+        // format_name/1 at start_line 50
+        // __generated__/0 at start_line 90
         assert_eq!(functions.len(), 9, "Should have 9 clauses");
 
-        // Verify sorted by line
-        assert_eq!(functions[0].line, 1); // __struct__
-        assert_eq!(functions[1].line, 10);
-        assert_eq!(functions[2].line, 12);
-        assert_eq!(functions[3].line, 17);
-        assert_eq!(functions[4].line, 24);
-        assert_eq!(functions[5].line, 30);
-        assert_eq!(functions[6].line, 40); // notify_change
-        assert_eq!(functions[7].line, 50); // format_name
-        assert_eq!(functions[8].line, 90); // __generated__
+        // Verify sorted by start_line
+        assert_eq!(functions[0].start_line, 1); // __struct__
+        assert_eq!(functions[1].start_line, 10);
+        assert_eq!(functions[2].start_line, 12);
+        assert_eq!(functions[3].start_line, 17);
+        assert_eq!(functions[4].start_line, 24);
+        assert_eq!(functions[5].start_line, 30);
+        assert_eq!(functions[6].start_line, 40); // notify_change
+        assert_eq!(functions[7].start_line, 50); // format_name
+        assert_eq!(functions[8].start_line, 90); // __generated__
     }
 
     #[test]
