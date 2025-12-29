@@ -1056,9 +1056,10 @@ pub fn import_graph(
     result.schemas = create_schema(db)?;
     result.modules_imported = import_modules(db, project, graph)?;
     result.functions_imported = import_functions(db, project, graph)?;
+    // Import function_locations (clauses) BEFORE calls so caller_clause_id lookup works
+    result.function_locations_imported = import_function_locations(db, project, graph)?;
     result.calls_imported = import_calls(db, project, graph)?;
     result.structs_imported = import_structs(db, project, graph)?;
-    result.function_locations_imported = import_function_locations(db, project, graph)?;
     result.specs_imported = import_specs(db, project, graph)?;
     result.types_imported = import_types(db, project, graph)?;
 
@@ -1918,17 +1919,25 @@ mod tests_surrealdb {
         );
         assert_eq!(result.unwrap(), 1, "Should import 1 call relationship");
 
-        // Verify caller_clause_id is set (call at line 12 is within clause lines 10-15)
-        let query = "SELECT caller_clause_id FROM calls";
+        // Verify caller_clause_id is set by traversing to get start_line/end_line
+        // (call at line 12 is within clause lines 10-15)
+        // NOTE: Must use aliases otherwise SurrealDB collapses both fields into a single Object
+        let query =
+            "SELECT caller_clause_id.end_line as end_line, caller_clause_id.start_line as start_line FROM calls";
         let rows = db.execute_query(query, QueryParams::new()).unwrap();
         assert_eq!(rows.rows().len(), 1, "Should have 1 call");
 
-        // The caller_clause_id should be set to the clause record
         let row = rows.rows().first().unwrap();
-        let clause_id = row.get(0);
-        assert!(
-            clause_id.is_some(),
-            "caller_clause_id should be set for call within clause range"
+        // Columns in alphabetical order: end_line (0), start_line (1)
+        let end_line = row.get(0).and_then(|v| v.as_i64()).unwrap_or(0);
+        let start_line = row.get(1).and_then(|v| v.as_i64()).unwrap_or(0);
+        assert_eq!(
+            start_line, 10,
+            "start_line should be 10 from clause (caller_clause_id must be set)"
+        );
+        assert_eq!(
+            end_line, 15,
+            "end_line should be 15 from clause (caller_clause_id must be set)"
         );
     }
 

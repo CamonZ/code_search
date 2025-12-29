@@ -229,6 +229,7 @@ pub fn find_calls(
 
     // Query the calls edge table with proper WHERE filtering
     // Uses dot notation (in.field, out.field) for accessing connected record properties
+    // Uses caller_clause_id to get start_line/end_line from the specific clause
     let query = format!(
         r#"
         SELECT
@@ -236,13 +237,13 @@ pub fn find_calls(
             in.name as caller_name,
             in.module_name as caller_module,
             in.arity as caller_arity,
-            "" as caller_kind,
-            0 as caller_start_line,
-            0 as caller_end_line,
+            in.kind as caller_kind,
+            caller_clause_id.start_line as caller_start_line,
+            caller_clause_id.end_line as caller_end_line,
             out.module_name as callee_module,
             out.name as callee_function,
             out.arity as callee_arity,
-            "" as file,
+            in.file as file,
             line as callee_line,
             call_type
         FROM calls
@@ -289,19 +290,32 @@ pub fn find_calls(
                 continue;
             };
             let caller_arity = extract_i64(row.get(5).unwrap(), 0);
-            let _caller_end_line = extract_i64(row.get(6).unwrap(), 0);
-            let _caller_kind = extract_string_or(row.get(7).unwrap(), "");
+            let caller_end_line = extract_i64(row.get(6).unwrap(), 0);
+            let caller_kind = extract_string_or(row.get(7).unwrap(), "");
             let Some(caller_module) = extract_string(row.get(8).unwrap()) else {
                 continue;
             };
             let Some(caller_name) = extract_string(row.get(9).unwrap()) else {
                 continue;
             };
-            let _caller_start_line = extract_i64(row.get(10).unwrap(), 0);
-            let _file = extract_string_or(row.get(11).unwrap(), "");
+            let caller_start_line = extract_i64(row.get(10).unwrap(), 0);
+            let file = extract_string_or(row.get(11).unwrap(), "");
 
-            let caller =
-                FunctionRef::new(Rc::from(caller_module), Rc::from(caller_name), caller_arity);
+            // Build caller with definition info from caller_clause_id traversal
+            let caller = if caller_start_line > 0 && caller_end_line > 0 && !caller_kind.is_empty() {
+                FunctionRef::with_definition(
+                    Rc::from(caller_module),
+                    Rc::from(caller_name),
+                    caller_arity,
+                    Rc::from(caller_kind),
+                    Rc::from(file),
+                    caller_start_line,
+                    caller_end_line,
+                )
+            } else {
+                FunctionRef::new(Rc::from(caller_module), Rc::from(caller_name), caller_arity)
+            };
+
             let callee = FunctionRef::new(
                 Rc::from(callee_module),
                 Rc::from(callee_function),
