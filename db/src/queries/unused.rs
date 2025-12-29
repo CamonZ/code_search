@@ -181,28 +181,28 @@ pub fn find_unused_functions(
     };
 
     // Build kind filter for private_only/public_only
+    // Uses denormalized `kind` field on functions table for performance
     let kind_clause = if private_only {
-        r#"AND array::first(->has_clause->clauses.kind) IN ["defp", "defmacrop"]"#
+        r#"AND kind IN ["defp", "defmacrop"]"#
     } else if public_only {
-        r#"AND array::first(->has_clause->clauses.kind) IN ["def", "defmacro"]"#
+        r#"AND kind IN ["def", "defmacro"]"#
     } else {
         ""
     };
 
-    // Query functions that are NOT called (not in calls.out)
-    // Use ->has_clause-> to get kind/file/line from clauses
-    // array::first() for kind/file, math::min() for line (earliest clause)
+    // Query functions that are NOT called (incoming_call_count = 0)
+    // Uses denormalized fields for performance - no subqueries needed
     let query = format!(
         r#"
         SELECT
             module_name,
             name,
             arity,
-            array::first(->has_clause->clauses.kind) as kind,
-            array::first(->has_clause->clauses.source_file) as file,
-            math::min(->has_clause->clauses.start_line) as line
+            kind,
+            file,
+            start_line as line
         FROM functions
-        WHERE id NOT IN (SELECT VALUE out FROM calls)
+        WHERE incoming_call_count = 0
         {module_clause}
         {kind_clause}
         ORDER BY module_name, name, arity

@@ -162,16 +162,39 @@ fn insert_function(
     name: &str,
     arity: i64,
 ) -> Result<(), Box<dyn Error>> {
+    insert_function_full(db, module_name, name, arity, "", "", 0)
+}
+
+/// Insert a function node with kind, file, and start_line into the database.
+///
+/// Like `insert_function` but allows specifying denormalized fields for
+/// queries that need these values without traversing to clauses.
+#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+fn insert_function_full(
+    db: &dyn Database,
+    module_name: &str,
+    name: &str,
+    arity: i64,
+    kind: &str,
+    file: &str,
+    start_line: i64,
+) -> Result<(), Box<dyn Error>> {
     let query = r#"
         CREATE functions:[$module_name, $name, $arity] SET
             module_name = $module_name,
             name = $name,
-            arity = $arity;
+            arity = $arity,
+            kind = $kind,
+            file = $file,
+            start_line = $start_line;
     "#;
     let params = QueryParams::new()
         .with_str("module_name", module_name)
         .with_str("name", name)
-        .with_int("arity", arity);
+        .with_int("arity", arity)
+        .with_str("kind", kind)
+        .with_str("file", file)
+        .with_int("start_line", start_line);
     db.execute_query(query, params)?;
     Ok(())
 }
@@ -704,6 +727,10 @@ pub fn surreal_call_graph_db() -> Box<dyn Database> {
     )
     .expect("Failed to insert call: foo -> baz");
 
+    // Update call counts after all calls are inserted
+    crate::queries::import::update_call_counts(&*db)
+        .expect("Failed to update call counts");
+
     db
 }
 
@@ -754,87 +781,87 @@ pub fn surreal_call_graph_db_complex() -> Box<dyn Database> {
     insert_module(&*db, "MyApp.Metrics").expect("Failed to insert MyApp.Metrics");
 
     // Controller functions (public API)
-    insert_function(&*db, "MyApp.Controller", "index", 2)
+    insert_function_full(&*db, "MyApp.Controller", "index", 2, "def", "lib/my_app/controller.ex", 5)
         .expect("Failed to insert index/2");
-    insert_function(&*db, "MyApp.Controller", "show", 2)
+    insert_function_full(&*db, "MyApp.Controller", "show", 2, "def", "lib/my_app/controller.ex", 12)
         .expect("Failed to insert show/2");
-    insert_function(&*db, "MyApp.Controller", "create", 2)
+    insert_function_full(&*db, "MyApp.Controller", "create", 2, "def", "lib/my_app/controller.ex", 20)
         .expect("Failed to insert create/2");
 
     // Accounts functions (business logic)
-    insert_function(&*db, "MyApp.Accounts", "get_user", 1)
+    insert_function_full(&*db, "MyApp.Accounts", "get_user", 1, "def", "lib/my_app/accounts.ex", 10)
         .expect("Failed to insert get_user/1");
-    insert_function(&*db, "MyApp.Accounts", "get_user", 2)
+    insert_function_full(&*db, "MyApp.Accounts", "get_user", 2, "def", "lib/my_app/accounts.ex", 17)
         .expect("Failed to insert get_user/2");
-    insert_function(&*db, "MyApp.Accounts", "list_users", 0)
+    insert_function_full(&*db, "MyApp.Accounts", "list_users", 0, "def", "lib/my_app/accounts.ex", 24)
         .expect("Failed to insert list_users/0");
-    insert_function(&*db, "MyApp.Accounts", "validate_email", 1)
+    insert_function_full(&*db, "MyApp.Accounts", "validate_email", 1, "defp", "lib/my_app/accounts.ex", 30)
         .expect("Failed to insert validate_email/1");
 
     // Service functions
-    insert_function(&*db, "MyApp.Service", "process_request", 2)
+    insert_function_full(&*db, "MyApp.Service", "process_request", 2, "def", "lib/my_app/service.ex", 8)
         .expect("Failed to insert process_request/2");
-    insert_function(&*db, "MyApp.Service", "transform_data", 1)
+    insert_function_full(&*db, "MyApp.Service", "transform_data", 1, "defp", "lib/my_app/service.ex", 22)
         .expect("Failed to insert transform_data/1");
 
     // Repo functions (data access)
-    insert_function(&*db, "MyApp.Repo", "get", 2)
+    insert_function_full(&*db, "MyApp.Repo", "get", 2, "def", "lib/my_app/repo.ex", 10)
         .expect("Failed to insert get/2");
-    insert_function(&*db, "MyApp.Repo", "all", 1)
+    insert_function_full(&*db, "MyApp.Repo", "all", 1, "def", "lib/my_app/repo.ex", 15)
         .expect("Failed to insert all/1");
-    insert_function(&*db, "MyApp.Repo", "insert", 1)
+    insert_function_full(&*db, "MyApp.Repo", "insert", 1, "def", "lib/my_app/repo.ex", 20)
         .expect("Failed to insert insert/1");
-    insert_function(&*db, "MyApp.Repo", "query", 2)
+    insert_function_full(&*db, "MyApp.Repo", "query", 2, "def", "lib/my_app/repo.ex", 25)
         .expect("Failed to insert query/2");
 
     // Notifier functions
-    insert_function(&*db, "MyApp.Notifier", "send_email", 2)
+    insert_function_full(&*db, "MyApp.Notifier", "send_email", 2, "def", "lib/my_app/notifier.ex", 5)
         .expect("Failed to insert send_email/2");
-    insert_function(&*db, "MyApp.Notifier", "format_message", 1)
+    insert_function_full(&*db, "MyApp.Notifier", "format_message", 1, "def", "lib/my_app/notifier.ex", 10)
         .expect("Failed to insert format_message/1");
-    insert_function(&*db, "MyApp.Notifier", "on_cache_update", 1)
+    insert_function_full(&*db, "MyApp.Notifier", "on_cache_update", 1, "def", "lib/my_app/notifier.ex", 15)
         .expect("Failed to insert on_cache_update/1");
 
     // Controller - additional function for cycle B
-    insert_function(&*db, "MyApp.Controller", "handle_event", 1)
+    insert_function_full(&*db, "MyApp.Controller", "handle_event", 1, "def", "lib/my_app/controller.ex", 30)
         .expect("Failed to insert handle_event/1");
 
     // Accounts - additional function for cycle B
-    insert_function(&*db, "MyApp.Accounts", "notify_change", 1)
+    insert_function_full(&*db, "MyApp.Accounts", "notify_change", 1, "def", "lib/my_app/accounts.ex", 35)
         .expect("Failed to insert notify_change/1");
 
     // Service - additional function for cycle A
-    insert_function(&*db, "MyApp.Service", "get_context", 1)
+    insert_function_full(&*db, "MyApp.Service", "get_context", 1, "def", "lib/my_app/service.ex", 28)
         .expect("Failed to insert get_context/1");
 
     // Logger functions (for cycles A and C)
-    insert_function(&*db, "MyApp.Logger", "log_query", 2)
+    insert_function_full(&*db, "MyApp.Logger", "log_query", 2, "def", "lib/my_app/logger.ex", 5)
         .expect("Failed to insert log_query/2");
-    insert_function(&*db, "MyApp.Logger", "log_metric", 1)
+    insert_function_full(&*db, "MyApp.Logger", "log_metric", 1, "def", "lib/my_app/logger.ex", 10)
         .expect("Failed to insert log_metric/1");
-    insert_function(&*db, "MyApp.Logger", "debug", 1)
+    insert_function_full(&*db, "MyApp.Logger", "debug", 1, "defp", "lib/my_app/logger.ex", 18)
         .expect("Failed to insert debug/1");
 
     // Events functions (for cycles B and C)
-    insert_function(&*db, "MyApp.Events", "publish", 2)
+    insert_function_full(&*db, "MyApp.Events", "publish", 2, "def", "lib/my_app/events.ex", 5)
         .expect("Failed to insert publish/2");
-    insert_function(&*db, "MyApp.Events", "emit", 2)
+    insert_function_full(&*db, "MyApp.Events", "emit", 2, "def", "lib/my_app/events.ex", 10)
         .expect("Failed to insert emit/2");
-    insert_function(&*db, "MyApp.Events", "subscribe", 2)
+    insert_function_full(&*db, "MyApp.Events", "subscribe", 2, "def", "lib/my_app/events.ex", 18)
         .expect("Failed to insert subscribe/2");
 
     // Cache functions (for cycles B and C)
-    insert_function(&*db, "MyApp.Cache", "invalidate", 1)
+    insert_function_full(&*db, "MyApp.Cache", "invalidate", 1, "def", "lib/my_app/cache.ex", 5)
         .expect("Failed to insert invalidate/1");
-    insert_function(&*db, "MyApp.Cache", "store", 2)
+    insert_function_full(&*db, "MyApp.Cache", "store", 2, "def", "lib/my_app/cache.ex", 10)
         .expect("Failed to insert store/2");
-    insert_function(&*db, "MyApp.Cache", "fetch", 1)
+    insert_function_full(&*db, "MyApp.Cache", "fetch", 1, "def", "lib/my_app/cache.ex", 16)
         .expect("Failed to insert fetch/1");
 
     // Metrics functions (for cycle C)
-    insert_function(&*db, "MyApp.Metrics", "record", 2)
+    insert_function_full(&*db, "MyApp.Metrics", "record", 2, "def", "lib/my_app/metrics.ex", 5)
         .expect("Failed to insert record/2");
-    insert_function(&*db, "MyApp.Metrics", "increment", 1)
+    insert_function_full(&*db, "MyApp.Metrics", "increment", 1, "def", "lib/my_app/metrics.ex", 12)
         .expect("Failed to insert increment/1");
 
     // Create clauses with realistic line numbers and file paths
@@ -897,7 +924,7 @@ pub fn surreal_call_graph_db_complex() -> Box<dyn Database> {
         .expect("Failed to insert has_clause for Accounts.validate_email/1 at line 30");
 
     // Accounts.__struct__/0 - compiler-generated function (for testing exclude_generated)
-    insert_function(&*db, "MyApp.Accounts", "__struct__", 0)
+    insert_function_full(&*db, "MyApp.Accounts", "__struct__", 0, "def", "lib/my_app/accounts.ex", 1)
         .expect("Failed to insert __struct__/0");
     insert_clause(&*db, "MyApp.Accounts", "__struct__", 0, 1, "lib/my_app/accounts.ex", "def", 1, 1)
         .expect("Failed to insert clause for Accounts.__struct__/0");
@@ -1251,6 +1278,10 @@ pub fn surreal_call_graph_db_complex() -> Box<dyn Database> {
     )
     .expect("Failed to insert call: Cache.store -> Notifier.on_cache_update");
 
+    // Update call counts after all calls are inserted
+    crate::queries::import::update_call_counts(&*db)
+        .expect("Failed to update call counts");
+
     // ========== Duplicate Detection Test Data ==========
     // Add duplicate test data as per TICKET_19 requirements
 
@@ -1270,7 +1301,7 @@ pub fn surreal_call_graph_db_complex() -> Box<dyn Database> {
         None,
     )
     .expect("Failed to insert clause for Accounts.format_name/1");
-    insert_function(&*db, "MyApp.Accounts", "format_name", 1)
+    insert_function_full(&*db, "MyApp.Accounts", "format_name", 1, "def", "lib/my_app/accounts.ex", 50)
         .expect("Failed to insert format_name/1");
     insert_has_clause(&*db, "MyApp.Accounts", "format_name", 1, 50)
         .expect("Failed to insert has_clause for Accounts.format_name/1");
@@ -1290,7 +1321,7 @@ pub fn surreal_call_graph_db_complex() -> Box<dyn Database> {
         None,
     )
     .expect("Failed to insert clause for Controller.format_display/1");
-    insert_function(&*db, "MyApp.Controller", "format_display", 1)
+    insert_function_full(&*db, "MyApp.Controller", "format_display", 1, "def", "lib/my_app/controller.ex", 60)
         .expect("Failed to insert format_display/1");
     insert_has_clause(&*db, "MyApp.Controller", "format_display", 1, 60)
         .expect("Failed to insert has_clause for Controller.format_display/1");
@@ -1311,7 +1342,7 @@ pub fn surreal_call_graph_db_complex() -> Box<dyn Database> {
         None,
     )
     .expect("Failed to insert clause for Service.validate/1");
-    insert_function(&*db, "MyApp.Service", "validate", 1)
+    insert_function_full(&*db, "MyApp.Service", "validate", 1, "def", "lib/my_app/service.ex", 70)
         .expect("Failed to insert validate/1");
     insert_has_clause(&*db, "MyApp.Service", "validate", 1, 70)
         .expect("Failed to insert has_clause for Service.validate/1");
@@ -1331,7 +1362,7 @@ pub fn surreal_call_graph_db_complex() -> Box<dyn Database> {
         None,
     )
     .expect("Failed to insert clause for Repo.validate/1");
-    insert_function(&*db, "MyApp.Repo", "validate", 1)
+    insert_function_full(&*db, "MyApp.Repo", "validate", 1, "def", "lib/my_app/repo.ex", 80)
         .expect("Failed to insert validate/1");
     insert_has_clause(&*db, "MyApp.Repo", "validate", 1, 80)
         .expect("Failed to insert has_clause for Repo.validate/1");
@@ -1352,7 +1383,7 @@ pub fn surreal_call_graph_db_complex() -> Box<dyn Database> {
         Some("phoenix"),
     )
     .expect("Failed to insert clause for Accounts.__generated__/0");
-    insert_function(&*db, "MyApp.Accounts", "__generated__", 0)
+    insert_function_full(&*db, "MyApp.Accounts", "__generated__", 0, "def", "lib/my_app/accounts.ex", 90)
         .expect("Failed to insert __generated__/0");
     insert_has_clause(&*db, "MyApp.Accounts", "__generated__", 0, 90)
         .expect("Failed to insert has_clause for Accounts.__generated__/0");
@@ -1372,7 +1403,7 @@ pub fn surreal_call_graph_db_complex() -> Box<dyn Database> {
         Some("phoenix"),
     )
     .expect("Failed to insert clause for Controller.__generated__/0");
-    insert_function(&*db, "MyApp.Controller", "__generated__", 0)
+    insert_function_full(&*db, "MyApp.Controller", "__generated__", 0, "def", "lib/my_app/controller.ex", 100)
         .expect("Failed to insert __generated__/0");
     insert_has_clause(&*db, "MyApp.Controller", "__generated__", 0, 100)
         .expect("Failed to insert has_clause for Controller.__generated__/0");

@@ -337,12 +337,19 @@ fn import_functions_surrealdb(
                 CREATE functions:[$module_name, $name, $arity] SET
                     module_name = $module_name,
                     name = $name,
-                    arity = $arity;
+                    arity = $arity,
+                    kind = $kind,
+                    file = $file,
+                    start_line = $start_line;
             "#;
+            let file = location.file.as_deref().unwrap_or("");
             let params = QueryParams::new()
                 .with_str("module_name", module_name)
                 .with_str("name", &location.name)
-                .with_int("arity", location.arity as i64);
+                .with_int("arity", location.arity as i64)
+                .with_str("kind", &location.kind)
+                .with_str("file", file)
+                .with_int("start_line", location.start_line as i64);
             run_query(db, query, params)?;
             count += 1;
         }
@@ -460,6 +467,46 @@ fn import_calls_surrealdb(db: &dyn Database, graph: &CallGraph) -> Result<usize,
     }
 
     Ok(count)
+}
+
+/// Update call counts on functions table after importing calls.
+///
+/// This should be called after `import_calls` to populate the denormalized
+/// `incoming_call_count` and `outgoing_call_count` fields on functions.
+pub fn update_call_counts(db: &dyn Database) -> Result<(), Box<dyn Error>> {
+    #[cfg(feature = "backend-cozo")]
+    {
+        // CozoDB doesn't use denormalized counts
+        let _ = db;
+        Ok(())
+    }
+
+    #[cfg(feature = "backend-surrealdb")]
+    {
+        update_call_counts_surrealdb(db)
+    }
+}
+
+/// Update call counts for SurrealDB
+#[cfg(feature = "backend-surrealdb")]
+fn update_call_counts_surrealdb(db: &dyn Database) -> Result<(), Box<dyn Error>> {
+    // Update incoming_call_count (how many times this function is called)
+    let incoming_query = r#"
+        UPDATE functions SET incoming_call_count = (
+            SELECT count() FROM calls WHERE out = $parent.id GROUP ALL
+        )[0].count ?? 0
+    "#;
+    run_query(db, incoming_query, QueryParams::new())?;
+
+    // Update outgoing_call_count (how many calls this function makes)
+    let outgoing_query = r#"
+        UPDATE functions SET outgoing_call_count = (
+            SELECT count() FROM calls WHERE in = $parent.id GROUP ALL
+        )[0].count ?? 0
+    "#;
+    run_query(db, outgoing_query, QueryParams::new())?;
+
+    Ok(())
 }
 
 /// Parse a function reference that may be "name" or "name/arity" format
@@ -1022,6 +1069,9 @@ pub fn import_graph(
         create_has_clause_relationships_surrealdb(db, graph)?;
         create_has_field_relationships_surrealdb(db, graph)?;
     }
+
+    // Update denormalized call counts after all calls are imported
+    update_call_counts(db)?;
 
     Ok(result)
 }
@@ -1930,5 +1980,308 @@ mod tests_surrealdb {
             "Should import clauses"
         );
         assert!(import_result.specs_imported > 0, "Should import specs");
+    }
+
+    /// Test import_graph updates call counts after importing calls
+    #[test]
+    fn test_import_graph_updates_call_counts() {
+        let db = crate::open_mem_db().unwrap();
+
+        // Use a fixture with calls to verify update_call_counts is called during import
+        let json = r#"{
+            "specs": {
+                "MyApp.Accounts": [
+                    {"name": "get_user", "arity": 1, "line": 10, "kind": "spec", "clauses": [{"full": "@spec", "input_strings": [], "return_strings": []}]}
+                ],
+                "MyApp.Repo": [
+                    {"name": "get", "arity": 2, "line": 8, "kind": "callback", "clauses": [{"full": "@callback", "input_strings": [], "return_strings": []}]}
+                ]
+            },
+            "function_locations": {
+                "MyApp.Accounts": {
+                    "get_user/1:10": {"name": "get_user", "arity": 1, "source_file": "lib/accounts.ex", "kind": "def", "line": 10, "start_line": 10, "end_line": 15}
+                },
+                "MyApp.Repo": {
+                    "get/2:8": {"name": "get", "arity": 2, "source_file": "lib/repo.ex", "kind": "def", "line": 8, "start_line": 8, "end_line": 12}
+                }
+            },
+            "calls": [
+                {
+                    "type": "remote",
+                    "caller": {"module": "MyApp.Accounts", "function": "get_user/1", "kind": "def", "file": "lib/accounts.ex", "line": 12},
+                    "callee": {"module": "MyApp.Repo", "function": "get", "arity": 2}
+                }
+            ],
+            "structs": {},
+            "types": {}
+        }"#;
+
+        let graph: CallGraph = serde_json::from_str(json).unwrap();
+        let result = import_graph(&*db, "test_project", &graph);
+        assert!(result.is_ok(), "Import should succeed: {:?}", result.err());
+
+        // Verify call counts were updated during import
+        // Columns in alphabetical order: incoming_call_count (0), name (1), outgoing_call_count (2)
+        let query = "SELECT name, incoming_call_count, outgoing_call_count FROM functions ORDER BY name";
+        let rows = db.execute_query(query, QueryParams::new()).unwrap();
+        let counts: std::collections::HashMap<String, (i64, i64)> = rows
+            .rows()
+            .iter()
+            .filter_map(|row| {
+                let name = row.get(1).and_then(|v| v.as_str()).map(|s| s.to_string())?;
+                let incoming = row.get(0).and_then(|v| v.as_i64()).unwrap_or(0);
+                let outgoing = row.get(2).and_then(|v| v.as_i64()).unwrap_or(0);
+                Some((name, (incoming, outgoing)))
+            })
+            .collect();
+
+        // get_user calls Repo.get, so: incoming=0, outgoing=1
+        assert_eq!(
+            counts.get("get_user"),
+            Some(&(0, 1)),
+            "import_graph should update get_user's outgoing_call_count to 1"
+        );
+
+        // Repo.get is called by get_user, so: incoming=1, outgoing=0
+        assert_eq!(
+            counts.get("get"),
+            Some(&(1, 0)),
+            "import_graph should update Repo.get's incoming_call_count to 1"
+        );
+    }
+
+    /// Test update_call_counts sets incoming and outgoing call counts correctly
+    #[test]
+    fn test_update_call_counts_sets_incoming_counts() {
+        let db = crate::open_mem_db().unwrap();
+        crate::queries::schema::create_schema(&*db).unwrap();
+
+        // Create a call graph with:
+        // - MyApp.Accounts.get_user/1 calls MyApp.Repo.get/2
+        // - MyApp.Controller.index/2 calls MyApp.Accounts.list_users/0
+        // So:
+        // - get_user: outgoing=1, incoming=0
+        // - Repo.get: outgoing=0, incoming=1
+        // - index: outgoing=1, incoming=0
+        // - list_users: outgoing=0, incoming=1
+        let json = r#"{
+            "specs": {
+                "MyApp.Accounts": [
+                    {"name": "get_user", "arity": 1, "line": 10, "kind": "spec", "clauses": [{"full": "@spec", "input_strings": [], "return_strings": []}]},
+                    {"name": "list_users", "arity": 0, "line": 20, "kind": "spec", "clauses": [{"full": "@spec", "input_strings": [], "return_strings": []}]}
+                ],
+                "MyApp.Repo": [
+                    {"name": "get", "arity": 2, "line": 8, "kind": "callback", "clauses": [{"full": "@callback", "input_strings": [], "return_strings": []}]}
+                ],
+                "MyApp.Controller": [
+                    {"name": "index", "arity": 2, "line": 5, "kind": "spec", "clauses": [{"full": "@spec", "input_strings": [], "return_strings": []}]}
+                ]
+            },
+            "function_locations": {
+                "MyApp.Accounts": {
+                    "get_user/1:10": {"name": "get_user", "arity": 1, "source_file": "lib/accounts.ex", "kind": "def", "line": 10, "start_line": 10, "end_line": 15},
+                    "list_users/0:20": {"name": "list_users", "arity": 0, "source_file": "lib/accounts.ex", "kind": "def", "line": 20, "start_line": 20, "end_line": 25}
+                },
+                "MyApp.Repo": {
+                    "get/2:8": {"name": "get", "arity": 2, "source_file": "lib/repo.ex", "kind": "def", "line": 8, "start_line": 8, "end_line": 12}
+                },
+                "MyApp.Controller": {
+                    "index/2:5": {"name": "index", "arity": 2, "source_file": "lib/controller.ex", "kind": "def", "line": 5, "start_line": 5, "end_line": 10}
+                }
+            },
+            "calls": [
+                {
+                    "type": "remote",
+                    "caller": {"module": "MyApp.Accounts", "function": "get_user/1", "kind": "def", "file": "lib/accounts.ex", "line": 12},
+                    "callee": {"module": "MyApp.Repo", "function": "get", "arity": 2}
+                },
+                {
+                    "type": "remote",
+                    "caller": {"module": "MyApp.Controller", "function": "index/2", "kind": "def", "file": "lib/controller.ex", "line": 7},
+                    "callee": {"module": "MyApp.Accounts", "function": "list_users", "arity": 0}
+                }
+            ],
+            "structs": {},
+            "types": {}
+        }"#;
+
+        let graph: CallGraph = serde_json::from_str(json).unwrap();
+        import_modules_surrealdb(&*db, &graph).unwrap();
+        import_functions_surrealdb(&*db, &graph).unwrap();
+        import_function_locations_surrealdb(&*db, &graph).unwrap();
+        import_calls_surrealdb(&*db, &graph).unwrap();
+
+        // Before update_call_counts, all counts should be 0
+        // Note: SurrealDB returns columns in alphabetical order, so:
+        // incoming_call_count (0), name (1), outgoing_call_count (2)
+        let query = "SELECT name, incoming_call_count, outgoing_call_count FROM functions ORDER BY name";
+        let rows = db.execute_query(query, QueryParams::new()).unwrap();
+        for row in rows.rows() {
+            let incoming = row.get(0).and_then(|v| v.as_i64()).unwrap_or(-1);
+            let outgoing = row.get(2).and_then(|v| v.as_i64()).unwrap_or(-1);
+            assert_eq!(incoming, 0, "Before update, incoming_call_count should be 0");
+            assert_eq!(outgoing, 0, "Before update, outgoing_call_count should be 0");
+        }
+
+        // Run update_call_counts
+        let result = update_call_counts_surrealdb(&*db);
+        assert!(result.is_ok(), "update_call_counts should succeed: {:?}", result.err());
+
+        // Verify counts after update
+        let rows = db.execute_query(query, QueryParams::new()).unwrap();
+        // Columns in alphabetical order: incoming_call_count (0), name (1), outgoing_call_count (2)
+        let counts: std::collections::HashMap<String, (i64, i64)> = rows
+            .rows()
+            .iter()
+            .filter_map(|row| {
+                let name = row.get(1).and_then(|v| v.as_str()).map(|s| s.to_string())?;
+                let incoming = row.get(0).and_then(|v| v.as_i64()).unwrap_or(0);
+                let outgoing = row.get(2).and_then(|v| v.as_i64()).unwrap_or(0);
+                Some((name, (incoming, outgoing)))
+            })
+            .collect();
+
+        // get_user: calls Repo.get, not called by anyone in our graph
+        assert_eq!(counts.get("get_user"), Some(&(0, 1)), "get_user: incoming=0, outgoing=1");
+
+        // Repo.get: called by get_user, doesn't call anything
+        assert_eq!(counts.get("get"), Some(&(1, 0)), "get: incoming=1, outgoing=0");
+
+        // index: calls list_users, not called by anyone
+        assert_eq!(counts.get("index"), Some(&(0, 1)), "index: incoming=0, outgoing=1");
+
+        // list_users: called by index, doesn't call anything
+        assert_eq!(counts.get("list_users"), Some(&(1, 0)), "list_users: incoming=1, outgoing=0");
+    }
+
+    /// Test update_call_counts handles functions with multiple incoming/outgoing calls
+    #[test]
+    fn test_update_call_counts_multiple_calls() {
+        let db = crate::open_mem_db().unwrap();
+        crate::queries::schema::create_schema(&*db).unwrap();
+
+        // Create a call graph where Repo.get is called by multiple functions
+        // and get_user makes multiple calls
+        let json = r#"{
+            "specs": {
+                "MyApp.Accounts": [
+                    {"name": "get_user", "arity": 1, "line": 10, "kind": "spec", "clauses": [{"full": "@spec", "input_strings": [], "return_strings": []}]},
+                    {"name": "update_user", "arity": 2, "line": 30, "kind": "spec", "clauses": [{"full": "@spec", "input_strings": [], "return_strings": []}]}
+                ],
+                "MyApp.Repo": [
+                    {"name": "get", "arity": 2, "line": 8, "kind": "callback", "clauses": [{"full": "@callback", "input_strings": [], "return_strings": []}]},
+                    {"name": "update", "arity": 2, "line": 20, "kind": "callback", "clauses": [{"full": "@callback", "input_strings": [], "return_strings": []}]}
+                ]
+            },
+            "function_locations": {
+                "MyApp.Accounts": {
+                    "get_user/1:10": {"name": "get_user", "arity": 1, "source_file": "lib/accounts.ex", "kind": "def", "line": 10, "start_line": 10, "end_line": 15},
+                    "update_user/2:30": {"name": "update_user", "arity": 2, "source_file": "lib/accounts.ex", "kind": "def", "line": 30, "start_line": 30, "end_line": 40}
+                },
+                "MyApp.Repo": {
+                    "get/2:8": {"name": "get", "arity": 2, "source_file": "lib/repo.ex", "kind": "def", "line": 8, "start_line": 8, "end_line": 12},
+                    "update/2:20": {"name": "update", "arity": 2, "source_file": "lib/repo.ex", "kind": "def", "line": 20, "start_line": 20, "end_line": 25}
+                }
+            },
+            "calls": [
+                {
+                    "type": "remote",
+                    "caller": {"module": "MyApp.Accounts", "function": "get_user/1", "kind": "def", "file": "lib/accounts.ex", "line": 12},
+                    "callee": {"module": "MyApp.Repo", "function": "get", "arity": 2}
+                },
+                {
+                    "type": "remote",
+                    "caller": {"module": "MyApp.Accounts", "function": "update_user/2", "kind": "def", "file": "lib/accounts.ex", "line": 32},
+                    "callee": {"module": "MyApp.Repo", "function": "get", "arity": 2}
+                },
+                {
+                    "type": "remote",
+                    "caller": {"module": "MyApp.Accounts", "function": "update_user/2", "kind": "def", "file": "lib/accounts.ex", "line": 35},
+                    "callee": {"module": "MyApp.Repo", "function": "update", "arity": 2}
+                }
+            ],
+            "structs": {},
+            "types": {}
+        }"#;
+
+        let graph: CallGraph = serde_json::from_str(json).unwrap();
+        import_modules_surrealdb(&*db, &graph).unwrap();
+        import_functions_surrealdb(&*db, &graph).unwrap();
+        import_function_locations_surrealdb(&*db, &graph).unwrap();
+        import_calls_surrealdb(&*db, &graph).unwrap();
+
+        // Run update_call_counts
+        update_call_counts_surrealdb(&*db).unwrap();
+
+        // Query counts
+        // Columns in alphabetical order: incoming_call_count (0), name (1), outgoing_call_count (2)
+        let query = "SELECT name, incoming_call_count, outgoing_call_count FROM functions ORDER BY name";
+        let rows = db.execute_query(query, QueryParams::new()).unwrap();
+        let counts: std::collections::HashMap<String, (i64, i64)> = rows
+            .rows()
+            .iter()
+            .filter_map(|row| {
+                let name = row.get(1).and_then(|v| v.as_str()).map(|s| s.to_string())?;
+                let incoming = row.get(0).and_then(|v| v.as_i64()).unwrap_or(0);
+                let outgoing = row.get(2).and_then(|v| v.as_i64()).unwrap_or(0);
+                Some((name, (incoming, outgoing)))
+            })
+            .collect();
+
+        // Repo.get: called twice (by get_user and update_user)
+        assert_eq!(counts.get("get"), Some(&(2, 0)), "get: incoming=2, outgoing=0");
+
+        // Repo.update: called once (by update_user)
+        assert_eq!(counts.get("update"), Some(&(1, 0)), "update: incoming=1, outgoing=0");
+
+        // get_user: makes 1 call (to Repo.get)
+        assert_eq!(counts.get("get_user"), Some(&(0, 1)), "get_user: incoming=0, outgoing=1");
+
+        // update_user: makes 2 calls (to Repo.get and Repo.update)
+        assert_eq!(counts.get("update_user"), Some(&(0, 2)), "update_user: incoming=0, outgoing=2");
+    }
+
+    /// Test update_call_counts handles empty calls table (no calls)
+    #[test]
+    fn test_update_call_counts_no_calls() {
+        let db = crate::open_mem_db().unwrap();
+        crate::queries::schema::create_schema(&*db).unwrap();
+
+        // Create functions without any calls
+        let json = r#"{
+            "specs": {
+                "MyApp.Utils": [
+                    {"name": "helper", "arity": 0, "line": 5, "kind": "spec", "clauses": [{"full": "@spec", "input_strings": [], "return_strings": []}]}
+                ]
+            },
+            "function_locations": {
+                "MyApp.Utils": {
+                    "helper/0:5": {"name": "helper", "arity": 0, "source_file": "lib/utils.ex", "kind": "def", "line": 5, "start_line": 5, "end_line": 8}
+                }
+            },
+            "calls": [],
+            "structs": {},
+            "types": {}
+        }"#;
+
+        let graph: CallGraph = serde_json::from_str(json).unwrap();
+        import_modules_surrealdb(&*db, &graph).unwrap();
+        import_functions_surrealdb(&*db, &graph).unwrap();
+        import_function_locations_surrealdb(&*db, &graph).unwrap();
+
+        // Run update_call_counts - should not error even with no calls
+        let result = update_call_counts_surrealdb(&*db);
+        assert!(result.is_ok(), "update_call_counts should succeed with no calls: {:?}", result.err());
+
+        // Verify counts are 0
+        // Columns in alphabetical order: incoming_call_count (0), name (1), outgoing_call_count (2)
+        let query = "SELECT name, incoming_call_count, outgoing_call_count FROM functions";
+        let rows = db.execute_query(query, QueryParams::new()).unwrap();
+        let row = rows.rows().first().unwrap();
+        let incoming = row.get(0).and_then(|v| v.as_i64()).unwrap_or(-1);
+        let outgoing = row.get(2).and_then(|v| v.as_i64()).unwrap_or(-1);
+
+        assert_eq!(incoming, 0, "helper should have incoming_call_count=0");
+        assert_eq!(outgoing, 0, "helper should have outgoing_call_count=0");
     }
 }

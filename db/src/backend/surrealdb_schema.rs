@@ -21,14 +21,28 @@ DEFINE INDEX idx_modules_name ON modules FIELDS name UNIQUE;
 ///
 /// Represents function identities with signature (module_name, name, arity).
 /// Derived from function_locations - represents a unique function regardless of clause count.
+/// Includes denormalized fields for query performance:
+/// - `kind`, `file`, `start_line` from the first clause
+/// - `incoming_call_count`, `outgoing_call_count` computed after call import
 pub const SCHEMA_FUNCTION: &str = r#"
 DEFINE TABLE functions SCHEMAFULL;
 DEFINE FIELD module_name ON functions TYPE string;
 DEFINE FIELD name ON functions TYPE string;
 DEFINE FIELD arity ON functions TYPE int;
+DEFINE FIELD kind ON functions TYPE string DEFAULT "";
+DEFINE FIELD file ON functions TYPE string DEFAULT "";
+DEFINE FIELD start_line ON functions TYPE int DEFAULT 0;
+DEFINE FIELD incoming_call_count ON functions TYPE int DEFAULT 0;
+DEFINE FIELD outgoing_call_count ON functions TYPE int DEFAULT 0;
 DEFINE INDEX idx_functions_natural_key ON functions FIELDS module_name, name, arity UNIQUE;
 DEFINE INDEX idx_functions_module ON functions FIELDS module_name;
 DEFINE INDEX idx_functions_name ON functions FIELDS name;
+DEFINE INDEX idx_functions_kind ON functions FIELDS kind;
+DEFINE INDEX idx_functions_module_kind ON functions FIELDS module_name, kind;
+DEFINE INDEX idx_functions_incoming ON functions FIELDS incoming_call_count;
+DEFINE INDEX idx_functions_outgoing ON functions FIELDS outgoing_call_count;
+DEFINE INDEX idx_functions_module_incoming ON functions FIELDS module_name, incoming_call_count;
+DEFINE INDEX idx_functions_module_outgoing ON functions FIELDS module_name, outgoing_call_count;
 "#;
 
 /// Schema definition for the clauses node table.
