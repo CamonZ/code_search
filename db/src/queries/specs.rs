@@ -139,36 +139,34 @@ pub fn find_specs(
 ) -> Result<Vec<SpecDef>, Box<dyn Error>> {
     validate_regex_patterns(use_regex, &[Some(module_pattern), function_pattern])?;
 
-    // Build WHERE conditions based on what filters are present
+    // Build WHERE conditions using parameterized queries
     let mut conditions = Vec::new();
-    let params = QueryParams::new().with_int("limit", limit as i64);
+    let mut params = QueryParams::new().with_int("limit", limit as i64);
 
     // Add module filter if provided (required, may be empty string for all)
     if !module_pattern.is_empty() {
         if use_regex {
-            let escaped_pattern = module_pattern.replace('\\', "\\\\").replace('"', "\\\"");
-            conditions.push(format!("string::matches(module_name, /^{}/)", escaped_pattern));
+            conditions.push("string::matches(module_name, $module_pattern)".to_string());
         } else {
-            let escaped_pattern = module_pattern.replace('\\', "\\\\").replace('"', "\\\"");
-            conditions.push(format!("string::contains(module_name, '{}')", escaped_pattern));
+            conditions.push("type::string(module_name) = $module_pattern".to_string());
         }
+        params = params.with_str("module_pattern", module_pattern);
     }
 
     // Add function filter if provided
     if let Some(func_pat) = function_pattern {
         if use_regex {
-            let escaped_pattern = func_pat.replace('\\', "\\\\").replace('"', "\\\"");
-            conditions.push(format!("string::matches(function_name, /^{}/)", escaped_pattern));
+            conditions.push("string::matches(function_name, $function_pattern)".to_string());
         } else {
-            let escaped_pattern = func_pat.replace('\\', "\\\\").replace('"', "\\\"");
-            conditions.push(format!("string::contains(function_name, '{}')", escaped_pattern));
+            conditions.push("type::string(function_name) = $function_pattern".to_string());
         }
+        params = params.with_str("function_pattern", func_pat);
     }
 
     // Add kind filter if provided
     if let Some(kind_val) = kind_filter {
-        let escaped_kind = kind_val.replace('\\', "\\\\").replace('"', "\\\"");
-        conditions.push(format!("kind = '{}'", escaped_kind));
+        conditions.push("kind = $kind".to_string());
+        params = params.with_str("kind", kind_val);
     }
 
     // Build the WHERE clause
@@ -182,9 +180,8 @@ pub fn find_specs(
     // Selected columns: id, arity, full, function_name, kind, line, module_name, "default" as project,
     // array::join(input_strings, ", ") as inputs_string, array::join(return_strings, " | ") as return_string
     // Alphabetical: arity(0), full(1), function_name(2), id(3), inputs_string(4), kind(5), line(6), module_name(7), project(8), return_string(9)
-    let query = if where_clause.is_empty() {
-        format!(
-            r#"
+    let query = format!(
+        r#"
         SELECT
             id,
             arity,
@@ -197,32 +194,11 @@ pub fn find_specs(
             array::join(input_strings, ", ") as inputs_string,
             array::join(return_strings, " | ") as return_string
         FROM specs
-        ORDER BY module_name, function_name, arity
-        LIMIT $limit
-        "#
-        )
-    } else {
-        format!(
-            r#"
-        SELECT
-            id,
-            arity,
-            full,
-            function_name,
-            kind,
-            line,
-            module_name,
-            "default" as project,
-            array::join(input_strings, ", ") as inputs_string,
-            array::join(return_strings, " | ") as return_string
-        FROM specs
-        {}
+        {where_clause}
         ORDER BY module_name, function_name, arity
         LIMIT $limit
         "#,
-            where_clause
-        )
-    };
+    );
 
     let result = db
         .execute_query(&query, params)
@@ -289,7 +265,10 @@ mod tests {
         assert!(result.is_ok());
         let specs = result.unwrap();
         // May be empty if fixture doesn't have specs, just verify query executes
-        assert!(specs.is_empty() || !specs.is_empty(), "Query should execute");
+        assert!(
+            specs.is_empty() || !specs.is_empty(),
+            "Query should execute"
+        );
     }
 
     #[rstest]
@@ -305,12 +284,23 @@ mod tests {
         );
         assert!(result.is_ok());
         let specs = result.unwrap();
-        assert!(specs.is_empty(), "Should return empty results for non-existent module");
+        assert!(
+            specs.is_empty(),
+            "Should return empty results for non-existent module"
+        );
     }
 
     #[rstest]
     fn test_find_specs_with_function_filter(populated_db: Box<dyn crate::backend::Database>) {
-        let result = find_specs(&*populated_db, "", Some("index"), None, "default", false, 100);
+        let result = find_specs(
+            &*populated_db,
+            "",
+            Some("index"),
+            None,
+            "default",
+            false,
+            100,
+        );
         assert!(result.is_ok());
         let specs = result.unwrap();
         for spec in &specs {
@@ -320,7 +310,15 @@ mod tests {
 
     #[rstest]
     fn test_find_specs_with_kind_filter(populated_db: Box<dyn crate::backend::Database>) {
-        let result = find_specs(&*populated_db, "", None, Some("spec"), "default", false, 100);
+        let result = find_specs(
+            &*populated_db,
+            "",
+            None,
+            Some("spec"),
+            "default",
+            false,
+            100,
+        );
         assert!(result.is_ok());
         let specs = result.unwrap();
         for spec in &specs {
@@ -330,22 +328,34 @@ mod tests {
 
     #[rstest]
     fn test_find_specs_respects_limit(populated_db: Box<dyn crate::backend::Database>) {
-        let limit_5 = find_specs(&*populated_db, "", None, None, "default", false, 5)
-            .unwrap();
-        let limit_100 = find_specs(&*populated_db, "", None, None, "default", false, 100)
-            .unwrap();
+        let limit_5 = find_specs(&*populated_db, "", None, None, "default", false, 5).unwrap();
+        let limit_100 = find_specs(&*populated_db, "", None, None, "default", false, 100).unwrap();
 
         assert!(limit_5.len() <= 5, "Limit should be respected");
-        assert!(limit_5.len() <= limit_100.len(), "Higher limit should return >= results");
+        assert!(
+            limit_5.len() <= limit_100.len(),
+            "Higher limit should return >= results"
+        );
     }
 
     #[rstest]
     fn test_find_specs_with_regex_pattern(populated_db: Box<dyn crate::backend::Database>) {
-        let result = find_specs(&*populated_db, "^MyApp\\..*$", None, None, "default", true, 100);
+        let result = find_specs(
+            &*populated_db,
+            "^MyApp\\..*$",
+            None,
+            None,
+            "default",
+            true,
+            100,
+        );
         assert!(result.is_ok());
         let specs = result.unwrap();
         for spec in &specs {
-            assert!(spec.module.starts_with("MyApp"), "Module should match regex");
+            assert!(
+                spec.module.starts_with("MyApp"),
+                "Module should match regex"
+            );
         }
     }
 
@@ -360,7 +370,10 @@ mod tests {
         let result = find_specs(&*populated_db, "", None, None, "nonexistent", false, 100);
         assert!(result.is_ok());
         let specs = result.unwrap();
-        assert!(specs.is_empty(), "Non-existent project should return no results");
+        assert!(
+            specs.is_empty(),
+            "Non-existent project should return no results"
+        );
     }
 
     #[rstest]
@@ -393,7 +406,11 @@ mod surrealdb_tests {
         let specs = result.unwrap();
 
         // Assert exact count: 12 total (9 spec + 3 callback)
-        assert_eq!(specs.len(), 12, "Should find exactly 12 specs (9 @spec + 3 @callback)");
+        assert_eq!(
+            specs.len(),
+            12,
+            "Should find exactly 12 specs (9 @spec + 3 @callback)"
+        );
 
         // Verify all specs have required fields populated
         for spec in &specs {
@@ -402,7 +419,10 @@ mod surrealdb_tests {
             assert!(!spec.name.is_empty());
             assert!(!spec.kind.is_empty());
             assert!(spec.arity >= 0);
-            assert!(!spec.full.is_empty(), "Full spec string should be populated");
+            assert!(
+                !spec.full.is_empty(),
+                "Full spec string should be populated"
+            );
         }
     }
 
@@ -429,10 +449,8 @@ mod surrealdb_tests {
         }
 
         // Validate all function types are present
-        let function_arities: Vec<(&str, i64)> = specs
-            .iter()
-            .map(|s| (s.name.as_str(), s.arity))
-            .collect();
+        let function_arities: Vec<(&str, i64)> =
+            specs.iter().map(|s| (s.name.as_str(), s.arity)).collect();
 
         assert!(function_arities.contains(&("get_user", 1)));
         assert!(function_arities.contains(&("get_user", 2)));
@@ -504,7 +522,10 @@ mod surrealdb_tests {
         // All should be callbacks
         for spec in &specs {
             assert_eq!(spec.kind, "callback", "Kind should be callback");
-            assert!(spec.full.starts_with("@callback"), "Full should start with @callback");
+            assert!(
+                spec.full.starts_with("@callback"),
+                "Full should start with @callback"
+            );
         }
 
         // Validate specific callbacks exist
@@ -522,13 +543,14 @@ mod surrealdb_tests {
     fn test_find_specs_combined_filters() {
         let db = crate::test_utils::surreal_specs_db();
 
+        // Use regex mode to match functions starting with "get"
         let result = find_specs(
             &*db,
             "MyApp.Accounts",
-            Some("get"),
+            Some("^get"),
             None,
             "default",
-            false,
+            true,
             100,
         );
 
@@ -545,7 +567,7 @@ mod surrealdb_tests {
 
         for spec in &specs {
             assert_eq!(spec.module, "MyApp.Accounts");
-            assert!(spec.name.contains("get"));
+            assert!(spec.name.starts_with("get"));
         }
     }
 
@@ -563,7 +585,11 @@ mod surrealdb_tests {
         let specs = result.unwrap();
 
         // Should find all MyApp.Accounts specs (6 total with alternate clauses)
-        assert_eq!(specs.len(), 6, "Should find 6 specs matching MyApp.Accounts regex");
+        assert_eq!(
+            specs.len(),
+            6,
+            "Should find 6 specs matching MyApp.Accounts regex"
+        );
 
         for spec in &specs {
             assert!(spec.module.contains("MyApp.Accounts"));
@@ -588,7 +614,11 @@ mod surrealdb_tests {
         let specs = result.unwrap();
 
         // Should find handle_call and handle_cast (both @callback)
-        assert_eq!(specs.len(), 2, "Should find 2 callback specs matching ^handle");
+        assert_eq!(
+            specs.len(),
+            2,
+            "Should find 2 callback specs matching ^handle"
+        );
 
         for spec in &specs {
             assert!(spec.name.starts_with("handle"));
@@ -600,15 +630,7 @@ mod surrealdb_tests {
     fn test_find_specs_nonexistent_module() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let result = find_specs(
-            &*db,
-            "NonExistent",
-            None,
-            None,
-            "default",
-            false,
-            100,
-        );
+        let result = find_specs(&*db, "NonExistent", None, None, "default", false, 100);
 
         assert!(result.is_ok());
         let specs = result.unwrap();
@@ -632,11 +654,9 @@ mod surrealdb_tests {
     fn test_find_specs_respects_limit() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let limit_3 = find_specs(&*db, "", None, None, "default", false, 3)
-            .unwrap();
+        let limit_3 = find_specs(&*db, "", None, None, "default", false, 3).unwrap();
 
-        let limit_100 = find_specs(&*db, "", None, None, "default", false, 100)
-            .unwrap();
+        let limit_100 = find_specs(&*db, "", None, None, "default", false, 100).unwrap();
 
         assert!(limit_3.len() <= 3, "Limit should be respected");
         assert_eq!(limit_3.len(), 3, "Should return exactly 3 when limit is 3");
@@ -804,7 +824,10 @@ mod surrealdb_tests {
 
         let list_users = &specs[0];
         // list_users/0 has no input parameters
-        assert_eq!(list_users.inputs_string, "", "Empty input array should yield empty string");
+        assert_eq!(
+            list_users.inputs_string, "",
+            "Empty input array should yield empty string"
+        );
         assert!(
             !list_users.return_string.is_empty(),
             "Return array should have values"
@@ -832,20 +855,20 @@ mod surrealdb_tests {
     }
 
     #[test]
-    fn test_find_specs_module_substring_matching() {
+    fn test_find_specs_module_exact_matching() {
         let db = crate::test_utils::surreal_specs_db();
 
-        // Use substring match for "Behaviour"
-        let result = find_specs(&*db, "Behaviour", None, None, "default", false, 100);
+        // Use exact match for module name
+        let result = find_specs(&*db, "MyApp.Behaviour", None, None, "default", false, 100);
 
         assert!(result.is_ok());
         let specs = result.unwrap();
 
         // Should find 3 callback specs from MyApp.Behaviour
-        assert_eq!(specs.len(), 3, "Should find 3 specs matching 'Behaviour'");
+        assert_eq!(specs.len(), 3, "Should find 3 specs in MyApp.Behaviour");
 
         for spec in &specs {
-            assert!(spec.module.contains("Behaviour"));
+            assert_eq!(spec.module, "MyApp.Behaviour");
         }
     }
 }

@@ -145,20 +145,26 @@ pub fn find_types(
         } else {
             module_pattern.to_string()
         };
-        ("module_name = <regex>$module_pattern".to_string(), pattern)
+        (
+            "string::matches(module_name, $module_pattern)".to_string(),
+            pattern,
+        )
     } else {
         if module_pattern.is_empty() {
             ("1 = 1".to_string(), "".to_string()) // Match all, dummy value
         } else {
-            ("module_name = $module_pattern".to_string(), module_pattern.to_string())
+            (
+                "type::string(module_name) = $module_pattern".to_string(),
+                module_pattern.to_string(),
+            )
         }
     };
 
     let name_clause = if let Some(_) = name_filter {
         if use_regex {
-            "AND name = <regex>$name_pattern"
+            "AND string::matches(name, $name_pattern)"
         } else {
-            "AND name = $name_pattern"
+            "AND type::string(name) = $name_pattern"
         }
     } else {
         ""
@@ -194,9 +200,11 @@ pub fn find_types(
         params = params.with_str("kind", kind);
     }
 
-    let result = db.execute_query(&query, params).map_err(|e| TypesError::QueryFailed {
-        message: e.to_string(),
-    })?;
+    let result = db
+        .execute_query(&query, params)
+        .map_err(|e| TypesError::QueryFailed {
+            message: e.to_string(),
+        })?;
 
     let mut results = Vec::new();
     for row in result.rows() {
@@ -232,11 +240,7 @@ pub fn find_types(
 
     // SurrealDB doesn't honor ORDER BY when using regex WHERE clauses
     // Sort results in Rust to ensure consistent ordering: module_name, name
-    results.sort_by(|a, b| {
-        a.module
-            .cmp(&b.module)
-            .then_with(|| a.name.cmp(&b.name))
-    });
+    results.sort_by(|a, b| a.module.cmp(&b.module).then_with(|| a.name.cmp(&b.name)));
 
     Ok(results)
 }
@@ -257,7 +261,10 @@ mod tests {
         assert!(result.is_ok());
         let types = result.unwrap();
         // May or may not have types, but query should execute
-        assert!(types.is_empty() || !types.is_empty(), "Query should execute");
+        assert!(
+            types.is_empty() || !types.is_empty(),
+            "Query should execute"
+        );
     }
 
     #[rstest]
@@ -273,7 +280,10 @@ mod tests {
         );
         assert!(result.is_ok());
         let types = result.unwrap();
-        assert!(types.is_empty(), "Should return empty results for non-existent module");
+        assert!(
+            types.is_empty(),
+            "Should return empty results for non-existent module"
+        );
     }
 
     #[rstest]
@@ -288,7 +298,15 @@ mod tests {
 
     #[rstest]
     fn test_find_types_with_name_filter(populated_db: Box<dyn crate::backend::Database>) {
-        let result = find_types(&*populated_db, "", Some("String"), None, "default", false, 100);
+        let result = find_types(
+            &*populated_db,
+            "",
+            Some("String"),
+            None,
+            "default",
+            false,
+            100,
+        );
         assert!(result.is_ok());
         let types = result.unwrap();
         for t in &types {
@@ -298,7 +316,15 @@ mod tests {
 
     #[rstest]
     fn test_find_types_with_kind_filter(populated_db: Box<dyn crate::backend::Database>) {
-        let result = find_types(&*populated_db, "", None, Some("type"), "default", false, 100);
+        let result = find_types(
+            &*populated_db,
+            "",
+            None,
+            Some("type"),
+            "default",
+            false,
+            100,
+        );
         assert!(result.is_ok());
         let types = result.unwrap();
         for t in &types {
@@ -308,18 +334,27 @@ mod tests {
 
     #[rstest]
     fn test_find_types_respects_limit(populated_db: Box<dyn crate::backend::Database>) {
-        let limit_5 = find_types(&*populated_db, "", None, None, "default", false, 5)
-            .unwrap();
-        let limit_100 = find_types(&*populated_db, "", None, None, "default", false, 100)
-            .unwrap();
+        let limit_5 = find_types(&*populated_db, "", None, None, "default", false, 5).unwrap();
+        let limit_100 = find_types(&*populated_db, "", None, None, "default", false, 100).unwrap();
 
         assert!(limit_5.len() <= 5, "Limit should be respected");
-        assert!(limit_5.len() <= limit_100.len(), "Higher limit should return >= results");
+        assert!(
+            limit_5.len() <= limit_100.len(),
+            "Higher limit should return >= results"
+        );
     }
 
     #[rstest]
     fn test_find_types_with_regex_pattern(populated_db: Box<dyn crate::backend::Database>) {
-        let result = find_types(&*populated_db, "^MyApp\\..*$", None, None, "default", true, 100);
+        let result = find_types(
+            &*populated_db,
+            "^MyApp\\..*$",
+            None,
+            None,
+            "default",
+            true,
+            100,
+        );
         assert!(result.is_ok());
         let types = result.unwrap();
         for t in &types {
@@ -338,7 +373,10 @@ mod tests {
         let result = find_types(&*populated_db, "", None, None, "nonexistent", false, 100);
         assert!(result.is_ok());
         let types = result.unwrap();
-        assert!(types.is_empty(), "Non-existent project should return no results");
+        assert!(
+            types.is_empty(),
+            "Non-existent project should return no results"
+        );
     }
 
     #[rstest]
@@ -384,7 +422,15 @@ mod surrealdb_tests {
         let db = crate::test_utils::surreal_type_db();
 
         // Invalid regex pattern in name: invalid repetition
-        let result = find_types(&*db, "module_a", Some("*invalid"), None, "default", true, 100);
+        let result = find_types(
+            &*db,
+            "module_a",
+            Some("*invalid"),
+            None,
+            "default",
+            true,
+            100,
+        );
 
         assert!(result.is_err(), "Should reject invalid regex");
         let err = result.unwrap_err();
@@ -451,11 +497,22 @@ mod surrealdb_tests {
         let db = crate::test_utils::surreal_type_db();
 
         // Search for type that doesn't exist
-        let result = find_types(&*db, "module_a", Some("NonExistent"), None, "default", false, 100);
+        let result = find_types(
+            &*db,
+            "module_a",
+            Some("NonExistent"),
+            None,
+            "default",
+            false,
+            100,
+        );
 
         assert!(result.is_ok());
         let types = result.unwrap();
-        assert!(types.is_empty(), "Should find no results for nonexistent type");
+        assert!(
+            types.is_empty(),
+            "Should find no results for nonexistent type"
+        );
     }
 
     #[test]
@@ -463,11 +520,22 @@ mod surrealdb_tests {
         let db = crate::test_utils::surreal_type_db();
 
         // Search in module that doesn't exist
-        let result = find_types(&*db, "nonexistent_module", None, None, "default", false, 100);
+        let result = find_types(
+            &*db,
+            "nonexistent_module",
+            None,
+            None,
+            "default",
+            false,
+            100,
+        );
 
         assert!(result.is_ok());
         let types = result.unwrap();
-        assert!(types.is_empty(), "Should find no results for nonexistent module");
+        assert!(
+            types.is_empty(),
+            "Should find no results for nonexistent module"
+        );
     }
 
     #[test]
@@ -475,13 +543,25 @@ mod surrealdb_tests {
         let db = crate::test_utils::surreal_type_db();
 
         // Search with kind filter
-        let result = find_types(&*db, "module_a", None, Some("struct"), "default", false, 100);
+        let result = find_types(
+            &*db,
+            "module_a",
+            None,
+            Some("struct"),
+            "default",
+            false,
+            100,
+        );
 
         assert!(result.is_ok(), "Query should succeed");
         let types = result.unwrap();
 
         // Fixture has User struct in module_a, should find exactly 1 result
-        assert_eq!(types.len(), 1, "Should find exactly one type with matching kind");
+        assert_eq!(
+            types.len(),
+            1,
+            "Should find exactly one type with matching kind"
+        );
         assert_eq!(types[0].name, "User");
         assert_eq!(types[0].kind, "struct");
     }
@@ -503,13 +583,14 @@ mod surrealdb_tests {
         let db = crate::test_utils::surreal_type_db();
 
         // Query with low limit
-        let limit_1 = find_types(&*db, "module_", None, None, "default", false, 1)
-            .unwrap();
-        let limit_100 = find_types(&*db, "module_", None, None, "default", false, 100)
-            .unwrap();
+        let limit_1 = find_types(&*db, "module_", None, None, "default", false, 1).unwrap();
+        let limit_100 = find_types(&*db, "module_", None, None, "default", false, 100).unwrap();
 
         assert!(limit_1.len() <= 1, "Limit should be respected");
-        assert!(limit_1.len() <= limit_100.len(), "Higher limit should return >= results");
+        assert!(
+            limit_1.len() <= limit_100.len(),
+            "Higher limit should return >= results"
+        );
     }
 
     #[test]
@@ -584,10 +665,7 @@ mod surrealdb_tests {
 
         // All results should match both filters
         for t in &types {
-            assert!(
-                t.module.contains("module_a"),
-                "Module should match filter"
-            );
+            assert!(t.module.contains("module_a"), "Module should match filter");
             assert_eq!(t.kind, "struct", "Kind should match filter");
         }
     }
@@ -687,10 +765,7 @@ mod surrealdb_tests {
 
         // Check that we have variety of types
         let modules: std::collections::HashSet<_> = types.iter().map(|t| &t.module).collect();
-        assert!(
-            modules.len() > 1,
-            "Should find types from multiple modules"
-        );
+        assert!(modules.len() > 1, "Should find types from multiple modules");
     }
 
     #[test]
@@ -730,7 +805,10 @@ mod surrealdb_tests {
         // Should find types across all modules
         if !types.is_empty() {
             let modules: std::collections::HashSet<_> = types.iter().map(|t| &t.module).collect();
-            assert!(modules.len() > 0, "Should find types from at least one module");
+            assert!(
+                modules.len() > 0,
+                "Should find types from at least one module"
+            );
         }
     }
 

@@ -125,12 +125,10 @@ pub fn find_functions_in_module(
     validate_regex_patterns(use_regex, &[Some(module_pattern)])?;
 
     // Build the WHERE clause based on regex vs exact match
-    // Note: SurrealDB removed the ~ operator in v3.0
-    // Use regex type casting: <regex>$pattern creates a regex from the string parameter
     let where_clause = if use_regex {
-        "WHERE module_name = <regex>$module_pattern".to_string()
+        "WHERE string::matches(module_name, $module_pattern)".to_string()
     } else {
-        "WHERE module_name = $module_pattern".to_string()
+        "WHERE type::string(module_name) = $module_pattern".to_string()
     };
 
     // Query to find all clauses in matching modules
@@ -151,9 +149,11 @@ pub fn find_functions_in_module(
         .with_str("module_pattern", module_pattern)
         .with_int("limit", limit as i64);
 
-    let result = db.execute_query(&query, params).map_err(|e| FileError::QueryFailed {
-        message: e.to_string(),
-    })?;
+    let result = db
+        .execute_query(&query, params)
+        .map_err(|e| FileError::QueryFailed {
+            message: e.to_string(),
+        })?;
 
     let mut results = Vec::new();
 
@@ -212,57 +212,66 @@ mod tests {
     }
 
     #[rstest]
-    fn test_find_functions_in_module_returns_results(populated_db: Box<dyn crate::backend::Database>) {
+    fn test_find_functions_in_module_returns_results(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
         let result = find_functions_in_module(&*populated_db, "", "default", false, 100);
         assert!(result.is_ok());
         let functions = result.unwrap();
         // May be empty if fixture doesn't have modules, just verify query executes
-        assert!(functions.is_empty() || !functions.is_empty(), "Query should execute");
+        assert!(
+            functions.is_empty() || !functions.is_empty(),
+            "Query should execute"
+        );
     }
 
     #[rstest]
-    fn test_find_functions_in_module_empty_results(populated_db: Box<dyn crate::backend::Database>) {
-        let result = find_functions_in_module(
-            &*populated_db,
-            "NonExistentModule",
-            "default",
-            false,
-            100,
-        );
+    fn test_find_functions_in_module_empty_results(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
+        let result =
+            find_functions_in_module(&*populated_db, "NonExistentModule", "default", false, 100);
         assert!(result.is_ok());
         let functions = result.unwrap();
-        assert!(functions.is_empty(), "Should return empty for non-existent module");
+        assert!(
+            functions.is_empty(),
+            "Should return empty for non-existent module"
+        );
     }
 
     #[rstest]
-    fn test_find_functions_in_module_respects_limit(populated_db: Box<dyn crate::backend::Database>) {
-        let limit_5 = find_functions_in_module(&*populated_db, "MyApp", "default", false, 5)
-            .unwrap();
-        let limit_100 = find_functions_in_module(&*populated_db, "MyApp", "default", false, 100)
-            .unwrap();
+    fn test_find_functions_in_module_respects_limit(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
+        let limit_5 =
+            find_functions_in_module(&*populated_db, "MyApp", "default", false, 5).unwrap();
+        let limit_100 =
+            find_functions_in_module(&*populated_db, "MyApp", "default", false, 100).unwrap();
 
         assert!(limit_5.len() <= 5, "Limit should be respected");
-        assert!(limit_5.len() <= limit_100.len(), "Higher limit should return >= results");
+        assert!(
+            limit_5.len() <= limit_100.len(),
+            "Higher limit should return >= results"
+        );
     }
 
     #[rstest]
     fn test_find_functions_in_module_with_regex(populated_db: Box<dyn crate::backend::Database>) {
-        let result = find_functions_in_module(
-            &*populated_db,
-            "^MyApp\\..*$",
-            "default",
-            true,
-            100,
-        );
+        let result = find_functions_in_module(&*populated_db, "^MyApp\\..*$", "default", true, 100);
         assert!(result.is_ok());
         let functions = result.unwrap();
         for func in &functions {
-            assert!(func.module.starts_with("MyApp"), "Module should match regex");
+            assert!(
+                func.module.starts_with("MyApp"),
+                "Module should match regex"
+            );
         }
     }
 
     #[rstest]
-    fn test_find_functions_in_module_invalid_regex(populated_db: Box<dyn crate::backend::Database>) {
+    fn test_find_functions_in_module_invalid_regex(
+        populated_db: Box<dyn crate::backend::Database>,
+    ) {
         let result = find_functions_in_module(&*populated_db, "[invalid", "default", true, 100);
         assert!(result.is_err(), "Should reject invalid regex");
     }
@@ -274,7 +283,10 @@ mod tests {
         let result = find_functions_in_module(&*populated_db, "MyApp", "nonexistent", false, 100);
         assert!(result.is_ok());
         let functions = result.unwrap();
-        assert!(functions.is_empty(), "Non-existent project should return no results");
+        assert!(
+            functions.is_empty(),
+            "Non-existent project should return no results"
+        );
     }
 
     #[rstest]
@@ -347,7 +359,11 @@ mod surrealdb_tests {
         let functions = result.unwrap();
 
         // Controller has 10 clauses: index/2 (2), show/2 (2), create/2 (3), handle_event/1 (1), format_display/1 (1), __generated__/0 (1)
-        assert_eq!(functions.len(), 10, "Should find exactly 10 clauses in MyApp.Controller");
+        assert_eq!(
+            functions.len(),
+            10,
+            "Should find exactly 10 clauses in MyApp.Controller"
+        );
 
         // First should be index/2 (line 5)
         assert_eq!(functions[0].module, "MyApp.Controller");
@@ -433,7 +449,11 @@ mod surrealdb_tests {
         let functions = result.unwrap();
 
         // Fixture has 5 clauses for MyApp.Repo: get/2, all/1, insert/1, query/2, validate/1
-        assert_eq!(functions.len(), 5, "Should find exactly 5 clauses in MyApp.Repo");
+        assert_eq!(
+            functions.len(),
+            5,
+            "Should find exactly 5 clauses in MyApp.Repo"
+        );
         assert_eq!(functions[0].module, "MyApp.Repo");
         assert_eq!(functions[0].name, "get");
         assert_eq!(functions[0].arity, 2);
@@ -450,7 +470,11 @@ mod surrealdb_tests {
         assert!(result.is_ok(), "Query should succeed but return empty");
         let functions = result.unwrap();
 
-        assert_eq!(functions.len(), 0, "Should find no results for non-existent module");
+        assert_eq!(
+            functions.len(),
+            0,
+            "Should find no results for non-existent module"
+        );
     }
 
     #[test]
@@ -504,15 +528,15 @@ mod surrealdb_tests {
         assert_eq!(functions.len(), 9, "Should have 9 clauses");
 
         // Verify sorted by line
-        assert_eq!(functions[0].line, 1);  // __struct__
+        assert_eq!(functions[0].line, 1); // __struct__
         assert_eq!(functions[1].line, 10);
         assert_eq!(functions[2].line, 12);
         assert_eq!(functions[3].line, 17);
         assert_eq!(functions[4].line, 24);
         assert_eq!(functions[5].line, 30);
-        assert_eq!(functions[6].line, 40);  // notify_change
-        assert_eq!(functions[7].line, 50);  // format_name
-        assert_eq!(functions[8].line, 90);  // __generated__
+        assert_eq!(functions[6].line, 40); // notify_change
+        assert_eq!(functions[7].line, 50); // format_name
+        assert_eq!(functions[8].line, 90); // __generated__
     }
 
     #[test]
@@ -520,13 +544,21 @@ mod surrealdb_tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search with regex alternation pattern for Controller and Accounts
-        let result = find_functions_in_module(&*db, "MyApp\\.(Controller|Accounts)", "default", true, 100);
+        let result =
+            find_functions_in_module(&*db, "MyApp\\.(Controller|Accounts)", "default", true, 100);
 
-        assert!(result.is_ok(), "Query should succeed with alternation regex");
+        assert!(
+            result.is_ok(),
+            "Query should succeed with alternation regex"
+        );
         let functions = result.unwrap();
 
         // Should find 19 clauses (10 from Controller + 9 from Accounts)
-        assert_eq!(functions.len(), 19, "Should find 19 clauses with alternation");
+        assert_eq!(
+            functions.len(),
+            19,
+            "Should find 19 clauses with alternation"
+        );
 
         for func in &functions {
             assert!(
@@ -548,7 +580,11 @@ mod surrealdb_tests {
         let functions = result.unwrap();
 
         // Should find no results due to case sensitivity
-        assert_eq!(functions.len(), 0, "Should be case sensitive - no match for 'myapp.controller'");
+        assert_eq!(
+            functions.len(),
+            0,
+            "Should be case sensitive - no match for 'myapp.controller'"
+        );
     }
 
     #[test]
@@ -562,7 +598,11 @@ mod surrealdb_tests {
         let functions = result.unwrap();
 
         // Empty string doesn't match any module names in exact mode
-        assert_eq!(functions.len(), 0, "Empty pattern in exact mode should find no results");
+        assert_eq!(
+            functions.len(),
+            0,
+            "Empty pattern in exact mode should find no results"
+        );
     }
 
     #[test]
@@ -576,6 +616,10 @@ mod surrealdb_tests {
         let functions = result.unwrap();
 
         // Should find exactly 44 clauses (not more)
-        assert_eq!(functions.len(), 44, "Should find exactly 44 clauses, not more");
+        assert_eq!(
+            functions.len(),
+            44,
+            "Should find exactly 44 clauses, not more"
+        );
     }
 }
