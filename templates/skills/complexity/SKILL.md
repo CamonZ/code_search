@@ -32,7 +32,6 @@ code_search --format toon complexity [MODULE] [OPTIONS]
 | `--exclude-generated` | Exclude macro-generated functions | false |
 | `-r, --regex` | Treat patterns as regex | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |
 
 ## Examples
 

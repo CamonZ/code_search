@@ -105,7 +105,6 @@ impl Execute for HotspotsCmd {
             db,
             self.kind,
             self.module.as_deref(),
-            &self.common.project,
             self.common.regex,
             self.common.limit,
             self.exclude_generated,

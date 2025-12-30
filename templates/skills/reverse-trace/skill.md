@@ -52,4 +52,3 @@ Traces backward to find all controller actions or API endpoints that eventually 
 | `--depth <N>` | Maximum depth to traverse (1-20) | 5 |
 | `-r, --regex` | Treat patterns as regular expressions | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |

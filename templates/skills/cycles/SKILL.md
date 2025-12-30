@@ -31,7 +31,6 @@ code_search --format toon cycles [MODULE] [OPTIONS]
 | `--involving <MODULE>` | Only show cycles involving this module (substring match) | none |
 | `-r, --regex` | Treat patterns as regex | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |
 
 ## Examples
 

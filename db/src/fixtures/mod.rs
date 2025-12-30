@@ -17,7 +17,6 @@
 //! crate::execute_test_fixture! {
 //!     fixture_name: populated_db,
 //!     json: fixtures::CALL_GRAPH,
-//!     project: "test_project",
 //! }
 //! ```
 

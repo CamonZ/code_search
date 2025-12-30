@@ -34,7 +34,6 @@ pub fn reverse_trace_calls(
     module_pattern: &str,
     function_pattern: &str,
     arity: Option<i64>,
-    project: &str,
     use_regex: bool,
     max_depth: u32,
     limit: u32,
@@ -45,7 +44,6 @@ pub fn reverse_trace_calls(
         module_pattern,
         function_pattern,
         arity,
-        project,
         use_regex,
         max_depth,
         limit,
@@ -84,7 +82,7 @@ mod tests {
 
         // Complex fixture: Notifier.send_email/2 is called by Service.process_request/2 and Controller.create/2
         // Recursive trace will also find Controller.create as depth-2 caller (via Service.process_request)
-        let result = reverse_trace_calls(&*db, "MyApp.Notifier", "send_email", None, "default", false, 10, 100);
+        let result = reverse_trace_calls(&*db, "MyApp.Notifier", "send_email", None, false, 10, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let steps = result.unwrap();
@@ -127,7 +125,6 @@ mod tests {
             "NonExistent",
             "nonexistent",
             None,
-            "default",
             false,
             10,
             100,
@@ -152,7 +149,6 @@ mod tests {
             "MyApp.Accounts",
             "list_users",
             None,
-            "default",
             false,
             1,
             100,
@@ -173,7 +169,6 @@ mod tests {
             "MyApp.Accounts",
             "list_users",
             None,
-            "default",
             false,
             5,
             100,
@@ -197,7 +192,6 @@ mod tests {
             "MyApp.Accounts",
             "list_users",
             None,
-            "default",
             false,
             10,
             100,
@@ -220,7 +214,7 @@ mod tests {
     fn test_reverse_trace_calls_invalid_regex() {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        let result = reverse_trace_calls(&*db, "[invalid", "index", None, "default", true, 10, 100);
+        let result = reverse_trace_calls(&*db, "[invalid", "index", None, true, 10, 100);
 
         assert!(result.is_err(), "Should reject invalid regex pattern");
         let err = result.unwrap_err();
@@ -241,7 +235,6 @@ mod tests {
             "MyApp.Accounts",
             "list_users",
             Some(0),
-            "default",
             false,
             10,
             100,
@@ -257,7 +250,7 @@ mod tests {
         // Complex fixture: Notifier.send_email/2 calls Notifier.format_message/1
         // Reverse trace of format_message should find send_email as the only caller
         // But trace is recursive, so it will also find callers of send_email
-        let result = reverse_trace_calls(&*db, "MyApp.Notifier", "format_message", None, "default", false, 10, 100)
+        let result = reverse_trace_calls(&*db, "MyApp.Notifier", "format_message", None, false, 10, 100)
             .expect("Query should succeed");
 
         assert!(result.len() >= 1, "Should find at least 1 caller of format_message");
@@ -302,7 +295,6 @@ mod tests {
             "MyApp.Accounts",
             "list_users",
             None,
-            "default",
             false,
             10,
             100,
@@ -356,7 +348,6 @@ mod tests {
             "MyApp.Accounts",
             "all",
             None,
-            "default",
             false,
             10,
             1,
@@ -368,7 +359,6 @@ mod tests {
             "MyApp.Accounts",
             "all",
             None,
-            "default",
             false,
             10,
             10,
@@ -392,7 +382,6 @@ mod tests {
             "MyApp.Controller",
             "index",
             None,
-            "default",
             false,
             0,
             100,
@@ -423,7 +412,6 @@ mod tests {
             "MyApp.Repo",
             "query",
             Some(2), // arity 2
-            "default",
             false,
             10,   // high depth to get all callers
             1000, // high limit

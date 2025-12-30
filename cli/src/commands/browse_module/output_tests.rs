@@ -12,13 +12,13 @@ mod tests {
     // =========================================================================
 
     const EMPTY_TABLE: &str = "\
-Definitions in NonExistent (project: default)
+Definitions in NonExistent
 
 No definitions found.
 ";
 
     const FUNCTIONS_ONLY_TABLE: &str = "\
-Definitions in MyApp.Accounts (kind: functions, project: default)
+Definitions in MyApp.Accounts (kind: functions)
 
 Found 2 definition(s):
 
@@ -29,7 +29,7 @@ Found 2 definition(s):
 ";
 
     const MIXED_TYPES_TABLE: &str = "\
-Definitions in MyApp.Accounts (project: default)
+Definitions in MyApp.Accounts
 
 Found 3 definition(s):
 
@@ -43,7 +43,7 @@ Found 3 definition(s):
 ";
 
     const STRUCT_TABLE: &str = "\
-Definitions in MyApp.User (kind: structs, project: default)
+Definitions in MyApp.User (kind: structs)
 
 Found 1 definition(s):
 
@@ -63,7 +63,6 @@ Found 1 definition(s):
         BrowseModuleResult {
             search_term: "NonExistent".to_string(),
             kind_filter: None,
-            project: "default".to_string(),
             total_items: 0,
             definitions: vec![],
         }
@@ -74,7 +73,6 @@ Found 1 definition(s):
         BrowseModuleResult {
             search_term: "MyApp.Accounts".to_string(),
             kind_filter: Some(DefinitionKind::Functions),
-            project: "default".to_string(),
             total_items: 2,
             definitions: vec![
                 Definition::Function {
@@ -115,7 +113,6 @@ Found 1 definition(s):
         BrowseModuleResult {
             search_term: "MyApp.Accounts".to_string(),
             kind_filter: None,
-            project: "default".to_string(),
             total_items: 3,
             definitions: vec![
                 Definition::Type {
@@ -159,7 +156,6 @@ Found 1 definition(s):
         BrowseModuleResult {
             search_term: "MyApp.User".to_string(),
             kind_filter: Some(DefinitionKind::Structs),
-            project: "default".to_string(),
             total_items: 1,
             definitions: vec![Definition::Struct {
                 module: "MyApp.User".to_string(),

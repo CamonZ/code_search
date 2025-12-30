@@ -17,7 +17,6 @@ mod tests {
         variant: Hotspots,
         required_args: [],
         defaults: {
-            common.project: "default",
             common.regex: false,
             common.limit: 100,
             exclude_generated: false,
@@ -32,15 +31,6 @@ mod tests {
         args: ["MyApp"],
         field: module,
         expected: Some("MyApp".to_string()),
-    }
-
-    crate::cli_option_test! {
-        command: "hotspots",
-        variant: Hotspots,
-        test_name: test_with_project,
-        args: ["--project", "my_app"],
-        field: common.project,
-        expected: "my_app",
     }
 
     crate::cli_option_test! {

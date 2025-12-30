@@ -18,7 +18,6 @@ Examples:
   code_search setup --install-skills          # Create schema and install skill templates
   code_search setup --install-skills --force  # Overwrite existing skill files
   code_search setup --install-hooks           # Install git hooks for incremental updates
-  code_search setup --install-hooks --project-name my_app  # Configure project name
   code_search setup --install-skills --install-hooks      # Install both skills and hooks")]
 pub struct SetupCmd {
     /// Overwrite existing template and hook files (does not affect schema)
@@ -36,10 +35,6 @@ pub struct SetupCmd {
     /// Install git hooks for incremental database updates
     #[arg(long, default_value_t = false)]
     pub install_hooks: bool,
-
-    /// Project name to configure in git hooks (only used with --install-hooks)
-    #[arg(long)]
-    pub project_name: Option<String>,
 
     /// Mix environment to configure in git hooks (defaults to 'dev', only used with --install-hooks)
     #[arg(long)]

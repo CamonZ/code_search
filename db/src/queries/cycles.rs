@@ -24,7 +24,6 @@ pub struct CycleEdge {
 /// approach to detect cycles by finding modules that can reach themselves.
 pub fn find_cycle_edges(
     db: &dyn Database,
-    _project: &str,
     module_pattern: Option<&str>,
 ) -> Result<Vec<CycleEdge>, Box<dyn Error>> {
     // Step 1: Get all direct module-to-module dependencies
@@ -165,7 +164,7 @@ mod tests {
     #[test]
     fn test_find_cycle_edges_returns_exactly_17_edges() {
         let db = get_db();
-        let edges = find_cycle_edges(&*db, "default", None)
+        let edges = find_cycle_edges(&*db, None)
             .expect("Query should succeed");
 
         // The fixture has 17 unique module-level edges between modules that are in cycles
@@ -180,7 +179,7 @@ mod tests {
     #[test]
     fn test_find_cycle_edges_contains_all_expected_edges() {
         let db = get_db();
-        let edges = find_cycle_edges(&*db, "default", None)
+        let edges = find_cycle_edges(&*db, None)
             .expect("Query should succeed");
 
         // All 17 expected edges (sorted alphabetically)
@@ -217,7 +216,7 @@ mod tests {
     #[test]
     fn test_find_cycle_edges_contains_cycle_a_edges() {
         let db = get_db();
-        let edges = find_cycle_edges(&*db, "default", None)
+        let edges = find_cycle_edges(&*db, None)
             .expect("Query should succeed");
 
         // Cycle A: Service → Logger → Repo → Service
@@ -240,7 +239,7 @@ mod tests {
     #[test]
     fn test_find_cycle_edges_contains_cycle_b_edges() {
         let db = get_db();
-        let edges = find_cycle_edges(&*db, "default", None)
+        let edges = find_cycle_edges(&*db, None)
             .expect("Query should succeed");
 
         // Cycle B: Controller → Events → Cache → Accounts → Controller
@@ -264,7 +263,7 @@ mod tests {
     #[test]
     fn test_find_cycle_edges_contains_cycle_c_edges() {
         let db = get_db();
-        let edges = find_cycle_edges(&*db, "default", None)
+        let edges = find_cycle_edges(&*db, None)
             .expect("Query should succeed");
 
         // Cycle C: Notifier → Metrics → Logger → Events → Cache → Notifier
@@ -289,7 +288,7 @@ mod tests {
     #[test]
     fn test_find_cycle_edges_involves_exactly_9_modules() {
         let db = get_db();
-        let edges = find_cycle_edges(&*db, "default", None)
+        let edges = find_cycle_edges(&*db, None)
             .expect("Query should succeed");
 
         let mut modules = std::collections::HashSet::new();
@@ -332,7 +331,7 @@ mod tests {
     #[test]
     fn test_find_cycle_edges_are_sorted_alphabetically() {
         let db = get_db();
-        let edges = find_cycle_edges(&*db, "default", None)
+        let edges = find_cycle_edges(&*db, None)
             .expect("Query should succeed");
 
         // Verify sorted order: by from module, then by to module
@@ -358,7 +357,7 @@ mod tests {
     #[test]
     fn test_find_cycle_edges_has_no_duplicates() {
         let db = get_db();
-        let edges = find_cycle_edges(&*db, "default", None)
+        let edges = find_cycle_edges(&*db, None)
             .expect("Query should succeed");
 
         let mut seen = std::collections::HashSet::new();
@@ -375,7 +374,7 @@ mod tests {
     #[test]
     fn test_find_cycle_edges_has_no_self_loops() {
         let db = get_db();
-        let edges = find_cycle_edges(&*db, "default", None)
+        let edges = find_cycle_edges(&*db, None)
             .expect("Query should succeed");
 
         for edge in &edges {
@@ -392,7 +391,7 @@ mod tests {
     #[test]
     fn test_find_cycle_edges_filter_by_service_module() {
         let db = get_db();
-        let edges = find_cycle_edges(&*db, "default", Some("Service"))
+        let edges = find_cycle_edges(&*db, Some("Service"))
             .expect("Query should succeed");
 
         // Edges involving Service:
@@ -436,7 +435,7 @@ mod tests {
     #[test]
     fn test_find_cycle_edges_filter_by_cache_module() {
         let db = get_db();
-        let edges = find_cycle_edges(&*db, "default", Some("Cache"))
+        let edges = find_cycle_edges(&*db, Some("Cache"))
             .expect("Query should succeed");
 
         // Cache edges:
@@ -469,7 +468,7 @@ mod tests {
     #[test]
     fn test_find_cycle_edges_filter_nonexistent_returns_empty() {
         let db = get_db();
-        let edges = find_cycle_edges(&*db, "default", Some("NonExistentModule"))
+        let edges = find_cycle_edges(&*db, Some("NonExistentModule"))
             .expect("Query should succeed");
 
         assert!(
@@ -484,9 +483,9 @@ mod tests {
     #[test]
     fn test_find_cycle_edges_is_idempotent() {
         let db = get_db();
-        let result1 = find_cycle_edges(&*db, "default", None)
+        let result1 = find_cycle_edges(&*db, None)
             .expect("First query should succeed");
-        let result2 = find_cycle_edges(&*db, "default", None)
+        let result2 = find_cycle_edges(&*db, None)
             .expect("Second query should succeed");
 
         assert_eq!(result1.len(), result2.len(), "Query should be idempotent");

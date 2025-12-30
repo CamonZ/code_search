@@ -30,9 +30,9 @@ pub fn create_temp_json_file(content: &str) -> NamedTempFile {
 /// This is the standard setup for execute tests: create an in-memory DB,
 /// import test data, return the DB instance for command execution.
 #[cfg(any(test, feature = "test-utils"))]
-pub fn setup_test_db(json_content: &str, project: &str) -> Box<dyn Database> {
+pub fn setup_test_db(json_content: &str) -> Box<dyn Database> {
     let db = open_mem_db().expect("Failed to create in-memory DB");
-    import_json_str(&*db, json_content, project).expect("Import should succeed");
+    import_json_str(&*db, json_content).expect("Import should succeed");
     db
 }
 
@@ -56,24 +56,24 @@ use crate::fixtures;
 /// Use for: trace, reverse_trace, calls_from, calls_to, path, hotspots,
 /// unused, depends_on, depended_by
 #[cfg(any(test, feature = "test-utils"))]
-pub fn call_graph_db(project: &str) -> Box<dyn Database> {
-    setup_test_db(fixtures::CALL_GRAPH, project)
+pub fn call_graph_db() -> Box<dyn Database> {
+    setup_test_db(fixtures::CALL_GRAPH)
 }
 
 /// Create a test database with type signature data.
 ///
 /// Use for: search (functions kind), function
 #[cfg(any(test, feature = "test-utils"))]
-pub fn type_signatures_db(project: &str) -> Box<dyn Database> {
-    setup_test_db(fixtures::TYPE_SIGNATURES, project)
+pub fn type_signatures_db() -> Box<dyn Database> {
+    setup_test_db(fixtures::TYPE_SIGNATURES)
 }
 
 /// Create a test database with struct definitions.
 ///
 /// Use for: struct command
 #[cfg(any(test, feature = "test-utils"))]
-pub fn structs_db(project: &str) -> Box<dyn Database> {
-    setup_test_db(fixtures::STRUCTS, project)
+pub fn structs_db() -> Box<dyn Database> {
+    setup_test_db(fixtures::STRUCTS)
 }
 
 // =============================================================================

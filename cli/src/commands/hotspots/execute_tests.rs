@@ -11,7 +11,6 @@ mod tests {
     crate::shared_fixture! {
         fixture_name: populated_db,
         fixture_type: call_graph,
-        project: "test_project",
     }
 
     // =========================================================================
@@ -25,7 +24,6 @@ mod tests {
             kind: HotspotKind::Incoming,
             exclude_generated: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 20,
             },
@@ -43,7 +41,6 @@ mod tests {
             kind: HotspotKind::Outgoing,
             exclude_generated: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 20,
             },
@@ -61,7 +58,6 @@ mod tests {
             kind: HotspotKind::Total,
             exclude_generated: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 20,
             },
@@ -79,7 +75,6 @@ mod tests {
             kind: HotspotKind::Ratio,
             exclude_generated: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 20,
             },
@@ -103,7 +98,6 @@ mod tests {
             kind: HotspotKind::Incoming,
             exclude_generated: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 20,
             },
@@ -121,7 +115,6 @@ mod tests {
             kind: HotspotKind::Incoming,
             exclude_generated: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 2,
             },
@@ -138,7 +131,6 @@ mod tests {
             kind: HotspotKind::Incoming,
             exclude_generated: true,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 20,
             },

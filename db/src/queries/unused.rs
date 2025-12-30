@@ -44,7 +44,6 @@ const GENERATED_PATTERNS: &[&str] = &[
 pub fn find_unused_functions(
     db: &dyn Database,
     module_pattern: Option<&str>,
-    _project: &str,
     use_regex: bool,
     private_only: bool,
     public_only: bool,
@@ -190,7 +189,7 @@ mod tests {
     #[test]
     fn test_find_unused_functions_returns_exactly_16() {
         let db = get_db();
-        let unused = find_unused_functions(&*db, None, "default", false, false, false, false, 100)
+        let unused = find_unused_functions(&*db, None, false, false, false, false, 100)
             .expect("Query should succeed");
 
         // Exactly 16 unused functions in fixture (10 original + 6 for duplicates)
@@ -209,7 +208,7 @@ mod tests {
     #[test]
     fn test_find_unused_functions_contains_expected_functions() {
         let db = get_db();
-        let unused = find_unused_functions(&*db, None, "default", false, false, false, false, 100)
+        let unused = find_unused_functions(&*db, None, false, false, false, false, 100)
             .expect("Query should succeed");
 
         // Build a set of expected unused function signatures (16 total)
@@ -247,7 +246,7 @@ mod tests {
     #[test]
     fn test_find_unused_functions_first_result_is_accounts_generated() {
         let db = get_db();
-        let unused = find_unused_functions(&*db, None, "default", false, false, false, false, 100)
+        let unused = find_unused_functions(&*db, None, false, false, false, false, 100)
             .expect("Query should succeed");
 
         // Ordered by module, name, arity - first should be MyApp.Accounts.__generated__/0
@@ -265,7 +264,7 @@ mod tests {
     #[test]
     fn test_find_unused_functions_validate_email_details() {
         let db = get_db();
-        let unused = find_unused_functions(&*db, None, "default", false, false, false, false, 100)
+        let unused = find_unused_functions(&*db, None, false, false, false, false, 100)
             .expect("Query should succeed");
 
         let validate_email = unused.iter().find(|f| f.name == "validate_email");
@@ -283,7 +282,7 @@ mod tests {
     #[test]
     fn test_find_unused_functions_transform_data_details() {
         let db = get_db();
-        let unused = find_unused_functions(&*db, None, "default", false, false, false, false, 100)
+        let unused = find_unused_functions(&*db, None, false, false, false, false, 100)
             .expect("Query should succeed");
 
         let transform_data = unused.iter().find(|f| f.name == "transform_data");
@@ -301,7 +300,7 @@ mod tests {
     #[test]
     fn test_find_unused_functions_controller_index_details() {
         let db = get_db();
-        let unused = find_unused_functions(&*db, None, "default", false, false, false, false, 100)
+        let unused = find_unused_functions(&*db, None, false, false, false, false, 100)
             .expect("Query should succeed");
 
         let index = unused.iter().find(|f| f.name == "index");
@@ -321,7 +320,7 @@ mod tests {
     #[test]
     fn test_find_unused_functions_private_only_returns_exactly_3() {
         let db = get_db();
-        let unused = find_unused_functions(&*db, None, "default", false, true, false, false, 100)
+        let unused = find_unused_functions(&*db, None, false, true, false, false, 100)
             .expect("Query should succeed");
 
         // Exactly 3 unused private functions: validate_email/1, debug/1, transform_data/1
@@ -362,7 +361,7 @@ mod tests {
     #[test]
     fn test_find_unused_functions_public_only_returns_exactly_13() {
         let db = get_db();
-        let unused = find_unused_functions(&*db, None, "default", false, false, true, false, 100)
+        let unused = find_unused_functions(&*db, None, false, false, true, false, 100)
             .expect("Query should succeed");
 
         // Exactly 13 unused public functions (16 total - 3 private: validate_email, debug, transform_data)
@@ -391,7 +390,7 @@ mod tests {
     #[test]
     fn test_find_unused_functions_private_only_validate_email() {
         let db = get_db();
-        let unused = find_unused_functions(&*db, None, "default", false, true, false, false, 100)
+        let unused = find_unused_functions(&*db, None, false, true, false, false, 100)
             .expect("Query should succeed");
 
         let validate_email = unused.iter().find(|f| f.name == "validate_email");
@@ -408,7 +407,7 @@ mod tests {
     #[test]
     fn test_find_unused_functions_private_only_transform_data() {
         let db = get_db();
-        let unused = find_unused_functions(&*db, None, "default", false, true, false, false, 100)
+        let unused = find_unused_functions(&*db, None, false, true, false, false, 100)
             .expect("Query should succeed");
 
         let transform_data = unused.iter().find(|f| f.name == "transform_data");
@@ -425,9 +424,9 @@ mod tests {
     #[test]
     fn test_find_unused_functions_private_and_public_sum_to_total() {
         let db = get_db();
-        let private = find_unused_functions(&*db, None, "default", false, true, false, false, 100)
+        let private = find_unused_functions(&*db, None, false, true, false, false, 100)
             .expect("Query should succeed");
-        let public = find_unused_functions(&*db, None, "default", false, false, true, false, 100)
+        let public = find_unused_functions(&*db, None, false, false, true, false, 100)
             .expect("Query should succeed");
 
         // Private (3) + Public (13) = Total (16)
@@ -446,7 +445,7 @@ mod tests {
     fn test_find_unused_functions_exclude_generated_returns_exactly_13() {
         let db = get_db();
         let without_generated =
-            find_unused_functions(&*db, None, "default", false, false, false, true, 100)
+            find_unused_functions(&*db, None, false, false, false, true, 100)
                 .expect("Query should succeed");
 
         // 16 total unused - 3 generated (__struct__, __generated__ x2) = 13
@@ -466,10 +465,10 @@ mod tests {
     fn test_find_unused_functions_exclude_generated_removes_struct() {
         let db = get_db();
         let with_generated =
-            find_unused_functions(&*db, None, "default", false, false, false, false, 100)
+            find_unused_functions(&*db, None, false, false, false, false, 100)
                 .expect("Query should succeed");
         let without_generated =
-            find_unused_functions(&*db, None, "default", false, false, false, true, 100)
+            find_unused_functions(&*db, None, false, false, false, true, 100)
                 .expect("Query should succeed");
 
         // With generated should have __struct__ and __generated__, without should not
@@ -507,7 +506,7 @@ mod tests {
     fn test_find_unused_functions_exclude_generated_no_dunder_names() {
         let db = get_db();
         let without_generated =
-            find_unused_functions(&*db, None, "default", false, false, false, true, 100)
+            find_unused_functions(&*db, None, false, false, false, true, 100)
                 .expect("Query should succeed");
 
         for func in &without_generated {
@@ -527,7 +526,6 @@ mod tests {
         let unused = find_unused_functions(
             &*db,
             Some("MyApp.Controller"),
-            "default",
             false,
             false,
             false,
@@ -565,7 +563,6 @@ mod tests {
         let unused = find_unused_functions(
             &*db,
             Some("MyApp.Accounts"),
-            "default",
             false,
             false,
             false,
@@ -602,7 +599,6 @@ mod tests {
         let unused = find_unused_functions(
             &*db,
             Some("MyApp.Repo"),
-            "default",
             false,
             false,
             false,
@@ -628,7 +624,6 @@ mod tests {
         let unused = find_unused_functions(
             &*db,
             Some("MyApp.Service"),
-            "default",
             false,
             false,
             false,
@@ -657,7 +652,6 @@ mod tests {
         let unused = find_unused_functions(
             &*db,
             Some("MyApp.Notifier"),
-            "default",
             false,
             false,
             false,
@@ -681,7 +675,6 @@ mod tests {
         let unused = find_unused_functions(
             &*db,
             Some("NonExistentModule"),
-            "default",
             false,
             false,
             false,
@@ -702,7 +695,6 @@ mod tests {
         let unused = find_unused_functions(
             &*db,
             Some("^MyApp\\.Controller$"),
-            "default",
             true,
             false,
             false,
@@ -724,7 +716,6 @@ mod tests {
         let result = find_unused_functions(
             &*db,
             Some("[invalid"),
-            "default",
             true,
             false,
             false,
@@ -740,7 +731,7 @@ mod tests {
     #[test]
     fn test_find_unused_functions_limit_2_returns_2() {
         let db = get_db();
-        let unused = find_unused_functions(&*db, None, "default", false, false, false, false, 2)
+        let unused = find_unused_functions(&*db, None, false, false, false, false, 2)
             .expect("Query should succeed");
 
         assert_eq!(unused.len(), 2, "Limit 2 should return exactly 2 results");
@@ -749,7 +740,7 @@ mod tests {
     #[test]
     fn test_find_unused_functions_limit_5_returns_5() {
         let db = get_db();
-        let unused = find_unused_functions(&*db, None, "default", false, false, false, false, 5)
+        let unused = find_unused_functions(&*db, None, false, false, false, false, 5)
             .expect("Query should succeed");
 
         assert_eq!(unused.len(), 5, "Limit 5 should return exactly 5 results");
@@ -758,7 +749,7 @@ mod tests {
     #[test]
     fn test_find_unused_functions_limit_0_returns_empty() {
         let db = get_db();
-        let unused = find_unused_functions(&*db, None, "default", false, false, false, false, 0)
+        let unused = find_unused_functions(&*db, None, false, false, false, false, 0)
             .expect("Query should succeed");
 
         assert!(unused.is_empty(), "Limit 0 should return empty results");
@@ -767,7 +758,7 @@ mod tests {
     #[test]
     fn test_find_unused_functions_limit_100_returns_all_16() {
         let db = get_db();
-        let unused = find_unused_functions(&*db, None, "default", false, false, false, false, 100)
+        let unused = find_unused_functions(&*db, None, false, false, false, false, 100)
             .expect("Query should succeed");
 
         assert_eq!(
@@ -782,7 +773,7 @@ mod tests {
     #[test]
     fn test_find_unused_functions_ordered_by_module_name_arity() {
         let db = get_db();
-        let unused = find_unused_functions(&*db, None, "default", false, false, false, false, 100)
+        let unused = find_unused_functions(&*db, None, false, false, false, false, 100)
             .expect("Query should succeed");
 
         // Results should be ordered by module_name, then name, then arity
@@ -822,7 +813,7 @@ mod tests {
     #[test]
     fn test_find_unused_functions_private_and_exclude_generated() {
         let db = get_db();
-        let unused = find_unused_functions(&*db, None, "default", false, true, false, true, 100)
+        let unused = find_unused_functions(&*db, None, false, true, false, true, 100)
             .expect("Query should succeed");
 
         // Private (3) - none are generated = 3
@@ -841,7 +832,7 @@ mod tests {
     #[test]
     fn test_find_unused_functions_public_and_exclude_generated() {
         let db = get_db();
-        let unused = find_unused_functions(&*db, None, "default", false, false, true, true, 100)
+        let unused = find_unused_functions(&*db, None, false, false, true, true, 100)
             .expect("Query should succeed");
 
         // Public (13) - 3 generated (__struct__, __generated__ x2) = 10
@@ -872,7 +863,6 @@ mod tests {
         let unused = find_unused_functions(
             &*db,
             Some("MyApp.Controller"),
-            "default",
             false,
             true,
             false,
@@ -894,7 +884,6 @@ mod tests {
         let unused = find_unused_functions(
             &*db,
             Some("MyApp.Accounts"),
-            "default",
             false,
             false,
             false,
@@ -922,7 +911,6 @@ mod tests {
         let result_lower = find_unused_functions(
             &*db,
             Some("myapp.controller"),
-            "default",
             false,
             false,
             false,
@@ -940,7 +928,7 @@ mod tests {
     #[test]
     fn test_find_unused_functions_result_uniqueness() {
         let db = get_db();
-        let unused = find_unused_functions(&*db, None, "default", false, false, false, false, 100)
+        let unused = find_unused_functions(&*db, None, false, false, false, false, 100)
             .expect("Query should succeed");
 
         let mut seen = std::collections::HashSet::new();

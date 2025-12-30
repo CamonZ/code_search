@@ -9,7 +9,6 @@ mod tests {
     crate::shared_fixture! {
         fixture_name: populated_db,
         fixture_type: call_graph,
-        project: "test_project",
     }
 
     // =========================================================================
@@ -26,7 +25,6 @@ mod tests {
             exclude_generated: false,
             module: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -48,7 +46,6 @@ mod tests {
             exclude_generated: false,
             module: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -70,7 +67,6 @@ mod tests {
             exclude_generated: false,
             module: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -91,7 +87,6 @@ mod tests {
             exclude_generated: false,
             module: Some("MyApp.Accounts".to_string()),
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -115,7 +110,6 @@ mod tests {
             exclude_generated: false,
             module: Some("MyApp\\..*".to_string()),
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: true,
                 limit: 100,
             },
@@ -137,7 +131,6 @@ mod tests {
             exclude_generated: false,
             module: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 5,
             },

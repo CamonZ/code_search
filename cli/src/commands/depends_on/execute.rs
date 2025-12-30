@@ -71,7 +71,6 @@ impl Execute for DependsOnCmd {
         let calls = find_dependencies(
             db,
             &self.module,
-            &self.common.project,
             self.common.regex,
             self.common.limit,
         )?;

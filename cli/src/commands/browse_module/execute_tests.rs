@@ -14,13 +14,11 @@ mod tests {
     crate::shared_fixture! {
         fixture_name: call_graph_db,
         fixture_type: call_graph,
-        project: "test_project",
     }
 
     crate::shared_fixture! {
         fixture_name: structs_db,
         fixture_type: structs,
-        project: "test_project",
     }
 
     // =========================================================================
@@ -35,7 +33,6 @@ mod tests {
             kind: Some(DefinitionKind::Functions),
             name: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -59,7 +56,6 @@ mod tests {
             kind: Some(DefinitionKind::Functions),
             name: Some("get_user".to_string()),
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -87,7 +83,6 @@ mod tests {
             kind: Some(DefinitionKind::Specs),
             name: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -115,7 +110,6 @@ mod tests {
             kind: Some(DefinitionKind::Types),
             name: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -143,7 +137,6 @@ mod tests {
             kind: Some(DefinitionKind::Structs),
             name: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -172,7 +165,6 @@ mod tests {
             kind: None,  // No kind filter - get all
             name: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -204,7 +196,6 @@ mod tests {
             kind: Some(DefinitionKind::Functions),
             name: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: true,
                 limit: 100,
             },
@@ -230,7 +221,6 @@ mod tests {
             kind: Some(DefinitionKind::Functions),
             name: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: true,
                 limit: 100,
             },
@@ -270,7 +260,6 @@ mod tests {
             kind: Some(DefinitionKind::Functions),
             name: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: true,
                 limit: 5,
             },
@@ -295,7 +284,6 @@ mod tests {
             kind: None,
             name: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },

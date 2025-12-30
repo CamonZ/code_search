@@ -147,7 +147,6 @@ impl Execute for TraceCmd {
             &self.module,
             &self.function,
             self.arity,
-            &self.common.project,
             self.common.regex,
             self.depth,
             self.common.limit,

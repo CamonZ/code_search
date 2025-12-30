@@ -43,7 +43,6 @@ pub struct Hotspot {
 /// Get lines of code per module (sum of function line counts)
 pub fn get_module_loc(
     db: &dyn Database,
-    _project: &str,
     module_pattern: Option<&str>,
     use_regex: bool,
 ) -> Result<std::collections::HashMap<String, i64>, Box<dyn Error>> {
@@ -97,7 +96,6 @@ pub fn get_module_loc(
 /// Get function count per module
 pub fn get_function_counts(
     db: &dyn Database,
-    _project: &str,
     module_pattern: Option<&str>,
     use_regex: bool,
 ) -> Result<std::collections::HashMap<String, i64>, Box<dyn Error>> {
@@ -160,7 +158,6 @@ pub fn get_function_counts(
 /// avoiding the need to fetch all function hotspots.
 pub fn get_module_connectivity(
     db: &dyn Database,
-    _project: &str,
     module_pattern: Option<&str>,
     use_regex: bool,
 ) -> Result<std::collections::HashMap<String, (i64, i64)>, Box<dyn Error>> {
@@ -241,7 +238,6 @@ pub fn find_hotspots(
     db: &dyn Database,
     kind: HotspotKind,
     module_pattern: Option<&str>,
-    _project: &str,
     use_regex: bool,
     limit: u32,
     _exclude_generated: bool,
@@ -402,7 +398,7 @@ mod tests {
     #[test]
     fn test_get_function_counts_exact_module_count() {
         let db = get_db();
-        let counts = get_function_counts(&*db, "default", None, false)
+        let counts = get_function_counts(&*db, None, false)
             .expect("Query should succeed");
 
         // 9 modules: Controller, Accounts, Service, Repo, Notifier, Logger, Events, Cache, Metrics
@@ -412,7 +408,7 @@ mod tests {
     #[test]
     fn test_get_function_counts_exact_values_per_module() {
         let db = get_db();
-        let counts = get_function_counts(&*db, "default", None, false)
+        let counts = get_function_counts(&*db, None, false)
             .expect("Query should succeed");
 
         // Verify exact function counts per module from fixture
@@ -466,7 +462,7 @@ mod tests {
     #[test]
     fn test_get_function_counts_total_is_thirtyone() {
         let db = get_db();
-        let counts = get_function_counts(&*db, "default", None, false)
+        let counts = get_function_counts(&*db, None, false)
             .expect("Query should succeed");
 
         let total: i64 = counts.values().sum();
@@ -476,7 +472,7 @@ mod tests {
     #[test]
     fn test_get_function_counts_controller_pattern() {
         let db = get_db();
-        let counts = get_function_counts(&*db, "default", Some("MyApp.Controller"), false)
+        let counts = get_function_counts(&*db, Some("MyApp.Controller"), false)
             .expect("Query should succeed");
 
         assert_eq!(counts.len(), 1, "Should match exactly 1 module");
@@ -490,7 +486,7 @@ mod tests {
     #[test]
     fn test_get_function_counts_regex_pattern() {
         let db = get_db();
-        let counts = get_function_counts(&*db, "default", Some("^MyApp\\.Accounts$"), true)
+        let counts = get_function_counts(&*db, Some("^MyApp\\.Accounts$"), true)
             .expect("Query should succeed");
 
         assert_eq!(counts.len(), 1, "Should match exactly 1 module");
@@ -504,7 +500,7 @@ mod tests {
     #[test]
     fn test_get_function_counts_nonexistent_module() {
         let db = get_db();
-        let counts = get_function_counts(&*db, "default", Some("NonExistent"), false)
+        let counts = get_function_counts(&*db, Some("NonExistent"), false)
             .expect("Query should succeed");
 
         assert!(counts.is_empty(), "Should return empty for non-existent module");
@@ -513,7 +509,7 @@ mod tests {
     #[test]
     fn test_get_function_counts_invalid_regex() {
         let db = get_db();
-        let result = get_function_counts(&*db, "default", Some("[invalid"), true);
+        let result = get_function_counts(&*db, Some("[invalid"), true);
 
         assert!(result.is_err(), "Should reject invalid regex pattern");
         let err = result.unwrap_err();
@@ -532,7 +528,7 @@ mod tests {
     #[test]
     fn test_get_module_loc_returns_module_count() {
         let db = get_db();
-        let loc_map = get_module_loc(&*db, "default", None, false)
+        let loc_map = get_module_loc(&*db, None, false)
             .expect("Query should succeed");
 
         // 9 modules should have LOC data
@@ -542,7 +538,7 @@ mod tests {
     #[test]
     fn test_get_module_loc_exact_values() {
         let db = get_db();
-        let loc_map = get_module_loc(&*db, "default", None, false)
+        let loc_map = get_module_loc(&*db, None, false)
             .expect("Query should succeed");
 
         // Each clause has LOC=1, so module LOC = number of clauses
@@ -561,7 +557,7 @@ mod tests {
     #[test]
     fn test_get_module_loc_with_pattern() {
         let db = get_db();
-        let loc_map = get_module_loc(&*db, "default", Some("MyApp.Accounts"), false)
+        let loc_map = get_module_loc(&*db, Some("MyApp.Accounts"), false)
             .expect("Query should succeed");
 
         assert_eq!(loc_map.len(), 1, "Should match exactly 1 module");
@@ -571,7 +567,7 @@ mod tests {
     #[test]
     fn test_get_module_loc_invalid_regex() {
         let db = get_db();
-        let result = get_module_loc(&*db, "default", Some("[invalid"), true);
+        let result = get_module_loc(&*db, Some("[invalid"), true);
 
         assert!(result.is_err(), "Should reject invalid regex pattern");
     }
@@ -582,7 +578,7 @@ mod tests {
     #[test]
     fn test_get_module_connectivity_exact_module_count() {
         let db = get_db();
-        let connectivity = get_module_connectivity(&*db, "default", None, false)
+        let connectivity = get_module_connectivity(&*db, None, false)
             .expect("Query should succeed");
 
         // 9 modules: Controller, Accounts, Service, Repo, Notifier, Logger, Events, Cache, Metrics
@@ -592,7 +588,7 @@ mod tests {
     #[test]
     fn test_get_module_connectivity_controller_values() {
         let db = get_db();
-        let connectivity = get_module_connectivity(&*db, "default", None, false)
+        let connectivity = get_module_connectivity(&*db, None, false)
             .expect("Query should succeed");
 
         // Controller: 1 incoming unique module (Accounts)
@@ -613,7 +609,7 @@ mod tests {
     #[test]
     fn test_get_module_connectivity_accounts_values() {
         let db = get_db();
-        let connectivity = get_module_connectivity(&*db, "default", None, false)
+        let connectivity = get_module_connectivity(&*db, None, false)
             .expect("Query should succeed");
 
         // Accounts: 4 unique incoming modules (Controller, Service, Cache, self)
@@ -634,7 +630,7 @@ mod tests {
     #[test]
     fn test_get_module_connectivity_service_values() {
         let db = get_db();
-        let connectivity = get_module_connectivity(&*db, "default", None, false)
+        let connectivity = get_module_connectivity(&*db, None, false)
             .expect("Query should succeed");
 
         // Service: called by Controller, Repo (insert->get_context)
@@ -652,7 +648,7 @@ mod tests {
     #[test]
     fn test_get_module_connectivity_repo_values() {
         let db = get_db();
-        let connectivity = get_module_connectivity(&*db, "default", None, false)
+        let connectivity = get_module_connectivity(&*db, None, false)
             .expect("Query should succeed");
 
         // Repo: 3 unique incoming modules (Accounts, Logger, self)
@@ -670,7 +666,7 @@ mod tests {
     #[test]
     fn test_get_module_connectivity_notifier_values() {
         let db = get_db();
-        let connectivity = get_module_connectivity(&*db, "default", None, false)
+        let connectivity = get_module_connectivity(&*db, None, false)
             .expect("Query should succeed");
 
         // Notifier: called by Service, Controller, Notifier (self), Cache (store->on_cache_update)
@@ -692,7 +688,7 @@ mod tests {
     fn test_get_module_connectivity_with_pattern() {
         let db = get_db();
         let connectivity =
-            get_module_connectivity(&*db, "default", Some("MyApp.Controller"), false)
+            get_module_connectivity(&*db, Some("MyApp.Controller"), false)
                 .expect("Query should succeed");
 
         assert_eq!(connectivity.len(), 1, "Should match exactly 1 module");
@@ -707,7 +703,7 @@ mod tests {
     fn test_get_module_connectivity_nonexistent_module() {
         let db = get_db();
         let connectivity =
-            get_module_connectivity(&*db, "default", Some("NonExistent"), false)
+            get_module_connectivity(&*db, Some("NonExistent"), false)
                 .expect("Query should succeed");
 
         assert!(
@@ -719,7 +715,7 @@ mod tests {
     #[test]
     fn test_get_module_connectivity_invalid_regex() {
         let db = get_db();
-        let result = get_module_connectivity(&*db, "default", Some("[invalid"), true);
+        let result = get_module_connectivity(&*db, Some("[invalid"), true);
 
         assert!(result.is_err(), "Should reject invalid regex pattern");
     }
@@ -729,9 +725,9 @@ mod tests {
     #[test]
     fn test_function_counts_matches_connectivity_modules() {
         let db = get_db();
-        let counts = get_function_counts(&*db, "default", None, false)
+        let counts = get_function_counts(&*db, None, false)
             .expect("Function counts query should succeed");
-        let connectivity = get_module_connectivity(&*db, "default", None, false)
+        let connectivity = get_module_connectivity(&*db, None, false)
             .expect("Connectivity query should succeed");
 
         // Both queries should return the same set of modules
@@ -753,9 +749,9 @@ mod tests {
     #[test]
     fn test_all_modules_present_in_both_queries() {
         let db = get_db();
-        let counts = get_function_counts(&*db, "default", None, false)
+        let counts = get_function_counts(&*db, None, false)
             .expect("Query should succeed");
-        let connectivity = get_module_connectivity(&*db, "default", None, false)
+        let connectivity = get_module_connectivity(&*db, None, false)
             .expect("Query should succeed");
 
         let expected_modules = [
@@ -793,7 +789,6 @@ mod tests {
             &*db,
             HotspotKind::Incoming,
             None,
-            "default",
             false,
             100,
             false,
@@ -810,7 +805,6 @@ mod tests {
             &*db,
             HotspotKind::Total,
             None,
-            "default",
             false,
             100,
             false,
@@ -851,7 +845,6 @@ mod tests {
             &*db,
             HotspotKind::Incoming,
             None,
-            "default",
             false,
             100,
             false,
@@ -880,7 +873,6 @@ mod tests {
             &*db,
             HotspotKind::Incoming,
             None,
-            "default",
             false,
             100,
             false,
@@ -903,7 +895,6 @@ mod tests {
             &*db,
             HotspotKind::Outgoing,
             None,
-            "default",
             false,
             100,
             false,
@@ -926,7 +917,6 @@ mod tests {
             &*db,
             HotspotKind::Total,
             None,
-            "default",
             false,
             100,
             false,
@@ -949,7 +939,6 @@ mod tests {
             &*db,
             HotspotKind::Ratio,
             None,
-            "default",
             false,
             100,
             false,
@@ -974,7 +963,6 @@ mod tests {
             &*db,
             HotspotKind::Incoming,
             None,
-            "default",
             false,
             5,
             false,
@@ -985,7 +973,6 @@ mod tests {
             &*db,
             HotspotKind::Incoming,
             None,
-            "default",
             false,
             100,
             false,
@@ -1003,7 +990,6 @@ mod tests {
             &*db,
             HotspotKind::Incoming,
             Some("MyApp.Controller"),
-            "default",
             false,
             100,
             false,
@@ -1027,7 +1013,6 @@ mod tests {
             &*db,
             HotspotKind::Incoming,
             Some("^MyApp\\.Accounts$"),
-            "default",
             true, // use_regex = true
             100,
             false,
@@ -1051,7 +1036,6 @@ mod tests {
             &*db,
             HotspotKind::Incoming,
             Some("[invalid"),
-            "default",
             true, // use_regex = true
             100,
             false,
@@ -1068,7 +1052,6 @@ mod tests {
             &*db,
             HotspotKind::Incoming,
             None,
-            "default",
             false,
             100,
             false,
@@ -1079,7 +1062,6 @@ mod tests {
             &*db,
             HotspotKind::Incoming,
             None,
-            "default",
             false,
             100,
             false,
@@ -1107,7 +1089,6 @@ mod tests {
             &*db,
             HotspotKind::Incoming,
             Some("NonExistentModule"),
-            "default",
             false,
             100,
             false,
@@ -1124,7 +1105,6 @@ mod tests {
             &*db,
             HotspotKind::Ratio,
             None,
-            "default",
             false,
             100,
             false,

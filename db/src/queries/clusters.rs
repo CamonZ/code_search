@@ -18,7 +18,7 @@ pub struct ModuleCall {
 ///
 /// Returns calls where caller_module != callee_module.
 /// These are used to compute internal vs external connectivity per namespace cluster.
-pub fn get_module_calls(db: &dyn Database, _project: &str) -> Result<Vec<ModuleCall>, Box<dyn Error>> {
+pub fn get_module_calls(db: &dyn Database) -> Result<Vec<ModuleCall>, Box<dyn Error>> {
     // Query calls relation, traversing to access caller and callee module names
     // calls is a RELATION FROM functions TO functions
     // in = caller function (has module_name)
@@ -69,7 +69,7 @@ mod tests {
     #[test]
     fn test_get_module_calls_returns_results() {
         let db = get_db();
-        let result = get_module_calls(&*db, "default");
+        let result = get_module_calls(&*db);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let calls = result.unwrap();
@@ -79,7 +79,7 @@ mod tests {
     #[test]
     fn test_get_module_calls_returns_exact_count() {
         let db = get_db();
-        let calls = get_module_calls(&*db, "default").expect("Query should succeed");
+        let calls = get_module_calls(&*db).expect("Query should succeed");
 
         // The complex fixture has 20 inter-module calls:
         // Original (8):
@@ -98,7 +98,7 @@ mod tests {
     #[test]
     fn test_get_module_calls_excludes_self_calls() {
         let db = get_db();
-        let calls = get_module_calls(&*db, "default").expect("Query should succeed");
+        let calls = get_module_calls(&*db).expect("Query should succeed");
 
         // Verify no self-calls are present
         for call in &calls {
@@ -114,7 +114,7 @@ mod tests {
     #[test]
     fn test_get_module_calls_returns_valid_modules() {
         let db = get_db();
-        let calls = get_module_calls(&*db, "default").expect("Query should succeed");
+        let calls = get_module_calls(&*db).expect("Query should succeed");
 
         assert!(!calls.is_empty(), "Should have results");
 
@@ -133,7 +133,7 @@ mod tests {
     #[test]
     fn test_get_module_calls_all_modules_present() {
         let db = get_db();
-        let calls = get_module_calls(&*db, "default").expect("Query should succeed");
+        let calls = get_module_calls(&*db).expect("Query should succeed");
 
         let modules: std::collections::HashSet<_> = calls
             .iter()
@@ -156,7 +156,7 @@ mod tests {
     #[test]
     fn test_get_module_calls_contains_controller_to_accounts() {
         let db = get_db();
-        let calls = get_module_calls(&*db, "default").expect("Query should succeed");
+        let calls = get_module_calls(&*db).expect("Query should succeed");
 
         // Controller.index calls Accounts.list_users
         let controller_to_accounts = calls.iter().any(|call| {
@@ -172,7 +172,7 @@ mod tests {
     #[test]
     fn test_get_module_calls_contains_controller_to_service() {
         let db = get_db();
-        let calls = get_module_calls(&*db, "default").expect("Query should succeed");
+        let calls = get_module_calls(&*db).expect("Query should succeed");
 
         // Controller.create calls Service.process_request
         let controller_to_service = calls.iter().any(|call| {
@@ -188,7 +188,7 @@ mod tests {
     #[test]
     fn test_get_module_calls_contains_service_to_accounts() {
         let db = get_db();
-        let calls = get_module_calls(&*db, "default").expect("Query should succeed");
+        let calls = get_module_calls(&*db).expect("Query should succeed");
 
         // Service.process_request calls Accounts.get_user
         let service_to_accounts = calls.iter().any(|call| {
@@ -204,7 +204,7 @@ mod tests {
     #[test]
     fn test_get_module_calls_contains_service_to_notifier() {
         let db = get_db();
-        let calls = get_module_calls(&*db, "default").expect("Query should succeed");
+        let calls = get_module_calls(&*db).expect("Query should succeed");
 
         // Service.process_request calls Notifier.send_email
         let service_to_notifier = calls.iter().any(|call| {
@@ -220,7 +220,7 @@ mod tests {
     #[test]
     fn test_get_module_calls_contains_accounts_to_repo() {
         let db = get_db();
-        let calls = get_module_calls(&*db, "default").expect("Query should succeed");
+        let calls = get_module_calls(&*db).expect("Query should succeed");
 
         // Accounts calls Repo (get_user->get, list_users->all)
         let accounts_to_repo = calls.iter().any(|call| {
@@ -236,7 +236,7 @@ mod tests {
     #[test]
     fn test_get_module_calls_no_repo_internal_calls() {
         let db = get_db();
-        let calls = get_module_calls(&*db, "default").expect("Query should succeed");
+        let calls = get_module_calls(&*db).expect("Query should succeed");
 
         // Repo has internal calls (get->query, all->query) which should be excluded
         let repo_internal = calls.iter().any(|call| {
@@ -252,7 +252,7 @@ mod tests {
     #[test]
     fn test_get_module_calls_no_notifier_internal_calls() {
         let db = get_db();
-        let calls = get_module_calls(&*db, "default").expect("Query should succeed");
+        let calls = get_module_calls(&*db).expect("Query should succeed");
 
         // Notifier has internal calls (send_email->format_message) which should be excluded
         let notifier_internal = calls.iter().any(|call| {
@@ -268,7 +268,7 @@ mod tests {
     #[test]
     fn test_get_module_calls_no_accounts_internal_calls() {
         let db = get_db();
-        let calls = get_module_calls(&*db, "default").expect("Query should succeed");
+        let calls = get_module_calls(&*db).expect("Query should succeed");
 
         // Accounts has internal calls (get_user/2->get_user/1) which should be excluded
         let accounts_internal = calls.iter().any(|call| {
@@ -286,7 +286,7 @@ mod tests {
         let db = get_db();
         // SurrealDB doesn't use project concept - database is per-project
         // But call with different project to verify no crash
-        let result = get_module_calls(&*db, "nonexistent");
+        let result = get_module_calls(&*db);
         assert!(result.is_ok(), "Query should not error on different project");
     }
 }

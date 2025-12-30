@@ -53,4 +53,3 @@ This reveals the full error handling pipeline: catch → instrument → render �
 | `--depth <N>` | Maximum depth to traverse (1-20) | 5 |
 | `-r, --regex` | Treat patterns as regular expressions | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |

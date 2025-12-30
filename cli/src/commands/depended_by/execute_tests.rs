@@ -25,7 +25,6 @@ mod tests {
         let cmd = DependedByCmd {
             module: "MyApp.Repo".to_string(),
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -50,7 +49,6 @@ mod tests {
         let cmd = DependedByCmd {
             module: "MyApp.Repo".to_string(),
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -86,7 +84,6 @@ mod tests {
         let cmd = DependedByCmd {
             module: "MyApp.Accounts".to_string(),
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -122,7 +119,6 @@ mod tests {
         let cmd = DependedByCmd {
             module: "NonExistent".to_string(),
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -144,7 +140,6 @@ mod tests {
         let cmd = DependedByCmd {
             module: "MyApp.Accounts".to_string(),
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -165,7 +160,6 @@ mod tests {
         let cmd = DependedByCmd {
             module: "MyApp\\.Repo".to_string(),
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: true,
                 limit: 100,
             },
@@ -182,7 +176,6 @@ mod tests {
         let cmd = DependedByCmd {
             module: "MyApp.Accounts".to_string(),
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 1,
             },

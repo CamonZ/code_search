@@ -122,7 +122,7 @@ Commands share common arguments via `#[command(flatten)]`:
 pub struct MyCmd {
     pub module: String,
     #[command(flatten)]
-    pub common: CommonArgs,  // Adds --project, --regex, --limit
+    pub common: CommonArgs,  // Adds --regex, --limit
 }
 ```
 

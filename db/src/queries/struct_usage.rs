@@ -28,7 +28,6 @@ pub struct StructUsageEntry {
 pub fn find_struct_usage(
     db: &dyn Database,
     pattern: &str,
-    _project: &str,
     use_regex: bool,
     module_pattern: Option<&str>,
     limit: u32,
@@ -165,7 +164,7 @@ mod tests {
     fn test_find_struct_usage_user_type() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let result = find_struct_usage(&*db, "user()", "default", false, None, 100);
+        let result = find_struct_usage(&*db, "user()", false, None, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let entries = result.unwrap();
@@ -192,7 +191,7 @@ mod tests {
     fn test_find_struct_usage_integer_type() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let result = find_struct_usage(&*db, "integer()", "default", false, None, 100);
+        let result = find_struct_usage(&*db, "integer()", false, None, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let entries = result.unwrap();
@@ -218,7 +217,7 @@ mod tests {
     fn test_find_struct_usage_struct_type() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let result = find_struct_usage(&*db, "struct()", "default", false, None, 100);
+        let result = find_struct_usage(&*db, "struct()", false, None, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let entries = result.unwrap();
@@ -247,7 +246,7 @@ mod tests {
     fn test_find_struct_usage_combined_keyword() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let result = find_struct_usage(&*db, "keyword()", "default", false, None, 100);
+        let result = find_struct_usage(&*db, "keyword()", false, None, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let entries = result.unwrap();
@@ -275,7 +274,6 @@ mod tests {
         let result = find_struct_usage(
             &*db,
             "user()",
-            "default",
             false,
             Some("MyApp.Accounts"),
             100,
@@ -306,7 +304,7 @@ mod tests {
         let db = crate::test_utils::surreal_specs_db();
 
         // Match patterns starting with "Ecto"
-        let result = find_struct_usage(&*db, "Ecto", "default", true, None, 100);
+        let result = find_struct_usage(&*db, "Ecto", true, None, 100);
 
         assert!(result.is_ok(), "Regex query should succeed: {:?}", result.err());
         let entries = result.unwrap();
@@ -330,7 +328,7 @@ mod tests {
     fn test_find_struct_usage_nonexistent_type() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let result = find_struct_usage(&*db, "NonExistent", "default", false, None, 100);
+        let result = find_struct_usage(&*db, "NonExistent", false, None, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let entries = result.unwrap();
@@ -345,7 +343,7 @@ mod tests {
     fn test_find_struct_usage_invalid_regex() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let result = find_struct_usage(&*db, "[invalid", "default", true, None, 100);
+        let result = find_struct_usage(&*db, "[invalid", true, None, 100);
 
         assert!(result.is_err(), "Should reject invalid regex pattern");
     }
@@ -354,8 +352,8 @@ mod tests {
     fn test_find_struct_usage_respects_limit() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let limit_3 = find_struct_usage(&*db, "", "default", false, None, 3).unwrap();
-        let limit_100 = find_struct_usage(&*db, "", "default", false, None, 100).unwrap();
+        let limit_3 = find_struct_usage(&*db, "", false, None, 3).unwrap();
+        let limit_100 = find_struct_usage(&*db, "", false, None, 100).unwrap();
 
         assert!(limit_3.len() <= 3, "Limit should be respected");
         assert_eq!(limit_3.len(), 3, "Should return exactly 3 when limit is 3");
@@ -370,7 +368,7 @@ mod tests {
     fn test_find_struct_usage_empty_pattern() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let result = find_struct_usage(&*db, "", "default", false, None, 100);
+        let result = find_struct_usage(&*db, "", false, None, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let entries = result.unwrap();
@@ -387,7 +385,7 @@ mod tests {
     fn test_find_struct_usage_returns_valid_structure() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let result = find_struct_usage(&*db, "", "default", false, None, 100);
+        let result = find_struct_usage(&*db, "", false, None, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let entries = result.unwrap();
@@ -405,7 +403,7 @@ mod tests {
     fn test_find_struct_usage_preserves_sorting() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let result = find_struct_usage(&*db, "", "default", false, None, 100);
+        let result = find_struct_usage(&*db, "", false, None, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let entries = result.unwrap();
@@ -445,7 +443,7 @@ mod tests {
         let db = crate::test_utils::surreal_specs_db();
 
         // String.t() appears in input types only
-        let result = find_struct_usage(&*db, "String.t()", "default", false, None, 100);
+        let result = find_struct_usage(&*db, "String.t()", false, None, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let entries = result.unwrap();
@@ -474,7 +472,6 @@ mod tests {
         let result = find_struct_usage(
             &*db,
             "Ecto.Queryable.t()",
-            "default",
             false,
             None,
             100,
@@ -499,7 +496,7 @@ mod tests {
         let db = crate::test_utils::surreal_specs_db();
 
         // result() appears in return types
-        let result = find_struct_usage(&*db, "result()", "default", false, None, 100);
+        let result = find_struct_usage(&*db, "result()", false, None, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let entries = result.unwrap();

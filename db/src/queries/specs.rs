@@ -32,7 +32,6 @@ pub fn find_specs(
     module_pattern: &str,
     function_pattern: Option<&str>,
     kind_filter: Option<&str>,
-    _project: &str,
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<SpecDef>, Box<dyn Error>> {
@@ -156,7 +155,7 @@ mod tests {
     fn test_find_specs_all() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let result = find_specs(&*db, "", None, None, "default", false, 100);
+        let result = find_specs(&*db, "", None, None, false, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let specs = result.unwrap();
@@ -186,7 +185,7 @@ mod tests {
     fn test_find_specs_by_module() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let result = find_specs(&*db, "MyApp.Accounts", None, None, "default", false, 100);
+        let result = find_specs(&*db, "MyApp.Accounts", None, None, false, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let specs = result.unwrap();
@@ -219,7 +218,7 @@ mod tests {
     fn test_find_specs_by_function() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let result = find_specs(&*db, "", Some("get_user"), None, "default", false, 100);
+        let result = find_specs(&*db, "", Some("get_user"), None, false, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let specs = result.unwrap();
@@ -241,7 +240,7 @@ mod tests {
     fn test_find_specs_kind_spec() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let result = find_specs(&*db, "", None, Some("spec"), "default", false, 100);
+        let result = find_specs(&*db, "", None, Some("spec"), false, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let specs = result.unwrap();
@@ -263,7 +262,7 @@ mod tests {
     fn test_find_specs_kind_callback() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let result = find_specs(&*db, "", None, Some("callback"), "default", false, 100);
+        let result = find_specs(&*db, "", None, Some("callback"), false, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let specs = result.unwrap();
@@ -305,7 +304,6 @@ mod tests {
             "MyApp.Accounts",
             Some("^get"),
             None,
-            "default",
             true,
             100,
         );
@@ -331,7 +329,7 @@ mod tests {
     fn test_find_specs_regex_module() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let result = find_specs(&*db, "MyApp.Accounts", None, None, "default", true, 100);
+        let result = find_specs(&*db, "MyApp.Accounts", None, None, true, 100);
 
         assert!(
             result.is_ok(),
@@ -361,7 +359,6 @@ mod tests {
             "MyApp.Behaviour",
             Some("^handle"),
             None,
-            "default",
             true,
             100,
         );
@@ -386,7 +383,7 @@ mod tests {
     fn test_find_specs_nonexistent_module() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let result = find_specs(&*db, "NonExistent", None, None, "default", false, 100);
+        let result = find_specs(&*db, "NonExistent", None, None, false, 100);
 
         assert!(result.is_ok());
         let specs = result.unwrap();
@@ -401,7 +398,7 @@ mod tests {
     fn test_find_specs_invalid_regex() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let result = find_specs(&*db, "[invalid", None, None, "default", true, 100);
+        let result = find_specs(&*db, "[invalid", None, None, true, 100);
 
         assert!(result.is_err(), "Should reject invalid regex pattern");
     }
@@ -410,9 +407,9 @@ mod tests {
     fn test_find_specs_respects_limit() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let limit_3 = find_specs(&*db, "", None, None, "default", false, 3).unwrap();
+        let limit_3 = find_specs(&*db, "", None, None, false, 3).unwrap();
 
-        let limit_100 = find_specs(&*db, "", None, None, "default", false, 100).unwrap();
+        let limit_100 = find_specs(&*db, "", None, None, false, 100).unwrap();
 
         assert!(limit_3.len() <= 3, "Limit should be respected");
         assert_eq!(limit_3.len(), 3, "Should return exactly 3 when limit is 3");
@@ -432,7 +429,6 @@ mod tests {
             "MyApp.Accounts",
             Some("get_user"),
             None,
-            "default",
             false,
             100,
         );
@@ -458,7 +454,7 @@ mod tests {
     fn test_find_specs_preserves_sorting() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let result = find_specs(&*db, "", None, None, "default", false, 100);
+        let result = find_specs(&*db, "", None, None, false, 100);
 
         assert!(result.is_ok());
         let specs = result.unwrap();
@@ -502,7 +498,6 @@ mod tests {
             "MyApp.Accounts",
             Some("get_user"),
             None,
-            "default",
             false,
             100,
         );
@@ -531,7 +526,6 @@ mod tests {
             "MyApp.Accounts",
             Some("get_user"),
             None,
-            "default",
             false,
             100,
         );
@@ -568,7 +562,6 @@ mod tests {
             "MyApp.Accounts",
             Some("list_users"),
             None,
-            "default",
             false,
             100,
         );
@@ -594,7 +587,7 @@ mod tests {
     fn test_find_specs_returns_valid_structure() {
         let db = crate::test_utils::surreal_specs_db();
 
-        let result = find_specs(&*db, "", None, None, "default", false, 100);
+        let result = find_specs(&*db, "", None, None, false, 100);
 
         assert!(result.is_ok());
         let specs = result.unwrap();
@@ -615,7 +608,7 @@ mod tests {
         let db = crate::test_utils::surreal_specs_db();
 
         // Use exact match for module name
-        let result = find_specs(&*db, "MyApp.Behaviour", None, None, "default", false, 100);
+        let result = find_specs(&*db, "MyApp.Behaviour", None, None, false, 100);
 
         assert!(result.is_ok());
         let specs = result.unwrap();

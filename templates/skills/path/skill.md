@@ -68,4 +68,3 @@ Each path is a list of `[module, function, arity]` tuples showing the call chain
 | `--to-arity <N>` | Target function arity | all arities |
 | `--depth <N>` | Maximum depth to search (1-20) | 10 |
 | `-l, --limit <N>` | Max paths to return (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |

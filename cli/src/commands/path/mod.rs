@@ -45,10 +45,6 @@ pub struct PathCmd {
     #[arg(long)]
     pub to_arity: i64,
 
-    /// Project to search in
-    #[arg(long, default_value = "default")]
-    pub project: String,
-
     /// Maximum depth to search (1-20)
     #[arg(long, default_value_t = 10, value_parser = clap::value_parser!(u32).range(1..=20))]
     pub depth: u32,

@@ -46,7 +46,7 @@ impl Execute for ClustersCmd {
 
     fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         // Get all inter-module calls
-        let calls = get_module_calls(db, &self.common.project)?;
+        let calls = get_module_calls(db)?;
 
         // Extract namespace for each module and collect all unique modules
         let mut all_modules = HashSet::new();
@@ -323,7 +323,6 @@ mod tests {
             show_dependencies: false,
             module: None,
             common: crate::commands::CommonArgs {
-                project: "default".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -332,7 +331,6 @@ mod tests {
         assert_eq!(cmd.depth, 2);
         assert!(!cmd.show_dependencies);
         assert_eq!(cmd.module, None);
-        assert_eq!(cmd.common.project, "default");
     }
 
     #[test]
@@ -342,7 +340,6 @@ mod tests {
             show_dependencies: true,
             module: Some("MyApp.Core".to_string()),
             common: crate::commands::CommonArgs {
-                project: "custom".to_string(),
                 regex: false,
                 limit: 50,
             },
@@ -351,7 +348,6 @@ mod tests {
         assert_eq!(cmd.depth, 3);
         assert!(cmd.show_dependencies);
         assert_eq!(cmd.module, Some("MyApp.Core".to_string()));
-        assert_eq!(cmd.common.project, "custom");
     }
 
     #[test]

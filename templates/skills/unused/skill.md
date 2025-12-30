@@ -62,4 +62,3 @@ code_search --format toon unused MyApp.Accounts
 | `-x, --exclude-generated` | Exclude compiler-generated functions (__struct__, __info__, etc.) | false |
 | `-r, --regex` | Treat patterns as regular expressions | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |

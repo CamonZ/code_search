@@ -31,7 +31,7 @@ code_search boundaries                    # Identify architectural boundaries
 
 ### Code Quality
 ```bash
-code_search unused [--project NAME]       # Find unused functions
+code_search unused                        # Find unused functions
 code_search hotspots --kind <type>        # Find coupling hotspots
 code_search god-modules                   # Find overly large modules
 code_search complexity                    # Find complex functions
@@ -57,7 +57,6 @@ code_search struct-usage <struct>         # Where is struct used?
 ## Common Filter Flags
 
 ```bash
---project <name>           # Filter by project
 --module <pattern>         # Filter by module pattern (regex)
 --regex                    # Treat module pattern as regex
 --limit <N>                # Limit results
@@ -144,10 +143,9 @@ code_search hotspots --kind total --limit 15
 
 1. **Start broad, then narrow**: Begin with `search` or `browse-module`, then drill down
 2. **Use --format toon for agents**: More efficient for LLM processing
-3. **Filter by project**: Use `--project` when working with umbrella apps
-4. **Limit results**: Add `--limit` for large codebases
-5. **Check database first**: Run `describe` to see what's available
-6. **Use regex for patterns**: Add `--regex` flag for complex module patterns
+3. **Limit results**: Add `--limit` for large codebases
+4. **Check database first**: Run `describe` to see what's available
+5. **Use regex for patterns**: Add `--regex` flag for complex module patterns
 
 ## Setup & Import
 

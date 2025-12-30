@@ -53,12 +53,10 @@ MyApp.Accounts:
             kind: "modules".to_string(),
             modules: vec![
                 ModuleResult {
-                    project: "default".to_string(),
                     name: "MyApp.Accounts".to_string(),
                     source: "unknown".to_string(),
                 },
                 ModuleResult {
-                    project: "default".to_string(),
                     name: "MyApp.Users".to_string(),
                     source: "unknown".to_string(),
                 },

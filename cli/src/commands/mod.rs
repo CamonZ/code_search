@@ -18,10 +18,6 @@ use clap::Args;
 /// ```
 #[derive(Args, Debug, Clone)]
 pub struct CommonArgs {
-    /// Project to search in
-    #[arg(long, default_value = "default")]
-    pub project: String,
-
     /// Treat patterns as regular expressions
     #[arg(short, long, default_value_t = false)]
     pub regex: bool,

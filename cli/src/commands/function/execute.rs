@@ -57,7 +57,6 @@ impl Execute for FunctionCmd {
             &self.module,
             &self.function,
             self.arity,
-            &self.common.project,
             self.common.regex,
             self.common.limit,
         )?;

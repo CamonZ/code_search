@@ -12,7 +12,6 @@ mod tests {
         variant: Duplicates,
         required_args: [],
         defaults: {
-            common.project: "default",
             common.regex: false,
             exact: false,
             by_module: false,
@@ -82,15 +81,6 @@ mod tests {
         args: ["-l", "75"],
         field: common.limit,
         expected: 75,
-    }
-
-    crate::cli_option_test! {
-        command: "duplicates",
-        variant: Duplicates,
-        test_name: test_with_project,
-        args: ["--project", "my_project"],
-        field: common.project,
-        expected: "my_project",
     }
 
     crate::cli_error_test! {

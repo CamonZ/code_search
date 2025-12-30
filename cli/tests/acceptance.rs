@@ -56,9 +56,9 @@ impl TestProject {
     }
 
     /// Import a fixture file into the database.
-    fn import(&self, fixture_path: &PathBuf, project: &str) -> &Self {
+    fn import(&self, fixture_path: &PathBuf) -> &Self {
         self.cmd()
-            .args(["import", "--project", project, "--file"])
+            .args(["import", "--file"])
             .arg(fixture_path)
             .assert()
             .success();
@@ -111,7 +111,7 @@ fn test_full_workflow_setup_import_query() {
 
     // 2. Import fixture
     let fixture_path = project.write_fixture("call_graph.json", call_graph_fixture());
-    project.import(&fixture_path, "my_app");
+    project.import(&fixture_path);
 
     // 3. Query - search for modules (use regex for partial match)
     project.cmd()
@@ -127,7 +127,7 @@ fn test_search_finds_modules() {
     project.setup();
 
     let fixture_path = project.write_fixture("call_graph.json", call_graph_fixture());
-    project.import(&fixture_path, "my_app");
+    project.import(&fixture_path);
 
     // Search for Accounts module (use regex for partial match)
     project.cmd()
@@ -143,7 +143,7 @@ fn test_search_finds_functions() {
     project.setup();
 
     let fixture_path = project.write_fixture("call_graph.json", call_graph_fixture());
-    project.import(&fixture_path, "my_app");
+    project.import(&fixture_path);
 
     // Search for get_user function (use regex for partial match)
     project.cmd()
@@ -159,7 +159,7 @@ fn test_location_finds_function_definition() {
     project.setup();
 
     let fixture_path = project.write_fixture("call_graph.json", call_graph_fixture());
-    project.import(&fixture_path, "my_app");
+    project.import(&fixture_path);
 
     // Find location of get_user/1 (function first, then module)
     project.cmd()
@@ -176,7 +176,7 @@ fn test_calls_from_shows_outgoing_calls() {
     project.setup();
 
     let fixture_path = project.write_fixture("call_graph.json", call_graph_fixture());
-    project.import(&fixture_path, "my_app");
+    project.import(&fixture_path);
 
     // Check what Controller.index calls (positional args: MODULE FUNCTION)
     project.cmd()
@@ -192,7 +192,7 @@ fn test_calls_to_shows_incoming_calls() {
     project.setup();
 
     let fixture_path = project.write_fixture("call_graph.json", call_graph_fixture());
-    project.import(&fixture_path, "my_app");
+    project.import(&fixture_path);
 
     // Check what calls Repo.get (positional args: MODULE FUNCTION)
     project.cmd()
@@ -208,7 +208,7 @@ fn test_browse_module_lists_functions() {
     project.setup();
 
     let fixture_path = project.write_fixture("call_graph.json", call_graph_fixture());
-    project.import(&fixture_path, "my_app");
+    project.import(&fixture_path);
 
     // Browse MyApp.Accounts module
     project.cmd()
@@ -226,7 +226,7 @@ fn test_json_output_format() {
     project.setup();
 
     let fixture_path = project.write_fixture("call_graph.json", call_graph_fixture());
-    project.import(&fixture_path, "my_app");
+    project.import(&fixture_path);
 
     // Get JSON output (use regex for partial match)
     project.cmd()
@@ -244,11 +244,11 @@ fn test_import_with_clear_flag() {
     let fixture_path = project.write_fixture("call_graph.json", call_graph_fixture());
 
     // First import
-    project.import(&fixture_path, "my_app");
+    project.import(&fixture_path);
 
     // Second import with --clear
     project.cmd()
-        .args(["import", "--project", "my_app", "--clear", "--file"])
+        .args(["import", "--clear", "--file"])
         .arg(&fixture_path)
         .assert()
         .success();
@@ -267,7 +267,7 @@ fn test_hotspots_command() {
     project.setup();
 
     let fixture_path = project.write_fixture("call_graph.json", call_graph_fixture());
-    project.import(&fixture_path, "my_app");
+    project.import(&fixture_path);
 
     // Find hotspots (functions with most calls) - just verify command runs successfully
     project.cmd()
@@ -283,7 +283,7 @@ fn test_unused_command() {
     project.setup();
 
     let fixture_path = project.write_fixture("call_graph.json", call_graph_fixture());
-    project.import(&fixture_path, "my_app");
+    project.import(&fixture_path);
 
     // Find unused functions
     project.cmd()
@@ -299,7 +299,7 @@ fn test_depends_on_shows_module_dependencies() {
     project.setup();
 
     let fixture_path = project.write_fixture("call_graph.json", call_graph_fixture());
-    project.import(&fixture_path, "my_app");
+    project.import(&fixture_path);
 
     // Check what MyApp.Controller depends on
     project.cmd()
@@ -315,7 +315,7 @@ fn test_depended_by_shows_reverse_dependencies() {
     project.setup();
 
     let fixture_path = project.write_fixture("call_graph.json", call_graph_fixture());
-    project.import(&fixture_path, "my_app");
+    project.import(&fixture_path);
 
     // Check what depends on MyApp.Repo
     project.cmd()
@@ -331,7 +331,7 @@ fn test_trace_command() {
     project.setup();
 
     let fixture_path = project.write_fixture("call_graph.json", call_graph_fixture());
-    project.import(&fixture_path, "my_app");
+    project.import(&fixture_path);
 
     // Trace from Controller.index
     project.cmd()
@@ -347,7 +347,7 @@ fn test_import_nonexistent_file_fails() {
     project.setup();
 
     project.cmd()
-        .args(["import", "--project", "my_app", "--file", "/nonexistent/file.json"])
+        .args(["import", "--file", "/nonexistent/file.json"])
         .assert()
         .failure();
 }
@@ -360,7 +360,7 @@ fn test_import_invalid_json_fails() {
     let fixture_path = project.write_fixture("invalid.json", "{ not valid json }");
 
     project.cmd()
-        .args(["import", "--project", "my_app", "--file"])
+        .args(["import", "--file"])
         .arg(&fixture_path)
         .assert()
         .failure();

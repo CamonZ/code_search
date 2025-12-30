@@ -38,7 +38,6 @@ impl Execute for PathCmd {
             &self.to_module,
             &self.to_function,
             self.to_arity,
-            &self.project,
             self.depth,
             self.limit,
         )?;

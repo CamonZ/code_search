@@ -223,11 +223,7 @@ fn install_templates(force: bool) -> Result<TemplatesInstallResult, Box<dyn Erro
 }
 
 /// Install git hooks to .git/hooks/
-fn install_hooks(
-    force: bool,
-    project_name: Option<String>,
-    mix_env: Option<String>,
-) -> Result<HooksInstallResult, Box<dyn Error>> {
+fn install_hooks(force: bool, mix_env: Option<String>) -> Result<HooksInstallResult, Box<dyn Error>> {
     use std::process::Command;
 
     // Check if we're in a git repository
@@ -278,13 +274,8 @@ fn install_hooks(
     // Configure git settings
     let mut git_config = Vec::new();
 
-    // Build config list (only set values that are provided)
+    // Build config list
     let mut configs: Vec<(&str, String)> = Vec::new();
-
-    // Only set project name if explicitly provided
-    if let Some(name) = project_name {
-        configs.push(("code-search.project-name", name));
-    }
 
     // Set mix-env (default to "dev" if not provided)
     configs.push((
@@ -369,7 +360,7 @@ impl Execute for SetupCmd {
 
         // Install git hooks if requested
         let hooks = if self.install_hooks {
-            Some(install_hooks(self.force, self.project_name, self.mix_env)?)
+            Some(install_hooks(self.force, self.mix_env)?)
         } else {
             None
         };
@@ -397,7 +388,6 @@ mod tests {
             dry_run: false,
             install_skills: false,
             install_hooks: false,
-            project_name: None,
             mix_env: None,
         };
 
@@ -428,7 +418,6 @@ mod tests {
             dry_run: false,
             install_skills: false,
             install_hooks: false,
-            project_name: None,
             mix_env: None,
         };
         let result1 = cmd1.execute(&*db).expect("First setup should succeed");
@@ -440,7 +429,6 @@ mod tests {
             dry_run: false,
             install_skills: false,
             install_hooks: false,
-            project_name: None,
             mix_env: None,
         };
         let result2 = cmd2.execute(&*db).expect("Second setup should succeed");
@@ -461,7 +449,6 @@ mod tests {
             dry_run: true,
             install_skills: false,
             install_hooks: false,
-            project_name: None,
             mix_env: None,
         };
 
@@ -488,7 +475,6 @@ mod tests {
             dry_run: true,
             install_skills: false,
             install_hooks: false,
-            project_name: None,
             mix_env: None,
         };
 
@@ -510,7 +496,6 @@ mod tests {
             dry_run: false,
             install_skills: false,
             install_hooks: false,
-            project_name: None,
             mix_env: None,
         };
 
@@ -550,7 +535,6 @@ mod tests {
             dry_run: false,
             install_skills: false,
             install_hooks: true,
-            project_name: Some("test_project".to_string()),
             mix_env: Some("test".to_string()),
         };
 
@@ -592,18 +576,10 @@ mod tests {
             TemplateFileState::Installed
         ));
 
-        // Should have configured 2 git settings (project-name and mix-env)
-        assert_eq!(hooks.git_config.len(), 2);
+        // Should have configured 1 git setting (mix-env)
+        assert_eq!(hooks.git_config.len(), 1);
 
         // Verify git config values
-        let project_config = hooks
-            .git_config
-            .iter()
-            .find(|c| c.key == "code-search.project-name");
-        assert!(project_config.is_some());
-        assert_eq!(project_config.unwrap().value, "test_project");
-        assert!(project_config.unwrap().set);
-
         let mix_env_config = hooks
             .git_config
             .iter()
@@ -641,7 +617,6 @@ mod tests {
             dry_run: false,
             install_skills: false,
             install_hooks: true,
-            project_name: None,
             mix_env: None,
         };
 
@@ -650,7 +625,7 @@ mod tests {
         assert!(result.hooks.is_some());
         let hooks = result.hooks.unwrap();
 
-        // Should only set mix-env (project-name not set when None)
+        // Should set mix-env with default value
         assert_eq!(hooks.git_config.len(), 1);
 
         // Verify default values were used
@@ -660,13 +635,6 @@ mod tests {
             .find(|c| c.key == "code-search.mix-env");
         assert!(mix_env_config.is_some());
         assert_eq!(mix_env_config.unwrap().value, "dev");
-
-        // Verify project-name was NOT set
-        let project_config = hooks
-            .git_config
-            .iter()
-            .find(|c| c.key == "code-search.project-name");
-        assert!(project_config.is_none());
 
         // Restore original directory
         std::env::set_current_dir(&original_dir).ok();
@@ -698,7 +666,6 @@ mod tests {
             dry_run: false,
             install_skills: false,
             install_hooks: true,
-            project_name: None,
             mix_env: None,
         };
 
@@ -711,7 +678,6 @@ mod tests {
             dry_run: false,
             install_skills: false,
             install_hooks: true,
-            project_name: None,
             mix_env: None,
         };
 
@@ -752,7 +718,6 @@ mod tests {
             dry_run: false,
             install_skills: false,
             install_hooks: true,
-            project_name: None,
             mix_env: None,
         };
 
@@ -764,7 +729,6 @@ mod tests {
             dry_run: false,
             install_skills: false,
             install_hooks: true,
-            project_name: None,
             mix_env: None,
         };
 
@@ -799,7 +763,6 @@ mod tests {
             dry_run: false,
             install_skills: false,
             install_hooks: true,
-            project_name: None,
             mix_env: None,
         };
 

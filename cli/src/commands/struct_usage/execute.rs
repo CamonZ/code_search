@@ -154,7 +154,6 @@ impl Execute for StructUsageCmd {
         let entries = find_struct_usage(
             db,
             &self.pattern,
-            &self.common.project,
             self.common.regex,
             self.module.as_deref(),
             self.common.limit,

@@ -9,7 +9,6 @@ mod tests {
     crate::shared_fixture! {
         fixture_name: populated_db,
         fixture_type: type_signatures,
-        project: "test_project",
     }
 
     // =========================================================================
@@ -24,7 +23,6 @@ mod tests {
             pattern: ".*MyApp.*".to_string(), // Use regex for substring matching
             kind: SearchKind::Modules,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: true,
                 limit: 100,
             },
@@ -43,7 +41,6 @@ mod tests {
             pattern: ".*user.*".to_string(), // Use regex for substring matching
             kind: SearchKind::Functions,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: true,
                 limit: 100,
             },
@@ -62,7 +59,6 @@ mod tests {
             pattern: ".*get.*".to_string(), // Use regex for substring matching
             kind: SearchKind::Functions,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: true,
                 limit: 100,
             },
@@ -79,7 +75,6 @@ mod tests {
             pattern: "^get_user$".to_string(),
             kind: SearchKind::Functions,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: true,
                 limit: 100,
             },
@@ -103,7 +98,6 @@ mod tests {
             pattern: "\\.(Accounts|Users)$".to_string(),
             kind: SearchKind::Modules,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: true,
                 limit: 100,
             },
@@ -121,7 +115,6 @@ mod tests {
             pattern: "MyApp.Accounts".to_string(),
             kind: SearchKind::Modules,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -140,7 +133,6 @@ mod tests {
             pattern: "get_user".to_string(),
             kind: SearchKind::Functions,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -164,7 +156,6 @@ mod tests {
             pattern: "user".to_string(), // Won't match get_user, list_users, etc.
             kind: SearchKind::Functions,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -183,7 +174,6 @@ mod tests {
             pattern: "NonExistent".to_string(),
             kind: SearchKind::Modules,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -198,7 +188,6 @@ mod tests {
             pattern: "^xyz".to_string(),
             kind: SearchKind::Functions,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: true,
                 limit: 100,
             },
@@ -217,7 +206,6 @@ mod tests {
             pattern: ".*user.*".to_string(), // Use regex for substring matching
             kind: SearchKind::Functions,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: true,
                 limit: 1,
             },
@@ -240,7 +228,6 @@ mod tests {
             pattern: "[invalid".to_string(), // Unclosed bracket
             kind: SearchKind::Modules,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: true,
                 limit: 100,
             },
@@ -263,7 +250,6 @@ mod tests {
             pattern: "*invalid".to_string(), // Invalid repetition
             kind: SearchKind::Functions,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: true,
                 limit: 100,
             },
@@ -287,7 +273,6 @@ mod tests {
             pattern: "[invalid".to_string(),
             kind: SearchKind::Modules,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false, // Not using regex mode
                 limit: 100,
             },

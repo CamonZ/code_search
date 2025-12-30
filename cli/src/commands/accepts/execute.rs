@@ -51,7 +51,6 @@ impl Execute for AcceptsCmd {
         let entries = find_accepts(
             db,
             &self.pattern,
-            &self.common.project,
             self.common.regex,
             self.module.as_deref(),
             self.common.limit,

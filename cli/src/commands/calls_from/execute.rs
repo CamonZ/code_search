@@ -84,7 +84,6 @@ impl Execute for CallsFromCmd {
             &self.module,
             self.function.as_deref(),
             self.arity,
-            &self.common.project,
             self.common.regex,
             self.common.limit,
         )?;

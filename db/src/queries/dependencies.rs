@@ -40,7 +40,6 @@ pub fn find_dependencies(
     db: &dyn Database,
     direction: DependencyDirection,
     module_pattern: &str,
-    _project: &str,
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<Call>, Box<dyn Error>> {
@@ -138,7 +137,6 @@ mod tests {
             &*db,
             DependencyDirection::Outgoing,
             "MyApp.Service",
-            "default",
             false,
             100,
         );
@@ -179,7 +177,6 @@ mod tests {
             &*db,
             DependencyDirection::Incoming,
             "MyApp.Notifier",
-            "default",
             false,
             100,
         );
@@ -223,7 +220,6 @@ mod tests {
             &*db,
             DependencyDirection::Outgoing,
             "MyApp.Controller",
-            "default",
             false,
             100,
         );
@@ -251,7 +247,6 @@ mod tests {
             &*db,
             DependencyDirection::Outgoing,
             "MyApp.Controller",
-            "default",
             false,
             100,
         );
@@ -294,7 +289,6 @@ mod tests {
             &*db,
             DependencyDirection::Incoming,
             "MyApp.Accounts",
-            "default",
             false,
             100,
         );
@@ -336,7 +330,6 @@ mod tests {
             &*db,
             DependencyDirection::Outgoing,
             "NonExistent",
-            "default",
             false,
             100,
         );
@@ -357,7 +350,6 @@ mod tests {
             &*db,
             DependencyDirection::Outgoing,
             "MyApp.Controller",
-            "default",
             false,
             1,
         )
@@ -367,7 +359,6 @@ mod tests {
             &*db,
             DependencyDirection::Outgoing,
             "MyApp.Controller",
-            "default",
             false,
             100,
         )
@@ -390,7 +381,6 @@ mod tests {
             &*db,
             DependencyDirection::Outgoing,
             "^MyApp\\.Controller$",
-            "default",
             true,
             100,
         );
@@ -418,7 +408,6 @@ mod tests {
             &*db,
             DependencyDirection::Outgoing,
             "[invalid",
-            "default",
             true,
             100,
         );
@@ -437,7 +426,6 @@ mod tests {
             &*db,
             DependencyDirection::Outgoing,
             "module_a",
-            "default",
             false,
             100,
         );
@@ -490,7 +478,6 @@ mod tests {
             &*db,
             DependencyDirection::Incoming,
             "^MyApp\\.Accounts$",
-            "default",
             true,
             100,
         );
@@ -519,7 +506,6 @@ mod tests {
             &*db,
             DependencyDirection::Outgoing,
             "^MyApp.*",
-            "default",
             true,
             100,
         );
@@ -545,7 +531,6 @@ mod tests {
             &*db,
             DependencyDirection::Outgoing,
             "MyApp.Service",
-            "default",
             false,
             100,
         );
@@ -577,7 +562,6 @@ mod tests {
             &*db,
             DependencyDirection::Incoming,
             "MyApp.Notifier",
-            "default",
             false,
             100,
         );
@@ -610,7 +594,6 @@ mod tests {
             &*db,
             DependencyDirection::Outgoing,
             "module_a",
-            "default",
             false,
             0,
         );
@@ -629,7 +612,6 @@ mod tests {
             &*db,
             DependencyDirection::Outgoing,
             "MyApp.Controller",
-            "default",
             false,
             100,
         )
@@ -640,7 +622,6 @@ mod tests {
             &*db,
             DependencyDirection::Incoming,
             "MyApp.Accounts",
-            "default",
             false,
             100,
         )

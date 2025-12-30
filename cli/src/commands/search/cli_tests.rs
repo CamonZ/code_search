@@ -33,15 +33,6 @@ mod tests {
     crate::cli_option_test! {
         command: "search",
         variant: Search,
-        test_name: test_search_with_project_filter,
-        args: ["User", "--project", "my_app"],
-        field: common.project,
-        expected: "my_app",
-    }
-
-    crate::cli_option_test! {
-        command: "search",
-        variant: Search,
         test_name: test_search_with_limit,
         args: ["User", "--limit", "50"],
         field: common.limit,

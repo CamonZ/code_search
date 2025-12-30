@@ -30,7 +30,6 @@ code_search --format toon returns <PATTERN> [MODULE] [OPTIONS]
 |--------|-------------|---------|
 | `-r, --regex` | Treat patterns as regex | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |
 
 ## Examples
 
