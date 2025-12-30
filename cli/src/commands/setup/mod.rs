@@ -12,7 +12,7 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search setup                           # Create schema in .code_search/cozo.sqlite
+  code_search setup                           # Create schema in .code_search/<db_file>
   code_search setup --force                   # Overwrite existing templates/hooks
   code_search setup --dry-run                 # Show what would be created
   code_search setup --install-skills          # Create schema and install skill templates
