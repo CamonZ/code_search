@@ -1,7 +1,7 @@
 //! Database query modules for call graph analysis.
 //!
-//! Each module contains CozoScript queries and result parsing for a specific
-//! command. Queries execute against a CozoDB instance and return typed results.
+//! Each module contains SurrealQL queries and result parsing for a specific
+//! command. Queries execute against a SurrealDB instance and return typed results.
 //!
 //! # Query Categories
 //!
@@ -43,11 +43,11 @@
 //! # Query Pattern
 //!
 //! Each query module exports a single `find_*` or `*_query` function that:
-//! 1. Builds a CozoScript query string with interpolated parameters
-//! 2. Executes via `db.run_script()`
+//! 1. Builds a SurrealQL query string with parameters
+//! 2. Executes via `db.query()` with bound parameters
 //! 3. Extracts results into typed Rust structs
 //!
-//! Parameters are escaped using [`crate::db::escape_string`] to prevent injection.
+//! Parameters are bound using SurrealDB's parameter binding to prevent injection.
 
 pub mod accepts;
 pub mod calls;

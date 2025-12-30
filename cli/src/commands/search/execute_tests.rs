@@ -210,23 +210,6 @@ mod tests {
     // Filter tests
     // =========================================================================
 
-    #[cfg(not(feature = "backend-surrealdb"))]
-    crate::execute_all_match_test! {
-        test_name: test_search_modules_with_project_filter,
-        fixture: populated_db,
-        cmd: SearchCmd {
-            pattern: "App".to_string(),
-            kind: SearchKind::Modules,
-            common: CommonArgs {
-                project: "test_project".to_string(),
-                regex: false,
-                limit: 100,
-            },
-        },
-        collection: modules,
-        condition: |m| m.project == "test_project",
-    }
-
     crate::execute_test! {
         test_name: test_search_with_limit,
         fixture: populated_db,
@@ -248,19 +231,6 @@ mod tests {
     // =========================================================================
     // Error handling tests
     // =========================================================================
-
-    crate::execute_empty_db_test! {
-        cmd_type: SearchCmd,
-        cmd: SearchCmd {
-            pattern: "test".to_string(),
-            kind: SearchKind::Modules,
-            common: CommonArgs {
-                project: "test_project".to_string(),
-                regex: false,
-                limit: 100,
-            },
-        },
-    }
 
     #[rstest]
     fn test_search_modules_invalid_regex(populated_db: Box<dyn db::backend::Database>) {

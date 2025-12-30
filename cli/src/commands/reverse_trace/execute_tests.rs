@@ -99,22 +99,4 @@ mod tests {
         empty_field: entries,
     }
 
-    // =========================================================================
-    // Error handling tests
-    // =========================================================================
-
-    crate::execute_empty_db_test! {
-        cmd_type: ReverseTraceCmd,
-        cmd: ReverseTraceCmd {
-            module: "MyApp".to_string(),
-            function: "foo".to_string(),
-            arity: None,
-            depth: 5,
-            common: CommonArgs {
-                project: "test_project".to_string(),
-                regex: false,
-                limit: 100,
-            },
-        },
-    }
 }

@@ -292,28 +292,6 @@ macro_rules! surreal_fixture {
         }
     };
 }
-
-/// Generate a test that verifies command execution against an empty database fails.
-///
-/// This test is only run with the CozoDB backend because CozoDB returns errors
-/// when querying non-existent relations, while SurrealDB returns empty results.
-#[macro_export]
-macro_rules! execute_empty_db_test {
-    (
-        cmd_type: $cmd_type:ty,
-        cmd: $cmd:expr $(,)?
-    ) => {
-        #[rstest]
-        #[cfg(not(feature = "backend-surrealdb"))]
-        fn test_empty_db() {
-            use $crate::commands::Execute;
-            let db = db::test_utils::setup_empty_test_db();
-            let result = $cmd.execute(&*db);
-            assert!(result.is_err());
-        }
-    };
-}
-
 /// Generate an execute test with custom assertions.
 ///
 /// This is the core macro for execute tests. It handles the boilerplate of

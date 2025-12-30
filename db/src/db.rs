@@ -1,27 +1,27 @@
-//! Database connection and query utilities for CozoDB.
+//! Database connection and query utilities for SurrealDB.
 //!
 //! This module provides the database abstraction layer for the CLI tool:
-//! - Connection management (SQLite-backed or in-memory for tests)
+//! - Connection management (file-backed or in-memory for tests)
 //! - Query execution with parameter binding
 //! - Result row extraction with type-safe helpers
 //!
 //! # Architecture
 //!
-//! CozoDB is a Datalog database that stores call graph data in relations.
-//! Queries are written in CozoScript (a Datalog variant) and return `NamedRows`
-//! containing `DataValue` cells that must be extracted into Rust types.
+//! SurrealDB is a multi-model database that stores call graph data in tables.
+//! Queries are written in SurrealQL and return results that must be extracted
+//! into Rust types.
 //!
 //! # Type Decisions
 //!
 //! **Why `i64` for arity/line numbers instead of `u32`?**
-//! CozoDB returns all integers as `Num::Int(i64)`. Using `i64` throughout avoids
+//! SurrealDB returns all integers as i64. Using `i64` throughout avoids
 //! lossy conversions and potential panics. The semantic constraint (arity >= 0)
 //! is enforced by the data source (Elixir AST), not runtime checks.
 //!
 //! **Why `CallRowLayout` with indices instead of serde deserialization?**
-//! CozoDB returns rows as `Vec<DataValue>`, not JSON objects. The `CallRowLayout`
-//! struct documents column positions for each query type, centralizing the
-//! mapping in two factory methods rather than scattering magic numbers.
+//! SurrealDB returns rows as ordered values. The `CallRowLayout` struct documents
+//! column positions for each query type, centralizing the mapping in factory
+//! methods rather than scattering magic numbers.
 //!
 //! **Why bare `String` for module/function names instead of newtypes?**
 //! For a CLI tool, the complexity of newtype wrappers (`.0` access, `Into` impls,
@@ -65,23 +65,6 @@ pub fn open_mem_db() -> Result<Box<dyn Database>, Box<dyn Error>> {
     crate::backend::open_mem_database()
 }
 
-/// Extract DbInstance from a Box<dyn Database> (CozoDB-specific, for tests).
-///
-/// This function uses downcasting to extract the underlying DbInstance
-/// from a trait object. Only works when the database is a CozoDatabase.
-///
-/// # Panics
-/// Panics if the database is not a CozoDatabase (e.g., SurrealDB).
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-cozo"))]
-pub fn get_cozo_instance(db: &dyn Database) -> &cozo::DbInstance {
-    use crate::backend::cozo::CozoDatabase;
-    let db_any = db.as_any();
-    db_any
-        .downcast_ref::<CozoDatabase>()
-        .expect("Database must be CozoDatabase")
-        .inner_ref()
-}
-
 /// Run a database query with parameters.
 ///
 /// Works with any backend that implements the Database trait.
@@ -105,7 +88,7 @@ pub fn run_query_no_params(
     run_query(db, script, crate::backend::QueryParams::new())
 }
 
-/// Escape a string for use in CozoDB string literals.
+/// Escape a string for use in string literals.
 ///
 /// # Arguments
 /// * `s` - The string to escape
@@ -132,13 +115,13 @@ pub fn escape_string_for_quote(s: &str, quote_char: char) -> String {
     result
 }
 
-/// Escape a string for use in CozoDB double-quoted string literals (JSON-compatible)
+/// Escape a string for use in double-quoted string literals (JSON-compatible)
 #[inline]
 pub fn escape_string(s: &str) -> String {
     escape_string_for_quote(s, '"')
 }
 
-/// Escape a string for use in CozoDB single-quoted string literals.
+/// Escape a string for use in single-quoted string literals.
 /// Use this for strings that may contain double quotes or complex content.
 #[inline]
 pub fn escape_string_single(s: &str) -> String {
@@ -151,7 +134,6 @@ pub fn escape_string_single(s: &str) -> String {
 /// exists, it returns Ok(false) instead of failing.
 ///
 /// Backend-specific error patterns:
-/// - **CozoDB**: Detects "AlreadyExists" and "stored_relation_conflict" errors
 /// - **SurrealDB**: Detects "already exists" and "already defined" errors
 pub fn try_create_relation(db: &dyn Database, script: &str) -> Result<bool, Box<dyn Error>> {
     match run_query_no_params(db, script) {
@@ -159,14 +141,7 @@ pub fn try_create_relation(db: &dyn Database, script: &str) -> Result<bool, Box<
         Err(e) => {
             let err_str = e.to_string();
 
-            // CozoDB: Check for relation already exists errors
-            #[cfg(feature = "backend-cozo")]
-            if err_str.contains("AlreadyExists") || err_str.contains("stored_relation_conflict") {
-                return Ok(false);
-            }
-
             // SurrealDB: Check for table already exists errors
-            #[cfg(feature = "backend-surrealdb")]
             if err_str.contains("already exists") {
                 return Ok(false);
             }
@@ -230,7 +205,7 @@ impl CallRowLayout {
     /// This looks up column positions by name, making queries resilient to
     /// column reordering. Returns error if any required column is missing.
     ///
-    /// Expected column names (from CozoScript queries):
+    /// Expected column names (from SurrealQL queries):
     /// - caller_module, caller_name, caller_arity, caller_kind
     /// - caller_start_line, caller_end_line
     /// - callee_module, callee_function, callee_arity
@@ -352,146 +327,10 @@ pub fn extract_call_from_row_trait(row: &dyn Row, layout: &CallRowLayout) -> Opt
     })
 }
 
-/// Extract call data from a query result row
-///
-/// Returns Option<Call> if all required fields are present. Uses early return
-/// (None) if any required string field cannot be extracted.
-#[cfg(feature = "backend-cozo")]
-pub fn extract_call_from_row(row: &[cozo::DataValue], layout: &CallRowLayout) -> Option<Call> {
-    // Extract caller information
-    let caller_module = extract_string_cozo(&row[layout.caller_module_idx])?;
-    let caller_name = extract_string_cozo(&row[layout.caller_name_idx])?;
-    let caller_arity = extract_i64_cozo(&row[layout.caller_arity_idx], 0);
-    let caller_kind = extract_string_or_cozo(&row[layout.caller_kind_idx], "");
-    let caller_start_line = extract_i64_cozo(&row[layout.caller_start_line_idx], 0);
-    let caller_end_line = extract_i64_cozo(&row[layout.caller_end_line_idx], 0);
-
-    // Extract callee information
-    let callee_module = extract_string_cozo(&row[layout.callee_module_idx])?;
-    let callee_name = extract_string_cozo(&row[layout.callee_name_idx])?;
-    let callee_arity = extract_i64_cozo(&row[layout.callee_arity_idx], 0);
-
-    // Extract file and line
-    let file = extract_string_cozo(&row[layout.file_idx])?;
-    let line = extract_i64_cozo(&row[layout.line_idx], 0);
-
-    // Extract optional call_type
-    let call_type = layout.call_type_idx.and_then(|idx| {
-        if idx < row.len() {
-            Some(extract_string_or_cozo(&row[idx], "remote"))
-        } else {
-            None
-        }
-    });
-
-    // Create FunctionRef objects with Rc<str> to reduce memory allocations
-    let caller = FunctionRef::with_definition(
-        Rc::from(caller_module.into_boxed_str()),
-        Rc::from(caller_name.into_boxed_str()),
-        caller_arity,
-        Rc::from(caller_kind.into_boxed_str()),
-        Rc::from(file.into_boxed_str()),
-        caller_start_line,
-        caller_end_line,
-    );
-
-    let callee = FunctionRef::new(
-        Rc::from(callee_module.into_boxed_str()),
-        Rc::from(callee_name.into_boxed_str()),
-        callee_arity,
-    );
-
-    // Return Call
-    Some(Call {
-        caller,
-        callee,
-        line,
-        call_type,
-        depth: None,
-    })
-}
-
-// CozoDB-specific extraction helpers (only when backend-cozo is enabled)
-#[cfg(feature = "backend-cozo")]
-mod cozo_helpers {
-    use cozo::{DataValue, Num};
-
-    /// Extract a String from a CozoDB DataValue, returning None if not a string
-    pub fn extract_string_cozo(value: &DataValue) -> Option<String> {
-        match value {
-            DataValue::Str(s) => Some(s.to_string()),
-            _ => None,
-        }
-    }
-
-    /// Extract an i64 from a CozoDB DataValue, returning the default if not a number
-    pub fn extract_i64_cozo(value: &DataValue, default: i64) -> i64 {
-        match value {
-            DataValue::Num(Num::Int(i)) => *i,
-            DataValue::Num(Num::Float(f)) => *f as i64,
-            _ => default,
-        }
-    }
-
-    /// Extract a String from a CozoDB DataValue, returning the default if not a string
-    pub fn extract_string_or_cozo(value: &DataValue, default: &str) -> String {
-        match value {
-            DataValue::Str(s) => s.to_string(),
-            _ => default.to_string(),
-        }
-    }
-}
-
-#[cfg(feature = "backend-cozo")]
-use cozo_helpers::*;
-
-#[cfg(all(test, feature = "backend-cozo"))]
+#[cfg(test)]
 mod tests {
     use super::*;
-    use cozo::{DataValue, Num};
     use rstest::rstest;
-
-    #[rstest]
-    fn test_extract_string_from_str() {
-        let value: Box<dyn Value> = Box::new(DataValue::Str("hello".into()));
-        assert_eq!(extract_string(&*value), Some("hello".to_string()));
-    }
-
-    #[rstest]
-    fn test_extract_string_from_non_str() {
-        let value: Box<dyn Value> = Box::new(DataValue::Num(Num::Int(42)));
-        assert_eq!(extract_string(&*value), None);
-    }
-
-    #[rstest]
-    fn test_extract_i64_from_int() {
-        let value: Box<dyn Value> = Box::new(DataValue::Num(Num::Int(42)));
-        assert_eq!(extract_i64(&*value, 0), 42);
-    }
-
-    #[rstest]
-    fn test_extract_i64_from_float() {
-        let value: Box<dyn Value> = Box::new(DataValue::Num(Num::Float(42.7)));
-        assert_eq!(extract_i64(&*value, 0), 42);
-    }
-
-    #[rstest]
-    fn test_extract_i64_from_non_num() {
-        let value: Box<dyn Value> = Box::new(DataValue::Str("not a number".into()));
-        assert_eq!(extract_i64(&*value, -1), -1);
-    }
-
-    #[rstest]
-    fn test_extract_string_or_from_str() {
-        let value: Box<dyn Value> = Box::new(DataValue::Str("hello".into()));
-        assert_eq!(extract_string_or(&*value, "default"), "hello");
-    }
-
-    #[rstest]
-    fn test_extract_string_or_from_non_str() {
-        let value: Box<dyn Value> = Box::new(DataValue::Num(Num::Int(42)));
-        assert_eq!(extract_string_or(&*value, "default"), "default");
-    }
 
     #[rstest]
     fn test_escape_string_basic() {
@@ -506,18 +345,6 @@ mod tests {
     #[rstest]
     fn test_escape_string_with_backslash() {
         assert_eq!(escape_string(r"path\to\file"), r"path\\to\\file");
-    }
-
-    #[rstest]
-    fn test_extract_bool_from_bool() {
-        let value = DataValue::Bool(true);
-        assert_eq!(extract_bool(&value, false), true);
-    }
-
-    #[rstest]
-    fn test_extract_bool_from_non_bool() {
-        let value = DataValue::Str("true".into());
-        assert_eq!(extract_bool(&value, false), false);
     }
 
     // CallRowLayout::from_headers tests
@@ -642,8 +469,8 @@ mod tests {
     fn test_try_create_relation_success_when_created() {
         let db = open_mem_db().expect("Failed to create in-memory DB");
 
-        // Create a simple test relation - should succeed and return Ok(true)
-        let script = r#":create test_relation { name: String => value: String }"#;
+        // Create a simple test table - should succeed and return Ok(true)
+        let script = r#"DEFINE TABLE test_relation SCHEMAFULL"#;
         let result = try_create_relation(&*db, script);
         assert!(
             result.is_ok(),
@@ -657,38 +484,19 @@ mod tests {
     fn test_try_create_relation_idempotent_on_second_call() {
         let db = open_mem_db().expect("Failed to create in-memory DB");
 
-        // Create a test relation first time
-        let script = r#":create test_relation_idempotent { name: String => value: String }"#;
+        // Create a test table first time
+        let script = r#"DEFINE TABLE test_relation_idempotent SCHEMAFULL"#;
         let result1 = try_create_relation(&*db, script);
         assert!(result1.is_ok(), "First creation should succeed");
         assert_eq!(result1.unwrap(), true);
 
-        // Try to create the same relation again - should detect it exists
+        // Try to create the same table again - should detect it exists
         let result2 = try_create_relation(&*db, script);
         assert!(result2.is_ok(), "Second creation attempt should not error");
-        assert_eq!(result2.unwrap(), false, "Second call should report already exists");
-    }
-
-    #[rstest]
-    fn test_try_create_relation_detects_cozo_already_exists_error() {
-        let db = open_mem_db().expect("Failed to create in-memory DB");
-
-        // Create the relation first
-        let script = r#":create test_relation_exists { name: String => value: String }"#;
-        let result1 = try_create_relation(&*db, script);
-        assert!(result1.is_ok());
-        assert_eq!(result1.unwrap(), true);
-
-        // Try again with exact same script - CozoDB will return "AlreadyExists" error
-        let result2 = try_create_relation(&*db, script);
-        assert!(
-            result2.is_ok(),
-            "Should handle AlreadyExists error gracefully"
-        );
         assert_eq!(
             result2.unwrap(),
             false,
-            "Should detect CozoDB AlreadyExists error"
+            "Second call should report already exists"
         );
     }
 
@@ -696,7 +504,7 @@ mod tests {
     fn test_try_create_relation_propagates_genuine_errors() {
         let db = open_mem_db().expect("Failed to create in-memory DB");
 
-        // Invalid CozoScript that will cause a real error (not "already exists")
+        // Invalid SurrealQL that will cause a real error (not "already exists")
         let invalid_script = "invalid syntax here !!!";
         let result = try_create_relation(&*db, invalid_script);
         assert!(result.is_err(), "Should propagate genuine syntax errors");

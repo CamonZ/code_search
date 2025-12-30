@@ -9,12 +9,8 @@ use std::path::PathBuf;
 use crate::commands::Command;
 use crate::output::OutputFormat;
 
-/// Database filename based on backend
-#[cfg(feature = "backend-surrealdb")]
+/// Database filename (SurrealDB with RocksDB storage)
 pub const DB_FILENAME: &str = "surrealdb.rocksdb";
-
-#[cfg(not(feature = "backend-surrealdb"))]
-pub const DB_FILENAME: &str = "cozo.sqlite";
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

@@ -8,13 +8,6 @@ use crate::db::{run_query, run_query_no_params};
 use crate::queries::import_models::CallGraph;
 use crate::queries::schema;
 
-#[cfg(feature = "backend-cozo")]
-use crate::db::{escape_string, escape_string_single};
-
-/// Chunk size for batch database imports
-#[cfg(feature = "backend-cozo")]
-const IMPORT_CHUNK_SIZE: usize = 500;
-
 #[derive(Error, Debug)]
 pub enum ImportError {
     #[error("Failed to read call graph file '{path}': {message}")]
@@ -71,57 +64,9 @@ pub fn create_schema(db: &dyn Database) -> Result<SchemaResult, Box<dyn Error>> 
     Ok(result)
 }
 
-pub fn clear_project_data(db: &dyn Database, _project: &str) -> Result<(), Box<dyn Error>> {
-    #[cfg(feature = "backend-cozo")]
-    {
-        clear_project_data_cozo(db, _project)
-    }
-
-    #[cfg(feature = "backend-surrealdb")]
-    {
-        clear_project_data_surrealdb(db)
-    }
-}
-
-/// Clear all project data from CozoDB
-#[cfg(feature = "backend-cozo")]
-fn clear_project_data_cozo(db: &dyn Database, project: &str) -> Result<(), Box<dyn Error>> {
-    // Delete all data for this project from each table
-    // Using :rm with a query that selects rows matching the project
-    let tables = [
-        ("modules", "project, name"),
-        ("functions", "project, module, name, arity"),
-        ("calls", "project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line, column"),
-        ("struct_fields", "project, module, field"),
-        ("function_locations", "project, module, name, arity, line"),
-        ("specs", "project, module, name, arity"),
-        ("types", "project, module, name"),
-    ];
-
-    for (table, keys) in tables {
-        let script = format!(
-            r#"
-            ?[{keys}] := *{table}{{project: $project, {keys}}}
-            :rm {table} {{{keys}}}
-            "#,
-            table = table,
-            keys = keys
-        );
-
-        let params = QueryParams::new().with_str("project", project);
-
-        run_query(db, &script, params).map_err(|e| ImportError::ClearFailed {
-            message: format!("Failed to clear {}: {}", table, e),
-        })?;
-    }
-
-    Ok(())
-}
-
 /// Clear all project data from SurrealDB
 /// Since SurrealDB is per-project, we delete all records from all tables
-#[cfg(feature = "backend-surrealdb")]
-fn clear_project_data_surrealdb(db: &dyn Database) -> Result<(), Box<dyn Error>> {
+pub fn clear_project_data(db: &dyn Database, _project: &str) -> Result<(), Box<dyn Error>> {
     let tables = [
         "modules",
         "functions",
@@ -145,92 +90,12 @@ fn clear_project_data_surrealdb(db: &dyn Database) -> Result<(), Box<dyn Error>>
     Ok(())
 }
 
-/// Import rows in chunks into a CozoDB table
-#[cfg(feature = "backend-cozo")]
-fn import_rows(
-    db: &dyn Database,
-    rows: Vec<String>,
-    columns: &str,
-    table_spec: &str,
-    data_type: &str,
-) -> Result<usize, Box<dyn Error>> {
-    if rows.is_empty() {
-        return Ok(0);
-    }
-
-    for chunk in rows.chunks(IMPORT_CHUNK_SIZE) {
-        let script = format!(
-            r#"
-            ?[{columns}] <- [{rows}]
-            :put {table_spec}
-            "#,
-            columns = columns,
-            rows = chunk.join(", "),
-            table_spec = table_spec
-        );
-
-        run_query_no_params(db, &script).map_err(|e| ImportError::ImportFailed {
-            data_type: data_type.to_string(),
-            message: e.to_string(),
-        })?;
-    }
-
-    Ok(rows.len())
-}
-
+/// Import modules to SurrealDB
 pub fn import_modules(
     db: &dyn Database,
     _project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
-    #[cfg(feature = "backend-cozo")]
-    {
-        import_modules_cozo(db, _project, graph)
-    }
-
-    #[cfg(feature = "backend-surrealdb")]
-    {
-        import_modules_surrealdb(db, graph)
-    }
-}
-
-/// Import modules to CozoDB
-#[cfg(feature = "backend-cozo")]
-fn import_modules_cozo(
-    db: &dyn Database,
-    project: &str,
-    graph: &CallGraph,
-) -> Result<usize, Box<dyn Error>> {
-    // Collect unique modules from all data sources
-    let mut modules = std::collections::HashSet::new();
-    modules.extend(graph.specs.keys().cloned());
-    modules.extend(graph.function_locations.keys().cloned());
-    modules.extend(graph.structs.keys().cloned());
-    modules.extend(graph.types.keys().cloned());
-
-    let rows: Vec<String> = modules
-        .iter()
-        .map(|m| {
-            format!(
-                r#"["{}", "{}", "", "unknown"]"#,
-                escape_string(project),
-                escape_string(m),
-            )
-        })
-        .collect();
-
-    import_rows(
-        db,
-        rows,
-        "project, name, file, source",
-        "modules { project, name => file, source }",
-        "modules",
-    )
-}
-
-/// Import modules to SurrealDB
-#[cfg(feature = "backend-surrealdb")]
-fn import_modules_surrealdb(db: &dyn Database, graph: &CallGraph) -> Result<usize, Box<dyn Error>> {
     // Collect unique modules from all data sources
     let mut modules = std::collections::HashSet::new();
     modules.extend(graph.specs.keys().cloned());
@@ -249,71 +114,14 @@ fn import_modules_surrealdb(db: &dyn Database, graph: &CallGraph) -> Result<usiz
     Ok(count)
 }
 
-pub fn import_functions(
-    db: &dyn Database,
-    _project: &str,
-    graph: &CallGraph,
-) -> Result<usize, Box<dyn Error>> {
-    #[cfg(feature = "backend-cozo")]
-    {
-        import_functions_cozo(db, _project, graph)
-    }
-
-    #[cfg(feature = "backend-surrealdb")]
-    {
-        import_functions_surrealdb(db, graph)
-    }
-}
-
-/// Import functions from specs to CozoDB
-#[cfg(feature = "backend-cozo")]
-fn import_functions_cozo(
-    db: &dyn Database,
-    project: &str,
-    graph: &CallGraph,
-) -> Result<usize, Box<dyn Error>> {
-    let escaped_project = escape_string(project);
-    let mut rows = Vec::new();
-
-    // Import functions from specs data
-    for (module, specs) in &graph.specs {
-        for spec in specs {
-            // Use first clause only
-            let (return_type, args) = spec
-                .clauses
-                .first()
-                .map(|c| (c.return_strings.join(" | "), c.input_strings.join(", ")))
-                .unwrap_or_default();
-
-            rows.push(format!(
-                r#"["{}", "{}", "{}", {}, "{}", "{}", "unknown"]"#,
-                escaped_project,
-                escape_string(module),
-                escape_string(&spec.name),
-                spec.arity,
-                escape_string(&return_type),
-                escape_string(&args),
-            ));
-        }
-    }
-
-    import_rows(
-        db,
-        rows,
-        "project, module, name, arity, return_type, args, source",
-        "functions { project, module, name, arity => return_type, args, source }",
-        "functions",
-    )
-}
-
 /// Import functions from function_locations to SurrealDB
 ///
 /// Functions are created from function_locations, which contains the actual
 /// function definitions. Specs are metadata that belong to functions and are
 /// linked via name/arity matching, not imported as separate function records.
-#[cfg(feature = "backend-surrealdb")]
-fn import_functions_surrealdb(
+pub fn import_functions(
     db: &dyn Database,
+    _project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
     use std::collections::HashSet;
@@ -358,67 +166,12 @@ fn import_functions_surrealdb(
     Ok(count)
 }
 
+/// Import calls to SurrealDB
 pub fn import_calls(
     db: &dyn Database,
     _project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
-    #[cfg(feature = "backend-cozo")]
-    {
-        import_calls_cozo(db, _project, graph)
-    }
-
-    #[cfg(feature = "backend-surrealdb")]
-    {
-        import_calls_surrealdb(db, graph)
-    }
-}
-
-/// Import calls to CozoDB
-#[cfg(feature = "backend-cozo")]
-fn import_calls_cozo(
-    db: &dyn Database,
-    project: &str,
-    graph: &CallGraph,
-) -> Result<usize, Box<dyn Error>> {
-    let escaped_project = escape_string(project);
-    let rows: Vec<String> = graph
-        .calls
-        .iter()
-        .map(|call| {
-            let caller_kind = call.caller.kind.as_deref().unwrap_or("");
-            let callee_args = call.callee.args.as_deref().unwrap_or("");
-
-            format!(
-                r#"["{}", "{}", "{}", "{}", "{}", {}, "{}", {}, {}, "{}", "{}", '{}']"#,
-                escaped_project,
-                escape_string(&call.caller.module),
-                escape_string(call.caller.function.as_deref().unwrap_or("<module>")),
-                escape_string(&call.callee.module),
-                escape_string(&call.callee.function),
-                call.callee.arity,
-                escape_string(&call.caller.file),
-                call.caller.line.unwrap_or(0),
-                call.caller.column.unwrap_or(0),
-                escape_string(&call.call_type),
-                escape_string(caller_kind),
-                escape_string_single(callee_args),
-            )
-        })
-        .collect();
-
-    import_rows(
-        db,
-        rows,
-        "project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line, column, call_type, caller_kind, callee_args",
-        "calls { project, caller_module, caller_function, callee_module, callee_function, callee_arity, file, line, column => call_type, caller_kind, callee_args }",
-        "calls",
-    )
-}
-
-/// Import calls to SurrealDB
-#[cfg(feature = "backend-surrealdb")]
-fn import_calls_surrealdb(db: &dyn Database, graph: &CallGraph) -> Result<usize, Box<dyn Error>> {
     let mut count = 0;
 
     for call in &graph.calls {
@@ -474,22 +227,6 @@ fn import_calls_surrealdb(db: &dyn Database, graph: &CallGraph) -> Result<usize,
 /// This should be called after `import_calls` to populate the denormalized
 /// `incoming_call_count` and `outgoing_call_count` fields on functions.
 pub fn update_call_counts(db: &dyn Database) -> Result<(), Box<dyn Error>> {
-    #[cfg(feature = "backend-cozo")]
-    {
-        // CozoDB doesn't use denormalized counts
-        let _ = db;
-        Ok(())
-    }
-
-    #[cfg(feature = "backend-surrealdb")]
-    {
-        update_call_counts_surrealdb(db)
-    }
-}
-
-/// Update call counts for SurrealDB
-#[cfg(feature = "backend-surrealdb")]
-fn update_call_counts_surrealdb(db: &dyn Database) -> Result<(), Box<dyn Error>> {
     // Update incoming_call_count (how many times this function is called)
     let incoming_query = r#"
         UPDATE functions SET incoming_call_count = (
@@ -511,7 +248,6 @@ fn update_call_counts_surrealdb(db: &dyn Database) -> Result<(), Box<dyn Error>>
 
 /// Parse a function reference that may be "name" or "name/arity" format
 /// Returns (function_name, arity) - arity defaults to 0 if not specified
-#[cfg(feature = "backend-surrealdb")]
 fn parse_function_ref(func_ref: &str) -> (&str, i64) {
     if let Some(slash_pos) = func_ref.rfind('/') {
         let name = &func_ref[..slash_pos];
@@ -523,59 +259,12 @@ fn parse_function_ref(func_ref: &str) -> (&str, i64) {
     }
 }
 
+/// Import structs to SurrealDB (as fields)
 pub fn import_structs(
     db: &dyn Database,
     _project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
-    #[cfg(feature = "backend-cozo")]
-    {
-        import_structs_cozo(db, _project, graph)
-    }
-
-    #[cfg(feature = "backend-surrealdb")]
-    {
-        import_structs_surrealdb(db, graph)
-    }
-}
-
-/// Import structs to CozoDB
-#[cfg(feature = "backend-cozo")]
-fn import_structs_cozo(
-    db: &dyn Database,
-    project: &str,
-    graph: &CallGraph,
-) -> Result<usize, Box<dyn Error>> {
-    let escaped_project = escape_string(project);
-    let mut rows = Vec::new();
-
-    for (module, def) in &graph.structs {
-        for field in &def.fields {
-            let inferred_type = field.inferred_type.as_deref().unwrap_or("");
-            rows.push(format!(
-                r#"["{}", "{}", '{}', '{}', {}, "{}"]"#,
-                escaped_project,
-                escape_string(module),
-                escape_string_single(&field.field),
-                escape_string_single(&field.default),
-                field.required,
-                escape_string(inferred_type)
-            ));
-        }
-    }
-
-    import_rows(
-        db,
-        rows,
-        "project, module, field, default_value, required, inferred_type",
-        "struct_fields { project, module, field => default_value, required, inferred_type }",
-        "struct_fields",
-    )
-}
-
-/// Import structs to SurrealDB (as fields)
-#[cfg(feature = "backend-surrealdb")]
-fn import_structs_surrealdb(db: &dyn Database, graph: &CallGraph) -> Result<usize, Box<dyn Error>> {
     let mut count = 0;
 
     for (module_name, def) in &graph.structs {
@@ -600,85 +289,10 @@ fn import_structs_surrealdb(db: &dyn Database, graph: &CallGraph) -> Result<usiz
     Ok(count)
 }
 
+/// Import function locations to SurrealDB (as clauses)
 pub fn import_function_locations(
     db: &dyn Database,
     _project: &str,
-    graph: &CallGraph,
-) -> Result<usize, Box<dyn Error>> {
-    #[cfg(feature = "backend-cozo")]
-    {
-        import_function_locations_cozo(db, _project, graph)
-    }
-
-    #[cfg(feature = "backend-surrealdb")]
-    {
-        import_function_locations_surrealdb(db, graph)
-    }
-}
-
-/// Import function locations to CozoDB
-#[cfg(feature = "backend-cozo")]
-fn import_function_locations_cozo(
-    db: &dyn Database,
-    project: &str,
-    graph: &CallGraph,
-) -> Result<usize, Box<dyn Error>> {
-    let escaped_project = escape_string(project);
-    let mut rows = Vec::new();
-
-    for (module, functions) in &graph.function_locations {
-        for loc in functions.values() {
-            // Use deserialized fields directly from the JSON
-            let name = &loc.name;
-            let arity = loc.arity;
-            let line = loc.line;
-
-            let source_file_absolute = loc.source_file_absolute.as_deref().unwrap_or("");
-            let pattern = loc.pattern.as_deref().unwrap_or("");
-            let guard = loc.guard.as_deref().unwrap_or("");
-            let source_sha = loc.source_sha.as_deref().unwrap_or("");
-            let ast_sha = loc.ast_sha.as_deref().unwrap_or("");
-            let generated_by = loc.generated_by.as_deref().unwrap_or("");
-            let macro_source = loc.macro_source.as_deref().unwrap_or("");
-
-            rows.push(format!(
-                r#"["{}", "{}", "{}", {}, {}, "{}", "{}", {}, "{}", {}, {}, '{}', '{}', "{}", "{}", {}, {}, "{}", "{}"]"#,
-                escaped_project,
-                escape_string(module),
-                escape_string(name),
-                arity,
-                line,
-                escape_string(loc.file.as_deref().unwrap_or("")),
-                escape_string(source_file_absolute),
-                loc.column.unwrap_or(0),
-                escape_string(&loc.kind),
-                loc.start_line,
-                loc.end_line,
-                escape_string_single(pattern),
-                escape_string_single(guard),
-                escape_string(source_sha),
-                escape_string(ast_sha),
-                loc.complexity,
-                loc.max_nesting_depth,
-                escape_string(generated_by),
-                escape_string(macro_source),
-            ));
-        }
-    }
-
-    import_rows(
-        db,
-        rows,
-        "project, module, name, arity, line, file, source_file_absolute, column, kind, start_line, end_line, pattern, guard, source_sha, ast_sha, complexity, max_nesting_depth, generated_by, macro_source",
-        "function_locations { project, module, name, arity, line => file, source_file_absolute, column, kind, start_line, end_line, pattern, guard, source_sha, ast_sha, complexity, max_nesting_depth, generated_by, macro_source }",
-        "function_locations",
-    )
-}
-
-/// Import function locations to SurrealDB (as clauses)
-#[cfg(feature = "backend-surrealdb")]
-fn import_function_locations_surrealdb(
-    db: &dyn Database,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
     let mut count = 0;
@@ -734,74 +348,12 @@ fn import_function_locations_surrealdb(
     Ok(count)
 }
 
+/// Import specs to SurrealDB with array fields preserved
 pub fn import_specs(
     db: &dyn Database,
     _project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
-    #[cfg(feature = "backend-cozo")]
-    {
-        import_specs_cozo(db, _project, graph)
-    }
-
-    #[cfg(feature = "backend-surrealdb")]
-    {
-        import_specs_surrealdb(db, graph)
-    }
-}
-
-/// Import specs to CozoDB
-#[cfg(feature = "backend-cozo")]
-fn import_specs_cozo(
-    db: &dyn Database,
-    project: &str,
-    graph: &CallGraph,
-) -> Result<usize, Box<dyn Error>> {
-    let escaped_project = escape_string(project);
-    let mut rows = Vec::new();
-
-    for (module, specs) in &graph.specs {
-        for spec in specs {
-            // Use first clause only (as per ticket recommendation)
-            let (inputs_string, return_string, full) = spec
-                .clauses
-                .first()
-                .map(|c| {
-                    (
-                        c.input_strings.join(", "),
-                        c.return_strings.join(" | "),
-                        c.full.clone(),
-                    )
-                })
-                .unwrap_or_default();
-
-            rows.push(format!(
-                r#"["{}", "{}", "{}", {}, "{}", {}, "{}", "{}", "{}"]"#,
-                escaped_project,
-                escape_string(module),
-                escape_string(&spec.name),
-                spec.arity,
-                escape_string(&spec.kind),
-                spec.line,
-                escape_string(&inputs_string),
-                escape_string(&return_string),
-                escape_string(&full),
-            ));
-        }
-    }
-
-    import_rows(
-        db,
-        rows,
-        "project, module, name, arity, kind, line, inputs_string, return_string, full",
-        "specs { project, module, name, arity => kind, line, inputs_string, return_string, full }",
-        "specs",
-    )
-}
-
-/// Import specs to SurrealDB with array fields preserved
-#[cfg(feature = "backend-surrealdb")]
-fn import_specs_surrealdb(db: &dyn Database, graph: &CallGraph) -> Result<usize, Box<dyn Error>> {
     let mut count = 0;
 
     for (module_name, specs) in &graph.specs {
@@ -840,61 +392,12 @@ fn import_specs_surrealdb(db: &dyn Database, graph: &CallGraph) -> Result<usize,
     Ok(count)
 }
 
+/// Import types to SurrealDB
 pub fn import_types(
     db: &dyn Database,
     _project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
-    #[cfg(feature = "backend-cozo")]
-    {
-        import_types_cozo(db, _project, graph)
-    }
-
-    #[cfg(feature = "backend-surrealdb")]
-    {
-        import_types_surrealdb(db, graph)
-    }
-}
-
-/// Import types to CozoDB
-#[cfg(feature = "backend-cozo")]
-fn import_types_cozo(
-    db: &dyn Database,
-    project: &str,
-    graph: &CallGraph,
-) -> Result<usize, Box<dyn Error>> {
-    let escaped_project = escape_string(project);
-    let mut rows = Vec::new();
-
-    for (module, types) in &graph.types {
-        for type_def in types {
-            let params = type_def.params.join(", ");
-
-            rows.push(format!(
-                r#"["{}", "{}", "{}", "{}", "{}", {}, '{}']"#,
-                escaped_project,
-                escape_string(module),
-                escape_string(&type_def.name),
-                escape_string(&type_def.kind),
-                escape_string(&params),
-                type_def.line,
-                escape_string_single(&type_def.definition),
-            ));
-        }
-    }
-
-    import_rows(
-        db,
-        rows,
-        "project, module, name, kind, params, line, definition",
-        "types { project, module, name => kind, params, line, definition }",
-        "types",
-    )
-}
-
-/// Import types to SurrealDB
-#[cfg(feature = "backend-surrealdb")]
-fn import_types_surrealdb(db: &dyn Database, graph: &CallGraph) -> Result<usize, Box<dyn Error>> {
     let mut count = 0;
 
     for (module_name, types) in &graph.types {
@@ -925,8 +428,7 @@ fn import_types_surrealdb(db: &dyn Database, graph: &CallGraph) -> Result<usize,
 }
 
 /// Create defines relationships (modules -> functions/types/specs) for SurrealDB
-#[cfg(feature = "backend-surrealdb")]
-pub fn create_defines_relationships_surrealdb(
+pub fn create_defines_relationships(
     db: &dyn Database,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
@@ -989,8 +491,7 @@ pub fn create_defines_relationships_surrealdb(
 }
 
 /// Create has_clause relationships (functions -> clauses) for SurrealDB
-#[cfg(feature = "backend-surrealdb")]
-pub fn create_has_clause_relationships_surrealdb(
+pub fn create_has_clause_relationships(
     db: &dyn Database,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
@@ -1017,8 +518,7 @@ pub fn create_has_clause_relationships_surrealdb(
 }
 
 /// Create has_field relationships (modules -> fields) for SurrealDB
-#[cfg(feature = "backend-surrealdb")]
-pub fn create_has_field_relationships_surrealdb(
+pub fn create_has_field_relationships(
     db: &dyn Database,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
@@ -1063,13 +563,10 @@ pub fn import_graph(
     result.specs_imported = import_specs(db, project, graph)?;
     result.types_imported = import_types(db, project, graph)?;
 
-    // Create relationships for SurrealDB
-    #[cfg(feature = "backend-surrealdb")]
-    {
-        create_defines_relationships_surrealdb(db, graph)?;
-        create_has_clause_relationships_surrealdb(db, graph)?;
-        create_has_field_relationships_surrealdb(db, graph)?;
-    }
+    // Create relationships
+    create_defines_relationships(db, graph)?;
+    create_has_clause_relationships(db, graph)?;
+    create_has_field_relationships(db, graph)?;
 
     // Update denormalized call counts after all calls are imported
     update_call_counts(db)?;
@@ -1094,287 +591,8 @@ pub fn import_json_str(
     import_graph(db, project, &graph)
 }
 
-#[cfg(all(test, feature = "backend-cozo"))]
+#[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::db::{extract_string, open_db};
-    use tempfile::NamedTempFile;
-
-    // Test deserialization with all new fields present
-    #[test]
-    fn test_function_location_deserialize_with_new_fields() {
-        let json = r#"{
-            "name": "test_func",
-            "arity": 2,
-            "kind": "def",
-            "line": 10,
-            "start_line": 10,
-            "end_line": 15,
-            "complexity": 5,
-            "max_nesting_depth": 3,
-            "generated_by": "Ecto.Schema",
-            "macro_source": "ecto/schema.ex"
-        }"#;
-
-        let result: crate::queries::import_models::FunctionLocation =
-            serde_json::from_str(json).expect("Deserialization should succeed");
-
-        assert_eq!(result.complexity, 5);
-        assert_eq!(result.max_nesting_depth, 3);
-        assert_eq!(result.generated_by, Some("Ecto.Schema".to_string()));
-        assert_eq!(result.macro_source, Some("ecto/schema.ex".to_string()));
-    }
-
-    // Test deserialization without optional fields (backward compatibility)
-    #[test]
-    fn test_function_location_deserialize_without_new_fields() {
-        let json = r#"{
-            "name": "test_func",
-            "arity": 2,
-            "kind": "def",
-            "line": 10,
-            "start_line": 10,
-            "end_line": 15
-        }"#;
-
-        let result: crate::queries::import_models::FunctionLocation =
-            serde_json::from_str(json).expect("Deserialization should succeed");
-
-        // Should use defaults
-        assert_eq!(result.complexity, 1); // default_complexity
-        assert_eq!(result.max_nesting_depth, 0); // default
-        assert_eq!(result.generated_by, None); // default
-        assert_eq!(result.macro_source, None); // default
-    }
-
-    // Test deserialization with empty string values
-    #[test]
-    fn test_function_location_deserialize_empty_strings() {
-        let json = r#"{
-            "name": "test_func",
-            "arity": 2,
-            "kind": "def",
-            "line": 10,
-            "start_line": 10,
-            "end_line": 15,
-            "complexity": 1,
-            "max_nesting_depth": 0,
-            "generated_by": "",
-            "macro_source": ""
-        }"#;
-
-        let result: crate::queries::import_models::FunctionLocation =
-            serde_json::from_str(json).expect("Deserialization should succeed");
-
-        // Empty strings should deserialize to None or empty string
-        assert_eq!(result.complexity, 1);
-        assert_eq!(result.max_nesting_depth, 0);
-        // Empty strings should parse as Some("") not None
-        assert_eq!(result.generated_by, Some("".to_string()));
-        assert_eq!(result.macro_source, Some("".to_string()));
-    }
-
-    // Test import and database storage of new fields
-    #[test]
-    fn test_import_function_locations_with_new_fields() {
-        let json = r#"{
-            "structs": {},
-            "function_locations": {
-                "MyApp.Accounts": {
-                    "process_data/2:20": {
-                        "name": "process_data",
-                        "arity": 2,
-                        "file": "lib/accounts.ex",
-                        "column": 5,
-                        "kind": "def",
-                        "line": 20,
-                        "start_line": 20,
-                        "end_line": 35,
-                        "pattern": null,
-                        "guard": null,
-                        "source_sha": "",
-                        "ast_sha": "",
-                        "complexity": 7,
-                        "max_nesting_depth": 4,
-                        "generated_by": "Phoenix.Endpoint",
-                        "macro_source": "phoenix/endpoint.ex"
-                    }
-                }
-            },
-            "calls": [],
-            "specs": {},
-            "types": {}
-        }"#;
-
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let db = open_db(db_file.path()).expect("Failed to open db");
-
-        let result = import_json_str(&*db, json, "test_project").expect("Import should succeed");
-
-        // Verify import succeeded
-        assert_eq!(result.function_locations_imported, 1);
-
-        // Verify modules were created (MyApp.Accounts is inferred from function_locations)
-        assert!(result.modules_imported > 0);
-
-        // If we got here, the new fields were successfully serialized and stored in the database
-        // The fact that import_graph succeeded means:
-        // 1. JSON deserialization worked with the new fields
-        // 2. import_function_locations() successfully formatted and inserted rows with 4 new fields
-        // 3. CozoDB schema accepted the data
-    }
-
-    // Test import of struct fields with string-quoted atom syntax
-    #[test]
-    fn test_import_struct_fields_with_string_quoted_atoms() {
-        let json = r#"{
-            "structs": {
-                "MyApp.User": {
-                    "fields": [
-                        {
-                            "field": "name",
-                            "default": "nil",
-                            "required": false,
-                            "inferred_type": "String.t()"
-                        },
-                        {
-                            "field": ":\"user.id\"",
-                            "default": "nil",
-                            "required": false,
-                            "inferred_type": "integer()"
-                        },
-                        {
-                            "field": ":\"first-name\"",
-                            "default": ":\"foo.bar\"",
-                            "required": true,
-                            "inferred_type": "String.t()"
-                        }
-                    ]
-                }
-            },
-            "function_locations": {},
-            "calls": [],
-            "specs": {},
-            "types": {}
-        }"#;
-
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let db = open_db(db_file.path()).expect("Failed to open db");
-
-        let result = import_json_str(&*db, json, "test_project").expect("Import should succeed");
-
-        // Verify import succeeded
-        assert_eq!(result.structs_imported, 3);
-
-        // Query the database to see what was actually stored
-        let query = r#"
-            ?[field, default_value] := *struct_fields{
-                project: "test_project",
-                module: "MyApp.User",
-                field,
-                default_value
-            }
-        "#;
-        let rows = run_query_no_params(&*db, query).expect("Query should succeed");
-
-        // Extract field names and defaults
-        let mut fields: Vec<(String, String)> = rows
-            .rows()
-            .iter()
-            .filter_map(|row| {
-                let field = extract_string(row.get(0)?)?;
-                let default = extract_string(row.get(1)?)?;
-                Some((field, default))
-            })
-            .collect();
-        fields.sort();
-
-        // Verify the string-quoted atom syntax is preserved in both field names and defaults
-        assert_eq!(fields.len(), 3);
-        assert_eq!(fields[0].0, r#":"first-name""#);
-        assert_eq!(fields[0].1, r#":"foo.bar""#);
-        assert_eq!(fields[1].0, r#":"user.id""#);
-        assert_eq!(fields[1].1, "nil");
-        assert_eq!(fields[2].0, "name");
-        assert_eq!(fields[2].1, "nil");
-    }
-
-    // Test import of types with string-quoted atoms in definition
-    #[test]
-    fn test_import_types_with_string_quoted_atoms() {
-        let json = r#"{
-            "structs": {},
-            "function_locations": {},
-            "calls": [],
-            "specs": {},
-            "types": {
-                "MyModule": [
-                    {
-                        "name": "status",
-                        "kind": "type",
-                        "params": [],
-                        "line": 5,
-                        "definition": "@type status() :: :pending | :active | :\"special.status\""
-                    },
-                    {
-                        "name": "config",
-                        "kind": "type",
-                        "params": [],
-                        "line": 10,
-                        "definition": "@type config() :: %{:\"api.key\" => String.t()}"
-                    }
-                ]
-            }
-        }"#;
-
-        let db_file = NamedTempFile::new().expect("Failed to create temp db file");
-        let db = open_db(db_file.path()).expect("Failed to open db");
-
-        let result = import_json_str(&*db, json, "test_project").expect("Import should succeed");
-
-        // Verify import succeeded
-        assert_eq!(result.types_imported, 2);
-
-        // Query the database to see what was actually stored
-        let query = r#"
-            ?[name, definition] := *types{
-                project: "test_project",
-                module: "MyModule",
-                name,
-                definition
-            }
-        "#;
-        let rows = run_query_no_params(&*db, query).expect("Query should succeed");
-
-        // Extract type definitions
-        let mut types: Vec<(String, String)> = rows
-            .rows()
-            .iter()
-            .filter_map(|row| {
-                let name = extract_string(row.get(0)?)?;
-                let definition = extract_string(row.get(1)?)?;
-                Some((name, definition))
-            })
-            .collect();
-        types.sort();
-
-        // Verify the string-quoted atom syntax is preserved in definitions
-        assert_eq!(types.len(), 2);
-        assert_eq!(types[0].0, "config");
-        assert_eq!(
-            types[0].1,
-            r#"@type config() :: %{:"api.key" => String.t()}"#
-        );
-        assert_eq!(types[1].0, "status");
-        assert_eq!(
-            types[1].1,
-            r#"@type status() :: :pending | :active | :"special.status""#
-        );
-    }
-}
-
-#[cfg(all(test, feature = "backend-surrealdb"))]
-mod tests_surrealdb {
     use super::*;
     use crate::backend::QueryParams;
 
@@ -1425,7 +643,7 @@ mod tests_surrealdb {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        let result = import_modules_surrealdb(&*db, &graph);
+        let result = import_modules(&*db, "test_project", &graph);
         assert!(result.is_ok(), "Import should succeed: {:?}", result.err());
         assert_eq!(result.unwrap(), 2, "Should import exactly 2 modules");
 
@@ -1470,8 +688,8 @@ mod tests_surrealdb {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        import_modules_surrealdb(&*db, &graph).unwrap();
-        let result = import_functions_surrealdb(&*db, &graph);
+        import_modules(&*db, "test_project", &graph).unwrap();
+        let result = import_functions(&*db, "test_project", &graph);
         assert!(result.is_ok());
         assert_eq!(
             result.unwrap(),
@@ -1516,9 +734,9 @@ mod tests_surrealdb {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        import_modules_surrealdb(&*db, &graph).unwrap();
-        import_functions_surrealdb(&*db, &graph).unwrap();
-        let result = import_specs_surrealdb(&*db, &graph);
+        import_modules(&*db, "test_project", &graph).unwrap();
+        import_functions(&*db, "test_project", &graph).unwrap();
+        let result = import_specs(&*db, "test_project", &graph);
         assert!(
             result.is_ok(),
             "Import specs should succeed: {:?}",
@@ -1578,7 +796,7 @@ mod tests_surrealdb {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        let result = import_function_locations_surrealdb(&*db, &graph);
+        let result = import_function_locations(&*db, "test_project", &graph);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), 1, "Should import 1 clause");
 
@@ -1610,8 +828,8 @@ mod tests_surrealdb {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        import_modules_surrealdb(&*db, &graph).unwrap();
-        let result = import_structs_surrealdb(&*db, &graph);
+        import_modules(&*db, "test_project", &graph).unwrap();
+        let result = import_structs(&*db, "test_project", &graph);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), 2, "Should import 2 fields");
 
@@ -1653,8 +871,8 @@ mod tests_surrealdb {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        import_modules_surrealdb(&*db, &graph).unwrap();
-        let result = import_types_surrealdb(&*db, &graph);
+        import_modules(&*db, "test_project", &graph).unwrap();
+        let result = import_types(&*db, "test_project", &graph);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), 2, "Should import 2 types");
 
@@ -1689,11 +907,11 @@ mod tests_surrealdb {
         // Clear and set up fresh
         let db_fresh = crate::open_mem_db().unwrap();
         crate::queries::schema::create_schema(&*db_fresh).unwrap();
-        import_modules_surrealdb(&*db_fresh, &graph).unwrap();
-        import_functions_surrealdb(&*db_fresh, &graph).unwrap();
-        import_types_surrealdb(&*db_fresh, &graph).unwrap();
+        import_modules(&*db_fresh, "test_project", &graph).unwrap();
+        import_functions(&*db_fresh, "test_project", &graph).unwrap();
+        import_types(&*db_fresh, "test_project", &graph).unwrap();
 
-        let result = create_defines_relationships_surrealdb(&*db_fresh, &graph);
+        let result = create_defines_relationships(&*db_fresh, &graph);
         assert!(
             result.is_ok(),
             "Creating relationships should succeed: {:?}",
@@ -1736,11 +954,11 @@ mod tests_surrealdb {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        import_modules_surrealdb(&*db, &graph).unwrap();
-        import_functions_surrealdb(&*db, &graph).unwrap();
-        import_function_locations_surrealdb(&*db, &graph).unwrap();
+        import_modules(&*db, "test_project", &graph).unwrap();
+        import_functions(&*db, "test_project", &graph).unwrap();
+        import_function_locations(&*db, "test_project", &graph).unwrap();
 
-        let result = create_has_clause_relationships_surrealdb(&*db, &graph);
+        let result = create_has_clause_relationships(&*db, &graph);
         assert!(result.is_ok());
         assert_eq!(
             result.unwrap(),
@@ -1771,10 +989,10 @@ mod tests_surrealdb {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        import_modules_surrealdb(&*db, &graph).unwrap();
-        import_structs_surrealdb(&*db, &graph).unwrap();
+        import_modules(&*db, "test_project", &graph).unwrap();
+        import_structs(&*db, "test_project", &graph).unwrap();
 
-        let result = create_has_field_relationships_surrealdb(&*db, &graph);
+        let result = create_has_field_relationships(&*db, &graph);
         assert!(result.is_ok());
         assert_eq!(
             result.unwrap(),
@@ -1783,9 +1001,9 @@ mod tests_surrealdb {
         );
     }
 
-    /// Test clear_project_data_surrealdb deletes all data
+    /// Test clear_project_data deletes all data
     #[test]
-    fn test_clear_project_data_surrealdb() {
+    fn test_clear_project_data() {
         let db = crate::open_mem_db().unwrap();
         crate::queries::schema::create_schema(&*db).unwrap();
 
@@ -1814,9 +1032,9 @@ mod tests_surrealdb {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        import_modules_surrealdb(&*db, &graph).unwrap();
-        import_functions_surrealdb(&*db, &graph).unwrap();
-        import_function_locations_surrealdb(&*db, &graph).unwrap();
+        import_modules(&*db, "test_project", &graph).unwrap();
+        import_functions(&*db, "test_project", &graph).unwrap();
+        import_function_locations(&*db, "test_project", &graph).unwrap();
 
         // Verify data was imported
         let query = "SELECT COUNT() FROM modules";
@@ -1827,7 +1045,7 @@ mod tests_surrealdb {
         );
 
         // Clear data
-        let clear_result = clear_project_data_surrealdb(&*db);
+        let clear_result = clear_project_data(&*db, "test_project");
         assert!(
             clear_result.is_ok(),
             "Clear should succeed: {:?}",
@@ -1907,11 +1125,11 @@ mod tests_surrealdb {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        import_modules_surrealdb(&*db, &graph).unwrap();
-        import_functions_surrealdb(&*db, &graph).unwrap();
-        import_function_locations_surrealdb(&*db, &graph).unwrap();
+        import_modules(&*db, "test_project", &graph).unwrap();
+        import_functions(&*db, "test_project", &graph).unwrap();
+        import_function_locations(&*db, "test_project", &graph).unwrap();
 
-        let result = import_calls_surrealdb(&*db, &graph);
+        let result = import_calls(&*db, "test_project", &graph);
         assert!(
             result.is_ok(),
             "Import calls should succeed: {:?}",
@@ -1941,7 +1159,7 @@ mod tests_surrealdb {
         );
     }
 
-    /// Test full import_graph flow with SurrealDB
+    /// Test full import_graph flow
     #[test]
     fn test_import_graph_full_flow() {
         let db = crate::open_mem_db().unwrap();
@@ -2115,10 +1333,10 @@ mod tests_surrealdb {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        import_modules_surrealdb(&*db, &graph).unwrap();
-        import_functions_surrealdb(&*db, &graph).unwrap();
-        import_function_locations_surrealdb(&*db, &graph).unwrap();
-        import_calls_surrealdb(&*db, &graph).unwrap();
+        import_modules(&*db, "test_project", &graph).unwrap();
+        import_functions(&*db, "test_project", &graph).unwrap();
+        import_function_locations(&*db, "test_project", &graph).unwrap();
+        import_calls(&*db, "test_project", &graph).unwrap();
 
         // Before update_call_counts, all counts should be 0
         // Note: SurrealDB returns columns in alphabetical order, so:
@@ -2133,7 +1351,7 @@ mod tests_surrealdb {
         }
 
         // Run update_call_counts
-        let result = update_call_counts_surrealdb(&*db);
+        let result = update_call_counts(&*db);
         assert!(result.is_ok(), "update_call_counts should succeed: {:?}", result.err());
 
         // Verify counts after update
@@ -2214,13 +1432,13 @@ mod tests_surrealdb {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        import_modules_surrealdb(&*db, &graph).unwrap();
-        import_functions_surrealdb(&*db, &graph).unwrap();
-        import_function_locations_surrealdb(&*db, &graph).unwrap();
-        import_calls_surrealdb(&*db, &graph).unwrap();
+        import_modules(&*db, "test_project", &graph).unwrap();
+        import_functions(&*db, "test_project", &graph).unwrap();
+        import_function_locations(&*db, "test_project", &graph).unwrap();
+        import_calls(&*db, "test_project", &graph).unwrap();
 
         // Run update_call_counts
-        update_call_counts_surrealdb(&*db).unwrap();
+        update_call_counts(&*db).unwrap();
 
         // Query counts
         // Columns in alphabetical order: incoming_call_count (0), name (1), outgoing_call_count (2)
@@ -2274,12 +1492,12 @@ mod tests_surrealdb {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        import_modules_surrealdb(&*db, &graph).unwrap();
-        import_functions_surrealdb(&*db, &graph).unwrap();
-        import_function_locations_surrealdb(&*db, &graph).unwrap();
+        import_modules(&*db, "test_project", &graph).unwrap();
+        import_functions(&*db, "test_project", &graph).unwrap();
+        import_function_locations(&*db, "test_project", &graph).unwrap();
 
         // Run update_call_counts - should not error even with no calls
-        let result = update_call_counts_surrealdb(&*db);
+        let result = update_call_counts(&*db);
         assert!(result.is_ok(), "update_call_counts should succeed with no calls: {:?}", result.err());
 
         // Verify counts are 0

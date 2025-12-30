@@ -1,24 +1,12 @@
-//! Database layer for code search - database abstraction with backend support
+//! Database layer for code search - SurrealDB backend
 //!
-//! This crate provides a backend-agnostic database layer that supports multiple backends:
-//! - **CozoDB** (Datalog-based, default) - Graph query language with SQLite storage
-//! - **SurrealDB** (Multi-model database, future) - Document and graph database
-//!
-//! # Backend Selection
-//!
-//! Use Cargo features to select the database backend at compile time:
-//!
-//! ```toml
-//! # Use CozoDB (default)
-//! db = { path = "../db" }
-//!
-//! # Use SurrealDB
-//! db = { path = "../db", default-features = false, features = ["backend-surrealdb"] }
-//! ```
+//! This crate provides the database layer for the code search CLI tool, using SurrealDB
+//! as the storage backend. SurrealDB is a multi-model database supporting document and
+//! graph queries with SurrealQL.
 //!
 //! # Architecture
 //!
-//! The database layer uses trait-based abstractions to support multiple backends:
+//! The database layer uses trait-based abstractions for database operations:
 //!
 //! - [`Database`] trait - Connection and query execution
 //! - [`QueryResult`] trait - Backend-agnostic result set
@@ -40,7 +28,7 @@
 //!     .with_str("project", "my_project");
 //!
 //! let result = db.execute_query(
-//!     "?[module] := *modules{project: $project, module}",
+//!     "SELECT * FROM clauses WHERE project = $project",
 //!     params
 //! )?;
 //!
@@ -140,10 +128,6 @@ pub use db::CallRowLayout;
 /// Extract a Call from a row using the Database trait (backend-agnostic)
 pub use db::extract_call_from_row_trait;
 
-/// Extract a Call from a CozoDB DataValue row (CozoDB-specific)
-#[cfg(feature = "backend-cozo")]
-pub use db::extract_call_from_row;
-
 // ============================================================================
 // Query Building Helpers
 // ============================================================================
@@ -200,18 +184,3 @@ pub use query_builders::validate_regex_pattern;
 
 /// Validate multiple regex patterns
 pub use query_builders::validate_regex_patterns;
-
-// ============================================================================
-// Backend-Specific Exports (Deprecated)
-// ============================================================================
-
-/// CozoDB's DbInstance type (deprecated - use Box<dyn Database> instead)
-///
-/// This export is provided for backward compatibility but is deprecated.
-/// New code should use the `Database` trait instead.
-#[deprecated(
-    since = "0.2.0",
-    note = "Use `Box<dyn Database>` instead of `DbInstance` for backend abstraction"
-)]
-#[cfg(feature = "backend-cozo")]
-pub use cozo::DbInstance;

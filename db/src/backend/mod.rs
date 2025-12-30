@@ -1,7 +1,7 @@
 //! Backend abstraction layer for database operations.
 //!
-//! This module provides trait definitions that abstract database operations,
-//! allowing both CozoDB and SurrealDB backends to implement the same interface.
+//! This module provides trait definitions that abstract database operations
+//! and the SurrealDB implementation.
 
 use std::collections::BTreeMap;
 use std::error::Error;
@@ -168,59 +168,17 @@ pub trait Database: Send + Sync {
     fn as_any(&self) -> &(dyn std::any::Any + Send + Sync);
 }
 
-#[cfg(feature = "backend-cozo")]
-pub(crate) mod cozo;
-#[cfg(feature = "backend-cozo")]
-pub mod cozo_schema;
-
-#[cfg(feature = "backend-surrealdb")]
 pub(crate) mod surrealdb;
-#[cfg(feature = "backend-surrealdb")]
 pub mod surrealdb_schema;
 
 /// Opens a database connection to the specified path.
 ///
-/// This function uses feature flags to determine which backend to use:
-/// - `backend-cozo`: Opens a CozoDB instance
-/// - `backend-surrealdb`: Opens a SurrealDB instance
-///
-/// At least one backend feature must be enabled.
-#[cfg(all(feature = "backend-cozo", not(feature = "backend-surrealdb")))]
-pub fn open_database(path: &Path) -> Result<Box<dyn Database>, Box<dyn Error>> {
-    Ok(Box::new(cozo::CozoDatabase::open(path)?))
-}
-
-#[cfg(all(feature = "backend-surrealdb", not(feature = "backend-cozo")))]
+/// Uses SurrealDB with RocksDB storage backend.
 pub fn open_database(path: &Path) -> Result<Box<dyn Database>, Box<dyn Error>> {
     Ok(Box::new(surrealdb::SurrealDatabase::open(path)?))
 }
 
-#[cfg(all(feature = "backend-cozo", feature = "backend-surrealdb"))]
-compile_error!("Cannot enable both backend-cozo and backend-surrealdb features at the same time");
-
-#[cfg(not(any(feature = "backend-cozo", feature = "backend-surrealdb")))]
-pub fn open_database(_path: &Path) -> Result<Box<dyn Database>, Box<dyn Error>> {
-    compile_error!("Must enable either backend-cozo or backend-surrealdb")
-}
-
 /// Opens an in-memory database for testing.
-///
-/// This function is only available when building tests or when the
-/// `test-utils` feature is enabled.
-///
-/// This should use the default backend (determined by feature flags)
-/// in in-memory mode.
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-cozo", not(feature = "backend-surrealdb")))]
-pub fn open_mem_database() -> Result<Box<dyn Database>, Box<dyn Error>> {
-    Ok(Box::new(cozo::CozoDatabase::open_mem()))
-}
-
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb", not(feature = "backend-cozo")))]
 pub fn open_mem_database() -> Result<Box<dyn Database>, Box<dyn Error>> {
     Ok(Box::new(surrealdb::SurrealDatabase::open_mem()?))
-}
-
-#[cfg(all(any(test, feature = "test-utils"), not(any(feature = "backend-cozo", feature = "backend-surrealdb"))))]
-pub fn open_mem_database() -> Result<Box<dyn Database>, Box<dyn Error>> {
-    compile_error!("Must enable either backend-cozo or backend-surrealdb")
 }

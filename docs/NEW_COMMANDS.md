@@ -48,7 +48,6 @@ mod output_tests;
 use std::error::Error;
 
 use clap::Args;
-use cozo::DbInstance;
 
 use crate::commands::{CommandRunner, Execute};
 use crate::output::{OutputFormat, Outputable};
@@ -90,11 +89,11 @@ Create a new file in `src/queries/` to handle the database interaction. This kee
 
 ```rust
 use std::error::Error;
-use cozo::{DataValue, DbInstance};
-use crate::db::{run_query, Params, extract_string};
+use crate::backend::{Database, QueryParams};
+use crate::db::{extract_string};
 
 pub fn <name>_query(
-    db: &DbInstance,
+    db: &dyn Database,
     arg: &str,
 ) -> Result<Vec<String>, Box<dyn Error>> {
     let script = "?[value] := *relation{value}, value = $arg";
@@ -195,7 +194,7 @@ cargo run -- <name> --help
 - [ ] Added `#[command(after_help = "...")]` with usage examples
 - [ ] Added `--limit` with range validation (1-1000)
 - [ ] **Implemented `CommandRunner` trait in `mod.rs`** (new with enum_dispatch)
-  - [ ] Added imports: `std::error::Error`, `cozo::DbInstance`
+  - [ ] Added imports: `std::error::Error`, `db::backend::Database`
   - [ ] Added imports: `crate::commands::{CommandRunner, Execute}`, `crate::output::{OutputFormat, Outputable}`
   - [ ] Implemented `impl CommandRunner for <Name>Cmd` with `run()` method
 - [ ] Created `cli_tests.rs` with test macros (see [TESTING_STRATEGY.md](./TESTING_STRATEGY.md))

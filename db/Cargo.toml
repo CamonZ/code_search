@@ -4,30 +4,26 @@ version.workspace = true
 edition.workspace = true
 
 [features]
-default = ["backend-cozo"]
-backend-cozo = ["dep:cozo"]
-backend-surrealdb = ["dep:surrealdb", "dep:tokio", "dep:serde_json", "surrealdb?/kv-mem"]
-test-utils = ["dep:tempfile", "dep:serde_json"]
+default = []
+test-utils = ["dep:tempfile"]
 
 [dependencies]
-# Core dependencies (always included)
+# Core dependencies
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0"
 regex = "1"
 include_dir = "0.7"
 clap = { version = "4", features = ["derive"] }
+serde_json = "1.0"
 
-# Backend-specific dependencies (optional)
-cozo = { version = "0.7.6", default-features = false, features = ["compact", "storage-sqlite"], optional = true }
-surrealdb = { version = "2.0", features = ["kv-rocksdb"], optional = true }
-tokio = { version = "1", features = ["rt", "macros"], optional = true }
+# SurrealDB backend (required)
+surrealdb = { version = "2.0", features = ["kv-rocksdb", "kv-mem"] }
+tokio = { version = "1", features = ["rt", "macros"] }
 
 # Test utilities (optional)
 tempfile = { version = "3", optional = true }
-serde_json = { version = "1.0", optional = true }
 
 [dev-dependencies]
 rstest = "0.23"
 tempfile = "3"
-serde_json = "1.0"
 tokio = { version = "1", features = ["rt", "macros"] }

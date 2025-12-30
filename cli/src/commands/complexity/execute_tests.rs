@@ -148,22 +148,4 @@ mod tests {
         },
     }
 
-    // =========================================================================
-    // Empty database tests
-    // =========================================================================
-
-    crate::execute_empty_db_test! {
-        cmd_type: ComplexityCmd,
-        cmd: ComplexityCmd {
-            min: 1,
-            min_depth: 0,
-            exclude_generated: false,
-            module: None,
-            common: CommonArgs {
-                project: "test_project".to_string(),
-                regex: false,
-                limit: 100,
-            },
-        },
-    }
 }

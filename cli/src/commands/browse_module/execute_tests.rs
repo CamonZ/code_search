@@ -303,21 +303,4 @@ mod tests {
         empty_field: definitions,
     }
 
-    // =========================================================================
-    // Error handling tests
-    // =========================================================================
-
-    crate::execute_empty_db_test! {
-        cmd_type: BrowseModuleCmd,
-        cmd: BrowseModuleCmd {
-            module_or_file: "MyApp.Accounts".to_string(),
-            kind: None,
-            name: None,
-            common: CommonArgs {
-                project: "test_project".to_string(),
-                regex: false,
-                limit: 100,
-            },
-        },
-    }
 }

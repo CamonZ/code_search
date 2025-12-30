@@ -48,7 +48,6 @@ DEFINE INDEX idx_functions_module_outgoing ON functions FIELDS module_name, outg
 /// Schema definition for the clauses node table.
 ///
 /// Represents individual function clauses (pattern-matched heads).
-/// Renamed from CozoDB's `function_locations` for clearer semantics.
 /// Unique key: (module_name, function_name, arity, line)
 pub const SCHEMA_CLAUSE: &str = r#"
 DEFINE TABLE clauses SCHEMAFULL;

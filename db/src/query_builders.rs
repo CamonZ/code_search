@@ -1,25 +1,22 @@
-//! Query condition builders for CozoScript
+//! Query condition builders for SurrealQL
 //!
 //! # Regex Validation Strategy
 //!
 //! This module validates regex patterns using the standard Rust `regex` crate before
-//! passing them to CozoDB. While this means patterns are compiled twice (once during
-//! validation, once by CozoDB during query execution), this is an intentional design
+//! passing them to SurrealDB. While this means patterns are compiled twice (once during
+//! validation, once by SurrealDB during query execution), this is an intentional design
 //! decision that provides significant benefits:
 //!
-//! - **Same Engine**: CozoDB uses `regex = "1.10.4"` (the same crate we use), so
-//!   validation results perfectly match CozoDB's behavior. There are no false positives
-//!   or negatives due to engine differences.
+//! - **Same Engine**: SurrealDB uses the same Rust `regex` crate, so validation results
+//!   perfectly match SurrealDB's behavior. There are no false positives or negatives
+//!   due to engine differences.
 //!
 //! - **Better UX**: Early validation at the CLI boundary provides clear, actionable error
-//!   messages. Without this, users would get cryptic CozoDB query errors that are harder
+//!   messages. Without this, users would get cryptic database query errors that are harder
 //!   to understand and debug.
 //!
 //! - **Acceptable Cost**: Regex compilation is fast (~1ms per pattern), making the
 //!   performance overhead negligible compared to the UX improvement.
-//!
-//! See: https://github.com/cozodb/cozo/blob/main/cozo-core/Cargo.toml for CozoDB's
-//! regex dependency version.
 
 use std::error::Error;
 

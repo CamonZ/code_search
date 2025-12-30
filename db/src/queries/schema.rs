@@ -1,9 +1,9 @@
 //! Database schema creation and management.
 //!
 //! This module provides shared schema utilities used by both the import
-//! and setup commands. It handles both CozoDB (single-pass creation) and
-//! SurrealDB (two-phase creation) backends.
+//! and setup commands.
 
+use crate::backend::surrealdb_schema;
 use crate::db::try_create_relation;
 use std::error::Error;
 
@@ -16,76 +16,12 @@ pub struct SchemaCreationResult {
 
 /// Create all database schemas.
 ///
-/// Handles backend-specific creation logic:
-/// - **CozoDB**: Single-pass creation of all relations
-/// - **SurrealDB**: Two-phase creation (nodes first, then relationships)
-///
+/// Two-phase creation: nodes first, then relationships.
 /// Returns a list of all relations with their creation status.
 /// If a relation already exists, returns Ok with created=false for that relation.
 pub fn create_schema(
     db: &dyn crate::backend::Database,
 ) -> Result<Vec<SchemaCreationResult>, Box<dyn Error>> {
-    #[cfg(all(feature = "backend-cozo", not(feature = "backend-surrealdb")))]
-    {
-        return create_schema_cozo(db);
-    }
-
-    #[cfg(all(feature = "backend-surrealdb", not(feature = "backend-cozo")))]
-    {
-        return create_schema_surrealdb(db);
-    }
-
-    #[cfg(all(feature = "backend-cozo", feature = "backend-surrealdb"))]
-    {
-        compile_error!("Cannot enable both backend-cozo and backend-surrealdb features at the same time");
-    }
-
-    #[cfg(not(any(feature = "backend-cozo", feature = "backend-surrealdb")))]
-    {
-        compile_error!("Must enable either backend-cozo or backend-surrealdb")
-    }
-}
-
-/// CozoDB schema creation: single-pass creation of all relations
-#[cfg(feature = "backend-cozo")]
-fn create_schema_cozo(
-    db: &dyn crate::backend::Database,
-) -> Result<Vec<SchemaCreationResult>, Box<dyn Error>> {
-    use crate::backend::cozo_schema;
-
-    let mut result = Vec::new();
-
-    // CozoDB: Single pass, all relations at once
-    let relation_names = [
-        "modules",
-        "functions",
-        "calls",
-        "struct_fields",
-        "function_locations",
-        "specs",
-        "types",
-    ];
-
-    for name in relation_names {
-        let script = cozo_schema::schema_for_relation(name)
-            .ok_or_else(|| format!("Missing schema for relation: {}", name))?;
-        let created = try_create_relation(db, script)?;
-        result.push(SchemaCreationResult {
-            relation: name.to_string(),
-            created,
-        });
-    }
-
-    Ok(result)
-}
-
-/// SurrealDB schema creation: two-phase creation (nodes first, then relationships)
-#[cfg(feature = "backend-surrealdb")]
-fn create_schema_surrealdb(
-    db: &dyn crate::backend::Database,
-) -> Result<Vec<SchemaCreationResult>, Box<dyn Error>> {
-    use crate::backend::surrealdb_schema;
-
     let mut result = Vec::new();
 
     // Phase 1: Create node tables
@@ -115,211 +51,22 @@ fn create_schema_surrealdb(
 
 /// Get list of all relation names managed by this schema.
 ///
-/// Returns the appropriate list for the active backend:
-/// - **CozoDB**: 7 relations (modules, functions, calls, struct_fields, function_locations, specs, types)
-/// - **SurrealDB**: 9 tables (5 nodes + 4 relationships, in creation order)
+/// Returns 10 tables (6 nodes + 4 relationships, in creation order)
 pub fn relation_names() -> Vec<&'static str> {
-    #[cfg(all(feature = "backend-cozo", not(feature = "backend-surrealdb")))]
-    {
-        return vec![
-            "modules",
-            "functions",
-            "calls",
-            "struct_fields",
-            "function_locations",
-            "specs",
-            "types",
-        ];
-    }
-
-    #[cfg(all(feature = "backend-surrealdb", not(feature = "backend-cozo")))]
-    {
-        use crate::backend::surrealdb_schema;
-        let mut names = Vec::new();
-        names.extend_from_slice(surrealdb_schema::node_tables());
-        names.extend_from_slice(surrealdb_schema::relationship_tables());
-        return names;
-    }
-
-    #[cfg(all(feature = "backend-cozo", feature = "backend-surrealdb"))]
-    {
-        compile_error!("Cannot enable both backend-cozo and backend-surrealdb features at the same time");
-    }
-
-    #[cfg(not(any(feature = "backend-cozo", feature = "backend-surrealdb")))]
-    {
-        compile_error!("Must enable either backend-cozo or backend-surrealdb")
-    }
+    let mut names = Vec::new();
+    names.extend_from_slice(surrealdb_schema::node_tables());
+    names.extend_from_slice(surrealdb_schema::relationship_tables());
+    names
 }
 
 /// Get schema script for a specific relation by name.
-///
-/// Routes to the appropriate backend schema module:
-/// - **CozoDB**: Uses `cozo_schema::schema_for_relation`
-/// - **SurrealDB**: Uses `surrealdb_schema::schema_for_table`
 #[allow(dead_code)]
 pub fn schema_for_relation(name: &str) -> Option<&'static str> {
-    #[cfg(all(feature = "backend-cozo", not(feature = "backend-surrealdb")))]
-    {
-        use crate::backend::cozo_schema;
-        return cozo_schema::schema_for_relation(name);
-    }
-
-    #[cfg(all(feature = "backend-surrealdb", not(feature = "backend-cozo")))]
-    {
-        use crate::backend::surrealdb_schema;
-        return surrealdb_schema::schema_for_table(name);
-    }
-
-    #[cfg(all(feature = "backend-cozo", feature = "backend-surrealdb"))]
-    {
-        compile_error!("Cannot enable both backend-cozo and backend-surrealdb features at the same time");
-    }
-
-    #[cfg(not(any(feature = "backend-cozo", feature = "backend-surrealdb")))]
-    {
-        compile_error!("Must enable either backend-cozo or backend-surrealdb")
-    }
+    surrealdb_schema::schema_for_table(name)
 }
 
-#[cfg(all(test, feature = "backend-cozo"))]
-mod cozo_tests {
-    use super::*;
-    use crate::db::open_mem_db;
-
-    #[test]
-    fn test_create_schema_creates_seven_relations() {
-        let db = open_mem_db().expect("Failed to create in-memory DB");
-        let result = create_schema(&*db).expect("Schema creation should succeed");
-
-        // CozoDB should create 7 relations
-        assert_eq!(result.len(), 7, "Should create exactly 7 relations");
-
-        // All should be newly created
-        assert!(
-            result.iter().all(|r| r.created),
-            "All relations should be newly created"
-        );
-    }
-
-    #[test]
-    fn test_create_schema_has_correct_relation_names() {
-        let db = open_mem_db().expect("Failed to create in-memory DB");
-        let result = create_schema(&*db).expect("Schema creation should succeed");
-
-        let relation_names: Vec<_> = result.iter().map(|r| r.relation.as_str()).collect();
-
-        // Verify all expected relation names are present
-        assert!(
-            relation_names.contains(&"modules"),
-            "Should include modules relation"
-        );
-        assert!(
-            relation_names.contains(&"functions"),
-            "Should include functions relation"
-        );
-        assert!(
-            relation_names.contains(&"calls"),
-            "Should include calls relation"
-        );
-        assert!(
-            relation_names.contains(&"struct_fields"),
-            "Should include struct_fields relation"
-        );
-        assert!(
-            relation_names.contains(&"function_locations"),
-            "Should include function_locations relation"
-        );
-        assert!(
-            relation_names.contains(&"specs"),
-            "Should include specs relation"
-        );
-        assert!(
-            relation_names.contains(&"types"),
-            "Should include types relation"
-        );
-    }
-
-    #[test]
-    fn test_create_schema_is_idempotent() {
-        let db = open_mem_db().expect("Failed to create in-memory DB");
-
-        // First call should create all relations
-        let result1 = create_schema(&*db).expect("First schema creation should succeed");
-        assert_eq!(result1.len(), 7);
-        assert!(
-            result1.iter().all(|r| r.created),
-            "First call should create all relations"
-        );
-
-        // Second call should find existing relations
-        let result2 = create_schema(&*db).expect("Second schema creation should succeed");
-        assert_eq!(result2.len(), 7);
-        assert!(
-            result2.iter().all(|r| !r.created),
-            "Second call should find all relations already exist"
-        );
-    }
-
-    #[test]
-    fn test_relation_names_returns_correct_list() {
-        let names = relation_names();
-
-        assert_eq!(names.len(), 7, "Should return 7 relation names");
-        assert!(names.contains(&"modules"));
-        assert!(names.contains(&"functions"));
-        assert!(names.contains(&"calls"));
-        assert!(names.contains(&"struct_fields"));
-        assert!(names.contains(&"function_locations"));
-        assert!(names.contains(&"specs"));
-        assert!(names.contains(&"types"));
-    }
-
-    #[test]
-    fn test_schema_for_relation_returns_valid_ddl() {
-        // Test that each relation has a valid schema definition
-        let relations = [
-            "modules",
-            "functions",
-            "calls",
-            "struct_fields",
-            "function_locations",
-            "specs",
-            "types",
-        ];
-
-        for relation in relations {
-            let schema = schema_for_relation(relation);
-            assert!(
-                schema.is_some(),
-                "Schema for {} should exist",
-                relation
-            );
-            assert!(
-                !schema.unwrap().is_empty(),
-                "Schema for {} should not be empty",
-                relation
-            );
-            assert!(
-                schema.unwrap().contains(":create"),
-                "Schema for {} should contain :create directive",
-                relation
-            );
-        }
-    }
-
-    #[test]
-    fn test_schema_for_relation_returns_none_for_invalid_name() {
-        let schema = schema_for_relation("nonexistent_relation");
-        assert!(
-            schema.is_none(),
-            "Should return None for invalid relation name"
-        );
-    }
-}
-
-#[cfg(all(test, feature = "backend-surrealdb"))]
-mod surrealdb_tests {
+#[cfg(test)]
+mod tests {
     use super::*;
     use crate::db::open_mem_db;
 
@@ -552,8 +299,6 @@ mod surrealdb_tests {
 
     #[test]
     fn test_node_tables_defined_before_relationships() {
-        use crate::backend::surrealdb_schema;
-
         let node_tables = surrealdb_schema::node_tables();
         let rel_tables = surrealdb_schema::relationship_tables();
 

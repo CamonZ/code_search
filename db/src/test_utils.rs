@@ -13,11 +13,6 @@ use crate::db::open_mem_db;
 #[cfg(any(test, feature = "test-utils"))]
 use crate::queries::import::import_json_str;
 
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-cozo"))]
-use crate::db::get_cozo_instance;
-
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-cozo"))]
-use cozo::DbInstance;
 
 /// Create a temporary file containing the given content.
 ///
@@ -81,14 +76,6 @@ pub fn structs_db(project: &str) -> Box<dyn Database> {
     setup_test_db(fixtures::STRUCTS, project)
 }
 
-/// Helper to extract DbInstance from Box<dyn Database> for test compatibility.
-///
-/// Use this in tests when you need to pass a &DbInstance to query functions.
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-cozo"))]
-pub fn get_db_instance(db: &Box<dyn Database>) -> &DbInstance {
-    get_cozo_instance(&**db)
-}
-
 // =============================================================================
 // Output fixture helpers
 // =============================================================================
@@ -111,13 +98,13 @@ pub fn load_output_fixture(command: &str, name: &str) -> String {
 // SurrealDB Test Fixture Infrastructure
 // =============================================================================
 
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(any(test, feature = "test-utils"))]
 use crate::backend::QueryParams;
 
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(any(test, feature = "test-utils"))]
 use crate::queries::schema;
 
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(any(test, feature = "test-utils"))]
 use std::error::Error;
 
 /// Insert a module node directly into the database.
@@ -132,7 +119,7 @@ use std::error::Error;
 /// # Returns
 /// * `Ok(())` if insertion succeeded
 /// * `Err` if the module already exists or database operation fails
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(any(test, feature = "test-utils"))]
 fn insert_module(db: &dyn Database, name: &str) -> Result<(), Box<dyn Error>> {
     let query = "CREATE modules:[$name] SET name = $name, file = \"\", source = \"unknown\";";
     let params = QueryParams::new().with_str("name", name);
@@ -155,7 +142,7 @@ fn insert_module(db: &dyn Database, name: &str) -> Result<(), Box<dyn Error>> {
 /// # Returns
 /// * `Ok(())` if insertion succeeded
 /// * `Err` if the function already exists or database operation fails
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(any(test, feature = "test-utils"))]
 fn insert_function(
     db: &dyn Database,
     module_name: &str,
@@ -169,7 +156,7 @@ fn insert_function(
 ///
 /// Like `insert_function` but allows specifying denormalized fields for
 /// queries that need these values without traversing to clauses.
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(any(test, feature = "test-utils"))]
 fn insert_function_full(
     db: &dyn Database,
     module_name: &str,
@@ -218,7 +205,7 @@ fn insert_function_full(
 /// # Returns
 /// * `Ok(())` if insertion succeeded
 /// * `Err` if the clause already exists or database operation fails
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(any(test, feature = "test-utils"))]
 fn insert_clause(
     db: &dyn Database,
     module_name: &str,
@@ -286,7 +273,7 @@ fn insert_clause(
 /// # Returns
 /// * `Ok(())` if insertion succeeded
 /// * `Err` if the clause already exists or database operation fails
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(any(test, feature = "test-utils"))]
 fn insert_clause_with_hash(
     db: &dyn Database,
     module_name: &str,
@@ -363,7 +350,7 @@ fn insert_clause_with_hash(
 /// # Returns
 /// * `Ok(())` if insertion succeeded
 /// * `Err` if the type already exists or database operation fails
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(any(test, feature = "test-utils"))]
 fn insert_type(
     db: &dyn Database,
     module_name: &str,
@@ -409,7 +396,7 @@ fn insert_type(
 /// # Returns
 /// * `Ok(())` if insertion succeeded
 /// * `Err` if the spec already exists or database operation fails
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(any(test, feature = "test-utils"))]
 fn insert_spec(
     db: &dyn Database,
     module_name: &str,
@@ -482,7 +469,7 @@ fn insert_spec(
 /// # Returns
 /// * `Ok(())` if insertion succeeded
 /// * `Err` if the field already exists or database operation fails
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(any(test, feature = "test-utils"))]
 fn insert_field(
     db: &dyn Database,
     module_name: &str,
@@ -528,7 +515,7 @@ fn insert_field(
 /// # Returns
 /// * `Ok(())` if insertion succeeded
 /// * `Err` if the relationship cannot be created or database operation fails
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(any(test, feature = "test-utils"))]
 fn insert_call(
     db: &dyn Database,
     from_module: &str,
@@ -583,7 +570,7 @@ fn insert_call(
 /// # Returns
 /// * `Ok(())` if insertion succeeded
 /// * `Err` if the relationship cannot be created or database operation fails
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(any(test, feature = "test-utils"))]
 #[allow(dead_code)] // Helper for future tests
 fn insert_defines(
     db: &dyn Database,
@@ -616,7 +603,7 @@ fn insert_defines(
 /// # Returns
 /// * `Ok(())` if insertion succeeded
 /// * `Err` if the relationship cannot be created or database operation fails
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(any(test, feature = "test-utils"))]
 fn insert_has_clause(
     db: &dyn Database,
     module_name: &str,
@@ -651,7 +638,7 @@ fn insert_has_clause(
 /// # Returns
 /// * `Ok(())` if insertion succeeded
 /// * `Err` if the relationship cannot be created or database operation fails
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(any(test, feature = "test-utils"))]
 fn insert_has_field(
     db: &dyn Database,
     module_name: &str,
@@ -686,7 +673,7 @@ fn insert_has_field(
 ///
 /// # Panics
 /// Panics if database creation or schema setup fails
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(any(test, feature = "test-utils"))]
 pub fn surreal_call_graph_db() -> Box<dyn Database> {
     let db = open_mem_db().expect("Failed to create in-memory database");
     schema::create_schema(&*db).expect("Failed to create schema");
@@ -762,7 +749,7 @@ pub fn surreal_call_graph_db() -> Box<dyn Database> {
 ///
 /// # Panics
 /// Panics if database creation or schema setup fails
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(any(test, feature = "test-utils"))]
 pub fn surreal_call_graph_db_complex() -> Box<dyn Database> {
     let db = open_mem_db().expect("Failed to create in-memory database");
     schema::create_schema(&*db).expect("Failed to create schema");
@@ -1429,7 +1416,7 @@ pub fn surreal_call_graph_db_complex() -> Box<dyn Database> {
 ///
 /// # Panics
 /// Panics if database creation or schema setup fails
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(any(test, feature = "test-utils"))]
 pub fn surreal_type_signatures_db() -> Box<dyn Database> {
     let db = open_mem_db().expect("Failed to create in-memory database");
     schema::create_schema(&*db).expect("Failed to create schema");
@@ -1485,7 +1472,7 @@ pub fn surreal_type_signatures_db() -> Box<dyn Database> {
 ///
 /// # Panics
 /// Panics if database creation or schema setup fails
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(any(test, feature = "test-utils"))]
 pub fn surreal_structs_db() -> Box<dyn Database> {
     let db = open_mem_db().expect("Failed to create in-memory database");
     schema::create_schema(&*db).expect("Failed to create schema");
@@ -1535,7 +1522,7 @@ pub fn surreal_structs_db() -> Box<dyn Database> {
 ///
 /// # Panics
 /// Panics if database creation or schema setup fails
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(any(test, feature = "test-utils"))]
 pub fn surreal_type_db() -> Box<dyn Database> {
     let db = open_mem_db().expect("Failed to create in-memory database");
     schema::create_schema(&*db).expect("Failed to create schema");
@@ -1586,7 +1573,7 @@ pub fn surreal_type_db() -> Box<dyn Database> {
 ///
 /// # Panics
 /// Panics if database creation or schema setup fails
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(any(test, feature = "test-utils"))]
 pub fn surreal_specs_db() -> Box<dyn Database> {
     let db = open_mem_db().expect("Failed to create in-memory database");
     schema::create_schema(&*db).expect("Failed to create schema");
@@ -1826,7 +1813,7 @@ pub fn surreal_specs_db() -> Box<dyn Database> {
 ///
 /// # Panics
 /// Panics if database creation or schema setup fails
-#[cfg(all(any(test, feature = "test-utils"), feature = "backend-surrealdb"))]
+#[cfg(any(test, feature = "test-utils"))]
 pub fn surreal_accepts_db() -> Box<dyn Database> {
     let db = open_mem_db().expect("Failed to create in-memory database");
     schema::create_schema(&*db).expect("Failed to create schema");
@@ -1999,7 +1986,7 @@ pub fn surreal_accepts_db() -> Box<dyn Database> {
 // Tests for SurrealDB Fixture Functions
 // =============================================================================
 
-#[cfg(all(test, feature = "backend-surrealdb"))]
+#[cfg(test)]
 mod surrealdb_fixture_tests {
     use super::*;
 

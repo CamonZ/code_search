@@ -2,7 +2,7 @@
 
 ![CI](https://github.com/CamonZ/code_search/actions/workflows/ci.yml/badge.svg)
 
-A CLI tool for querying Elixir/Erlang call graph data stored in CozoDB. Designed for LLMs to efficiently explore and understand codebases without consuming context windows by reading source files directly.
+A CLI tool for querying Elixir/Erlang call graph data stored in SurrealDB. Designed for LLMs to efficiently explore and understand codebases without consuming context windows by reading source files directly.
 
 ## Why?
 
@@ -27,7 +27,7 @@ cargo build --release
 ### 1. Set up the database
 
 ```bash
-# Create database schema in .code_search/cozo.sqlite
+# Create database schema in .code_search/surrealdb.rocksdb
 code_search setup
 
 # Or, create schema AND install Claude Code templates (skills + agents)
@@ -40,7 +40,7 @@ code_search setup --install-hooks
 code_search setup --install-skills --install-hooks
 ```
 
-The database is automatically created at `.code_search/cozo.sqlite` in your project root.
+The database is automatically created at `.code_search/surrealdb.rocksdb` in your project root.
 
 ### 2. Import call graph data
 
@@ -161,12 +161,12 @@ Most commands support these options:
 
 **Database path resolution:**
 
-The `code_search setup` command creates the database at `.code_search/cozo.sqlite` by default.
+The `code_search setup` command creates the database at `.code_search/surrealdb.rocksdb` by default.
 
 If `--db` is not specified, commands automatically search for the database in this order:
-1. `.code_search/cozo.sqlite` (project-local, recommended)
-2. `./cozo.sqlite` (current directory, legacy)
-3. `~/.code_search/cozo.sqlite` (user-global)
+1. `.code_search/surrealdb.rocksdb` (project-local, recommended)
+2. `./surrealdb.rocksdb` (current directory, legacy)
+3. `~/.code_search/surrealdb.rocksdb` (user-global)
 
 ## Examples
 
@@ -217,7 +217,7 @@ This installs:
 Keep your code graph database automatically in sync with each commit:
 
 ```bash
-# Install post-commit hook (database auto-resolves to .code_search/cozo.sqlite)
+# Install post-commit hook (database auto-resolves to .code_search/surrealdb.rocksdb)
 code_search setup --install-hooks
 
 # Or install both skills and hooks together
@@ -228,7 +228,7 @@ The post-commit hook automatically:
 - Compiles your project with debug info
 - Extracts AST data for changed files using `ex_ast --git-diff`
 - Updates the database incrementally (no need to re-analyze the entire codebase)
-- Database path is auto-resolved to `.code_search/cozo.sqlite`
+- Database path is auto-resolved to `.code_search/surrealdb.rocksdb`
 
 **No configuration required!** The hook works out of the box. Optional configuration:
 ```bash
@@ -270,7 +270,7 @@ After installation:
 ## Architecture
 
 - Written in Rust using clap for CLI parsing
-- Uses CozoDB (SQLite-backed) for graph queries
+- Uses SurrealDB (RocksDB-backed) for graph queries
 - Call graph data is extracted separately by [ex_ast](https://github.com/CamonZ/ex_ast)
 - Supports multiple projects in the same database via `--project` flag
 - Embeds templates in binary for self-contained distribution

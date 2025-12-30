@@ -150,21 +150,4 @@ mod tests {
         assert_eq!(result.kind, "incoming");
     }
 
-    // =========================================================================
-    // Error handling tests
-    // =========================================================================
-
-    crate::execute_empty_db_test! {
-        cmd_type: HotspotsCmd,
-        cmd: HotspotsCmd {
-            module: None,
-            kind: HotspotKind::Incoming,
-            exclude_generated: false,
-            common: CommonArgs {
-                project: "test_project".to_string(),
-                regex: false,
-                limit: 20,
-            },
-        },
-    }
 }

@@ -2,7 +2,7 @@
 #
 # Post-commit hook for incremental database updates
 #
-# This hook runs after each commit to update the CozoDB database with changes
+# This hook runs after each commit to update the SurrealDB database with changes
 # from the last commit. It:
 # 1. Ensures the project is compiled with debug info
 # 2. Extracts AST data for changed files using ex_ast --git-diff
@@ -16,7 +16,7 @@
 #   git config code-search.project-name <name>   # Project name (for multi-project databases)
 #   git config code-search.mix-env <env>         # Mix environment (default: dev)
 #
-# Database path is auto-resolved to .code_search/cozo.sqlite in the project root
+# Database path is auto-resolved to .code_search/surrealdb.rocksdb in the project root
 #
 
 # Get configuration from git config (all optional)
@@ -104,7 +104,7 @@ if grep -q '"function_locations":[[:space:]]*{}.*"calls":[[:space:]]*\[\].*"spec
 fi
 
 # Step 3: Import data into database (will upsert existing records)
-# Database path will be auto-resolved to .code_search/cozo.sqlite
+# Database path will be auto-resolved to .code_search/surrealdb.rocksdb
 if [ -n "${PROJECT_NAME}" ]; then
     info "Importing data (project: ${PROJECT_NAME})..."
     if code_search import --file "${TEMP_JSON}" --project "${PROJECT_NAME}" 2>&1; then

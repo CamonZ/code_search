@@ -152,7 +152,7 @@ code_search hotspots --kind total --limit 15
 ## Setup & Import
 
 ```bash
-# Create database schema (creates .code_search/cozo.sqlite)
+# Create database schema (creates .code_search/surrealdb.rocksdb)
 code_search setup
 
 # Import call graph data (from ex_ast)

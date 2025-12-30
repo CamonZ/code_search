@@ -203,22 +203,4 @@ mod tests {
         empty_field: paths,
     }
 
-    // =========================================================================
-    // Error handling tests
-    // =========================================================================
-
-    crate::execute_empty_db_test! {
-        cmd_type: PathCmd,
-        cmd: PathCmd {
-            from_module: "MyApp".to_string(),
-            from_function: "foo".to_string(),
-            from_arity: 1,
-            to_module: "MyApp".to_string(),
-            to_function: "bar".to_string(),
-            to_arity: 1,
-            project: "test_project".to_string(),
-            depth: 10,
-            limit: 10,
-        },
-    }
 }

@@ -64,7 +64,6 @@ impl SurrealDatabase {
     /// # Errors
     /// Returns an error if the runtime cannot be created or if the database
     /// connection fails.
-    #[cfg(any(test, feature = "test-utils"))]
     pub fn open_mem() -> Result<Self, Box<dyn Error>> {
         let runtime = Runtime::new()
             .map_err(|e| format!("Failed to create tokio runtime: {}", e))?;
