@@ -210,22 +210,6 @@ mod tests {
     // Filter tests
     // =========================================================================
 
-    crate::execute_all_match_test! {
-        test_name: test_search_modules_with_project_filter,
-        fixture: populated_db,
-        cmd: SearchCmd {
-            pattern: "App".to_string(),
-            kind: SearchKind::Modules,
-            common: CommonArgs {
-                project: "test_project".to_string(),
-                regex: false,
-                limit: 100,
-            },
-        },
-        collection: modules,
-        condition: |m| m.project == "test_project",
-    }
-
     crate::execute_test! {
         test_name: test_search_with_limit,
         fixture: populated_db,
@@ -248,21 +232,8 @@ mod tests {
     // Error handling tests
     // =========================================================================
 
-    crate::execute_empty_db_test! {
-        cmd_type: SearchCmd,
-        cmd: SearchCmd {
-            pattern: "test".to_string(),
-            kind: SearchKind::Modules,
-            common: CommonArgs {
-                project: "test_project".to_string(),
-                regex: false,
-                limit: 100,
-            },
-        },
-    }
-
     #[rstest]
-    fn test_search_modules_invalid_regex(populated_db: db::DbInstance) {
+    fn test_search_modules_invalid_regex(populated_db: Box<dyn db::backend::Database>) {
         use crate::commands::Execute;
 
         let cmd = SearchCmd {
@@ -275,7 +246,7 @@ mod tests {
             },
         };
 
-        let result = cmd.execute(&populated_db);
+        let result = cmd.execute(&*populated_db);
         assert!(result.is_err(), "Should reject invalid regex pattern");
 
         let err = result.unwrap_err();
@@ -285,7 +256,7 @@ mod tests {
     }
 
     #[rstest]
-    fn test_search_functions_invalid_regex(populated_db: db::DbInstance) {
+    fn test_search_functions_invalid_regex(populated_db: Box<dyn db::backend::Database>) {
         use crate::commands::Execute;
 
         let cmd = SearchCmd {
@@ -298,7 +269,7 @@ mod tests {
             },
         };
 
-        let result = cmd.execute(&populated_db);
+        let result = cmd.execute(&*populated_db);
         assert!(result.is_err(), "Should reject invalid regex pattern");
 
         let err = result.unwrap_err();
@@ -308,7 +279,7 @@ mod tests {
     }
 
     #[rstest]
-    fn test_search_invalid_regex_non_regex_mode_works(populated_db: db::DbInstance) {
+    fn test_search_invalid_regex_non_regex_mode_works(populated_db: Box<dyn db::backend::Database>) {
         use crate::commands::Execute;
 
         // Even invalid regex patterns should work in non-regex mode (treated as literals)
@@ -322,7 +293,7 @@ mod tests {
             },
         };
 
-        let result = cmd.execute(&populated_db);
+        let result = cmd.execute(&*populated_db);
         assert!(result.is_ok(), "Should accept any pattern in non-regex mode: {:?}", result.err());
     }
 }

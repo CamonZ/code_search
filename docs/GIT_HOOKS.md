@@ -7,7 +7,7 @@ This guide explains how to use git hooks to automatically keep your code graph d
 The post-commit git hook automatically:
 1. Compiles your Elixir project with debug info (if needed)
 2. Extracts AST data for files changed in the last commit using `ex_ast --git-diff`
-3. Updates the CozoDB database with the new data (using upsert to update existing records)
+3. Updates the SurrealDB database with the new data (using upsert to update existing records)
 
 This provides incremental updates without the need to re-analyze your entire codebase after each change.
 
@@ -33,7 +33,7 @@ This will:
 - Configure git settings:
   - `code-search.mix-env`: `dev` (Mix environment to use)
 
-**That's it!** The database path is automatically resolved to `.code_search/cozo.sqlite` in your project root.
+**That's it!** The database path is automatically resolved to `.code_search/surrealdb.rocksdb` in your project root.
 
 ### Complete Setup (Skills + Hooks)
 
@@ -44,7 +44,7 @@ code_search setup --install-skills --install-hooks
 ```
 
 This will:
-- Create the database schema at `.code_search/cozo.sqlite`
+- Create the database schema at `.code_search/surrealdb.rocksdb`
 - Install Claude Code skills to `.claude/skills/`
 - Install Claude Code agents to `.claude/agents/`
 - Install the post-commit hook to `.git/hooks/`
@@ -96,7 +96,7 @@ When you make a commit, the post-commit hook:
    - Outputs JSON to a temporary file
 
 4. **Updates database**: Runs `code_search import` to update the database
-   - Database path auto-resolves to `.code_search/cozo.sqlite`
+   - Database path auto-resolves to `.code_search/surrealdb.rocksdb`
    - Uses configured project name if set (optional)
    - Performs upsert operations (updates existing records, inserts new ones)
 
@@ -211,7 +211,7 @@ git config --get-regexp code-search
 
 3. Check database exists:
 ```bash
-ls -la .code_search/cozo.sqlite
+ls -la .code_search/surrealdb.rocksdb
 ```
 
 ### Slow commits
@@ -278,4 +278,4 @@ The hook is designed to be fast for incremental updates. Full project analysis w
 
 - [ex_ast documentation](https://github.com/CamonZ/ex_ast)
 - [Git hooks documentation](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks)
-- [CozoDB documentation](https://docs.cozodb.org/)
+- [SurrealDB documentation](https://surrealdb.com/docs)

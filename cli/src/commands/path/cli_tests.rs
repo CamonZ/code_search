@@ -19,8 +19,10 @@ mod tests {
         args: [
             "--from-module", "MyApp",
             "--from-function", "foo",
+            "--from-arity", "1",
             "--to-module", "MyApp",
             "--to-function", "bar",
+            "--to-arity", "1",
             "--limit", "5"
         ],
         field: limit,
@@ -34,8 +36,10 @@ mod tests {
         args: [
             "--from-module", "MyApp",
             "--from-function", "foo",
+            "--from-arity", "1",
             "--to-module", "MyApp",
             "--to-function", "bar",
+            "--to-arity", "1",
             "--depth", "15"
         ],
         field: depth,
@@ -55,7 +59,7 @@ mod tests {
             "--to-arity", "2"
         ],
         field: from_arity,
-        expected: Some(2),
+        expected: 2,
     }
 
     // =========================================================================
@@ -77,8 +81,10 @@ mod tests {
             "MyApp.Controller",
             "--from-function",
             "index",
+            "--from-arity",
+            "2",
         ]);
-        assert!(result.is_err());
+        assert!(result.is_err(), "Should require --to-module, --to-function, and --to-arity");
     }
 
     #[rstest]
@@ -90,18 +96,24 @@ mod tests {
             "MyApp.Controller",
             "--from-function",
             "index",
+            "--from-arity",
+            "2",
             "--to-module",
             "MyApp.Repo",
             "--to-function",
             "get",
+            "--to-arity",
+            "2",
         ])
         .unwrap();
         match args.command {
             crate::commands::Command::Path(cmd) => {
                 assert_eq!(cmd.from_module, "MyApp.Controller");
                 assert_eq!(cmd.from_function, "index");
+                assert_eq!(cmd.from_arity, 2);
                 assert_eq!(cmd.to_module, "MyApp.Repo");
                 assert_eq!(cmd.to_function, "get");
+                assert_eq!(cmd.to_arity, 2);
                 assert_eq!(cmd.depth, 10); // default
                 assert_eq!(cmd.limit, 100); // default
             }
@@ -118,10 +130,14 @@ mod tests {
             "MyApp",
             "--from-function",
             "foo",
+            "--from-arity",
+            "1",
             "--to-module",
             "MyApp",
             "--to-function",
             "bar",
+            "--to-arity",
+            "1",
             "--depth",
             "0",
         ]);
@@ -137,10 +153,14 @@ mod tests {
             "MyApp",
             "--from-function",
             "foo",
+            "--from-arity",
+            "1",
             "--to-module",
             "MyApp",
             "--to-function",
             "bar",
+            "--to-arity",
+            "1",
             "--depth",
             "21",
         ]);
@@ -156,10 +176,14 @@ mod tests {
             "MyApp",
             "--from-function",
             "foo",
+            "--from-arity",
+            "1",
             "--to-module",
             "MyApp",
             "--to-function",
             "bar",
+            "--to-arity",
+            "1",
             "--limit",
             "0",
         ]);
@@ -175,10 +199,14 @@ mod tests {
             "MyApp",
             "--from-function",
             "foo",
+            "--from-arity",
+            "1",
             "--to-module",
             "MyApp",
             "--to-function",
             "bar",
+            "--to-arity",
+            "1",
             "--limit",
             "1001",
         ]);

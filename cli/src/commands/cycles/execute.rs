@@ -32,7 +32,7 @@ pub struct CyclesResult {
 impl Execute for CyclesCmd {
     type Output = CyclesResult;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         // Get cycle edges from the database
         let edges = find_cycle_edges(
             db,

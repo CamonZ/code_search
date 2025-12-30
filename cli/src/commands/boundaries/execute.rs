@@ -18,7 +18,7 @@ pub struct BoundaryEntry {
 impl Execute for BoundariesCmd {
     type Output = ModuleCollectionResult<BoundaryEntry>;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         let hotspots = find_hotspots(
             db,
             HotspotKind::Ratio,

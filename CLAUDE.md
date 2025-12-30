@@ -22,7 +22,7 @@ cargo run -p code_search -- describe    # Show detailed command documentation
 This is a Cargo workspace with two crates:
 
 - **`db/`** - Database library crate
-  - CozoDB query layer (all `queries/` modules)
+  - SurrealDB query layer (all `queries/` modules)
   - Database utilities (`db.rs`)
   - Shared types (`types/`)
   - Query builders (`query_builders.rs`)
@@ -41,14 +41,14 @@ This is a Cargo workspace with two crates:
 
 ## Architecture
 
-This is a Rust CLI tool for querying call graph data stored in a CozoDB SQLite database. Uses Rust 2024 edition with clap derive macros for CLI parsing.
+This is a Rust CLI tool for querying call graph data stored in a SurrealDB database (RocksDB storage). Uses Rust 2024 edition with clap derive macros for CLI parsing.
 
 **Code organization:**
 
 *Database crate (`db/src/`):*
 - `lib.rs` - Public API surface, re-exports
 - `db.rs` - Database connection and query utilities
-- `queries/<name>.rs` - CozoScript queries and result parsing (31 query modules)
+- `queries/<name>.rs` - SurrealQL queries and result parsing (31 query modules)
 - `query_builders.rs` - SQL condition builders (`ConditionBuilder`, `OptionalConditionBuilder`)
 - `types/` - Shared types (`ModuleGroupResult`, `ModuleGroup`, `Call`, `FunctionRef`, etc.)
 - `fixtures/` - Test data (feature-gated)
@@ -76,7 +76,7 @@ Each command is a directory module with these files:
 // Defined in cli/src/commands/mod.rs
 pub trait Execute {
     type Output: Outputable;
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>>;
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>>;
 }
 ```
 

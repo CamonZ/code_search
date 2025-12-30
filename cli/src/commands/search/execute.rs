@@ -72,7 +72,7 @@ impl SearchResult {
 impl Execute for SearchCmd {
     type Output = SearchResult;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         match self.kind {
             SearchKind::Modules => {
                 let modules = search_modules(db, &self.pattern, &self.common.project, self.common.limit, self.common.regex)?;

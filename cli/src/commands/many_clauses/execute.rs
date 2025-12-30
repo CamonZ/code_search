@@ -22,7 +22,7 @@ pub struct ManyClausesEntry {
 impl Execute for ManyClausesCmd {
     type Output = ModuleCollectionResult<ManyClausesEntry>;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         let many_clauses = find_many_clauses(
             db,
             self.min_clauses,

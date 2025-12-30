@@ -22,7 +22,7 @@ pub struct LargeFunctionEntry {
 impl Execute for LargeFunctionsCmd {
     type Output = ModuleCollectionResult<LargeFunctionEntry>;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         let large_functions = find_large_functions(
             db,
             self.min_lines,

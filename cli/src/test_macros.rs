@@ -219,7 +219,7 @@ macro_rules! execute_test_fixture {
         project: $project:literal $(,)?
     ) => {
         #[fixture]
-        fn $name() -> db::DbInstance {
+        fn $name() -> Box<dyn db::backend::Database> {
             db::test_utils::setup_test_db($json, $project)
         }
     };
@@ -245,7 +245,7 @@ macro_rules! shared_fixture {
         project: $project:literal $(,)?
     ) => {
         #[fixture]
-        fn $name() -> db::DbInstance {
+        fn $name() -> Box<dyn db::backend::Database> {
             db::test_utils::call_graph_db($project)
         }
     };
@@ -255,7 +255,7 @@ macro_rules! shared_fixture {
         project: $project:literal $(,)?
     ) => {
         #[fixture]
-        fn $name() -> db::DbInstance {
+        fn $name() -> Box<dyn db::backend::Database> {
             db::test_utils::type_signatures_db($project)
         }
     };
@@ -265,29 +265,33 @@ macro_rules! shared_fixture {
         project: $project:literal $(,)?
     ) => {
         #[fixture]
-        fn $name() -> db::DbInstance {
+        fn $name() -> Box<dyn db::backend::Database> {
             db::test_utils::structs_db($project)
         }
     };
 }
 
-/// Generate a test that verifies command execution against an empty database fails.
+/// Generate a fixture using the SurrealDB complex call graph fixture.
+///
+/// This fixture uses programmatically created data that works with SurrealDB queries.
+///
+/// # Example
+/// ```ignore
+/// crate::surreal_fixture! {
+///     fixture_name: populated_db,
+/// }
+/// ```
 #[macro_export]
-macro_rules! execute_empty_db_test {
+macro_rules! surreal_fixture {
     (
-        cmd_type: $cmd_type:ty,
-        cmd: $cmd:expr $(,)?
+        fixture_name: $name:ident $(,)?
     ) => {
-        #[rstest]
-        fn test_empty_db() {
-            use $crate::commands::Execute;
-            let db = db::test_utils::setup_empty_test_db();
-            let result = $cmd.execute(&db);
-            assert!(result.is_err());
+        #[fixture]
+        fn $name() -> Box<dyn db::backend::Database> {
+            db::test_utils::surreal_call_graph_db_complex()
         }
     };
 }
-
 /// Generate an execute test with custom assertions.
 ///
 /// This is the core macro for execute tests. It handles the boilerplate of
@@ -320,9 +324,9 @@ macro_rules! execute_test {
         assertions: |$result:ident| $assertions:expr $(,)?
     ) => {
         #[rstest]
-        fn $test_name($fixture: db::DbInstance) {
+        fn $test_name($fixture: Box<dyn db::backend::Database>) {
             use $crate::commands::Execute;
-            let $result = $cmd.execute(&$fixture).expect("Execute should succeed");
+            let $result = $cmd.execute(&*$fixture).expect("Execute should succeed");
             $assertions
         }
     };
@@ -348,9 +352,9 @@ macro_rules! execute_no_match_test {
         empty_field: $field:ident $(,)?
     ) => {
         #[rstest]
-        fn $test_name($fixture: db::DbInstance) {
+        fn $test_name($fixture: Box<dyn db::backend::Database>) {
             use $crate::commands::Execute;
-            let result = $cmd.execute(&$fixture).expect("Execute should succeed");
+            let result = $cmd.execute(&*$fixture).expect("Execute should succeed");
             assert!(
                 result.$field.is_empty(),
                 concat!(stringify!($field), " should be empty")
@@ -381,9 +385,9 @@ macro_rules! execute_count_test {
         expected: $expected:expr $(,)?
     ) => {
         #[rstest]
-        fn $test_name($fixture: db::DbInstance) {
+        fn $test_name($fixture: Box<dyn db::backend::Database>) {
             use $crate::commands::Execute;
-            let result = $cmd.execute(&$fixture).expect("Execute should succeed");
+            let result = $cmd.execute(&*$fixture).expect("Execute should succeed");
             assert_eq!(
                 result.$field.len(),
                 $expected,
@@ -415,9 +419,9 @@ macro_rules! execute_field_test {
         expected: $expected:expr $(,)?
     ) => {
         #[rstest]
-        fn $test_name($fixture: db::DbInstance) {
+        fn $test_name($fixture: Box<dyn db::backend::Database>) {
             use $crate::commands::Execute;
-            let result = $cmd.execute(&$fixture).expect("Execute should succeed");
+            let result = $cmd.execute(&*$fixture).expect("Execute should succeed");
             assert_eq!(
                 result.$field, $expected,
                 concat!("Field ", stringify!($field), " mismatch")
@@ -450,9 +454,9 @@ macro_rules! execute_first_item_test {
         expected: $expected:expr $(,)?
     ) => {
         #[rstest]
-        fn $test_name($fixture: db::DbInstance) {
+        fn $test_name($fixture: Box<dyn db::backend::Database>) {
             use $crate::commands::Execute;
-            let result = $cmd.execute(&$fixture).expect("Execute should succeed");
+            let result = $cmd.execute(&*$fixture).expect("Execute should succeed");
             assert!(
                 !result.$collection.is_empty(),
                 concat!(stringify!($collection), " should not be empty")
@@ -487,9 +491,9 @@ macro_rules! execute_all_match_test {
         condition: |$item:ident| $cond:expr $(,)?
     ) => {
         #[rstest]
-        fn $test_name($fixture: db::DbInstance) {
+        fn $test_name($fixture: Box<dyn db::backend::Database>) {
             use $crate::commands::Execute;
-            let result = $cmd.execute(&$fixture).expect("Execute should succeed");
+            let result = $cmd.execute(&*$fixture).expect("Execute should succeed");
             assert!(
                 result.$collection.iter().all(|$item| $cond),
                 concat!("Not all ", stringify!($collection), " matched condition")
@@ -520,9 +524,9 @@ macro_rules! execute_limit_test {
         limit: $limit:expr $(,)?
     ) => {
         #[rstest]
-        fn $test_name($fixture: db::DbInstance) {
+        fn $test_name($fixture: Box<dyn db::backend::Database>) {
             use $crate::commands::Execute;
-            let result = $cmd.execute(&$fixture).expect("Execute should succeed");
+            let result = $cmd.execute(&*$fixture).expect("Execute should succeed");
             assert!(
                 result.$collection.len() <= $limit,
                 concat!(

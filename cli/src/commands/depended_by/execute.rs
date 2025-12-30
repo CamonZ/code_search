@@ -111,7 +111,7 @@ fn build_dependent_caller_result(target_module: String, calls: Vec<Call>) -> Mod
 impl Execute for DependedByCmd {
     type Output = ModuleGroupResult<DependentCaller>;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         let calls = find_dependents(
             db,
             &self.module,

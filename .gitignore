@@ -13,11 +13,10 @@ target
 # Contains mutation testing data
 **/mutants.out*/
 
-cozo.sqlite
+surrealdb.rocksdb
 .code_search/
 /call_graph.json
 !src/fixtures/call_graph.json
-.cozo_repl_history
 /extracted_trace.json
 !src/fixtures/extracted_trace.json
 /trade_gym_call_graph.json

@@ -66,7 +66,7 @@ fn build_callee_result(module_pattern: String, function_pattern: String, calls: 
 impl Execute for CallsToCmd {
     type Output = ModuleGroupResult<CalleeFunction>;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         let calls = find_calls_to(
             db,
             &self.module,

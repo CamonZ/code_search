@@ -3,6 +3,9 @@ name = "code_search"
 version.workspace = true
 edition.workspace = true
 
+[features]
+default = []
+
 [dependencies]
 db = { path = "../db" }
 clap = { version = "4", features = ["derive"] }
@@ -19,3 +22,5 @@ db = { path = "../db", features = ["test-utils"] }
 tempfile = "3"
 rstest = "0.23"
 serial_test = "3.2.0"
+assert_cmd = "2"
+predicates = "3"

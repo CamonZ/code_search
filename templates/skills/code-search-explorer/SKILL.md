@@ -183,13 +183,13 @@ The agent uses `--format toon` for token efficiency, but you can also run comman
 ## Database Configuration
 
 Database is automatically searched in this order:
-1. `.code_search/cozo.sqlite` (project-local, created by default)
-2. `./cozo.sqlite` (current directory)
-3. `~/.code_search/cozo.sqlite` (user-global)
+1. `.code_search/surrealdb.rocksdb` (project-local, created by default)
+2. `./surrealdb.rocksdb` (current directory)
+3. `~/.code_search/surrealdb.rocksdb` (user-global)
 
 Override with `--db` flag if needed:
 ```bash
-code_search --db /path/to/project.sqlite <command>
+code_search --db /path/to/db.rocksdb <command>
 ```
 
 ## Tips for Best Results
@@ -271,7 +271,7 @@ code_search god-modules
 ## Troubleshooting
 
 **Issue**: "Database not found"
-- **Solution**: Run `code_search setup` first (creates `.code_search/cozo.sqlite`)
+- **Solution**: Run `code_search setup` first (creates `.code_search/surrealdb.rocksdb`)
 
 **Issue**: "No results found"
 - **Solution**: Check if data is imported with `code_search describe`

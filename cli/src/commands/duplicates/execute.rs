@@ -83,7 +83,7 @@ pub enum DuplicatesOutput {
 impl Execute for DuplicatesCmd {
     type Output = DuplicatesOutput;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         let functions = find_duplicates(
             db,
             &self.common.project,

@@ -150,7 +150,7 @@ fn build_struct_modules_result(pattern: String, entries: Vec<StructUsageEntry>) 
 impl Execute for StructUsageCmd {
     type Output = StructUsageOutput;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         let entries = find_struct_usage(
             db,
             &self.pattern,

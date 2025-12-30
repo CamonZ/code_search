@@ -51,7 +51,7 @@ fn build_function_signatures_result(
 impl Execute for FunctionCmd {
     type Output = ModuleGroupResult<FuncSig>;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         let signatures = find_functions(
             db,
             &self.module,

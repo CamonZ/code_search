@@ -21,7 +21,7 @@ pub struct ComplexityEntry {
 impl Execute for ComplexityCmd {
     type Output = ModuleCollectionResult<ComplexityEntry>;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         let metrics = find_complexity_metrics(
             db,
             self.min,

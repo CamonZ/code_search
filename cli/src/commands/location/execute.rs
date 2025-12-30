@@ -111,7 +111,7 @@ impl LocationResult {
 impl Execute for LocationCmd {
     type Output = LocationResult;
 
-    fn execute(self, db: &db::DbInstance) -> Result<Self::Output, Box<dyn Error>> {
+    fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         let locations = find_locations(
             db,
             self.module.as_deref(),

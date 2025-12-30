@@ -16,12 +16,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db_path = cli::resolve_db_path(args.db);
 
     // Create .code_search directory if using default path
-    if db_path.as_path() == std::path::Path::new(".code_search/cozo.sqlite") {
+    let default_db_path = format!(".code_search/{}", cli::DB_FILENAME);
+    if db_path.as_path() == std::path::Path::new(&default_db_path) {
         std::fs::create_dir_all(".code_search").ok();
     }
 
     let db = open_db(&db_path)?;
-    let output = args.command.run(&db, args.format)?;
+    let output = args.command.run(&*db, args.format)?;
     println!("{}", output);
     Ok(())
 }
