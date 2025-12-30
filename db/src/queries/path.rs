@@ -82,7 +82,7 @@ pub fn find_paths(
     for row in result.rows().iter() {
         if let Some(path) = row.get(0).and_then(|v| v.as_array()) {
             // Convert path array into CallPath
-            let steps = convert_path_to_steps(&path)?;
+            let steps = convert_path_to_steps(db, &path)?;
             if !steps.is_empty() {
                 all_paths.push(CallPath { steps });
             }
@@ -94,7 +94,7 @@ pub fn find_paths(
 
 /// Convert a SurrealDB path array to CallPath steps
 #[cfg(feature = "backend-surrealdb")]
-fn convert_path_to_steps(path: &[&dyn crate::backend::Value]) -> Result<Vec<PathStep>, Box<dyn Error>> {
+fn convert_path_to_steps(db: &dyn Database, path: &[&dyn crate::backend::Value]) -> Result<Vec<PathStep>, Box<dyn Error>> {
     let mut steps = Vec::new();
 
     // Path contains nodes, we need to convert consecutive pairs into steps
@@ -104,6 +104,9 @@ fn convert_path_to_steps(path: &[&dyn crate::backend::Value]) -> Result<Vec<Path
             extract_function_data(window[0]),
             extract_function_data(window[1]),
         ) {
+            // Look up the call edge to get the line number and file
+            let (line, file) = lookup_call_edge(db, &caller, &callee);
+
             let depth = (steps.len() + 1) as i64;
             steps.push(PathStep {
                 depth,
@@ -112,13 +115,63 @@ fn convert_path_to_steps(path: &[&dyn crate::backend::Value]) -> Result<Vec<Path
                 callee_module: callee.0,
                 callee_function: callee.1,
                 callee_arity: callee.2,
-                file: String::new(), // Not available from path traversal
-                line: 0, // Not available from path traversal
+                file,
+                line,
             });
         }
     }
 
     Ok(steps)
+}
+
+/// Look up the call edge between two functions to get line number and file
+#[cfg(feature = "backend-surrealdb")]
+fn lookup_call_edge(
+    db: &dyn Database,
+    caller: &(String, String, i64),
+    callee: &(String, String, i64),
+) -> (i64, String) {
+    let edge_query = r#"
+        SELECT line, file
+        FROM calls
+        WHERE in = functions:[$caller_module, $caller_name, $caller_arity]
+          AND out = functions:[$callee_module, $callee_name, $callee_arity]
+        LIMIT 1;
+    "#;
+
+    let edge_params = QueryParams::new()
+        .with_str("caller_module", &caller.0)
+        .with_str("caller_name", &caller.1)
+        .with_int("caller_arity", caller.2)
+        .with_str("callee_module", &callee.0)
+        .with_str("callee_name", &callee.1)
+        .with_int("callee_arity", callee.2);
+
+    match db.execute_query(edge_query, edge_params) {
+        Ok(edge_result) => {
+            let headers = edge_result.headers();
+            if let Some(edge_row) = edge_result.rows().first() {
+                // Use header indices because SurrealDB returns columns in alphabetical order,
+                // not in SELECT clause order
+                let line_idx = headers.iter().position(|h| h == "line");
+                let file_idx = headers.iter().position(|h| h == "file");
+
+                let line = line_idx
+                    .and_then(|idx| edge_row.get(idx))
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(0);
+                let file = file_idx
+                    .and_then(|idx| edge_row.get(idx))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                (line, file)
+            } else {
+                (0, String::new())
+            }
+        }
+        Err(_) => (0, String::new()),
+    }
 }
 
 /// Extract function data from a SurrealDB Thing value
@@ -848,5 +901,109 @@ mod surrealdb_tests {
         assert_eq!(path.steps[0].callee_module, "MyApp.Accounts");
         assert_eq!(path.steps[0].callee_function, "list_users");
         assert_eq!(path.steps[0].depth, 1);
+    }
+
+    #[test]
+    fn test_find_paths_returns_line_numbers() {
+        let db = crate::test_utils::surreal_call_graph_db_complex();
+
+        // Test path: Controller.index/2 -> Accounts.list_users/0
+        // The fixture has this call at line 7
+        let result = find_paths(
+            &*db,
+            "MyApp.Controller",
+            "index",
+            2,
+            "MyApp.Accounts",
+            "list_users",
+            0,
+            "default",
+            10,
+            100,
+        );
+
+        assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
+        let paths = result.unwrap();
+        assert_eq!(paths.len(), 1, "Should find exactly 1 path");
+
+        let step = &paths[0].steps[0];
+        assert_eq!(step.line, 7, "Call line should be 7 (from fixture)");
+        assert_eq!(step.file, "lib/my_app/controller.ex", "File should match fixture");
+    }
+
+    #[test]
+    fn test_lookup_call_edge_returns_correct_data() {
+        let db = crate::test_utils::surreal_call_graph_db_complex();
+
+        // Test direct edge lookup
+        let caller = ("MyApp.Controller".to_string(), "index".to_string(), 2i64);
+        let callee = ("MyApp.Accounts".to_string(), "list_users".to_string(), 0i64);
+
+        let (line, file) = lookup_call_edge(&*db, &caller, &callee);
+
+        assert_eq!(line, 7, "Call line should be 7 (from fixture)");
+        assert_eq!(file, "lib/my_app/controller.ex", "File should match fixture");
+    }
+
+    #[test]
+    fn test_debug_edge_query() {
+        let db = crate::test_utils::surreal_call_graph_db_complex();
+
+        // Query with hardcoded record IDs
+        let hardcoded_query = r#"
+            SELECT line, file FROM calls
+            WHERE in = functions:["MyApp.Controller", "index", 2]
+              AND out = functions:["MyApp.Accounts", "list_users", 0]
+        "#;
+        let hardcoded_result = db.execute_query(hardcoded_query, QueryParams::new()).unwrap();
+
+        // Show headers to understand column ordering
+        let headers = hardcoded_result.headers();
+        eprintln!("\nHeaders: {:?}", headers);
+        eprintln!("(Note: SELECT was 'line, file' but headers may be alphabetically sorted)");
+
+        eprintln!("\nHardcoded query result: {} rows", hardcoded_result.rows().len());
+        for (i, row) in hardcoded_result.rows().iter().enumerate() {
+            // Show what's at each index with type info
+            for col_idx in 0..row.len() {
+                let val = row.get(col_idx);
+                let header = headers.get(col_idx).map(|s| s.as_str()).unwrap_or("?");
+                let type_info = match val {
+                    Some(v) if v.as_i64().is_some() => format!("i64: {}", v.as_i64().unwrap()),
+                    Some(v) if v.as_str().is_some() => format!("str: {}", v.as_str().unwrap()),
+                    Some(_) => "other".to_string(),
+                    None => "None".to_string(),
+                };
+                eprintln!("  Row {} col {} ({}): {}", i, col_idx, header, type_info);
+            }
+        }
+
+        // The test should pass if hardcoded works
+        assert!(hardcoded_result.rows().len() > 0, "Hardcoded query should find the edge");
+
+        // Verify we can access values using header names to find indices
+        let row = hardcoded_result.rows().first().unwrap();
+        let line_idx = headers.iter().position(|h| h == "line");
+        let file_idx = headers.iter().position(|h| h == "file");
+
+        eprintln!("\nColumn indices: line={:?}, file={:?}", line_idx, file_idx);
+
+        if let Some(idx) = line_idx {
+            let line = row.get(idx).and_then(|v| v.as_i64());
+            eprintln!("line value via header index: {:?}", line);
+            assert!(line.is_some(), "Should be able to access line by header index");
+            assert_eq!(line.unwrap(), 7, "line should be 7 from fixture");
+        } else {
+            panic!("'line' header not found");
+        }
+
+        if let Some(idx) = file_idx {
+            let file = row.get(idx).and_then(|v| v.as_str());
+            eprintln!("file value via header index: {:?}", file);
+            assert!(file.is_some(), "Should be able to access file by header index");
+            assert_eq!(file.unwrap(), "lib/my_app/controller.ex", "file should match fixture");
+        } else {
+            panic!("'file' header not found");
+        }
     }
 }

@@ -286,10 +286,24 @@ pub(crate) fn trace_calls_impl(
                         .execute_query(edge_query, edge_params)
                     {
                         Ok(edge_result) => {
+                            let headers = edge_result.headers();
                             if let Some(edge_row) = edge_result.rows().first() {
-                                let line = edge_row.get(0).and_then(|v| v.as_i64()).unwrap_or(0);
-                                let start = edge_row.get(2).and_then(|v| v.as_i64());
-                                let end = edge_row.get(1).and_then(|v| v.as_i64());
+                                // Use header indices because SurrealDB returns columns in alphabetical order,
+                                // not in SELECT clause order
+                                let line_idx = headers.iter().position(|h| h == "call_line");
+                                let start_idx = headers.iter().position(|h| h == "clause_start");
+                                let end_idx = headers.iter().position(|h| h == "clause_end");
+
+                                let line = line_idx
+                                    .and_then(|idx| edge_row.get(idx))
+                                    .and_then(|v| v.as_i64())
+                                    .unwrap_or(0);
+                                let start = start_idx
+                                    .and_then(|idx| edge_row.get(idx))
+                                    .and_then(|v| v.as_i64());
+                                let end = end_idx
+                                    .and_then(|idx| edge_row.get(idx))
+                                    .and_then(|v| v.as_i64());
 
                                 (line, start, end)
                             } else {
