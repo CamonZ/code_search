@@ -61,4 +61,3 @@ Each call shows:
 | `[ARITY]` | Function arity (optional) | all arities |
 | `-r, --regex` | Treat patterns as regular expressions | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |

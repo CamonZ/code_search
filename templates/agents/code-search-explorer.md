@@ -29,7 +29,6 @@ When asked to explore a codebase:
 2. **Execute queries efficiently**:
    - Always use `--format toon` for token-efficient output
    - Use `--limit` to control result size
-   - Use `--project` to filter by project
    - Chain multiple queries when needed
 
 3. **Interpret results**:

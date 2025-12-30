@@ -66,7 +66,7 @@ pub fn create_schema(db: &dyn Database) -> Result<SchemaResult, Box<dyn Error>> 
 
 /// Clear all project data from SurrealDB
 /// Since SurrealDB is per-project, we delete all records from all tables
-pub fn clear_project_data(db: &dyn Database, _project: &str) -> Result<(), Box<dyn Error>> {
+pub fn clear_project_data(db: &dyn Database) -> Result<(), Box<dyn Error>> {
     let tables = [
         "modules",
         "functions",
@@ -93,7 +93,6 @@ pub fn clear_project_data(db: &dyn Database, _project: &str) -> Result<(), Box<d
 /// Import modules to SurrealDB
 pub fn import_modules(
     db: &dyn Database,
-    _project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
     // Collect unique modules from all data sources
@@ -121,7 +120,6 @@ pub fn import_modules(
 /// linked via name/arity matching, not imported as separate function records.
 pub fn import_functions(
     db: &dyn Database,
-    _project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
     use std::collections::HashSet;
@@ -169,7 +167,6 @@ pub fn import_functions(
 /// Import calls to SurrealDB
 pub fn import_calls(
     db: &dyn Database,
-    _project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
     let mut count = 0;
@@ -262,7 +259,6 @@ fn parse_function_ref(func_ref: &str) -> (&str, i64) {
 /// Import structs to SurrealDB (as fields)
 pub fn import_structs(
     db: &dyn Database,
-    _project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
     let mut count = 0;
@@ -292,7 +288,6 @@ pub fn import_structs(
 /// Import function locations to SurrealDB (as clauses)
 pub fn import_function_locations(
     db: &dyn Database,
-    _project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
     let mut count = 0;
@@ -351,7 +346,6 @@ pub fn import_function_locations(
 /// Import specs to SurrealDB with array fields preserved
 pub fn import_specs(
     db: &dyn Database,
-    _project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
     let mut count = 0;
@@ -395,7 +389,6 @@ pub fn import_specs(
 /// Import types to SurrealDB
 pub fn import_types(
     db: &dyn Database,
-    _project: &str,
     graph: &CallGraph,
 ) -> Result<usize, Box<dyn Error>> {
     let mut count = 0;
@@ -548,20 +541,19 @@ pub fn create_has_field_relationships(
 /// This is the core import logic used by both the CLI command and test utilities.
 pub fn import_graph(
     db: &dyn Database,
-    project: &str,
     graph: &CallGraph,
 ) -> Result<ImportResult, Box<dyn Error>> {
     let mut result = ImportResult::default();
 
     result.schemas = create_schema(db)?;
-    result.modules_imported = import_modules(db, project, graph)?;
-    result.functions_imported = import_functions(db, project, graph)?;
+    result.modules_imported = import_modules(db, graph)?;
+    result.functions_imported = import_functions(db, graph)?;
     // Import function_locations (clauses) BEFORE calls so caller_clause_id lookup works
-    result.function_locations_imported = import_function_locations(db, project, graph)?;
-    result.calls_imported = import_calls(db, project, graph)?;
-    result.structs_imported = import_structs(db, project, graph)?;
-    result.specs_imported = import_specs(db, project, graph)?;
-    result.types_imported = import_types(db, project, graph)?;
+    result.function_locations_imported = import_function_locations(db, graph)?;
+    result.calls_imported = import_calls(db, graph)?;
+    result.structs_imported = import_structs(db, graph)?;
+    result.specs_imported = import_specs(db, graph)?;
+    result.types_imported = import_types(db, graph)?;
 
     // Create relationships
     create_defines_relationships(db, graph)?;
@@ -581,14 +573,13 @@ pub fn import_graph(
 pub fn import_json_str(
     db: &dyn Database,
     content: &str,
-    project: &str,
 ) -> Result<ImportResult, Box<dyn Error>> {
     let graph: CallGraph =
         serde_json::from_str(content).map_err(|e| ImportError::JsonParseFailed {
             message: e.to_string(),
         })?;
 
-    import_graph(db, project, &graph)
+    import_graph(db, &graph)
 }
 
 #[cfg(test)]
@@ -643,7 +634,7 @@ mod tests {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        let result = import_modules(&*db, "test_project", &graph);
+        let result = import_modules(&*db, &graph);
         assert!(result.is_ok(), "Import should succeed: {:?}", result.err());
         assert_eq!(result.unwrap(), 2, "Should import exactly 2 modules");
 
@@ -688,8 +679,8 @@ mod tests {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        import_modules(&*db, "test_project", &graph).unwrap();
-        let result = import_functions(&*db, "test_project", &graph);
+        import_modules(&*db, &graph).unwrap();
+        let result = import_functions(&*db, &graph);
         assert!(result.is_ok());
         assert_eq!(
             result.unwrap(),
@@ -734,9 +725,9 @@ mod tests {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        import_modules(&*db, "test_project", &graph).unwrap();
-        import_functions(&*db, "test_project", &graph).unwrap();
-        let result = import_specs(&*db, "test_project", &graph);
+        import_modules(&*db, &graph).unwrap();
+        import_functions(&*db, &graph).unwrap();
+        let result = import_specs(&*db, &graph);
         assert!(
             result.is_ok(),
             "Import specs should succeed: {:?}",
@@ -796,7 +787,7 @@ mod tests {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        let result = import_function_locations(&*db, "test_project", &graph);
+        let result = import_function_locations(&*db, &graph);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), 1, "Should import 1 clause");
 
@@ -828,8 +819,8 @@ mod tests {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        import_modules(&*db, "test_project", &graph).unwrap();
-        let result = import_structs(&*db, "test_project", &graph);
+        import_modules(&*db, &graph).unwrap();
+        let result = import_structs(&*db, &graph);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), 2, "Should import 2 fields");
 
@@ -871,8 +862,8 @@ mod tests {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        import_modules(&*db, "test_project", &graph).unwrap();
-        let result = import_types(&*db, "test_project", &graph);
+        import_modules(&*db, &graph).unwrap();
+        let result = import_types(&*db, &graph);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), 2, "Should import 2 types");
 
@@ -907,9 +898,9 @@ mod tests {
         // Clear and set up fresh
         let db_fresh = crate::open_mem_db().unwrap();
         crate::queries::schema::create_schema(&*db_fresh).unwrap();
-        import_modules(&*db_fresh, "test_project", &graph).unwrap();
-        import_functions(&*db_fresh, "test_project", &graph).unwrap();
-        import_types(&*db_fresh, "test_project", &graph).unwrap();
+        import_modules(&*db_fresh, &graph).unwrap();
+        import_functions(&*db_fresh, &graph).unwrap();
+        import_types(&*db_fresh, &graph).unwrap();
 
         let result = create_defines_relationships(&*db_fresh, &graph);
         assert!(
@@ -954,9 +945,9 @@ mod tests {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        import_modules(&*db, "test_project", &graph).unwrap();
-        import_functions(&*db, "test_project", &graph).unwrap();
-        import_function_locations(&*db, "test_project", &graph).unwrap();
+        import_modules(&*db, &graph).unwrap();
+        import_functions(&*db, &graph).unwrap();
+        import_function_locations(&*db, &graph).unwrap();
 
         let result = create_has_clause_relationships(&*db, &graph);
         assert!(result.is_ok());
@@ -989,8 +980,8 @@ mod tests {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        import_modules(&*db, "test_project", &graph).unwrap();
-        import_structs(&*db, "test_project", &graph).unwrap();
+        import_modules(&*db, &graph).unwrap();
+        import_structs(&*db, &graph).unwrap();
 
         let result = create_has_field_relationships(&*db, &graph);
         assert!(result.is_ok());
@@ -1032,9 +1023,9 @@ mod tests {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        import_modules(&*db, "test_project", &graph).unwrap();
-        import_functions(&*db, "test_project", &graph).unwrap();
-        import_function_locations(&*db, "test_project", &graph).unwrap();
+        import_modules(&*db, &graph).unwrap();
+        import_functions(&*db, &graph).unwrap();
+        import_function_locations(&*db, &graph).unwrap();
 
         // Verify data was imported
         let query = "SELECT COUNT() FROM modules";
@@ -1045,7 +1036,7 @@ mod tests {
         );
 
         // Clear data
-        let clear_result = clear_project_data(&*db, "test_project");
+        let clear_result = clear_project_data(&*db);
         assert!(
             clear_result.is_ok(),
             "Clear should succeed: {:?}",
@@ -1125,11 +1116,11 @@ mod tests {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        import_modules(&*db, "test_project", &graph).unwrap();
-        import_functions(&*db, "test_project", &graph).unwrap();
-        import_function_locations(&*db, "test_project", &graph).unwrap();
+        import_modules(&*db, &graph).unwrap();
+        import_functions(&*db, &graph).unwrap();
+        import_function_locations(&*db, &graph).unwrap();
 
-        let result = import_calls(&*db, "test_project", &graph);
+        let result = import_calls(&*db, &graph);
         assert!(
             result.is_ok(),
             "Import calls should succeed: {:?}",
@@ -1191,7 +1182,7 @@ mod tests {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        let result = import_graph(&*db, "test_project", &graph);
+        let result = import_graph(&*db, &graph);
 
         assert!(result.is_ok(), "Import should succeed: {:?}", result.err());
         let import_result = result.unwrap();
@@ -1244,7 +1235,7 @@ mod tests {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        let result = import_graph(&*db, "test_project", &graph);
+        let result = import_graph(&*db, &graph);
         assert!(result.is_ok(), "Import should succeed: {:?}", result.err());
 
         // Verify call counts were updated during import
@@ -1333,10 +1324,10 @@ mod tests {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        import_modules(&*db, "test_project", &graph).unwrap();
-        import_functions(&*db, "test_project", &graph).unwrap();
-        import_function_locations(&*db, "test_project", &graph).unwrap();
-        import_calls(&*db, "test_project", &graph).unwrap();
+        import_modules(&*db, &graph).unwrap();
+        import_functions(&*db, &graph).unwrap();
+        import_function_locations(&*db, &graph).unwrap();
+        import_calls(&*db, &graph).unwrap();
 
         // Before update_call_counts, all counts should be 0
         // Note: SurrealDB returns columns in alphabetical order, so:
@@ -1432,10 +1423,10 @@ mod tests {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        import_modules(&*db, "test_project", &graph).unwrap();
-        import_functions(&*db, "test_project", &graph).unwrap();
-        import_function_locations(&*db, "test_project", &graph).unwrap();
-        import_calls(&*db, "test_project", &graph).unwrap();
+        import_modules(&*db, &graph).unwrap();
+        import_functions(&*db, &graph).unwrap();
+        import_function_locations(&*db, &graph).unwrap();
+        import_calls(&*db, &graph).unwrap();
 
         // Run update_call_counts
         update_call_counts(&*db).unwrap();
@@ -1492,9 +1483,9 @@ mod tests {
         }"#;
 
         let graph: CallGraph = serde_json::from_str(json).unwrap();
-        import_modules(&*db, "test_project", &graph).unwrap();
-        import_functions(&*db, "test_project", &graph).unwrap();
-        import_function_locations(&*db, "test_project", &graph).unwrap();
+        import_modules(&*db, &graph).unwrap();
+        import_functions(&*db, &graph).unwrap();
+        import_function_locations(&*db, &graph).unwrap();
 
         // Run update_call_counts - should not error even with no calls
         let result = update_call_counts(&*db);

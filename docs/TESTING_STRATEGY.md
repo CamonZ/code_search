@@ -46,10 +46,10 @@ Tests that a specific CLI option sets a field correctly.
 crate::cli_option_test! {
     command: "search",
     variant: Search,
-    test_name: test_with_project,
-    args: ["--pattern", "User", "--project", "my_app"],
-    field: project,
-    expected: "my_app",
+    test_name: test_with_limit,
+    args: ["User", "--limit", "50"],
+    field: common.limit,
+    expected: 50,
 }
 ```
 

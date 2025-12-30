@@ -23,7 +23,6 @@ impl Execute for BoundariesCmd {
             db,
             HotspotKind::Ratio,
             self.module.as_deref(),
-            &self.common.project,
             self.common.regex,
             self.common.limit,
             false,
@@ -89,7 +88,6 @@ mod tests {
             min_ratio: 2.0,
             module: None,
             common: crate::commands::CommonArgs {
-                project: "default".to_string(),
                 regex: false,
                 limit: 50,
             },

@@ -44,7 +44,6 @@ pub struct FieldInfo {
 pub fn find_struct_fields(
     db: &dyn Database,
     module_pattern: &str,
-    _project: &str,
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<StructField>, Box<dyn Error>> {
@@ -155,7 +154,7 @@ mod tests {
 
     #[rstest]
     fn test_find_struct_fields_returns_results(surreal_db: Box<dyn crate::backend::Database>) {
-        let result = find_struct_fields(&*surreal_db, "", "default", false, 100);
+        let result = find_struct_fields(&*surreal_db, "", false, 100);
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let fields = result.unwrap();
         assert_eq!(
@@ -168,7 +167,7 @@ mod tests {
     #[rstest]
     fn test_find_struct_fields_empty_results(surreal_db: Box<dyn crate::backend::Database>) {
         let result =
-            find_struct_fields(&*surreal_db, "NonExistentModule", "default", false, 100);
+            find_struct_fields(&*surreal_db, "NonExistentModule", false, 100);
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let fields = result.unwrap();
         assert!(
@@ -181,7 +180,7 @@ mod tests {
     fn test_find_struct_fields_with_exact_module(
         surreal_db: Box<dyn crate::backend::Database>,
     ) {
-        let result = find_struct_fields(&*surreal_db, "structs_module", "default", false, 100);
+        let result = find_struct_fields(&*surreal_db, "structs_module", false, 100);
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let fields = result.unwrap();
         assert_eq!(
@@ -199,8 +198,8 @@ mod tests {
 
     #[rstest]
     fn test_find_struct_fields_respects_limit(surreal_db: Box<dyn crate::backend::Database>) {
-        let limit_1 = find_struct_fields(&*surreal_db, "", "default", false, 1).unwrap();
-        let limit_100 = find_struct_fields(&*surreal_db, "", "default", false, 100).unwrap();
+        let limit_1 = find_struct_fields(&*surreal_db, "", false, 1).unwrap();
+        let limit_100 = find_struct_fields(&*surreal_db, "", false, 100).unwrap();
 
         assert_eq!(limit_1.len(), 1, "Should respect limit of 1");
         assert_eq!(
@@ -214,7 +213,7 @@ mod tests {
     fn test_find_struct_fields_with_regex_pattern(
         surreal_db: Box<dyn crate::backend::Database>,
     ) {
-        let result = find_struct_fields(&*surreal_db, "structs.*", "default", true, 100);
+        let result = find_struct_fields(&*surreal_db, "structs.*", true, 100);
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let fields = result.unwrap();
         assert_eq!(
@@ -235,7 +234,7 @@ mod tests {
         surreal_db: Box<dyn crate::backend::Database>,
     ) {
         let result =
-            find_struct_fields(&*surreal_db, "(structs|other).*", "default", true, 100);
+            find_struct_fields(&*surreal_db, "(structs|other).*", true, 100);
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let fields = result.unwrap();
         assert_eq!(
@@ -247,7 +246,7 @@ mod tests {
 
     #[rstest]
     fn test_find_struct_fields_invalid_regex(surreal_db: Box<dyn crate::backend::Database>) {
-        let result = find_struct_fields(&*surreal_db, "[invalid", "default", true, 100);
+        let result = find_struct_fields(&*surreal_db, "[invalid", true, 100);
         assert!(result.is_err(), "Should reject invalid regex");
     }
 
@@ -255,7 +254,7 @@ mod tests {
     fn test_find_struct_fields_returns_valid_structure(
         surreal_db: Box<dyn crate::backend::Database>,
     ) {
-        let result = find_struct_fields(&*surreal_db, "", "default", false, 100);
+        let result = find_struct_fields(&*surreal_db, "", false, 100);
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let fields = result.unwrap();
         assert!(!fields.is_empty(), "Should find at least one field");
@@ -270,7 +269,7 @@ mod tests {
     fn test_find_struct_fields_project_always_default(
         surreal_db: Box<dyn crate::backend::Database>,
     ) {
-        let result = find_struct_fields(&*surreal_db, "", "default", false, 100);
+        let result = find_struct_fields(&*surreal_db, "", false, 100);
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let fields = result.unwrap();
         for field in &fields {
@@ -285,7 +284,7 @@ mod tests {
     fn test_find_struct_fields_sorted_by_module_then_field(
         surreal_db: Box<dyn crate::backend::Database>,
     ) {
-        let result = find_struct_fields(&*surreal_db, "", "default", false, 100);
+        let result = find_struct_fields(&*surreal_db, "", false, 100);
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let fields = result.unwrap();
         // Verify fields are sorted by module then field name
@@ -307,7 +306,7 @@ mod tests {
     fn test_group_fields_into_structs_from_surrealdb_results(
         surreal_db: Box<dyn crate::backend::Database>,
     ) {
-        let fields_result = find_struct_fields(&*surreal_db, "", "default", false, 100);
+        let fields_result = find_struct_fields(&*surreal_db, "", false, 100);
         assert!(fields_result.is_ok(), "Should retrieve fields");
         let fields = fields_result.unwrap();
 

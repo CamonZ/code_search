@@ -28,7 +28,6 @@ mod tests {
             function: None,
             arity: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -80,7 +79,6 @@ mod tests {
             function: Some("get_user".to_string()),
             arity: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -120,7 +118,6 @@ mod tests {
             function: None,
             arity: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: true,
                 limit: 100,
             },
@@ -148,7 +145,6 @@ mod tests {
             function: None,
             arity: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -172,7 +168,6 @@ mod tests {
             function: None,
             arity: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: true,
                 limit: 1,
             },

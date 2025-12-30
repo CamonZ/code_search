@@ -11,14 +11,11 @@ impl Outputable for BrowseModuleResult {
         // Header
         if let Some(kind) = self.kind_filter {
             output.push_str(&format!(
-                "Definitions in {} (kind: {}, project: {})\n\n",
-                self.search_term, kind, self.project
+                "Definitions in {} (kind: {})\n\n",
+                self.search_term, kind
             ));
         } else {
-            output.push_str(&format!(
-                "Definitions in {} (project: {})\n\n",
-                self.search_term, self.project
-            ));
+            output.push_str(&format!("Definitions in {}\n\n", self.search_term));
         }
 
         // Empty state
@@ -138,7 +135,6 @@ mod tests {
         let result = BrowseModuleResult {
             search_term: "NonExistent".to_string(),
             kind_filter: None,
-            project: "default".to_string(),
             total_items: 0,
             definitions: vec![],
         };
@@ -154,7 +150,6 @@ mod tests {
         let result = BrowseModuleResult {
             search_term: "MyApp.Accounts".to_string(),
             kind_filter: None,
-            project: "default".to_string(),
             total_items: 1,
             definitions: vec![Definition::Function {
                 module: "MyApp.Accounts".to_string(),
@@ -186,7 +181,6 @@ mod tests {
         let result = BrowseModuleResult {
             search_term: "MyApp.Accounts".to_string(),
             kind_filter: None,
-            project: "default".to_string(),
             total_items: 2,
             definitions: vec![
                 Definition::Function {

@@ -144,7 +144,6 @@ Use `code_search describe` to see detailed documentation, or `code_search descri
 **Setup flags:**
 - `--install-skills`: Install skill and agent templates to `.claude/` (34 skills + 1 agent)
 - `--install-hooks`: Install post-commit git hook for automatic incremental updates
-- `--project-name <NAME>`: Project name for git hook config (optional, used with `--install-hooks`)
 - `--mix-env <ENV>`: Mix environment for git hook (used with `--install-hooks`, default: dev)
 - `--force`: Overwrite existing template/hook files (preserves by default)
 - `--dry-run`: Show what would be created without making changes
@@ -155,7 +154,6 @@ Most commands support these options:
 
 - `-l, --limit <N>`: Maximum results to return (default: 100, max: 1000)
 - `-r, --regex`: Treat patterns as regular expressions
-- `--project <NAME>`: Filter to a specific project (default: "default")
 - `--db <PATH>`: Database file path (auto-resolved if not specified)
 - `-o, --format <FORMAT>`: Output format (table, json, toon)
 
@@ -232,8 +230,7 @@ The post-commit hook automatically:
 
 **No configuration required!** The hook works out of the box. Optional configuration:
 ```bash
-git config code-search.project-name my_app  # For multi-project databases
-git config code-search.mix-env test         # Default: dev
+git config code-search.mix-env test  # Default: dev
 ```
 
 See [docs/GIT_HOOKS.md](docs/GIT_HOOKS.md) for detailed documentation and troubleshooting.
@@ -272,5 +269,5 @@ After installation:
 - Written in Rust using clap for CLI parsing
 - Uses SurrealDB (RocksDB-backed) for graph queries
 - Call graph data is extracted separately by [ex_ast](https://github.com/CamonZ/ex_ast)
-- Supports multiple projects in the same database via `--project` flag
+- One database per project (stored in `.code_search/surrealdb.rocksdb`)
 - Embeds templates in binary for self-contained distribution

@@ -34,7 +34,6 @@ pub fn find_locations(
     module_pattern: Option<&str>,
     function_pattern: &str,
     arity: Option<i64>,
-    _project: &str,
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<FunctionLocation>, Box<dyn Error>> {
@@ -161,7 +160,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Invalid regex pattern: unclosed bracket
-        let result = find_locations(&*db, None, "[invalid", None, "default", true, 100);
+        let result = find_locations(&*db, None, "[invalid", None, true, 100);
 
         assert!(result.is_err(), "Should reject invalid regex");
         let err = result.unwrap_err();
@@ -178,7 +177,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Invalid regex in module pattern
-        let result = find_locations(&*db, Some("[invalid"), "foo", None, "default", true, 100);
+        let result = find_locations(&*db, Some("[invalid"), "foo", None, true, 100);
 
         assert!(result.is_err(), "Should reject invalid regex");
         let err = result.unwrap_err();
@@ -200,7 +199,6 @@ mod tests {
             Some("^module.*$"),
             "^foo$",
             None,
-            "default",
             true,
             100,
         );
@@ -218,7 +216,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Even invalid regex should work in non-regex mode
-        let result = find_locations(&*db, Some("[invalid"), "foo", None, "default", false, 100);
+        let result = find_locations(&*db, Some("[invalid"), "foo", None, false, 100);
 
         // Should succeed (no regex validation in non-regex mode)
         assert!(
@@ -240,7 +238,6 @@ mod tests {
             Some("MyApp.Controller"),
             "index",
             None,
-            "default",
             false,
             100,
         );
@@ -272,7 +269,6 @@ mod tests {
             Some("MyApp.Controller"),
             "nonexistent",
             None,
-            "default",
             false,
             100,
         );
@@ -295,7 +291,6 @@ mod tests {
             Some("nonexistent_module"),
             "index",
             None,
-            "default",
             false,
             100,
         );
@@ -318,7 +313,6 @@ mod tests {
             Some("MyApp.Accounts"),
             "get_user",
             Some(1),
-            "default",
             false,
             100,
         );
@@ -342,7 +336,6 @@ mod tests {
             Some("MyApp.Controller"),
             "index",
             Some(5),
-            "default",
             false,
             100,
         );
@@ -362,7 +355,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search without module filter - should find all occurrences of get_user
-        let result = find_locations(&*db, None, "get_user", None, "default", false, 100);
+        let result = find_locations(&*db, None, "get_user", None, false, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let locations = result.unwrap();
@@ -388,7 +381,6 @@ mod tests {
             Some("MyApp.Notifier"),
             "send_email",
             None,
-            "default",
             false,
             100,
         );
@@ -415,8 +407,8 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Use wildcard patterns to match all
-        let limit_1 = find_locations(&*db, None, ".*", None, "default", true, 1).unwrap();
-        let limit_100 = find_locations(&*db, None, ".*", None, "default", true, 100).unwrap();
+        let limit_1 = find_locations(&*db, None, ".*", None, true, 1).unwrap();
+        let limit_100 = find_locations(&*db, None, ".*", None, true, 100).unwrap();
 
         assert!(limit_1.len() <= 1, "Limit should be respected");
         assert!(
@@ -430,7 +422,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with zero limit
-        let result = find_locations(&*db, None, ".*", None, "default", true, 0);
+        let result = find_locations(&*db, None, ".*", None, true, 0);
 
         assert!(result.is_ok(), "Should handle zero limit");
         let locations = result.unwrap();
@@ -442,7 +434,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with large limit (larger than fixture size)
-        let result = find_locations(&*db, None, ".*", None, "default", true, 1000000);
+        let result = find_locations(&*db, None, ".*", None, true, 1000000);
 
         assert!(result.is_ok(), "Should handle large limit");
         let locations = result.unwrap();
@@ -458,7 +450,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Regex pattern that matches all functions
-        let result = find_locations(&*db, None, ".*", None, "default", true, 100);
+        let result = find_locations(&*db, None, ".*", None, true, 100);
 
         assert!(result.is_ok(), "Should match all functions with .*");
         let locations = result.unwrap();
@@ -477,7 +469,6 @@ mod tests {
             Some("MyApp.Accounts"),
             "^(get_user|list_users)",
             None,
-            "default",
             true,
             100,
         );
@@ -512,7 +503,6 @@ mod tests {
             Some("MyApp.Controller"),
             "^index$",
             None,
-            "default",
             true,
             100,
         );
@@ -533,7 +523,7 @@ mod tests {
     fn test_find_locations_returns_correct_fields() {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        let result = find_locations(&*db, None, ".*", None, "default", true, 100);
+        let result = find_locations(&*db, None, ".*", None, true, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let locations = result.unwrap();
@@ -563,7 +553,6 @@ mod tests {
             Some("MyApp.Controller"),
             "index",
             None,
-            "default",
             false,
             100,
         );
@@ -593,7 +582,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Use wildcard pattern to get all locations
-        let result = find_locations(&*db, None, ".*", None, "default", true, 100);
+        let result = find_locations(&*db, None, ".*", None, true, 100);
 
         assert!(result.is_ok());
         let locations = result.unwrap();
@@ -622,8 +611,8 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Multiple calls should return results in consistent order
-        let result1 = find_locations(&*db, None, ".*", None, "default", true, 100).unwrap();
-        let result2 = find_locations(&*db, None, ".*", None, "default", true, 100).unwrap();
+        let result1 = find_locations(&*db, None, ".*", None, true, 100).unwrap();
+        let result2 = find_locations(&*db, None, ".*", None, true, 100).unwrap();
 
         // Results should be identical
         assert_eq!(result1.len(), result2.len());
@@ -647,7 +636,6 @@ mod tests {
             Some("MyApp.Controller"),
             "index",
             None,
-            "default",
             false,
             100,
         );
@@ -656,7 +644,6 @@ mod tests {
             Some("MyApp.Controller"),
             "INDEX",
             None,
-            "default",
             false,
             100,
         );
@@ -686,7 +673,6 @@ mod tests {
             Some("MyApp.Controller"),
             ".*",
             None,
-            "default",
             true,
             100,
         );
@@ -695,7 +681,6 @@ mod tests {
             Some("myapp.controller"),
             ".*",
             None,
-            "default",
             true,
             100,
         );
@@ -725,7 +710,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Empty patterns in exact match mode
-        let result = find_locations(&*db, Some(""), "", None, "default", false, 100);
+        let result = find_locations(&*db, Some(""), "", None, false, 100);
 
         assert!(result.is_ok(), "Should handle empty pattern");
         let locations = result.unwrap();
@@ -743,7 +728,6 @@ mod tests {
             Some("MyApp.Controller"),
             "index",
             None,
-            "default",
             false,
             100,
         );
@@ -773,7 +757,6 @@ mod tests {
             Some("MyApp.Accounts"),
             "list_users",
             None,
-            "default",
             false,
             100,
         );
@@ -797,7 +780,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // All results should have project field set to "default"
-        let result = find_locations(&*db, None, ".*", None, "default", true, 100);
+        let result = find_locations(&*db, None, ".*", None, true, 100);
 
         assert!(result.is_ok());
         let locations = result.unwrap();
@@ -820,7 +803,6 @@ mod tests {
             Some("MyApp.Controller"),
             "index",
             None,
-            "default",
             false,
             100,
         );
@@ -848,7 +830,6 @@ mod tests {
             Some("MyApp.Controller"),
             "index",
             None,
-            "default",
             false,
             100,
         );

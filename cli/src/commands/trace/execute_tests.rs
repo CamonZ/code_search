@@ -9,7 +9,6 @@ mod tests {
     crate::shared_fixture! {
         fixture_name: populated_db,
         fixture_type: call_graph,
-        project: "test_project",
     }
 
     // =========================================================================
@@ -26,7 +25,6 @@ mod tests {
             arity: None,
             depth: 1,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -52,7 +50,6 @@ mod tests {
             arity: None,
             depth: 3,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -71,7 +68,6 @@ mod tests {
             arity: None,
             depth: 2,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -95,7 +91,6 @@ mod tests {
             arity: None,
             depth: 5,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },

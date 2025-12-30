@@ -27,7 +27,6 @@ pub struct DuplicateFunction {
 
 pub fn find_duplicates(
     db: &dyn Database,
-    _project: &str,
     module_pattern: Option<&str>,
     use_regex: bool,
     use_exact: bool,
@@ -147,7 +146,7 @@ mod tests {
     fn test_find_duplicates_ast_hash_returns_expected_pairs() {
         let db = get_db();
         let result =
-            find_duplicates(&*db, "default", None, false, false, false).expect("Query should succeed");
+            find_duplicates(&*db, None, false, false, false).expect("Query should succeed");
 
         // Expect exactly 4 duplicates: 2 pairs with matching ast_sha and 2 generated
         assert_eq!(
@@ -186,7 +185,7 @@ mod tests {
     #[test]
     fn test_find_duplicates_source_hash_returns_exact_copies() {
         let db = get_db();
-        let result = find_duplicates(&*db, "default", None, false, true, false)
+        let result = find_duplicates(&*db, None, false, true, false)
             .expect("Query should succeed");
 
         // Expect exactly 2 duplicates: 1 pair with matching source_sha
@@ -222,11 +221,11 @@ mod tests {
         let db = get_db();
 
         // With generated
-        let with_gen = find_duplicates(&*db, "default", None, false, false, false)
+        let with_gen = find_duplicates(&*db, None, false, false, false)
             .expect("Query should succeed");
 
         // Without generated
-        let without_gen = find_duplicates(&*db, "default", None, false, false, true)
+        let without_gen = find_duplicates(&*db, None, false, false, true)
             .expect("Query should succeed");
 
         assert_eq!(
@@ -253,7 +252,7 @@ mod tests {
     #[test]
     fn test_find_duplicates_module_filter_returns_matching_only() {
         let db = get_db();
-        let result = find_duplicates(&*db, "default", Some("Accounts"), false, false, false)
+        let result = find_duplicates(&*db, Some("Accounts"), false, false, false)
             .expect("Query should succeed");
 
         // Should find duplicates in or related to Accounts module
@@ -271,7 +270,7 @@ mod tests {
     #[test]
     fn test_find_duplicates_ast_duplicates_with_excluded_generated() {
         let db = get_db();
-        let result = find_duplicates(&*db, "default", None, false, false, true)
+        let result = find_duplicates(&*db, None, false, false, true)
             .expect("Query should succeed");
 
         // Should only find AST duplicates without generated
@@ -295,7 +294,7 @@ mod tests {
     #[test]
     fn test_find_duplicates_ordering_by_hash_module_name() {
         let db = get_db();
-        let result = find_duplicates(&*db, "default", None, false, false, false)
+        let result = find_duplicates(&*db, None, false, false, false)
             .expect("Query should succeed");
 
         // Verify ordering: by hash, then module, then name, then arity
@@ -340,7 +339,7 @@ mod tests {
         let db = get_db();
 
         // Test AST duplicates field values
-        let ast_result = find_duplicates(&*db, "default", None, false, false, false)
+        let ast_result = find_duplicates(&*db, None, false, false, false)
             .expect("Query should succeed");
 
         // Find format_name duplicate (AST mode)
@@ -356,7 +355,7 @@ mod tests {
         assert_eq!(format_name.file, "lib/my_app/accounts.ex");
 
         // Test source duplicates field values (use_exact=true)
-        let src_result = find_duplicates(&*db, "default", None, false, true, false)
+        let src_result = find_duplicates(&*db, None, false, true, false)
             .expect("Query should succeed");
 
         // Find validate duplicate (source mode)
@@ -374,7 +373,7 @@ mod tests {
     fn test_find_duplicates_module_filter_excludes_non_matching() {
         let db = get_db();
         // Service has source duplicates (not AST), so use_exact=true
-        let result = find_duplicates(&*db, "default", Some("Service"), false, true, false)
+        let result = find_duplicates(&*db, Some("Service"), false, true, false)
             .expect("Query should succeed");
 
         // Should find Service validate duplicates
@@ -389,7 +388,7 @@ mod tests {
     #[test]
     fn test_find_duplicates_nonexistent_module_returns_empty() {
         let db = get_db();
-        let result = find_duplicates(&*db, "default", Some("NonExistent"), false, false, false)
+        let result = find_duplicates(&*db, Some("NonExistent"), false, false, false)
             .expect("Query should succeed");
 
         assert_eq!(result.len(), 0, "Should return empty for non-existent module");
@@ -399,9 +398,9 @@ mod tests {
     fn test_find_duplicates_ast_and_source_mutually_exclusive() {
         let db = get_db();
 
-        let ast_dups = find_duplicates(&*db, "default", None, false, false, false)
+        let ast_dups = find_duplicates(&*db, None, false, false, false)
             .expect("Query should succeed");
-        let source_dups = find_duplicates(&*db, "default", None, false, true, false)
+        let source_dups = find_duplicates(&*db, None, false, true, false)
             .expect("Query should succeed");
 
         // AST should return 4, source should return 2

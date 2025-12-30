@@ -47,15 +47,6 @@ mod tests {
     crate::cli_option_test! {
         command: "trace",
         variant: Trace,
-        test_name: test_with_project,
-        args: ["MyApp", "foo", "--project", "my_custom_project"],
-        field: common.project,
-        expected: "my_custom_project",
-    }
-
-    crate::cli_option_test! {
-        command: "trace",
-        variant: Trace,
         test_name: test_with_depth,
         args: ["MyApp", "foo", "--depth", "10"],
         field: depth,

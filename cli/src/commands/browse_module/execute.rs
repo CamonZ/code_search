@@ -20,9 +20,6 @@ pub struct BrowseModuleResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind_filter: Option<DefinitionKind>,
 
-    /// Project that was searched
-    pub project: String,
-
     /// Total number of definitions found (before limit applied)
     pub total_items: usize,
 
@@ -133,7 +130,6 @@ impl Execute for BrowseModuleCmd {
             let funcs = find_functions_in_module(
                 db,
                 &self.module_or_file,
-                &self.common.project,
                 self.common.regex,
                 self.common.limit,
             )?;
@@ -169,7 +165,6 @@ impl Execute for BrowseModuleCmd {
                 &self.module_or_file,
                 self.name.as_deref(),
                 None, // kind filter (optional, not used for browse)
-                &self.common.project,
                 self.common.regex,
                 self.common.limit,
             )?;
@@ -195,7 +190,6 @@ impl Execute for BrowseModuleCmd {
                 &self.module_or_file,
                 self.name.as_deref(),
                 None, // kind filter (optional, not used for browse)
-                &self.common.project,
                 self.common.regex,
                 self.common.limit,
             )?;
@@ -214,7 +208,7 @@ impl Execute for BrowseModuleCmd {
 
         // Query structs
         if should_query_structs {
-            let fields = find_struct_fields(db, &self.module_or_file, &self.common.project, self.common.regex, self.common.limit)?;
+            let fields = find_struct_fields(db, &self.module_or_file, self.common.regex, self.common.limit)?;
             let structs = group_fields_into_structs(fields);
 
             for struct_def in structs {
@@ -248,7 +242,6 @@ impl Execute for BrowseModuleCmd {
         Ok(BrowseModuleResult {
             search_term: self.module_or_file,
             kind_filter: self.kind,
-            project: self.common.project,
             total_items,
             definitions,
         })

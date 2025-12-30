@@ -25,11 +25,11 @@ impl Execute for ImportCmd {
 
         // Clear existing data if requested
         if self.clear {
-            clear_project_data(db, &self.project)?;
+            clear_project_data(db)?;
         }
 
         // Import data
-        let mut result = import_graph(db, &self.project, &graph)?;
+        let mut result = import_graph(db, &graph)?;
         result.cleared = self.clear;
 
         Ok(result)
@@ -123,7 +123,7 @@ mod tests {
     #[fixture]
     fn import_result() -> ImportResult {
         let db = open_mem_db().expect("Failed to create in-memory db");
-        import_json_str(&*db, sample_call_graph_json(), "test_project")
+        import_json_str(&*db, sample_call_graph_json())
             .expect("Import should succeed")
     }
 
@@ -167,7 +167,6 @@ mod tests {
         // First import
         let cmd1 = ImportCmd {
             file: json_file.path().to_path_buf(),
-            project: "test_project".to_string(),
             clear: false,
         };
         cmd1.execute(&*db).expect("First import should succeed");
@@ -175,7 +174,6 @@ mod tests {
         // Second import with clear
         let cmd2 = ImportCmd {
             file: json_file.path().to_path_buf(),
-            project: "test_project".to_string(),
             clear: true,
         };
         let result = cmd2.execute(&*db).expect("Second import should succeed");
@@ -195,7 +193,7 @@ mod tests {
 
         let db = open_mem_db().expect("Failed to create in-memory db");
         let result =
-            import_json_str(&*db, empty_json, "test_project").expect("Import should succeed");
+            import_json_str(&*db, empty_json).expect("Import should succeed");
 
         assert_eq!(result.modules_imported, 0);
         assert_eq!(result.functions_imported, 0);
@@ -212,7 +210,6 @@ mod tests {
         let db = open_mem_db().expect("Failed to create in-memory db");
         let cmd = ImportCmd {
             file: json_file.path().to_path_buf(),
-            project: "test_project".to_string(),
             clear: false,
         };
         let result = cmd.execute(&*db);
@@ -224,7 +221,6 @@ mod tests {
         let db = open_mem_db().expect("Failed to create in-memory db");
         let cmd = ImportCmd {
             file: "/nonexistent/path/call_graph.json".into(),
-            project: "test_project".to_string(),
             clear: false,
         };
         let result = cmd.execute(&*db);

@@ -53,20 +53,6 @@ This will:
 
 The hook works out of the box without any configuration. However, you can optionally customize:
 
-#### Multi-Project Databases
-
-If you want to namespace multiple projects in the same database:
-
-```bash
-code_search setup --install-hooks --project-name my_app
-```
-
-Or configure later:
-
-```bash
-git config code-search.project-name my_app
-```
-
 #### Mix Environment
 
 To use a different Mix environment (default: `dev`):
@@ -238,7 +224,7 @@ mix compile --debug-info
 ex_ast --git-diff HEAD~1 --format json --output changes.json
 
 # Import
-code_search --db call_graph.db import --file changes.json --project my_app
+code_search --db call_graph.db import --file changes.json
 ```
 
 Or for a different git reference:
@@ -260,7 +246,7 @@ The same approach works in CI/CD pipelines. Example GitHub Actions workflow:
   run: |
     mix compile --debug-info
     ex_ast --git-diff HEAD~1 --format json --output changes.json
-    code_search --db call_graph.db import --file changes.json --project ${{ github.repository }}
+    code_search --db call_graph.db import --file changes.json
 ```
 
 ## Performance Characteristics

@@ -30,7 +30,6 @@ pub fn find_many_clauses(
     db: &dyn Database,
     min_clauses: i64,
     module_pattern: Option<&str>,
-    _project: &str,
     use_regex: bool,
     include_generated: bool,
     limit: u32,
@@ -147,7 +146,7 @@ mod tests {
     #[test]
     fn test_find_many_clauses_returns_results() {
         let db = get_db();
-        let result = find_many_clauses(&*db, 0, None, "default", false, true, 100);
+        let result = find_many_clauses(&*db, 0, None, false, true, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let clauses = result.unwrap();
@@ -157,7 +156,7 @@ mod tests {
     #[test]
     fn test_find_many_clauses_returns_exact_count() {
         let db = get_db();
-        let clauses = find_many_clauses(&*db, 0, None, "default", false, true, 100)
+        let clauses = find_many_clauses(&*db, 0, None, false, true, 100)
             .expect("Query should succeed");
 
         // The fixture has 37 functions with 44 clauses total
@@ -172,7 +171,7 @@ mod tests {
     #[test]
     fn test_find_many_clauses_calculates_clause_count() {
         let db = get_db();
-        let clauses = find_many_clauses(&*db, 0, None, "default", false, true, 100)
+        let clauses = find_many_clauses(&*db, 0, None, false, true, 100)
             .expect("Query should succeed");
 
         // Find Controller.index/2 which has 2 clauses in fixture
@@ -190,7 +189,7 @@ mod tests {
     #[test]
     fn test_find_many_clauses_all_modules_present() {
         let db = get_db();
-        let clauses = find_many_clauses(&*db, 0, None, "default", false, true, 100)
+        let clauses = find_many_clauses(&*db, 0, None, false, true, 100)
             .expect("Query should succeed");
 
         let modules: std::collections::HashSet<_> = clauses.iter().map(|c| c.module.as_str()).collect();
@@ -210,7 +209,7 @@ mod tests {
     #[test]
     fn test_find_many_clauses_respects_min_clauses_threshold() {
         let db = get_db();
-        let clauses = find_many_clauses(&*db, 2, None, "default", false, true, 100)
+        let clauses = find_many_clauses(&*db, 2, None, false, true, 100)
             .expect("Query should succeed");
 
         for clause in &clauses {
@@ -226,9 +225,9 @@ mod tests {
     #[test]
     fn test_find_many_clauses_high_threshold_reduces_results() {
         let db = get_db();
-        let all_clauses = find_many_clauses(&*db, 0, None, "default", false, true, 100)
+        let all_clauses = find_many_clauses(&*db, 0, None, false, true, 100)
             .expect("Query should succeed");
-        let high_threshold = find_many_clauses(&*db, 3, None, "default", false, true, 100)
+        let high_threshold = find_many_clauses(&*db, 3, None, false, true, 100)
             .expect("Query should succeed");
 
         // Higher threshold should return fewer or equal results
@@ -249,7 +248,7 @@ mod tests {
     #[test]
     fn test_find_many_clauses_empty_with_very_high_threshold() {
         let db = get_db();
-        let clauses = find_many_clauses(&*db, 1000, None, "default", false, true, 100)
+        let clauses = find_many_clauses(&*db, 1000, None, false, true, 100)
             .expect("Query should succeed");
 
         assert!(
@@ -267,7 +266,6 @@ mod tests {
             &*db,
             0,
             Some("MyApp.Controller"),
-            "default",
             false,
             true,
             100,
@@ -290,7 +288,7 @@ mod tests {
     #[test]
     fn test_find_many_clauses_with_regex_module_filter() {
         let db = get_db();
-        let clauses = find_many_clauses(&*db, 0, Some("^MyApp\\.Acc.*"), "default", true, true, 100)
+        let clauses = find_many_clauses(&*db, 0, Some("^MyApp\\.Acc.*"), true, true, 100)
             .expect("Query should succeed");
 
         assert!(
@@ -313,7 +311,6 @@ mod tests {
             &*db,
             0,
             Some("NonExistentModule"),
-            "default",
             false,
             true,
             100,
@@ -329,7 +326,7 @@ mod tests {
     #[test]
     fn test_find_many_clauses_regex_pattern_invalid() {
         let db = get_db();
-        let result = find_many_clauses(&*db, 0, Some("[invalid"), "default", true, true, 100);
+        let result = find_many_clauses(&*db, 0, Some("[invalid"), true, true, 100);
 
         assert!(
             result.is_err(),
@@ -342,9 +339,9 @@ mod tests {
     #[test]
     fn test_find_many_clauses_include_generated_true() {
         let db = get_db();
-        let with_generated = find_many_clauses(&*db, 0, None, "default", false, true, 100)
+        let with_generated = find_many_clauses(&*db, 0, None, false, true, 100)
             .expect("Query should succeed");
-        let without_generated = find_many_clauses(&*db, 0, None, "default", false, false, 100)
+        let without_generated = find_many_clauses(&*db, 0, None, false, false, 100)
             .expect("Query should succeed");
 
         // with_generated should have >= results than without_generated
@@ -357,7 +354,7 @@ mod tests {
     #[test]
     fn test_find_many_clauses_exclude_generated() {
         let db = get_db();
-        let clauses = find_many_clauses(&*db, 0, None, "default", false, false, 100)
+        let clauses = find_many_clauses(&*db, 0, None, false, false, 100)
             .expect("Query should succeed");
 
         // When include_generated=false, all generated_by should be empty or None
@@ -376,11 +373,11 @@ mod tests {
     #[test]
     fn test_find_many_clauses_respects_limit() {
         let db = get_db();
-        let clauses_5 = find_many_clauses(&*db, 0, None, "default", false, true, 5)
+        let clauses_5 = find_many_clauses(&*db, 0, None, false, true, 5)
             .expect("Query should succeed");
-        let clauses_10 = find_many_clauses(&*db, 0, None, "default", false, true, 10)
+        let clauses_10 = find_many_clauses(&*db, 0, None, false, true, 10)
             .expect("Query should succeed");
-        let clauses_100 = find_many_clauses(&*db, 0, None, "default", false, true, 100)
+        let clauses_100 = find_many_clauses(&*db, 0, None, false, true, 100)
             .expect("Query should succeed");
 
         assert!(clauses_5.len() <= 5, "Should respect limit of 5");
@@ -404,7 +401,7 @@ mod tests {
     #[test]
     fn test_find_many_clauses_ordered_by_clauses_desc() {
         let db = get_db();
-        let clauses = find_many_clauses(&*db, 0, None, "default", false, true, 100)
+        let clauses = find_many_clauses(&*db, 0, None, false, true, 100)
             .expect("Query should succeed");
 
         // Results should be ordered by clause count descending
@@ -425,7 +422,7 @@ mod tests {
     #[test]
     fn test_find_many_clauses_all_fields_populated() {
         let db = get_db();
-        let clauses = find_many_clauses(&*db, 0, None, "default", false, true, 100)
+        let clauses = find_many_clauses(&*db, 0, None, false, true, 100)
             .expect("Query should succeed");
 
         assert!(!clauses.is_empty(), "Should return results");
@@ -444,7 +441,7 @@ mod tests {
     #[test]
     fn test_find_many_clauses_valid_arity_values() {
         let db = get_db();
-        let clauses = find_many_clauses(&*db, 0, None, "default", false, true, 100)
+        let clauses = find_many_clauses(&*db, 0, None, false, true, 100)
             .expect("Query should succeed");
 
         // Verify all arities are non-negative
@@ -471,7 +468,6 @@ mod tests {
             &*db,
             0,
             Some("MyApp.Controller"),
-            "default",
             false,
             true,
             100,
@@ -497,7 +493,6 @@ mod tests {
             &*db,
             0,
             Some("MyApp.Accounts"),
-            "default",
             false,
             true,
             100,
@@ -519,7 +514,7 @@ mod tests {
     #[test]
     fn test_find_many_clauses_combined_filters() {
         let db = get_db();
-        let clauses = find_many_clauses(&*db, 2, Some("MyApp.Accounts"), "default", false, true, 100)
+        let clauses = find_many_clauses(&*db, 2, Some("MyApp.Accounts"), false, true, 100)
             .expect("Query should succeed");
 
         // Should apply both min_clauses and module filters
@@ -538,7 +533,7 @@ mod tests {
     #[test]
     fn test_find_many_clauses_line_range_validity() {
         let db = get_db();
-        let clauses = find_many_clauses(&*db, 0, None, "default", false, true, 100)
+        let clauses = find_many_clauses(&*db, 0, None, false, true, 100)
             .expect("Query should succeed");
 
         for clause in &clauses {

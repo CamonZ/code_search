@@ -33,7 +33,6 @@ mod tests {
             function: "get_user".to_string(),
             arity: Some(1),
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -59,7 +58,6 @@ mod tests {
             function: "get_user".to_string(),
             arity: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -78,7 +76,6 @@ mod tests {
             function: "process_request".to_string(),
             arity: Some(2),
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -105,7 +102,6 @@ mod tests {
             function: "get_user".to_string(),
             arity: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -129,7 +125,6 @@ mod tests {
             function: ".*user.*".to_string(),
             arity: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: true,
                 limit: 100,
             },
@@ -148,7 +143,6 @@ mod tests {
             function: "validate".to_string(),
             arity: Some(1),
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -171,7 +165,6 @@ mod tests {
             function: "foo".to_string(),
             arity: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -189,7 +182,6 @@ mod tests {
             function: "get_user".to_string(),
             arity: Some(99), // Non-existent arity
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -210,7 +202,6 @@ mod tests {
             function: ".*".to_string(),
             arity: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: true,
                 limit: 3,
             },
@@ -227,7 +218,6 @@ mod tests {
             function: "list_users".to_string(),
             arity: Some(0),
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -249,7 +239,6 @@ mod tests {
             function: "get_user".to_string(),
             arity: Some(1),
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },

@@ -29,7 +29,6 @@ pub struct AcceptsEntry {
 pub fn find_accepts(
     db: &dyn Database,
     pattern: &str,
-    _project: &str,
     use_regex: bool,
     module_pattern: Option<&str>,
     limit: u32,
@@ -173,7 +172,7 @@ mod tests {
     fn test_find_accepts_integer_type() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let result = find_accepts(&*db, "integer()", "default", false, None, 100);
+        let result = find_accepts(&*db, "integer()", false, None, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let entries = result.unwrap();
@@ -207,7 +206,7 @@ mod tests {
     fn test_find_accepts_string_type() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let result = find_accepts(&*db, "String.t()", "default", false, None, 100);
+        let result = find_accepts(&*db, "String.t()", false, None, 100);
 
         assert!(result.is_ok());
         let entries = result.unwrap();
@@ -232,7 +231,7 @@ mod tests {
     fn test_find_accepts_regex_pattern() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let result = find_accepts(&*db, "^Ecto", "default", true, None, 100);
+        let result = find_accepts(&*db, "^Ecto", true, None, 100);
 
         assert!(result.is_ok(), "Regex query should succeed: {:?}", result.err());
         let entries = result.unwrap();
@@ -254,7 +253,7 @@ mod tests {
     fn test_find_accepts_keyword_type() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let result = find_accepts(&*db, "keyword()", "default", false, None, 100);
+        let result = find_accepts(&*db, "keyword()", false, None, 100);
 
         assert!(result.is_ok());
         let entries = result.unwrap();
@@ -282,7 +281,6 @@ mod tests {
         let result = find_accepts(
             &*db,
             "integer()",
-            "default",
             false,
             Some("MyApp.Accounts"),
             100,
@@ -308,7 +306,7 @@ mod tests {
     fn test_find_accepts_nonexistent_type() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let result = find_accepts(&*db, "NonExistent", "default", false, None, 100);
+        let result = find_accepts(&*db, "NonExistent", false, None, 100);
 
         assert!(result.is_ok());
         let entries = result.unwrap();
@@ -323,7 +321,7 @@ mod tests {
     fn test_find_accepts_empty_pattern() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let result = find_accepts(&*db, "", "default", false, None, 100);
+        let result = find_accepts(&*db, "", false, None, 100);
 
         assert!(result.is_ok());
         let entries = result.unwrap();
@@ -340,7 +338,7 @@ mod tests {
     fn test_find_accepts_invalid_regex() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let result = find_accepts(&*db, "[invalid", "default", true, None, 100);
+        let result = find_accepts(&*db, "[invalid", true, None, 100);
 
         assert!(
             result.is_err(),
@@ -352,10 +350,10 @@ mod tests {
     fn test_find_accepts_respects_limit() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let limit_3 = find_accepts(&*db, "", "default", false, None, 3)
+        let limit_3 = find_accepts(&*db, "", false, None, 3)
             .unwrap();
 
-        let limit_100 = find_accepts(&*db, "", "default", false, None, 100)
+        let limit_100 = find_accepts(&*db, "", false, None, 100)
             .unwrap();
 
         assert!(limit_3.len() <= 3, "Limit should be respected");
@@ -371,7 +369,7 @@ mod tests {
     fn test_find_accepts_zero_arity_excluded_from_integer_search() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let result = find_accepts(&*db, "integer()", "default", false, None, 100);
+        let result = find_accepts(&*db, "integer()", false, None, 100);
 
         assert!(result.is_ok());
         let entries = result.unwrap();
@@ -387,7 +385,7 @@ mod tests {
     fn test_find_accepts_returns_valid_structure() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let result = find_accepts(&*db, "", "default", false, None, 100);
+        let result = find_accepts(&*db, "", false, None, 100);
 
         assert!(result.is_ok());
         let entries = result.unwrap();
@@ -406,7 +404,7 @@ mod tests {
     fn test_find_accepts_preserves_sorting() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let result = find_accepts(&*db, "", "default", false, None, 100);
+        let result = find_accepts(&*db, "", false, None, 100);
 
         assert!(result.is_ok());
         let entries = result.unwrap();

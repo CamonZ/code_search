@@ -86,7 +86,6 @@ impl Execute for DuplicatesCmd {
     fn execute(self, db: &dyn db::backend::Database) -> Result<Self::Output, Box<dyn Error>> {
         let functions = find_duplicates(
             db,
-            &self.common.project,
             self.module.as_deref(),
             self.common.regex,
             self.exact,

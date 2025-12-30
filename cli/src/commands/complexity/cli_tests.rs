@@ -19,7 +19,6 @@ mod tests {
             min_depth: 0,
             exclude_generated: false,
             module: None,
-            common.project: "default".to_string(),
             common.regex: false,
             common.limit: 100,
         },
@@ -59,15 +58,6 @@ mod tests {
         args: ["MyApp.Accounts"],
         field: module,
         expected: Some("MyApp.Accounts".to_string()),
-    }
-
-    crate::cli_option_test! {
-        command: "complexity",
-        variant: Complexity,
-        test_name: test_with_project,
-        args: ["--project", "my_project"],
-        field: common.project,
-        expected: "my_project".to_string(),
     }
 
     crate::cli_option_test! {

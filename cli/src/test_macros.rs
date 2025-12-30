@@ -234,39 +234,35 @@ macro_rules! execute_test_fixture {
 /// crate::shared_fixture! {
 ///     fixture_name: populated_db,
 ///     fixture_type: call_graph,
-///     project: "test_project",
 /// }
 /// ```
 #[macro_export]
 macro_rules! shared_fixture {
     (
         fixture_name: $name:ident,
-        fixture_type: call_graph,
-        project: $project:literal $(,)?
+        fixture_type: call_graph $(,)?
     ) => {
         #[fixture]
         fn $name() -> Box<dyn db::backend::Database> {
-            db::test_utils::call_graph_db($project)
+            db::test_utils::call_graph_db()
         }
     };
     (
         fixture_name: $name:ident,
-        fixture_type: type_signatures,
-        project: $project:literal $(,)?
+        fixture_type: type_signatures $(,)?
     ) => {
         #[fixture]
         fn $name() -> Box<dyn db::backend::Database> {
-            db::test_utils::type_signatures_db($project)
+            db::test_utils::type_signatures_db()
         }
     };
     (
         fixture_name: $name:ident,
-        fixture_type: structs,
-        project: $project:literal $(,)?
+        fixture_type: structs $(,)?
     ) => {
         #[fixture]
         fn $name() -> Box<dyn db::backend::Database> {
-            db::test_utils::structs_db($project)
+            db::test_utils::structs_db()
         }
     };
 }

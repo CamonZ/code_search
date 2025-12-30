@@ -32,7 +32,6 @@ pub struct FileFunctionDef {
 pub fn find_functions_in_module(
     db: &dyn Database,
     module_pattern: &str,
-    _project: &str,
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<FileFunctionDef>, Box<dyn Error>> {
@@ -138,7 +137,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Invalid regex pattern: unclosed bracket
-        let result = find_functions_in_module(&*db, "[invalid", "default", true, 100);
+        let result = find_functions_in_module(&*db, "[invalid", true, 100);
 
         assert!(result.is_err(), "Should reject invalid regex");
         let err = result.unwrap_err();
@@ -160,7 +159,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Even invalid regex should work in non-regex mode (treated as literal string)
-        let result = find_functions_in_module(&*db, "[invalid", "default", false, 100);
+        let result = find_functions_in_module(&*db, "[invalid", false, 100);
 
         // Should succeed (no regex validation in non-regex mode)
         assert!(
@@ -175,7 +174,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search for exact module name without regex
-        let result = find_functions_in_module(&*db, "MyApp.Controller", "default", false, 100);
+        let result = find_functions_in_module(&*db, "MyApp.Controller", false, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let functions = result.unwrap();
@@ -205,7 +204,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Query all modules with regex pattern that matches all
-        let result = find_functions_in_module(&*db, ".*", "default", true, 100);
+        let result = find_functions_in_module(&*db, ".*", true, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
@@ -219,7 +218,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with limit=2 using regex to match all modules
-        let result = find_functions_in_module(&*db, ".*", "default", true, 2);
+        let result = find_functions_in_module(&*db, ".*", true, 2);
 
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
@@ -232,7 +231,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with limit=0 using regex pattern
-        let result = find_functions_in_module(&*db, ".*", "default", true, 0);
+        let result = find_functions_in_module(&*db, ".*", true, 0);
 
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
@@ -245,7 +244,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search with regex pattern
-        let result = find_functions_in_module(&*db, "^module_.*$", "default", true, 100);
+        let result = find_functions_in_module(&*db, "^module_.*$", true, 100);
 
         assert!(result.is_ok(), "Query should succeed with valid regex");
         let functions = result.unwrap();
@@ -265,7 +264,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search for MyApp.Repo specifically
-        let result = find_functions_in_module(&*db, "MyApp.Repo", "default", false, 100);
+        let result = find_functions_in_module(&*db, "MyApp.Repo", false, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
@@ -287,7 +286,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search for non-existent module
-        let result = find_functions_in_module(&*db, "nonexistent_module", "default", false, 100);
+        let result = find_functions_in_module(&*db, "nonexistent_module", false, 100);
 
         assert!(result.is_ok(), "Query should succeed but return empty");
         let functions = result.unwrap();
@@ -304,7 +303,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Get all clauses using regex pattern
-        let result = find_functions_in_module(&*db, ".*", "default", true, 100);
+        let result = find_functions_in_module(&*db, ".*", true, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
@@ -332,7 +331,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Get clauses for a specific module to verify sorting using regex pattern
-        let result = find_functions_in_module(&*db, "MyApp.Accounts", "default", false, 100);
+        let result = find_functions_in_module(&*db, "MyApp.Accounts", false, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
@@ -366,7 +365,7 @@ mod tests {
 
         // Search with regex alternation pattern for Controller and Accounts
         let result =
-            find_functions_in_module(&*db, "MyApp\\.(Controller|Accounts)", "default", true, 100);
+            find_functions_in_module(&*db, "MyApp\\.(Controller|Accounts)", true, 100);
 
         assert!(
             result.is_ok(),
@@ -395,7 +394,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search with wrong case (should not match due to case sensitivity)
-        let result = find_functions_in_module(&*db, "myapp.controller", "default", false, 100);
+        let result = find_functions_in_module(&*db, "myapp.controller", false, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
@@ -413,7 +412,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Empty pattern in exact match mode should find no results
-        let result = find_functions_in_module(&*db, "", "default", false, 100);
+        let result = find_functions_in_module(&*db, "", false, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
@@ -431,7 +430,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with very large limit using regex pattern
-        let result = find_functions_in_module(&*db, ".*", "default", true, 1000);
+        let result = find_functions_in_module(&*db, ".*", true, 1000);
 
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();

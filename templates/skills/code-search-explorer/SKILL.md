@@ -198,7 +198,7 @@ code_search --db /path/to/db.rocksdb <command>
 2. **Use context**: "Trace calls from the Phoenix controller" helps narrow results
 3. **Iterate**: Start broad, then drill down based on findings
 4. **Verify**: Ask agent to read source files for details after finding locations
-5. **Use filters**: `--project`, `--module`, `--limit` help focus results
+5. **Use filters**: `--module`, `--limit` help focus results
 
 ## Limitations
 
@@ -223,7 +223,7 @@ code_search browse-module MyApp.Module
 code_search calls-to --function process
 code_search trace MyModule process --depth 2
 code_search depends-on MyApp.Core
-code_search unused --project my_app
+code_search unused
 code_search hotspots --kind incoming --limit 20
 code_search god-modules
 ```
@@ -278,7 +278,7 @@ code_search god-modules
 - **Solution**: Try broader search terms or remove filters
 
 **Issue**: "Too many results"
-- **Solution**: Use `--limit`, `--project`, or `--module` to narrow results
+- **Solution**: Use `--limit` or `--module` to narrow results
 - **Solution**: Be more specific in function/module names
 
 **Issue**: "Function not found but I know it exists"

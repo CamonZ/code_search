@@ -32,7 +32,6 @@ mod tests {
             module: None,
             by_module: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -57,7 +56,6 @@ mod tests {
             module: Some("MyApp.Accounts".to_string()),
             by_module: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -83,7 +81,6 @@ mod tests {
             module: None,
             by_module: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -122,7 +119,6 @@ mod tests {
             module: None,
             by_module: true,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -151,7 +147,6 @@ mod tests {
             module: None,
             by_module: true,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -184,7 +179,6 @@ mod tests {
             module: None,
             by_module: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -207,7 +201,6 @@ mod tests {
             module: None,
             by_module: true,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -235,7 +228,6 @@ mod tests {
             module: None,
             by_module: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 2,
             },
@@ -257,7 +249,6 @@ mod tests {
             module: None,
             by_module: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: true,
                 limit: 100,
             },
@@ -284,7 +275,6 @@ mod tests {
             module: None,
             by_module: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -315,7 +305,6 @@ mod tests {
             module: None,
             by_module: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },

@@ -31,7 +31,6 @@ code_search --format toon large-functions [MODULE] [OPTIONS]
 | `--include-generated` | Include macro-generated functions (excluded by default) | false |
 | `-r, --regex` | Treat patterns as regex | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |
 
 ## Examples
 

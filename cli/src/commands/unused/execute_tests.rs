@@ -28,7 +28,6 @@ mod tests {
             public_only: false,
             exclude_generated: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -58,7 +57,6 @@ mod tests {
             public_only: false,
             exclude_generated: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -95,7 +93,6 @@ mod tests {
             public_only: false,
             exclude_generated: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: true,
                 limit: 100,
             },
@@ -131,7 +128,6 @@ mod tests {
             public_only: false,
             exclude_generated: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -149,7 +145,6 @@ mod tests {
             public_only: false,
             exclude_generated: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -173,7 +168,6 @@ mod tests {
             public_only: false,
             exclude_generated: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 3,
             },
@@ -191,7 +185,6 @@ mod tests {
             public_only: false,
             exclude_generated: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -234,7 +227,6 @@ mod tests {
             public_only: true,
             exclude_generated: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -268,7 +260,6 @@ mod tests {
             public_only: false,
             exclude_generated: true,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -301,7 +292,6 @@ mod tests {
             public_only: true,
             exclude_generated: true,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },
@@ -323,7 +313,6 @@ mod tests {
             public_only: false,
             exclude_generated: false,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 100,
             },

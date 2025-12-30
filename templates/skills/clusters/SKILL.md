@@ -31,7 +31,6 @@ code_search --format toon clusters [MODULE] [OPTIONS]
 | `--show-dependencies` | Show cross-namespace dependencies | false |
 | `-r, --regex` | Treat patterns as regex | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |
 
 ## Examples
 

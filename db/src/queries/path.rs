@@ -41,7 +41,6 @@ pub fn find_paths(
     to_module: &str,
     to_function: &str,
     to_arity: i64,
-    _project: &str,
     max_depth: u32,
     _limit: u32,
 ) -> Result<Vec<CallPath>, Box<dyn Error>> {
@@ -197,7 +196,6 @@ mod tests {
             "MyApp.Notifier",
             "send_email",
             2,
-            "default",
             10,
             100,
         );
@@ -232,7 +230,6 @@ mod tests {
             "MyApp.Repo",
             "query",
             2,
-            "default",
             2,
             100,
         );
@@ -250,7 +247,6 @@ mod tests {
             "MyApp.Repo",
             "query",
             2,
-            "default",
             5,
             100,
         );
@@ -290,7 +286,6 @@ mod tests {
             "MyApp.Controller",
             "index",
             2,
-            "default",
             10,
             100,
         );
@@ -313,7 +308,6 @@ mod tests {
             "MyApp.Accounts",
             "list_users",
             0,
-            "default",
             10,
             100,
         );
@@ -336,7 +330,6 @@ mod tests {
             "NonExistent",
             "nonexistent",
             1,
-            "default",
             10,
             100,
         );
@@ -360,7 +353,6 @@ mod tests {
             "MyApp.Repo",
             "all",
             1,
-            "default",
             5,
             100,
         );
@@ -406,7 +398,6 @@ mod tests {
             "MyApp.Accounts",
             "list_users",
             0,
-            "default",
             10,
             100,
         );
@@ -438,7 +429,6 @@ mod tests {
             "MyApp.Accounts",
             "list_users",
             0,
-            "default",
             10,
             100,
         );

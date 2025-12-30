@@ -30,7 +30,6 @@ pub fn find_types(
     module_pattern: &str,
     name_filter: Option<&str>,
     kind_filter: Option<&str>,
-    _project: &str,
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<TypeInfo>, Box<dyn Error>> {
@@ -157,7 +156,7 @@ mod tests {
         let db = crate::test_utils::surreal_type_db();
 
         // Invalid regex pattern: unclosed bracket
-        let result = find_types(&*db, "[invalid", None, None, "default", true, 100);
+        let result = find_types(&*db, "[invalid", None, None, true, 100);
 
         assert!(result.is_err(), "Should reject invalid regex");
         let err = result.unwrap_err();
@@ -179,7 +178,6 @@ mod tests {
             "module_a",
             Some("*invalid"),
             None,
-            "default",
             true,
             100,
         );
@@ -199,7 +197,7 @@ mod tests {
         let db = crate::test_utils::surreal_type_db();
 
         // Valid regex pattern should not error on validation
-        let result = find_types(&*db, "^module.*$", None, None, "default", true, 100);
+        let result = find_types(&*db, "^module.*$", None, None, true, 100);
 
         // Should not fail on validation
         assert!(
@@ -214,7 +212,7 @@ mod tests {
         let db = crate::test_utils::surreal_type_db();
 
         // Even invalid regex should work in non-regex mode (treated as literal string)
-        let result = find_types(&*db, "[invalid", None, None, "default", false, 100);
+        let result = find_types(&*db, "[invalid", None, None, false, 100);
 
         // Should succeed (no regex validation in non-regex mode)
         assert!(
@@ -231,7 +229,7 @@ mod tests {
         let db = crate::test_utils::surreal_type_db();
 
         // Search for exact type name without regex
-        let result = find_types(&*db, "module_a", None, None, "default", false, 100);
+        let result = find_types(&*db, "module_a", None, None, false, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let types = result.unwrap();
@@ -254,7 +252,6 @@ mod tests {
             "module_a",
             Some("NonExistent"),
             None,
-            "default",
             false,
             100,
         );
@@ -277,7 +274,6 @@ mod tests {
             "nonexistent_module",
             None,
             None,
-            "default",
             false,
             100,
         );
@@ -300,7 +296,6 @@ mod tests {
             "module_a",
             None,
             Some("struct"),
-            "default",
             false,
             100,
         );
@@ -323,7 +318,7 @@ mod tests {
         let db = crate::test_utils::surreal_type_db();
 
         // Search for type with wrong kind (User is a struct, search for enum)
-        let result = find_types(&*db, "module_a", None, Some("enum"), "default", false, 100);
+        let result = find_types(&*db, "module_a", None, Some("enum"), false, 100);
 
         assert!(result.is_ok());
         let types = result.unwrap();
@@ -335,8 +330,8 @@ mod tests {
         let db = crate::test_utils::surreal_type_db();
 
         // Query with low limit
-        let limit_1 = find_types(&*db, "module_", None, None, "default", false, 1).unwrap();
-        let limit_100 = find_types(&*db, "module_", None, None, "default", false, 100).unwrap();
+        let limit_1 = find_types(&*db, "module_", None, None, false, 1).unwrap();
+        let limit_100 = find_types(&*db, "module_", None, None, false, 100).unwrap();
 
         assert!(limit_1.len() <= 1, "Limit should be respected");
         assert!(
@@ -350,7 +345,7 @@ mod tests {
         let db = crate::test_utils::surreal_type_db();
 
         // Search for modules matching regex pattern
-        let result = find_types(&*db, "^module_.*$", None, None, "default", true, 100);
+        let result = find_types(&*db, "^module_.*$", None, None, true, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let types = result.unwrap();
@@ -368,7 +363,7 @@ mod tests {
         let db = crate::test_utils::surreal_type_db();
 
         // Search for specific type name
-        let result = find_types(&*db, "module_a", Some("User"), None, "default", false, 100);
+        let result = find_types(&*db, "module_a", Some("User"), None, false, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let types = result.unwrap();
@@ -384,7 +379,7 @@ mod tests {
         let db = crate::test_utils::surreal_type_db();
 
         // Search for type names matching regex
-        let result = find_types(&*db, "module_a", Some("^User$"), None, "default", true, 100);
+        let result = find_types(&*db, "module_a", Some("^User$"), None, true, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let types = result.unwrap();
@@ -407,7 +402,6 @@ mod tests {
             "module_a",
             None,
             Some("struct"),
-            "default",
             false,
             100,
         );
@@ -432,7 +426,6 @@ mod tests {
             "module_a",
             Some("User"),
             Some("struct"),
-            "default",
             false,
             100,
         );
@@ -452,7 +445,7 @@ mod tests {
         let db = crate::test_utils::surreal_type_db();
 
         // Query all types
-        let result = find_types(&*db, "", None, None, "default", false, 100);
+        let result = find_types(&*db, "", None, None, false, 100);
 
         assert!(result.is_ok());
         let types = result.unwrap();
@@ -474,7 +467,7 @@ mod tests {
     fn test_find_types_module_a_finds_user() {
         let db = crate::test_utils::surreal_type_db();
 
-        let result = find_types(&*db, "module_a", None, None, "default", false, 100);
+        let result = find_types(&*db, "module_a", None, None, false, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let types = result.unwrap();
@@ -490,7 +483,7 @@ mod tests {
     fn test_find_types_module_b_finds_post() {
         let db = crate::test_utils::surreal_type_db();
 
-        let result = find_types(&*db, "module_b", None, None, "default", false, 100);
+        let result = find_types(&*db, "module_b", None, None, false, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let types = result.unwrap();
@@ -507,7 +500,7 @@ mod tests {
         let db = crate::test_utils::surreal_type_db();
 
         // Search for all types across all modules
-        let result = find_types(&*db, "", None, None, "default", false, 100);
+        let result = find_types(&*db, "", None, None, false, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let types = result.unwrap();
@@ -525,7 +518,7 @@ mod tests {
         let db = crate::test_utils::surreal_type_db();
 
         // Search for all types to verify sorting
-        let result = find_types(&*db, "", None, None, "default", false, 100);
+        let result = find_types(&*db, "", None, None, false, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let types = result.unwrap();
@@ -549,7 +542,7 @@ mod tests {
         let db = crate::test_utils::surreal_type_db();
 
         // Empty module pattern should match all modules
-        let result = find_types(&*db, "", None, None, "default", false, 100);
+        let result = find_types(&*db, "", None, None, false, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let types = result.unwrap();
@@ -569,7 +562,7 @@ mod tests {
         let db = crate::test_utils::surreal_type_db();
 
         // Search with non-existent project
-        let result = find_types(&*db, "", None, None, "nonexistent", false, 100);
+        let result = find_types(&*db, "", None, None, false, 100);
 
         assert!(result.is_ok());
         let types = result.unwrap();

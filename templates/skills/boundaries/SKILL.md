@@ -31,7 +31,6 @@ code_search --format toon boundaries [MODULE] [OPTIONS]
 | `--min-ratio <N>` | Minimum ratio (incoming/outgoing) to be considered a boundary | 2.0 |
 | `-r, --regex` | Treat patterns as regex | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |
 
 ## Examples
 

@@ -12,15 +12,13 @@
 #   cp hooks/post-commit .git/hooks/post-commit
 #   chmod +x .git/hooks/post-commit
 #
-# Configuration (via git config, all optional):
-#   git config code-search.project-name <name>   # Project name (for multi-project databases)
+# Configuration (via git config, optional):
 #   git config code-search.mix-env <env>         # Mix environment (default: dev)
 #
 # Database path is auto-resolved to .code_search/surrealdb.rocksdb in the project root
 #
 
-# Get configuration from git config (all optional)
-PROJECT_NAME=$(git config code-search.project-name || echo "")
+# Get configuration from git config (optional)
 MIX_ENV=$(git config code-search.mix-env || echo "dev")
 
 # Color output helpers
@@ -105,20 +103,11 @@ fi
 
 # Step 3: Import data into database (will upsert existing records)
 # Database path will be auto-resolved to .code_search/surrealdb.rocksdb
-if [ -n "${PROJECT_NAME}" ]; then
-    info "Importing data (project: ${PROJECT_NAME})..."
-    if code_search import --file "${TEMP_JSON}" --project "${PROJECT_NAME}" 2>&1; then
-        info "Database updated successfully!"
-    else
-        error "Database import failed"
-        exit 1
-    fi
+info "Importing data..."
+
+if code_search import --file "${TEMP_JSON}" 2>&1; then
+    info "Database updated successfully!"
 else
-    info "Importing data..."
-    if code_search import --file "${TEMP_JSON}" 2>&1; then
-        info "Database updated successfully!"
-    else
-        error "Database import failed"
-        exit 1
-    fi
+    error "Database import failed"
+    exit 1
 fi

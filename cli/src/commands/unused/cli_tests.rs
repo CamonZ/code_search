@@ -16,7 +16,6 @@ mod tests {
         variant: Unused,
         required_args: [],
         defaults: {
-            common.project: "default",
             common.regex: false,
             private_only: false,
             public_only: false,
@@ -32,15 +31,6 @@ mod tests {
         args: ["MyApp"],
         field: module,
         expected: Some("MyApp".to_string()),
-    }
-
-    crate::cli_option_test! {
-        command: "unused",
-        variant: Unused,
-        test_name: test_with_project,
-        args: ["--project", "my_app"],
-        field: common.project,
-        expected: "my_app",
     }
 
     crate::cli_option_test! {

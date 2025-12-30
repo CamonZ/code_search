@@ -33,7 +33,6 @@ pub fn find_complexity_metrics(
     min_complexity: i64,
     min_depth: i64,
     module_pattern: Option<&str>,
-    _project: &str,
     use_regex: bool,
     _exclude_generated: bool,
     limit: u32,
@@ -151,7 +150,7 @@ mod tests {
     #[test]
     fn test_find_complexity_metrics_returns_results() {
         let db = get_db();
-        let result = find_complexity_metrics(&*db, 0, 0, None, "default", false, false, 100);
+        let result = find_complexity_metrics(&*db, 0, 0, None, false, false, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let metrics = result.unwrap();
@@ -161,7 +160,7 @@ mod tests {
     #[test]
     fn test_find_complexity_metrics_returns_exact_count() {
         let db = get_db();
-        let metrics = find_complexity_metrics(&*db, 0, 0, None, "default", false, false, 100)
+        let metrics = find_complexity_metrics(&*db, 0, 0, None, false, false, 100)
             .expect("Query should succeed");
 
         // The fixture has 37 functions, each with at least 1 clause
@@ -175,7 +174,7 @@ mod tests {
     #[test]
     fn test_find_complexity_metrics_calculates_complexity_from_clauses() {
         let db = get_db();
-        let metrics = find_complexity_metrics(&*db, 0, 0, None, "default", false, false, 100)
+        let metrics = find_complexity_metrics(&*db, 0, 0, None, false, false, 100)
             .expect("Query should succeed");
 
         // Find Controller.index/2 which has 2 clauses with complexity 3+1=4
@@ -193,7 +192,7 @@ mod tests {
     #[test]
     fn test_find_complexity_metrics_calculates_max_nesting_depth() {
         let db = get_db();
-        let metrics = find_complexity_metrics(&*db, 0, 0, None, "default", false, false, 100)
+        let metrics = find_complexity_metrics(&*db, 0, 0, None, false, false, 100)
             .expect("Query should succeed");
 
         // Controller.index/2 has clauses with depth 2 and 1, max should be 2
@@ -211,7 +210,7 @@ mod tests {
     #[test]
     fn test_find_complexity_metrics_multiple_functions_per_module() {
         let db = get_db();
-        let metrics = find_complexity_metrics(&*db, 0, 0, None, "default", false, false, 100)
+        let metrics = find_complexity_metrics(&*db, 0, 0, None, false, false, 100)
             .expect("Query should succeed");
 
         // Controller has 6 functions: index/2, show/2, create/2, handle_event/1, format_display/1, __generated__/0
@@ -255,7 +254,7 @@ mod tests {
     #[test]
     fn test_find_complexity_metrics_all_modules_present() {
         let db = get_db();
-        let metrics = find_complexity_metrics(&*db, 0, 0, None, "default", false, false, 100)
+        let metrics = find_complexity_metrics(&*db, 0, 0, None, false, false, 100)
             .expect("Query should succeed");
 
         let modules: std::collections::HashSet<_> = metrics.iter().map(|m| m.module.as_str()).collect();
@@ -275,7 +274,7 @@ mod tests {
     #[test]
     fn test_find_complexity_metrics_respects_min_complexity_threshold() {
         let db = get_db();
-        let metrics = find_complexity_metrics(&*db, 3, 0, None, "default", false, false, 100)
+        let metrics = find_complexity_metrics(&*db, 3, 0, None, false, false, 100)
             .expect("Query should succeed");
 
         // Service.process_request/2 has 3 clauses (complexity=3)
@@ -302,7 +301,7 @@ mod tests {
     #[test]
     fn test_find_complexity_metrics_respects_min_depth_threshold() {
         let db = get_db();
-        let metrics = find_complexity_metrics(&*db, 0, 3, None, "default", false, false, 100)
+        let metrics = find_complexity_metrics(&*db, 0, 3, None, false, false, 100)
             .expect("Query should succeed");
 
         // All results should have max_nesting_depth >= 3
@@ -319,7 +318,7 @@ mod tests {
     #[test]
     fn test_find_complexity_metrics_filters_by_both_thresholds() {
         let db = get_db();
-        let metrics = find_complexity_metrics(&*db, 3, 2, None, "default", false, false, 100)
+        let metrics = find_complexity_metrics(&*db, 3, 2, None, false, false, 100)
             .expect("Query should succeed");
 
         // All results must satisfy both conditions
@@ -345,7 +344,6 @@ mod tests {
             0,
             0,
             Some("MyApp.Controller"),
-            "default",
             false,
             false,
             100,
@@ -369,7 +367,7 @@ mod tests {
     #[test]
     fn test_find_complexity_metrics_with_regex_module_filter() {
         let db = get_db();
-        let metrics = find_complexity_metrics(&*db, 0, 0, Some("^MyApp\\.Acc.*"), "default", true, false, 100)
+        let metrics = find_complexity_metrics(&*db, 0, 0, Some("^MyApp\\.Acc.*"), true, false, 100)
             .expect("Query should succeed");
 
         assert_eq!(
@@ -394,7 +392,6 @@ mod tests {
             0,
             0,
             Some("NonExistentModule"),
-            "default",
             false,
             false,
             100,
@@ -410,7 +407,7 @@ mod tests {
     #[test]
     fn test_find_complexity_metrics_regex_pattern_invalid() {
         let db = get_db();
-        let result = find_complexity_metrics(&*db, 0, 0, Some("[invalid"), "default", true, false, 100);
+        let result = find_complexity_metrics(&*db, 0, 0, Some("[invalid"), true, false, 100);
 
         assert!(
             result.is_err(),
@@ -423,11 +420,11 @@ mod tests {
     #[test]
     fn test_find_complexity_metrics_respects_limit() {
         let db = get_db();
-        let metrics_5 = find_complexity_metrics(&*db, 0, 0, None, "default", false, false, 5)
+        let metrics_5 = find_complexity_metrics(&*db, 0, 0, None, false, false, 5)
             .expect("Query should succeed");
-        let metrics_10 = find_complexity_metrics(&*db, 0, 0, None, "default", false, false, 10)
+        let metrics_10 = find_complexity_metrics(&*db, 0, 0, None, false, false, 10)
             .expect("Query should succeed");
-        let metrics_100 = find_complexity_metrics(&*db, 0, 0, None, "default", false, false, 100)
+        let metrics_100 = find_complexity_metrics(&*db, 0, 0, None, false, false, 100)
             .expect("Query should succeed");
 
         assert!(metrics_5.len() <= 5, "Should respect limit of 5");
@@ -451,7 +448,7 @@ mod tests {
     #[test]
     fn test_find_complexity_metrics_ordered_by_complexity_desc() {
         let db = get_db();
-        let metrics = find_complexity_metrics(&*db, 0, 0, None, "default", false, false, 100)
+        let metrics = find_complexity_metrics(&*db, 0, 0, None, false, false, 100)
             .expect("Query should succeed");
 
         // Results should be ordered by complexity descending, then by module/name
@@ -470,7 +467,7 @@ mod tests {
     #[test]
     fn test_find_complexity_metrics_calculates_lines_correctly() {
         let db = get_db();
-        let metrics = find_complexity_metrics(&*db, 0, 0, None, "default", false, false, 100)
+        let metrics = find_complexity_metrics(&*db, 0, 0, None, false, false, 100)
             .expect("Query should succeed");
 
         for metric in &metrics {
@@ -485,7 +482,7 @@ mod tests {
     #[test]
     fn test_find_complexity_metrics_valid_arity_values() {
         let db = get_db();
-        let metrics = find_complexity_metrics(&*db, 0, 0, None, "default", false, false, 100)
+        let metrics = find_complexity_metrics(&*db, 0, 0, None, false, false, 100)
             .expect("Query should succeed");
 
         // Verify all arities are non-negative
@@ -506,7 +503,7 @@ mod tests {
     #[test]
     fn test_find_complexity_metrics_all_fields_populated() {
         let db = get_db();
-        let metrics = find_complexity_metrics(&*db, 0, 0, None, "default", false, false, 100)
+        let metrics = find_complexity_metrics(&*db, 0, 0, None, false, false, 100)
             .expect("Query should succeed");
 
         assert!(!metrics.is_empty(), "Should return results");
@@ -527,7 +524,7 @@ mod tests {
     #[test]
     fn test_accounts_get_user_arity_variations() {
         let db = get_db();
-        let metrics = find_complexity_metrics(&*db, 0, 0, None, "default", false, false, 100)
+        let metrics = find_complexity_metrics(&*db, 0, 0, None, false, false, 100)
             .expect("Query should succeed");
 
         // Accounts module has get_user/1 and get_user/2
@@ -554,7 +551,7 @@ mod tests {
     #[test]
     fn test_service_process_request_complexity() {
         let db = get_db();
-        let metrics = find_complexity_metrics(&*db, 0, 0, None, "default", false, false, 100)
+        let metrics = find_complexity_metrics(&*db, 0, 0, None, false, false, 100)
             .expect("Query should succeed");
 
         let service_process = metrics
@@ -582,7 +579,7 @@ mod tests {
     #[test]
     fn test_find_complexity_metrics_empty_with_very_high_threshold() {
         let db = get_db();
-        let metrics = find_complexity_metrics(&*db, 1000, 0, None, "default", false, false, 100)
+        let metrics = find_complexity_metrics(&*db, 1000, 0, None, false, false, 100)
             .expect("Query should succeed");
 
         assert!(

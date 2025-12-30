@@ -36,7 +36,6 @@ impl Execute for CyclesCmd {
         // Get cycle edges from the database
         let edges = find_cycle_edges(
             db,
-            &self.common.project,
             self.module.as_deref(),
         )?;
 

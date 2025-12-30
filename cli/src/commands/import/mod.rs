@@ -12,8 +12,6 @@ use db::backend::Database;
 use crate::commands::{CommandRunner, Execute};
 use crate::output::{OutputFormat, Outputable};
 
-const DEFAULT_PROJECT: &str = "default";
-
 fn validate_file_exists(s: &str) -> Result<PathBuf, String> {
     let path = PathBuf::from(s);
     if path.exists() {
@@ -27,17 +25,13 @@ fn validate_file_exists(s: &str) -> Result<PathBuf, String> {
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search import -f call_graph.json      # Import with default project name
-  code_search import -f cg.json -p my_app    # Import into 'my_app' project
+  code_search import -f call_graph.json      # Import call graph into database
   code_search import -f cg.json --clear      # Clear DB before importing")]
 pub struct ImportCmd {
     /// Path to the call graph JSON file
     #[arg(short, long, value_parser = validate_file_exists)]
     pub file: PathBuf,
-    /// Project name for namespacing (allows multiple projects in same DB)
-    #[arg(short, long, default_value = DEFAULT_PROJECT)]
-    pub project: String,
-    /// Clear all existing data before import (or just project data if --project is set)
+    /// Clear all existing data before import
     #[arg(long, default_value_t = false)]
     pub clear: bool,
 }

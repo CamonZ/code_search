@@ -31,7 +31,6 @@ code_search --format toon browse-module <MODULE_OR_FILE> [OPTIONS]
 | `-n, --name <NAME>` | Filter by definition name (substring or regex with --regex) | none |
 | `-r, --regex` | Treat patterns as regular expressions | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |
 
 ## Output Fields (toon format)
 

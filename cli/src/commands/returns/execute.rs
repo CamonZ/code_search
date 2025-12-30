@@ -50,7 +50,6 @@ impl Execute for ReturnsCmd {
         let entries = find_returns(
             db,
             &self.pattern,
-            &self.common.project,
             self.common.regex,
             self.module.as_deref(),
             self.common.limit,

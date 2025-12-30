@@ -27,7 +27,6 @@ impl Execute for ComplexityCmd {
             self.min,
             self.min_depth,
             self.module.as_deref(),
-            &self.common.project,
             self.common.regex,
             self.exclude_generated,
             self.common.limit,
@@ -71,7 +70,6 @@ mod tests {
             exclude_generated: false,
             module: Some("MyApp".to_string()),
             common: crate::commands::CommonArgs {
-                project: "default".to_string(),
                 regex: false,
                 limit: 20,
             },

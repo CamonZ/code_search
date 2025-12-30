@@ -51,7 +51,6 @@ impl Execute for UnusedCmd {
         let functions = find_unused_functions(
             db,
             self.module.as_deref(),
-            &self.common.project,
             self.common.regex,
             self.private_only,
             self.public_only,

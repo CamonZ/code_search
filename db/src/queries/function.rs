@@ -31,7 +31,6 @@ pub fn find_functions(
     module_pattern: &str,
     function_pattern: &str,
     arity: Option<i64>,
-    _project: &str,
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<FunctionSignature>, Box<dyn Error>> {
@@ -136,7 +135,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Invalid regex pattern: unclosed bracket
-        let result = find_functions(&*db, "[invalid", "foo", None, "default", true, 100);
+        let result = find_functions(&*db, "[invalid", "foo", None, true, 100);
 
         assert!(result.is_err(), "Should reject invalid regex");
         let err = result.unwrap_err();
@@ -153,7 +152,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Invalid regex pattern in function name: invalid repetition
-        let result = find_functions(&*db, "module_a", "*invalid", None, "default", true, 100);
+        let result = find_functions(&*db, "module_a", "*invalid", None, true, 100);
 
         assert!(result.is_err(), "Should reject invalid regex");
         let err = result.unwrap_err();
@@ -170,7 +169,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Valid regex pattern should not error on validation
-        let result = find_functions(&*db, "^MyApp.*$", "^query$", None, "default", true, 100);
+        let result = find_functions(&*db, "^MyApp.*$", "^query$", None, true, 100);
 
         // Should not fail on validation
         assert!(
@@ -185,7 +184,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Even invalid regex should work in non-regex mode (treated as literal string)
-        let result = find_functions(&*db, "[invalid", "foo", None, "default", false, 100);
+        let result = find_functions(&*db, "[invalid", "foo", None, false, 100);
 
         // Should succeed (no regex validation in non-regex mode)
         assert!(
@@ -207,7 +206,6 @@ mod tests {
             "MyApp.Controller",
             "index",
             None,
-            "default",
             false,
             100,
         );
@@ -233,7 +231,6 @@ mod tests {
             "MyApp.Controller",
             "nonexistent",
             None,
-            "default",
             false,
             100,
         );
@@ -256,7 +253,6 @@ mod tests {
             "nonexistent_module",
             "index",
             None,
-            "default",
             false,
             100,
         );
@@ -279,7 +275,6 @@ mod tests {
             "MyApp.Accounts",
             "get_user",
             Some(1),
-            "default",
             false,
             100,
         );
@@ -307,7 +302,6 @@ mod tests {
             "MyApp.Controller",
             "index",
             Some(5),
-            "default",
             false,
             100,
         );
@@ -327,8 +321,8 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Use wildcard patterns to match all functions
-        let limit_1 = find_functions(&*db, ".*", ".*", None, "default", true, 1).unwrap();
-        let limit_100 = find_functions(&*db, ".*", ".*", None, "default", true, 100).unwrap();
+        let limit_1 = find_functions(&*db, ".*", ".*", None, true, 1).unwrap();
+        let limit_100 = find_functions(&*db, ".*", ".*", None, true, 100).unwrap();
 
         assert!(limit_1.len() <= 1, "Limit should be respected");
         assert!(
@@ -342,7 +336,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with zero limit (use wildcard patterns)
-        let result = find_functions(&*db, ".*", ".*", None, "default", true, 0);
+        let result = find_functions(&*db, ".*", ".*", None, true, 0);
 
         assert!(result.is_ok(), "Should handle zero limit");
         let functions = result.unwrap();
@@ -354,7 +348,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with large limit (larger than fixture size, use wildcard patterns)
-        let result = find_functions(&*db, ".*", ".*", None, "default", true, 1000000);
+        let result = find_functions(&*db, ".*", ".*", None, true, 1000000);
 
         assert!(result.is_ok(), "Should handle large limit");
         let functions = result.unwrap();
@@ -370,7 +364,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Regex pattern that matches all functions
-        let result = find_functions(&*db, ".*", ".*", None, "default", true, 100);
+        let result = find_functions(&*db, ".*", ".*", None, true, 100);
 
         assert!(result.is_ok(), "Should match all functions with .*");
         let functions = result.unwrap();
@@ -389,7 +383,6 @@ mod tests {
             "MyApp.Accounts",
             "^(get_user|list_users)",
             None,
-            "default",
             true,
             100,
         );
@@ -409,7 +402,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Test with character class - matches anything starting with 's' in Notifier
-        let result = find_functions(&*db, "MyApp.Notifier", "^s.*", None, "default", true, 100);
+        let result = find_functions(&*db, "MyApp.Notifier", "^s.*", None, true, 100);
 
         assert!(result.is_ok(), "Should handle character class regex");
         let functions = result.unwrap();
@@ -426,7 +419,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Search for functions in MyApp.Controller matching pattern with wildcard function pattern
-        let result = find_functions(&*db, "MyApp.Controller", ".*", None, "default", true, 100);
+        let result = find_functions(&*db, "MyApp.Controller", ".*", None, true, 100);
 
         assert!(result.is_ok());
         let functions = result.unwrap();
@@ -450,7 +443,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Use wildcard patterns to get all functions
-        let result = find_functions(&*db, ".*", ".*", None, "default", true, 100);
+        let result = find_functions(&*db, ".*", ".*", None, true, 100);
 
         assert!(result.is_ok(), "Query should succeed");
         let functions = result.unwrap();
@@ -473,7 +466,6 @@ mod tests {
             "MyApp.Controller",
             "index",
             None,
-            "default",
             false,
             100,
         );
@@ -500,7 +492,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Use wildcard patterns to get all functions
-        let result = find_functions(&*db, ".*", ".*", None, "default", true, 100);
+        let result = find_functions(&*db, ".*", ".*", None, true, 100);
 
         assert!(result.is_ok());
         let functions = result.unwrap();
@@ -521,7 +513,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Use wildcard patterns to get all functions
-        let result = find_functions(&*db, ".*", ".*", None, "default", true, 100);
+        let result = find_functions(&*db, ".*", ".*", None, true, 100);
 
         assert!(result.is_ok());
         let functions = result.unwrap();
@@ -545,8 +537,8 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Multiple calls should return results in consistent order
-        let result1 = find_functions(&*db, ".*", ".*", None, "default", true, 100).unwrap();
-        let result2 = find_functions(&*db, ".*", ".*", None, "default", true, 100).unwrap();
+        let result1 = find_functions(&*db, ".*", ".*", None, true, 100).unwrap();
+        let result2 = find_functions(&*db, ".*", ".*", None, true, 100).unwrap();
 
         // Results should be identical
         assert_eq!(result1.len(), result2.len());
@@ -569,7 +561,6 @@ mod tests {
             "MyApp.Controller",
             "index",
             None,
-            "default",
             false,
             100,
         );
@@ -578,7 +569,6 @@ mod tests {
             "MyApp.Controller",
             "INDEX",
             None,
-            "default",
             false,
             100,
         );
@@ -604,9 +594,9 @@ mod tests {
 
         // Search should be case sensitive for module names (use wildcard function pattern)
         let result_correct =
-            find_functions(&*db, "MyApp.Controller", ".*", None, "default", true, 100);
+            find_functions(&*db, "MyApp.Controller", ".*", None, true, 100);
         let result_lower =
-            find_functions(&*db, "myapp.controller", ".*", None, "default", true, 100);
+            find_functions(&*db, "myapp.controller", ".*", None, true, 100);
 
         assert!(result_correct.is_ok());
         assert!(result_lower.is_ok());
@@ -633,7 +623,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Empty patterns in exact match mode - should match nothing typically
-        let result = find_functions(&*db, "", "", None, "default", false, 100);
+        let result = find_functions(&*db, "", "", None, false, 100);
 
         assert!(result.is_ok(), "Should handle empty pattern");
         let functions = result.unwrap();
@@ -651,7 +641,6 @@ mod tests {
             "MyApp.Accounts",
             "get_user",
             Some(2),
-            "default",
             false,
             100,
         );
@@ -676,7 +665,6 @@ mod tests {
             "MyApp.Accounts",
             "list_users",
             Some(0),
-            "default",
             false,
             100,
         );
@@ -695,7 +683,7 @@ mod tests {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
         // Use wildcard patterns to get all functions
-        let result = find_functions(&*db, ".*", ".*", None, "default", true, 100);
+        let result = find_functions(&*db, ".*", ".*", None, true, 100);
 
         assert!(result.is_ok());
         let functions = result.unwrap();
@@ -711,7 +699,7 @@ mod tests {
     fn test_find_functions_args_field_present() {
         let db = crate::test_utils::surreal_call_graph_db_complex();
 
-        let result = find_functions(&*db, "module_a", "foo", None, "default", false, 100);
+        let result = find_functions(&*db, "module_a", "foo", None, false, 100);
 
         assert!(result.is_ok());
         let functions = result.unwrap();

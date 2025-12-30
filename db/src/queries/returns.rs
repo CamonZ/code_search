@@ -27,7 +27,6 @@ pub struct ReturnEntry {
 pub fn find_returns(
     db: &dyn Database,
     pattern: &str,
-    _project: &str,
     use_regex: bool,
     module_pattern: Option<&str>,
     limit: u32,
@@ -165,7 +164,7 @@ mod tests {
     fn test_find_returns_user_type() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let result = find_returns(&*db, "user()", "default", false, None, 100);
+        let result = find_returns(&*db, "user()", false, None, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let entries = result.unwrap();
@@ -189,7 +188,7 @@ mod tests {
     fn test_find_returns_nil_type() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let result = find_returns(&*db, "nil", "default", false, None, 100);
+        let result = find_returns(&*db, "nil", false, None, 100);
 
         assert!(result.is_ok());
         let entries = result.unwrap();
@@ -217,7 +216,7 @@ mod tests {
     fn test_find_returns_struct_type() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let result = find_returns(&*db, "struct()", "default", false, None, 100);
+        let result = find_returns(&*db, "struct()", false, None, 100);
 
         assert!(result.is_ok());
         let entries = result.unwrap();
@@ -234,7 +233,7 @@ mod tests {
     fn test_find_returns_error_tuple() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let result = find_returns(&*db, "{:error", "default", false, None, 100);
+        let result = find_returns(&*db, "{:error", false, None, 100);
 
         assert!(result.is_ok());
         let entries = result.unwrap();
@@ -257,7 +256,7 @@ mod tests {
     fn test_find_returns_ok_tuple() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let result = find_returns(&*db, "{:ok", "default", false, None, 100);
+        let result = find_returns(&*db, "{:ok", false, None, 100);
 
         assert!(result.is_ok());
         let entries = result.unwrap();
@@ -278,7 +277,7 @@ mod tests {
     fn test_find_returns_reason_type() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let result = find_returns(&*db, "reason()", "default", false, None, 100);
+        let result = find_returns(&*db, "reason()", false, None, 100);
 
         assert!(result.is_ok());
         let entries = result.unwrap();
@@ -300,7 +299,7 @@ mod tests {
         let db = crate::test_utils::surreal_accepts_db();
 
         // Pattern to match return types containing "ok"
-        let result = find_returns(&*db, "ok", "default", false, None, 100);
+        let result = find_returns(&*db, "ok", false, None, 100);
 
         assert!(result.is_ok(), "Query should succeed: {:?}", result.err());
         let entries = result.unwrap();
@@ -324,7 +323,6 @@ mod tests {
         let result = find_returns(
             &*db,
             "user()",
-            "default",
             false,
             Some("MyApp.Accounts"),
             100,
@@ -350,7 +348,7 @@ mod tests {
     fn test_find_returns_nonexistent_type() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let result = find_returns(&*db, "NonExistent", "default", false, None, 100);
+        let result = find_returns(&*db, "NonExistent", false, None, 100);
 
         assert!(result.is_ok());
         let entries = result.unwrap();
@@ -365,7 +363,7 @@ mod tests {
     fn test_find_returns_empty_pattern() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let result = find_returns(&*db, "", "default", false, None, 100);
+        let result = find_returns(&*db, "", false, None, 100);
 
         assert!(result.is_ok());
         let entries = result.unwrap();
@@ -382,7 +380,7 @@ mod tests {
     fn test_find_returns_invalid_regex() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let result = find_returns(&*db, "[invalid", "default", true, None, 100);
+        let result = find_returns(&*db, "[invalid", true, None, 100);
 
         assert!(
             result.is_err(),
@@ -394,10 +392,10 @@ mod tests {
     fn test_find_returns_respects_limit() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let limit_3 = find_returns(&*db, "", "default", false, None, 3)
+        let limit_3 = find_returns(&*db, "", false, None, 3)
             .unwrap();
 
-        let limit_100 = find_returns(&*db, "", "default", false, None, 100)
+        let limit_100 = find_returns(&*db, "", false, None, 100)
             .unwrap();
 
         assert!(limit_3.len() <= 3, "Limit should be respected");
@@ -413,7 +411,7 @@ mod tests {
     fn test_find_returns_zero_arity_included() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let result = find_returns(&*db, "user()", "default", false, None, 100);
+        let result = find_returns(&*db, "user()", false, None, 100);
 
         assert!(result.is_ok());
         let entries = result.unwrap();
@@ -432,7 +430,7 @@ mod tests {
     fn test_find_returns_returns_valid_structure() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let result = find_returns(&*db, "", "default", false, None, 100);
+        let result = find_returns(&*db, "", false, None, 100);
 
         assert!(result.is_ok());
         let entries = result.unwrap();
@@ -450,7 +448,7 @@ mod tests {
     fn test_find_returns_preserves_sorting() {
         let db = crate::test_utils::surreal_accepts_db();
 
-        let result = find_returns(&*db, "", "default", false, None, 100);
+        let result = find_returns(&*db, "", false, None, 100);
 
         assert!(result.is_ok());
         let entries = result.unwrap();

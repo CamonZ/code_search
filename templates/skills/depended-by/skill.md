@@ -50,4 +50,3 @@ If many modules depend on Repo, it's a central piece of the architecture.
 | `<MODULE>` | Module name (exact match or pattern with --regex) | required |
 | `-r, --regex` | Treat patterns as regular expressions | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |

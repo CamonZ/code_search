@@ -24,7 +24,6 @@ impl Execute for GodModulesCmd {
         // Get function counts for all modules
         let func_counts = get_function_counts(
             db,
-            &self.common.project,
             self.module.as_deref(),
             self.common.regex,
         )?;
@@ -32,7 +31,6 @@ impl Execute for GodModulesCmd {
         // Get lines of code per module
         let module_loc = get_module_loc(
             db,
-            &self.common.project,
             self.module.as_deref(),
             self.common.regex,
         )?;
@@ -40,7 +38,6 @@ impl Execute for GodModulesCmd {
         // Get module-level connectivity (aggregated at database level)
         let module_connectivity = get_module_connectivity(
             db,
-            &self.common.project,
             self.module.as_deref(),
             self.common.regex,
         )?;
@@ -134,7 +131,6 @@ mod tests {
             min_total: 15,
             module: Some("MyApp".to_string()),
             common: crate::commands::CommonArgs {
-                project: "default".to_string(),
                 regex: false,
                 limit: 20,
             },

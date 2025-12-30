@@ -32,7 +32,6 @@ code_search --format toon god-modules [MODULE] [OPTIONS]
 | `--min-total <N>` | Minimum total connectivity (incoming + outgoing) | 10 |
 | `-r, --regex` | Treat patterns as regex | false |
 | `-l, --limit <N>` | Max results (1-1000) | 100 |
-| `--project <NAME>` | Project to search in | `default` |
 
 ## Examples
 

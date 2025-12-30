@@ -115,7 +115,6 @@ impl Execute for DependedByCmd {
         let calls = find_dependents(
             db,
             &self.module,
-            &self.common.project,
             self.common.regex,
             self.common.limit,
         )?;

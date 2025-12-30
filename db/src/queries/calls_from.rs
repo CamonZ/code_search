@@ -14,7 +14,6 @@ pub fn find_calls_from(
     module_pattern: &str,
     function_pattern: Option<&str>,
     arity: Option<i64>,
-    project: &str,
     use_regex: bool,
     limit: u32,
 ) -> Result<Vec<Call>, Box<dyn Error>> {
@@ -24,7 +23,6 @@ pub fn find_calls_from(
         module_pattern,
         function_pattern,
         arity,
-        project,
         use_regex,
         limit,
     )
@@ -43,7 +41,6 @@ mod tests {
             "module_a",
             None,
             None,
-            "default",
             false,
             100,
         );
@@ -60,7 +57,6 @@ mod tests {
             "NonExistent",
             None,
             None,
-            "default",
             false,
             100,
         );
@@ -79,7 +75,6 @@ mod tests {
             "MyApp.Controller",
             None,
             None,
-            "default",
             false,
             2,
         )
@@ -97,7 +92,6 @@ mod tests {
             "module_a",
             Some("foo"),
             None,
-            "default",
             false,
             100,
         );
@@ -114,7 +108,6 @@ mod tests {
             "[invalid",
             None,
             None,
-            "default",
             true,
             100,
         );

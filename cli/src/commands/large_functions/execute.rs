@@ -27,7 +27,6 @@ impl Execute for LargeFunctionsCmd {
             db,
             self.min_lines,
             self.module.as_deref(),
-            &self.common.project,
             self.common.regex,
             self.include_generated,
             self.common.limit,
@@ -95,7 +94,6 @@ mod tests {
             include_generated: false,
             module: Some("MyApp".to_string()),
             common: crate::commands::CommonArgs {
-                project: "default".to_string(),
                 regex: false,
                 limit: 20,
             },

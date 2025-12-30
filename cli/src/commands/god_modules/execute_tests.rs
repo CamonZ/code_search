@@ -31,7 +31,6 @@ mod tests {
             min_total: 1,
             module: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 20,
             },
@@ -51,7 +50,6 @@ mod tests {
             min_total: 4, // At least 4 total calls
             module: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 20,
             },
@@ -84,7 +82,6 @@ mod tests {
             min_total: 1,
             module: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 20,
             },
@@ -116,7 +113,6 @@ mod tests {
             min_total: 1,
             module: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 20,
             },
@@ -157,7 +153,6 @@ mod tests {
             min_total: 1,
             module: Some("Accounts".to_string()),
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 20,
             },
@@ -182,7 +177,6 @@ mod tests {
             min_total: 1,
             module: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 2,
             },
@@ -204,7 +198,6 @@ mod tests {
             min_total: 999999,
             module: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 20,
             },
@@ -224,7 +217,6 @@ mod tests {
             min_total: 1,
             module: Some("NonExistentModule".to_string()),
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 20,
             },
@@ -243,7 +235,6 @@ mod tests {
             min_total: 2,
             module: None,
             common: CommonArgs {
-                project: "test_project".to_string(),
                 regex: false,
                 limit: 20,
             },

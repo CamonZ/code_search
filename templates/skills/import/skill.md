@@ -18,15 +18,6 @@ structs_imported: 164
 types_imported: 27
 ```
 
-## Import with Project Namespace
-
-Useful for comparing multiple codebases or versions:
-
-```bash
-code_search --format toon import --file phoenix_v1.json --project phoenix_v1
-code_search --format toon import --file phoenix_v2.json --project phoenix_v2
-```
-
 ## Clear and Re-import
 
 Replace all existing data:

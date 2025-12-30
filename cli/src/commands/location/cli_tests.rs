@@ -59,15 +59,6 @@ mod tests {
     crate::cli_option_test! {
         command: "location",
         variant: Location,
-        test_name: test_with_project,
-        args: ["get_user", "MyApp.Accounts", "--project", "my_app"],
-        field: common.project,
-        expected: "my_app",
-    }
-
-    crate::cli_option_test! {
-        command: "location",
-        variant: Location,
         test_name: test_with_limit,
         args: ["get_user", "--limit", "10"],
         field: common.limit,
