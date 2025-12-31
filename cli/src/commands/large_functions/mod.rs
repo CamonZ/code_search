@@ -16,11 +16,11 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search large-functions                     # Find functions with 50+ lines
-  code_search large-functions MyApp.Web           # Filter to MyApp.Web namespace
-  code_search large-functions --min-lines 100     # Find functions with 100+ lines
-  code_search large-functions --include-generated # Include macro-generated functions
-  code_search large-functions -l 20               # Show top 20 largest functions
+  code_search code large-functions                     # Find functions with 50+ lines
+  code_search code large-functions MyApp.Web           # Filter to MyApp.Web namespace
+  code_search code large-functions --min-lines 100     # Find functions with 100+ lines
+  code_search code large-functions --include-generated # Include macro-generated functions
+  code_search code large-functions -l 20               # Show top 20 largest functions
 ")]
 pub struct LargeFunctionsCmd {
     /// Module filter pattern (substring match by default, regex with --regex)

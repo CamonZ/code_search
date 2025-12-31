@@ -16,9 +16,9 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search calls-from MyApp.Accounts              # All calls from module
-  code_search calls-from MyApp.Accounts get_user     # Calls from specific function
-  code_search calls-from MyApp.Accounts get_user 1   # With specific arity")]
+  code_search code calls-from MyApp.Accounts              # All calls from module
+  code_search code calls-from MyApp.Accounts get_user     # Calls from specific function
+  code_search code calls-from MyApp.Accounts get_user 1   # With specific arity")]
 pub struct CallsFromCmd {
     /// Module name (exact match or pattern with --regex)
     pub module: String,

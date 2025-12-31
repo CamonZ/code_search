@@ -38,9 +38,9 @@ The codebase must have a call graph extracted and imported:
    code_search import --file call_graph.json
    ```
 
-3. **Verify data**:
+3. **Verify setup**:
    ```bash
-   code_search describe
+   code_search search ""  # Should return modules if data is imported
    ```
 
 ## Quick Examples
@@ -107,7 +107,7 @@ The `code_search` tool has several command categories:
 
 | Category | Commands | Use Cases |
 |----------|----------|-----------|
-| **Discovery** | `search`, `browse-module`, `describe` | Find modules/functions, explore interfaces |
+| **Discovery** | `search`, `browse-module` | Find modules/functions, explore interfaces |
 | **Location** | `location`, `function` | Find where things are defined |
 | **Call Graph** | `calls-from`, `calls-to`, `trace`, `reverse-trace`, `path` | Navigate call relationships |
 | **Dependencies** | `depends-on`, `depended-by`, `clusters`, `cycles` | Analyze module coupling |
@@ -274,7 +274,7 @@ code_search god-modules
 - **Solution**: Run `code_search setup` first (creates `.code_search/surrealdb.rocksdb`)
 
 **Issue**: "No results found"
-- **Solution**: Check if data is imported with `code_search describe`
+- **Solution**: Check if data is imported with `code_search search ""`
 - **Solution**: Try broader search terms or remove filters
 
 **Issue**: "Too many results"

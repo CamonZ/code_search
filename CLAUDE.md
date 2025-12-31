@@ -14,7 +14,6 @@ cargo test -p code_search        # Test CLI layer only
 cargo test <test_name>           # Run a single test by name
 cargo nextest run                # Alternative test runner (faster)
 cargo run -p code_search -- --help      # Show CLI help
-cargo run -p code_search -- describe    # Show detailed command documentation
 ```
 
 ## Workspace Structure

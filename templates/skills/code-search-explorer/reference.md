@@ -6,7 +6,6 @@
 ```bash
 code_search search <pattern>              # Find modules/functions by name
 code_search browse-module <module>        # Show module contents
-code_search describe                      # Show database statistics
 code_search location <function>           # Find where function is defined
 code_search function <module> <function>  # Get function details
 ```
@@ -144,8 +143,7 @@ code_search hotspots --kind total --limit 15
 1. **Start broad, then narrow**: Begin with `search` or `browse-module`, then drill down
 2. **Use --format toon for agents**: More efficient for LLM processing
 3. **Limit results**: Add `--limit` for large codebases
-4. **Check database first**: Run `describe` to see what's available
-5. **Use regex for patterns**: Add `--regex` flag for complex module patterns
+4. **Use regex for patterns**: Add `--regex` flag for complex module patterns
 
 ## Setup & Import
 
@@ -155,9 +153,6 @@ code_search setup
 
 # Import call graph data (from ex_ast)
 code_search import --file call_graph.json
-
-# Verify import
-code_search describe
 ```
 
 ## Need More Help?

@@ -14,7 +14,7 @@ mod tests {
     // Positional argument test - browse-module requires a module or file argument
     #[test]
     fn test_requires_module_or_file() {
-        let result = Args::try_parse_from(["code_search", "browse-module"]);
+        let result = Args::try_parse_from(["code_search", "code", "browse-module"]);
         assert!(result.is_err(), "Should require module_or_file positional argument");
     }
 
@@ -86,6 +86,7 @@ mod tests {
     fn test_kind_filter(#[case] kind_str: &str, #[case] expected: DefinitionKind) {
         let args = Args::try_parse_from([
             "code_search",
+            "code",
             "browse-module",
             "MyApp.Accounts",
             "--kind",
@@ -93,7 +94,7 @@ mod tests {
         ])
         .expect("Failed to parse args");
 
-        if let crate::commands::Command::BrowseModule(cmd) = args.command {
+        if let crate::commands::Command::Code(crate::commands::CodeCommand::BrowseModule(cmd)) = args.command {
             assert!(cmd.kind.is_some());
             assert!(matches!(cmd.kind.unwrap(), k if std::mem::discriminant(&k) == std::mem::discriminant(&expected)));
         } else {
@@ -103,10 +104,10 @@ mod tests {
 
     #[test]
     fn test_kind_filter_default_is_none() {
-        let args = Args::try_parse_from(["code_search", "browse-module", "MyApp.Accounts"])
+        let args = Args::try_parse_from(["code_search", "code", "browse-module", "MyApp.Accounts"])
             .expect("Failed to parse args");
 
-        if let crate::commands::Command::BrowseModule(cmd) = args.command {
+        if let crate::commands::Command::Code(crate::commands::CodeCommand::BrowseModule(cmd)) = args.command {
             assert!(cmd.kind.is_none());
         } else {
             panic!("Expected BrowseModule command");

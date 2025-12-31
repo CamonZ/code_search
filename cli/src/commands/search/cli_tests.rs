@@ -60,9 +60,9 @@ mod tests {
 
     #[rstest]
     fn test_search_kind_default_is_modules() {
-        let args = Args::try_parse_from(["code_search", "search", "test"]).unwrap();
+        let args = Args::try_parse_from(["code_search", "code", "search", "test"]).unwrap();
         match args.command {
-            crate::commands::Command::Search(cmd) => {
+            crate::commands::Command::Code(crate::commands::CodeCommand::Search(cmd)) => {
                 assert!(matches!(cmd.kind, SearchKind::Modules));
             }
             _ => panic!("Expected Search command"),
@@ -72,9 +72,9 @@ mod tests {
     #[rstest]
     fn test_search_kind_functions() {
         let args =
-            Args::try_parse_from(["code_search", "search", "get_", "--kind", "functions"]).unwrap();
+            Args::try_parse_from(["code_search", "code", "search", "get_", "--kind", "functions"]).unwrap();
         match args.command {
-            crate::commands::Command::Search(cmd) => {
+            crate::commands::Command::Code(crate::commands::CodeCommand::Search(cmd)) => {
                 assert!(matches!(cmd.kind, SearchKind::Functions));
             }
             _ => panic!("Expected Search command"),

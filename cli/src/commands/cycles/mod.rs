@@ -16,10 +16,10 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search cycles                            # Find all cycles
-  code_search cycles MyApp.Core                 # Filter to MyApp.Core namespace
-  code_search cycles --max-length 3             # Only show cycles of length <= 3
-  code_search cycles --involving MyApp.Accounts # Only cycles involving Accounts
+  code_search code cycles                            # Find all cycles
+  code_search code cycles MyApp.Core                 # Filter to MyApp.Core namespace
+  code_search code cycles --max-length 3             # Only show cycles of length <= 3
+  code_search code cycles --involving MyApp.Accounts # Only cycles involving Accounts
 ")]
 pub struct CyclesCmd {
     /// Module filter pattern (substring or regex with -r)

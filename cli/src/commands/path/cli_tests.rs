@@ -68,7 +68,7 @@ mod tests {
 
     #[rstest]
     fn test_requires_all_args() {
-        let result = Args::try_parse_from(["code_search", "path"]);
+        let result = Args::try_parse_from(["code_search", "code", "path"]);
         assert!(result.is_err());
     }
 
@@ -76,6 +76,7 @@ mod tests {
     fn test_requires_to_args() {
         let result = Args::try_parse_from([
             "code_search",
+            "code",
             "path",
             "--from-module",
             "MyApp.Controller",
@@ -91,6 +92,7 @@ mod tests {
     fn test_with_all_required_args() {
         let args = Args::try_parse_from([
             "code_search",
+            "code",
             "path",
             "--from-module",
             "MyApp.Controller",
@@ -107,7 +109,7 @@ mod tests {
         ])
         .unwrap();
         match args.command {
-            crate::commands::Command::Path(cmd) => {
+            crate::commands::Command::Code(crate::commands::CodeCommand::Path(cmd)) => {
                 assert_eq!(cmd.from_module, "MyApp.Controller");
                 assert_eq!(cmd.from_function, "index");
                 assert_eq!(cmd.from_arity, 2);
@@ -125,6 +127,7 @@ mod tests {
     fn test_depth_zero_rejected() {
         let result = Args::try_parse_from([
             "code_search",
+            "code",
             "path",
             "--from-module",
             "MyApp",
@@ -148,6 +151,7 @@ mod tests {
     fn test_depth_exceeds_max_rejected() {
         let result = Args::try_parse_from([
             "code_search",
+            "code",
             "path",
             "--from-module",
             "MyApp",
@@ -171,6 +175,7 @@ mod tests {
     fn test_limit_zero_rejected() {
         let result = Args::try_parse_from([
             "code_search",
+            "code",
             "path",
             "--from-module",
             "MyApp",
@@ -194,6 +199,7 @@ mod tests {
     fn test_limit_exceeds_max_rejected() {
         let result = Args::try_parse_from([
             "code_search",
+            "code",
             "path",
             "--from-module",
             "MyApp",

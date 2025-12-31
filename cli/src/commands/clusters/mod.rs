@@ -16,11 +16,11 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search clusters                      # Show all namespace clusters
-  code_search clusters MyApp.Core           # Filter to MyApp.Core namespace
-  code_search clusters --depth 2            # Cluster at depth 2 (e.g., MyApp.Accounts)
-  code_search clusters --depth 3            # Cluster at depth 3 (e.g., MyApp.Accounts.Auth)
-  code_search clusters --show-dependencies  # Include cross-namespace call counts
+  code_search code clusters                      # Show all namespace clusters
+  code_search code clusters MyApp.Core           # Filter to MyApp.Core namespace
+  code_search code clusters --depth 2            # Cluster at depth 2 (e.g., MyApp.Accounts)
+  code_search code clusters --depth 3            # Cluster at depth 3 (e.g., MyApp.Accounts.Auth)
+  code_search code clusters --show-dependencies  # Include cross-namespace call counts
 ")]
 pub struct ClustersCmd {
     /// Module filter pattern (substring match by default, regex with --regex)

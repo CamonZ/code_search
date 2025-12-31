@@ -17,11 +17,11 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search many-clauses                     # Find functions with 5+ clauses
-  code_search many-clauses MyApp.Web           # Filter to MyApp.Web namespace
-  code_search many-clauses --min-clauses 10    # Find functions with 10+ clauses
-  code_search many-clauses --include-generated # Include macro-generated functions
-  code_search many-clauses -l 20               # Show top 20 functions with most clauses
+  code_search code many-clauses                     # Find functions with 5+ clauses
+  code_search code many-clauses MyApp.Web           # Filter to MyApp.Web namespace
+  code_search code many-clauses --min-clauses 10    # Find functions with 10+ clauses
+  code_search code many-clauses --include-generated # Include macro-generated functions
+  code_search code many-clauses -l 20               # Show top 20 functions with most clauses
 ")]
 pub struct ManyClausesCmd {
     /// Module filter pattern (substring match by default, regex with --regex)

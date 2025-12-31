@@ -16,9 +16,9 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search function MyApp.Accounts get_user       # Show signature
-  code_search function MyApp.Accounts get_user -a 1  # Specific arity
-  code_search function -r 'MyApp\\..*' 'get_.*'      # Regex matching
+  code_search code function MyApp.Accounts get_user       # Show signature
+  code_search code function MyApp.Accounts get_user -a 1  # Specific arity
+  code_search code function -r 'MyApp\\..*' 'get_.*'      # Regex matching
 ")]
 pub struct FunctionCmd {
     /// Module name (exact match or pattern with --regex)

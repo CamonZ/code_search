@@ -83,9 +83,9 @@ mod tests {
 
     #[rstest]
     fn test_depth_default() {
-        let args = Args::try_parse_from(["code_search", "trace", "MyApp", "foo"]).unwrap();
+        let args = Args::try_parse_from(["code_search", "code", "trace", "MyApp", "foo"]).unwrap();
         match args.command {
-            crate::commands::Command::Trace(cmd) => {
+            crate::commands::Command::Code(crate::commands::CodeCommand::Trace(cmd)) => {
                 assert_eq!(cmd.depth, 5);
             }
             _ => panic!("Expected Trace command"),
@@ -95,14 +95,14 @@ mod tests {
     #[rstest]
     fn test_depth_zero_rejected() {
         let result =
-            Args::try_parse_from(["code_search", "trace", "MyApp", "foo", "--depth", "0"]);
+            Args::try_parse_from(["code_search", "code", "trace", "MyApp", "foo", "--depth", "0"]);
         assert!(result.is_err());
     }
 
     #[rstest]
     fn test_depth_exceeds_max_rejected() {
         let result =
-            Args::try_parse_from(["code_search", "trace", "MyApp", "foo", "--depth", "21"]);
+            Args::try_parse_from(["code_search", "code", "trace", "MyApp", "foo", "--depth", "21"]);
         assert!(result.is_err());
     }
 }

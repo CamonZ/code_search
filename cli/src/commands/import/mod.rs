@@ -25,8 +25,8 @@ fn validate_file_exists(s: &str) -> Result<PathBuf, String> {
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search import -f call_graph.json      # Import call graph into database
-  code_search import -f cg.json --clear      # Clear DB before importing")]
+  code_search code import -f call_graph.json      # Import call graph into database
+  code_search code import -f cg.json --clear      # Clear DB before importing")]
 pub struct ImportCmd {
     /// Path to the call graph JSON file
     #[arg(short, long, value_parser = validate_file_exists)]

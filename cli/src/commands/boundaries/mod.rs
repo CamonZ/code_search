@@ -17,11 +17,11 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search boundaries                          # Find all boundary modules
-  code_search boundaries MyApp.Web                # Filter to MyApp.Web namespace
-  code_search boundaries --min-incoming 5         # With minimum 5 incoming calls
-  code_search boundaries --min-ratio 2.0          # With minimum 2.0 ratio
-  code_search boundaries -l 20                    # Show top 20 boundary modules
+  code_search code boundaries                          # Find all boundary modules
+  code_search code boundaries MyApp.Web                # Filter to MyApp.Web namespace
+  code_search code boundaries --min-incoming 5         # With minimum 5 incoming calls
+  code_search code boundaries --min-ratio 2.0          # With minimum 2.0 ratio
+  code_search code boundaries -l 20                    # Show top 20 boundary modules
 ")]
 pub struct BoundariesCmd {
     /// Module filter pattern (substring match by default, regex with --regex)
