@@ -16,9 +16,9 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search path --from-module MyApp.Web --from-function index \\
+  code_search code path --from-module MyApp.Web --from-function index \\
                    --to-module MyApp.Repo --to-function get
-  code_search path --from-module MyApp.API --from-function create \\
+  code_search code path --from-module MyApp.API --from-function create \\
                    --to-module Ecto.Repo --to-function insert --depth 15")]
 pub struct PathCmd {
     /// Source module name

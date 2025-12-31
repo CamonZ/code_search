@@ -16,10 +16,10 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search location get_user              # Find all get_user functions
-  code_search location get_user MyApp        # In specific module
-  code_search location get_user -a 1         # With specific arity
-  code_search location -r 'get_.*'           # Regex pattern matching
+  code_search code location get_user              # Find all get_user functions
+  code_search code location get_user MyApp        # In specific module
+  code_search code location get_user -a 1         # With specific arity
+  code_search code location -r 'get_.*'           # Regex pattern matching
 ")]
 pub struct LocationCmd {
     /// Function name (exact match or pattern with --regex)

@@ -95,9 +95,9 @@ mod tests {
 
     #[rstest]
     fn test_with_short_flags() {
-        let args = Args::try_parse_from(["code_search", "unused", "-p", "-x"]).unwrap();
+        let args = Args::try_parse_from(["code_search", "code", "unused", "-p", "-x"]).unwrap();
         match args.command {
-            crate::commands::Command::Unused(cmd) => {
+            crate::commands::Command::Code(crate::commands::CodeCommand::Unused(cmd)) => {
                 assert!(cmd.private_only);
                 assert!(cmd.exclude_generated);
             }
@@ -107,9 +107,9 @@ mod tests {
 
     #[rstest]
     fn test_public_only_short() {
-        let args = Args::try_parse_from(["code_search", "unused", "-P"]).unwrap();
+        let args = Args::try_parse_from(["code_search", "code", "unused", "-P"]).unwrap();
         match args.command {
-            crate::commands::Command::Unused(cmd) => {
+            crate::commands::Command::Code(crate::commands::CodeCommand::Unused(cmd)) => {
                 assert!(cmd.public_only);
             }
             _ => panic!("Expected Unused command"),
@@ -119,7 +119,7 @@ mod tests {
     #[rstest]
     fn test_private_and_public_conflict() {
         let result =
-            Args::try_parse_from(["code_search", "unused", "--private-only", "--public-only"]);
+            Args::try_parse_from(["code_search", "code", "unused", "--private-only", "--public-only"]);
         assert!(result.is_err());
     }
 }

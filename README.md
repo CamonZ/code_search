@@ -82,7 +82,7 @@ All commands support three output formats via `--format` or `-o`:
 
 ## Commands
 
-Use `code_search describe` to see detailed documentation, or `code_search describe <command>` for specific command help.
+Use `code_search <command> --help` for detailed help on any command.
 
 ### Query Commands
 
@@ -139,10 +139,9 @@ Use `code_search describe` to see detailed documentation, or `code_search descri
 |---------|-------|-------------|
 | `setup` | `setup [--install-skills] [--install-hooks] [--force]` | Create database schema, install templates and/or git hooks |
 | `import` | `import --file <FILE>` | Import call graph JSON |
-| `describe` | `describe [COMMANDS...]` | Show detailed command documentation |
 
 **Setup flags:**
-- `--install-skills`: Install skill and agent templates to `.claude/` (34 skills + 1 agent)
+- `--install-skills`: Install skill and agent templates to `.claude/` (28 skills + 1 agent)
 - `--install-hooks`: Install post-commit git hook for automatic incremental updates
 - `--mix-env <ENV>`: Mix environment for git hook (used with `--install-hooks`, default: dev)
 - `--force`: Overwrite existing template/hook files (preserves by default)
@@ -207,7 +206,7 @@ code_search setup --install-skills --force
 ```
 
 This installs:
-- **34 skill templates** documenting each command with examples
+- **28 skill templates** documenting each command with examples
 - **1 Haiku-powered agent** for fast, cost-efficient codebase exploration
 
 ### Git Hooks for Automatic Updates
@@ -260,7 +259,7 @@ After installation:
     ├── accepts/                      # Type search skills
     ├── browse-module/                # Module exploration
     ├── code-search-explorer/         # Quick reference docs
-    ├── ... (30 other command skills)
+    ├── ... (24 other command skills)
     └── workflows/                    # Common workflow guides
 ```
 

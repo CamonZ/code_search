@@ -78,9 +78,9 @@ mod tests {
 
     #[rstest]
     fn test_kind_default_is_incoming() {
-        let args = Args::try_parse_from(["code_search", "hotspots"]).unwrap();
+        let args = Args::try_parse_from(["code_search", "code", "hotspots"]).unwrap();
         match args.command {
-            crate::commands::Command::Hotspots(cmd) => {
+            crate::commands::Command::Code(crate::commands::CodeCommand::Hotspots(cmd)) => {
                 assert!(matches!(cmd.kind, HotspotKind::Incoming));
             }
             _ => panic!("Expected Hotspots command"),
@@ -90,9 +90,9 @@ mod tests {
     #[rstest]
     fn test_kind_outgoing() {
         let args =
-            Args::try_parse_from(["code_search", "hotspots", "--kind", "outgoing"]).unwrap();
+            Args::try_parse_from(["code_search", "code", "hotspots", "--kind", "outgoing"]).unwrap();
         match args.command {
-            crate::commands::Command::Hotspots(cmd) => {
+            crate::commands::Command::Code(crate::commands::CodeCommand::Hotspots(cmd)) => {
                 assert!(matches!(cmd.kind, HotspotKind::Outgoing));
             }
             _ => panic!("Expected Hotspots command"),
@@ -101,9 +101,9 @@ mod tests {
 
     #[rstest]
     fn test_kind_total() {
-        let args = Args::try_parse_from(["code_search", "hotspots", "--kind", "total"]).unwrap();
+        let args = Args::try_parse_from(["code_search", "code", "hotspots", "--kind", "total"]).unwrap();
         match args.command {
-            crate::commands::Command::Hotspots(cmd) => {
+            crate::commands::Command::Code(crate::commands::CodeCommand::Hotspots(cmd)) => {
                 assert!(matches!(cmd.kind, HotspotKind::Total));
             }
             _ => panic!("Expected Hotspots command"),
@@ -112,9 +112,9 @@ mod tests {
 
     #[rstest]
     fn test_kind_ratio() {
-        let args = Args::try_parse_from(["code_search", "hotspots", "--kind", "ratio"]).unwrap();
+        let args = Args::try_parse_from(["code_search", "code", "hotspots", "--kind", "ratio"]).unwrap();
         match args.command {
-            crate::commands::Command::Hotspots(cmd) => {
+            crate::commands::Command::Code(crate::commands::CodeCommand::Hotspots(cmd)) => {
                 assert!(matches!(cmd.kind, HotspotKind::Ratio));
             }
             _ => panic!("Expected Hotspots command"),

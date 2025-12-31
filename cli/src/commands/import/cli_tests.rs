@@ -37,7 +37,7 @@ mod tests {
     #[rstest]
     fn test_file_must_exist() {
         let result =
-            Args::try_parse_from(["code_search", "import", "--file", "nonexistent_file.json"]);
+            Args::try_parse_from(["code_search", "code", "import", "--file", "nonexistent_file.json"]);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("File not found"));
     }
@@ -46,7 +46,7 @@ mod tests {
     fn test_with_existing_file(temp_file: (TempDir, PathBuf)) {
         let (_dir, path) = temp_file;
         let result =
-            Args::try_parse_from(["code_search", "import", "--file", path.to_str().unwrap()]);
+            Args::try_parse_from(["code_search", "code", "import", "--file", path.to_str().unwrap()]);
         assert!(result.is_ok());
     }
 
@@ -54,7 +54,7 @@ mod tests {
     fn test_db_is_optional(temp_file: (TempDir, PathBuf)) {
         let (_dir, path) = temp_file;
         let args =
-            Args::try_parse_from(["code_search", "import", "--file", path.to_str().unwrap()])
+            Args::try_parse_from(["code_search", "code", "import", "--file", path.to_str().unwrap()])
                 .unwrap();
         assert_eq!(args.db, None);
     }
@@ -66,6 +66,7 @@ mod tests {
             "code_search",
             "--db",
             "/custom/path.db",
+            "code",
             "import",
             "--file",
             path.to_str().unwrap(),

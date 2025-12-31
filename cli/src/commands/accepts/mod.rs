@@ -13,10 +13,10 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search accepts \"User.t\"              # Find functions accepting User.t
-  code_search accepts \"map()\"               # Find functions accepting maps
-  code_search accepts \"User.t\" MyApp        # Filter to module MyApp
-  code_search accepts -r \"list\\(.*\\)\"     # Regex pattern matching
+  code_search code accepts \"User.t\"              # Find functions accepting User.t
+  code_search code accepts \"map()\"               # Find functions accepting maps
+  code_search code accepts \"User.t\" MyApp        # Filter to module MyApp
+  code_search code accepts -r \"list\\(.*\\)\"     # Regex pattern matching
 ")]
 pub struct AcceptsCmd {
     /// Type pattern to search for in input types

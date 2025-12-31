@@ -16,12 +16,12 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search unused                       # Find all unused functions
-  code_search unused MyApp.Accounts        # Filter to specific module
-  code_search unused -P                    # Unused public functions (entry points)
-  code_search unused -p                    # Unused private functions (dead code)
-  code_search unused -Px                   # Public only, exclude generated
-  code_search unused 'Accounts.*' -r       # Match module with regex")]
+  code_search code unused                       # Find all unused functions
+  code_search code unused MyApp.Accounts        # Filter to specific module
+  code_search code unused -P                    # Unused public functions (entry points)
+  code_search code unused -p                    # Unused private functions (dead code)
+  code_search code unused -Px                   # Public only, exclude generated
+  code_search code unused 'Accounts.*' -r       # Match module with regex")]
 pub struct UnusedCmd {
     /// Module pattern to filter results (substring match by default, regex with -r)
     pub module: Option<String>,

@@ -17,12 +17,12 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search god-modules                         # Find all god modules
-  code_search god-modules MyApp.Core              # Filter to MyApp.Core namespace
-  code_search god-modules --min-functions 30      # With minimum 30 functions
-  code_search god-modules --min-loc 500           # With minimum 500 lines of code
-  code_search god-modules --min-total 15          # With minimum 15 total connectivity
-  code_search god-modules -l 20                   # Show top 20 god modules
+  code_search code god-modules                         # Find all god modules
+  code_search code god-modules MyApp.Core              # Filter to MyApp.Core namespace
+  code_search code god-modules --min-functions 30      # With minimum 30 functions
+  code_search code god-modules --min-loc 500           # With minimum 500 lines of code
+  code_search code god-modules --min-total 15          # With minimum 15 total connectivity
+  code_search code god-modules -l 20                   # Show top 20 god modules
 ")]
 pub struct GodModulesCmd {
     /// Module filter pattern (substring match by default, regex with --regex)

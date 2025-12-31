@@ -16,9 +16,9 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search trace MyApp.Web index                  # Trace from controller action
-  code_search trace MyApp handle_call --depth 10    # Deeper traversal
-  code_search trace -r 'MyApp\\..*' 'handle_.*'      # Regex pattern
+  code_search code trace MyApp.Web index                  # Trace from controller action
+  code_search code trace MyApp handle_call --depth 10    # Deeper traversal
+  code_search code trace -r 'MyApp\\..*' 'handle_.*'      # Regex pattern
 ")]
 pub struct TraceCmd {
     /// Starting module name (exact match or pattern with --regex)

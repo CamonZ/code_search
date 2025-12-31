@@ -58,7 +58,7 @@ impl TestProject {
     /// Import a fixture file into the database.
     fn import(&self, fixture_path: &PathBuf) -> &Self {
         self.cmd()
-            .args(["import", "--file"])
+            .args(["code", "import", "--file"])
             .arg(fixture_path)
             .assert()
             .success();
@@ -115,7 +115,7 @@ fn test_full_workflow_setup_import_query() {
 
     // 3. Query - search for modules (use regex for partial match)
     project.cmd()
-        .args(["search", "--regex", ".*Controller.*"])
+        .args(["code", "search", "--regex", ".*Controller.*"])
         .assert()
         .success()
         .stdout(predicate::str::contains("MyApp.Controller"));
@@ -131,7 +131,7 @@ fn test_search_finds_modules() {
 
     // Search for Accounts module (use regex for partial match)
     project.cmd()
-        .args(["search", "--regex", ".*Accounts.*"])
+        .args(["code", "search", "--regex", ".*Accounts.*"])
         .assert()
         .success()
         .stdout(predicate::str::contains("MyApp.Accounts"));
@@ -147,7 +147,7 @@ fn test_search_finds_functions() {
 
     // Search for get_user function (use regex for partial match)
     project.cmd()
-        .args(["search", "--regex", ".*get_user.*", "-k", "functions"])
+        .args(["code", "search", "--regex", ".*get_user.*", "-k", "functions"])
         .assert()
         .success()
         .stdout(predicate::str::contains("get_user"));
@@ -163,7 +163,7 @@ fn test_location_finds_function_definition() {
 
     // Find location of get_user/1 (function first, then module)
     project.cmd()
-        .args(["location", "get_user", "MyApp.Accounts", "--arity", "1"])
+        .args(["code", "location", "get_user", "MyApp.Accounts", "--arity", "1"])
         .assert()
         .success()
         .stdout(predicate::str::contains("accounts.ex"))
@@ -180,7 +180,7 @@ fn test_calls_from_shows_outgoing_calls() {
 
     // Check what Controller.index calls (positional args: MODULE FUNCTION)
     project.cmd()
-        .args(["calls-from", "MyApp.Controller", "index"])
+        .args(["code", "calls-from", "MyApp.Controller", "index"])
         .assert()
         .success()
         .stdout(predicate::str::contains("list_users")); // calls Accounts.list_users
@@ -196,7 +196,7 @@ fn test_calls_to_shows_incoming_calls() {
 
     // Check what calls Repo.get (positional args: MODULE FUNCTION)
     project.cmd()
-        .args(["calls-to", "MyApp.Repo", "get"])
+        .args(["code", "calls-to", "MyApp.Repo", "get"])
         .assert()
         .success()
         .stdout(predicate::str::contains("get_user")); // Accounts.get_user calls it
@@ -212,7 +212,7 @@ fn test_browse_module_lists_functions() {
 
     // Browse MyApp.Accounts module
     project.cmd()
-        .args(["browse-module", "MyApp.Accounts"])
+        .args(["code", "browse-module", "MyApp.Accounts"])
         .assert()
         .success()
         .stdout(predicate::str::contains("get_user"))
@@ -230,7 +230,7 @@ fn test_json_output_format() {
 
     // Get JSON output (use regex for partial match)
     project.cmd()
-        .args(["--format", "json", "search", "--regex", ".*Controller.*"])
+        .args(["--format", "json", "code", "search", "--regex", ".*Controller.*"])
         .assert()
         .success()
         .stdout(predicate::str::contains("\"MyApp.Controller\""));
@@ -248,14 +248,14 @@ fn test_import_with_clear_flag() {
 
     // Second import with --clear
     project.cmd()
-        .args(["import", "--clear", "--file"])
+        .args(["code", "import", "--clear", "--file"])
         .arg(&fixture_path)
         .assert()
         .success();
 
     // Verify data is still there (use regex for partial match)
     project.cmd()
-        .args(["search", "--regex", ".*Controller.*"])
+        .args(["code", "search", "--regex", ".*Controller.*"])
         .assert()
         .success()
         .stdout(predicate::str::contains("MyApp.Controller"));
@@ -271,7 +271,7 @@ fn test_hotspots_command() {
 
     // Find hotspots (functions with most calls) - just verify command runs successfully
     project.cmd()
-        .args(["hotspots", "--limit", "5"])
+        .args(["code", "hotspots", "--limit", "5"])
         .assert()
         .success()
         .stdout(predicate::str::contains("Hotspots"));
@@ -287,7 +287,7 @@ fn test_unused_command() {
 
     // Find unused functions
     project.cmd()
-        .args(["unused"])
+        .args(["code", "unused"])
         .assert()
         .success();
     // Repo functions are called but never call anything that's tracked as unused
@@ -303,7 +303,7 @@ fn test_depends_on_shows_module_dependencies() {
 
     // Check what MyApp.Controller depends on
     project.cmd()
-        .args(["depends-on", "MyApp.Controller"])
+        .args(["code", "depends-on", "MyApp.Controller"])
         .assert()
         .success()
         .stdout(predicate::str::contains("MyApp.Accounts")); // Controller calls Accounts
@@ -319,7 +319,7 @@ fn test_depended_by_shows_reverse_dependencies() {
 
     // Check what depends on MyApp.Repo
     project.cmd()
-        .args(["depended-by", "MyApp.Repo"])
+        .args(["code", "depended-by", "MyApp.Repo"])
         .assert()
         .success()
         .stdout(predicate::str::contains("MyApp.Accounts")); // Accounts calls Repo
@@ -335,7 +335,7 @@ fn test_trace_command() {
 
     // Trace from Controller.index
     project.cmd()
-        .args(["trace", "MyApp.Controller", "index", "--depth", "2"])
+        .args(["code", "trace", "MyApp.Controller", "index", "--depth", "2"])
         .assert()
         .success()
         .stdout(predicate::str::contains("list_users")); // direct call
@@ -347,7 +347,7 @@ fn test_import_nonexistent_file_fails() {
     project.setup();
 
     project.cmd()
-        .args(["import", "--file", "/nonexistent/file.json"])
+        .args(["code", "import", "--file", "/nonexistent/file.json"])
         .assert()
         .failure();
 }
@@ -360,7 +360,7 @@ fn test_import_invalid_json_fails() {
     let fixture_path = project.write_fixture("invalid.json", "{ not valid json }");
 
     project.cmd()
-        .args(["import", "--file"])
+        .args(["code", "import", "--file"])
         .arg(&fixture_path)
         .assert()
         .failure();

@@ -13,10 +13,10 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search returns \"User.t\"              # Find functions returning User.t
-  code_search returns \"nil\"                 # Find functions returning nil
-  code_search returns \"{:error\" MyApp       # Filter to module MyApp
-  code_search returns -r \"list\\(.*\\)\"     # Regex pattern matching
+  code_search code returns \"User.t\"              # Find functions returning User.t
+  code_search code returns \"nil\"                 # Find functions returning nil
+  code_search code returns \"{:error\" MyApp       # Filter to module MyApp
+  code_search code returns -r \"list\\(.*\\)\"     # Regex pattern matching
 ")]
 pub struct ReturnsCmd {
     /// Type pattern to search for in return types

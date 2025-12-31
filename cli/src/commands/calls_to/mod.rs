@@ -16,10 +16,10 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search calls-to MyApp.Repo                    # All callers of module
-  code_search calls-to MyApp.Repo get                # Callers of specific function
-  code_search calls-to MyApp.Repo get 2              # With specific arity
-  code_search calls-to MyApp.Accounts get_user       # Find all call sites")]
+  code_search code calls-to MyApp.Repo                    # All callers of module
+  code_search code calls-to MyApp.Repo get                # Callers of specific function
+  code_search code calls-to MyApp.Repo get 2              # With specific arity
+  code_search code calls-to MyApp.Accounts get_user       # Find all call sites")]
 pub struct CallsToCmd {
     /// Module name (exact match or pattern with --regex)
     pub module: String,

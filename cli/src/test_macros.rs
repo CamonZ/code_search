@@ -17,9 +17,9 @@ macro_rules! cli_defaults_test {
     ) => {
         #[rstest]
         fn test_defaults() {
-            let args = Args::try_parse_from(["code_search", $cmd, $($req_arg),*]).unwrap();
+            let args = Args::try_parse_from(["code_search", "code", $cmd, $($req_arg),*]).unwrap();
             match args.command {
-                $crate::commands::Command::$variant(cmd) => {
+                $crate::commands::Command::Code($crate::commands::CodeCommand::$variant(cmd)) => {
                     $(
                         assert_eq!(cmd.$($def_field).+, $def_expected,
                             concat!("Default value mismatch for field: ", stringify!($($def_field).+)));
@@ -46,11 +46,12 @@ macro_rules! cli_option_test {
         fn $test_name() {
             let args = Args::try_parse_from([
                 "code_search",
+                "code",
                 $cmd,
                 $($arg),+
             ]).unwrap();
             match args.command {
-                $crate::commands::Command::$variant(cmd) => {
+                $crate::commands::Command::Code($crate::commands::CodeCommand::$variant(cmd)) => {
                     assert_eq!(cmd.$($field).+, $expected,
                         concat!("Field ", stringify!($($field).+), " mismatch"));
                 }
@@ -76,12 +77,13 @@ macro_rules! cli_option_test_with_required {
         fn $test_name() {
             let args = Args::try_parse_from([
                 "code_search",
+                "code",
                 $cmd,
                 $($req_arg,)+
                 $($arg),+
             ]).unwrap();
             match args.command {
-                $crate::commands::Command::$variant(cmd) => {
+                $crate::commands::Command::Code($crate::commands::CodeCommand::$variant(cmd)) => {
                     assert_eq!(cmd.$($field).+, $expected,
                         concat!("Field ", stringify!($($field).+), " mismatch"));
                 }
@@ -106,9 +108,9 @@ macro_rules! cli_limit_tests {
     ) => {
         #[rstest]
         fn test_limit_default() {
-            let args = Args::try_parse_from(["code_search", $cmd, $($req_arg),*]).unwrap();
+            let args = Args::try_parse_from(["code_search", "code", $cmd, $($req_arg),*]).unwrap();
             match args.command {
-                $crate::commands::Command::$variant(cmd) => {
+                $crate::commands::Command::Code($crate::commands::CodeCommand::$variant(cmd)) => {
                     assert_eq!(cmd.$($limit_field).+, $limit_default);
                 }
                 _ => panic!(concat!("Expected ", stringify!($variant), " command")),
@@ -119,6 +121,7 @@ macro_rules! cli_limit_tests {
         fn test_limit_zero_rejected() {
             let result = Args::try_parse_from([
                 "code_search",
+                "code",
                 $cmd,
                 $($req_arg,)*
                 "--limit",
@@ -132,6 +135,7 @@ macro_rules! cli_limit_tests {
             let max_plus_one = ($limit_max + 1).to_string();
             let result = Args::try_parse_from([
                 "code_search",
+                "code",
                 $cmd,
                 $($req_arg,)*
                 "--limit",
@@ -163,7 +167,7 @@ macro_rules! cli_required_arg_test {
     ) => {
         #[rstest]
         fn $test_name() {
-            let result = Args::try_parse_from(["code_search", $cmd]);
+            let result = Args::try_parse_from(["code_search", "code", $cmd]);
             assert!(result.is_err(), concat!("Command should require ", $arg));
             assert!(
                 result.unwrap_err().to_string().contains($arg),
@@ -195,6 +199,7 @@ macro_rules! cli_error_test {
         fn $test_name() {
             let result = Args::try_parse_from([
                 "code_search",
+                "code",
                 $cmd,
                 $($arg),+
             ]);

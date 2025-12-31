@@ -24,12 +24,12 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search complexity                      # Show all functions with complexity >= 1
-  code_search complexity MyApp.Accounts       # Filter to MyApp.Accounts module
-  code_search complexity --min 10             # Show functions with complexity >= 10
-  code_search complexity --min-depth 3        # Show functions with nesting depth >= 3
-  code_search complexity --exclude-generated  # Exclude macro-generated functions
-  code_search complexity -l 20                # Show top 20 most complex functions
+  code_search code complexity                      # Show all functions with complexity >= 1
+  code_search code complexity MyApp.Accounts       # Filter to MyApp.Accounts module
+  code_search code complexity --min 10             # Show functions with complexity >= 10
+  code_search code complexity --min-depth 3        # Show functions with nesting depth >= 3
+  code_search code complexity --exclude-generated  # Exclude macro-generated functions
+  code_search code complexity -l 20                # Show top 20 most complex functions
 ")]
 pub struct ComplexityCmd {
     /// Module filter pattern (substring match by default, regex with --regex)

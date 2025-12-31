@@ -16,9 +16,9 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search reverse-trace MyApp.Repo get           # Who ultimately calls Repo.get?
-  code_search reverse-trace Ecto.Repo insert --depth 10  # Deeper traversal
-  code_search reverse-trace -r 'MyApp\\..*' 'handle_.*'  # Regex pattern
+  code_search code reverse-trace MyApp.Repo get           # Who ultimately calls Repo.get?
+  code_search code reverse-trace Ecto.Repo insert --depth 10  # Deeper traversal
+  code_search code reverse-trace -r 'MyApp\\..*' 'handle_.*'  # Regex pattern
 ")]
 pub struct ReverseTraceCmd {
     /// Target module name (exact match or pattern with --regex)

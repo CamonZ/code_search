@@ -83,10 +83,10 @@ mod tests {
 
     #[rstest]
     fn test_depth_default() {
-        let args = Args::try_parse_from(["code_search", "reverse-trace", "MyApp.Repo", "get"])
+        let args = Args::try_parse_from(["code_search", "code", "reverse-trace", "MyApp.Repo", "get"])
             .unwrap();
         match args.command {
-            crate::commands::Command::ReverseTrace(cmd) => {
+            crate::commands::Command::Code(crate::commands::CodeCommand::ReverseTrace(cmd)) => {
                 assert_eq!(cmd.depth, 5);
             }
             _ => panic!("Expected ReverseTrace command"),
@@ -96,7 +96,7 @@ mod tests {
     #[rstest]
     fn test_depth_zero_rejected() {
         let result =
-            Args::try_parse_from(["code_search", "reverse-trace", "MyApp", "foo", "--depth", "0"]);
+            Args::try_parse_from(["code_search", "code", "reverse-trace", "MyApp", "foo", "--depth", "0"]);
         assert!(result.is_err());
     }
 
@@ -104,6 +104,7 @@ mod tests {
     fn test_depth_exceeds_max_rejected() {
         let result = Args::try_parse_from([
             "code_search",
+            "code",
             "reverse-trace",
             "MyApp",
             "foo",
