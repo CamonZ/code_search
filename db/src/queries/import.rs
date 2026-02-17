@@ -748,7 +748,7 @@ mod tests {
 
         let json = r#"{
             "specs": {
-                "BackendAPI.Integrations.UrlShortener": [
+                "MyApp.Integrations.UrlShortener": [
                     {
                         "name": "shorten",
                         "arity": 3,
