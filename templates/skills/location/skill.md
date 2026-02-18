@@ -3,7 +3,7 @@
 ## Find All Definitions of a Function
 
 ```bash
-code_search --format toon location render
+code_search --format toon code location render
 ```
 
 Output:
@@ -18,7 +18,7 @@ locations[15]{arity,end_line,file,guard,kind,module,name,pattern,project,start_l
 ## Find in Specific Module
 
 ```bash
-code_search --format toon location reply Phoenix.Channel
+code_search --format toon code location reply Phoenix.Channel
 ```
 
 Output:
@@ -31,13 +31,13 @@ locations[2]{arity,end_line,file,guard,kind,module,name,pattern,project,start_li
 ## Find with Specific Arity
 
 ```bash
-code_search --format toon location render Phoenix.Controller --arity 3
+code_search --format toon code location render Phoenix.Controller --arity 3
 ```
 
 ## Regex Pattern for Multiple Functions
 
 ```bash
-code_search --format toon location 'handle_.*' --regex --limit 20
+code_search --format toon code location 'handle_.*' --regex --limit 20
 ```
 
 ## Understanding the Output

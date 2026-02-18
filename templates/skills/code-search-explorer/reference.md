@@ -4,46 +4,46 @@
 
 ### Discovery & Search
 ```bash
-code_search search <pattern>              # Find modules/functions by name
-code_search browse-module <module>        # Show module contents
-code_search location <function>           # Find where function is defined
-code_search function <module> <function>  # Get function details
+code_search code search <pattern>              # Find modules/functions by name
+code_search code browse-module <module>        # Show module contents
+code_search code location <function>           # Find where function is defined
+code_search code function <module> <function>  # Get function details
 ```
 
 ### Call Graph Navigation
 ```bash
-code_search calls-from <module> <function>          # What does X call?
-code_search calls-to --function <name>              # What calls X?
-code_search trace <module> <function> --depth N     # Forward call tree
-code_search reverse-trace <module> <function>       # Backward call tree
-code_search path --from-module A --to-module B      # Find call path A→B
+code_search code calls-from <module> <function>          # What does X call?
+code_search code calls-to --function <name>              # What calls X?
+code_search code trace <module> <function> --depth N     # Forward call tree
+code_search code reverse-trace <module> <function>       # Backward call tree
+code_search code path --from-module A --to-module B      # Find call path A→B
 ```
 
 ### Module Dependencies
 ```bash
-code_search depends-on <module>           # What does module depend on?
-code_search depended-by <module>          # What depends on module?
-code_search clusters                      # Find module clusters
-code_search cycles                        # Find circular dependencies
-code_search boundaries                    # Identify architectural boundaries
+code_search code depends-on <module>           # What does module depend on?
+code_search code depended-by <module>          # What depends on module?
+code_search code clusters                      # Find module clusters
+code_search code cycles                        # Find circular dependencies
+code_search code boundaries                    # Identify architectural boundaries
 ```
 
 ### Code Quality
 ```bash
-code_search unused                        # Find unused functions
-code_search hotspots --kind <type>        # Find coupling hotspots
-code_search god-modules                   # Find overly large modules
-code_search complexity                    # Find complex functions
-code_search large-functions               # Find long functions
-code_search many-clauses                  # Functions with many clauses
-code_search duplicates                    # Find duplicate signatures
+code_search code unused                        # Find unused functions
+code_search code hotspots --kind <type>        # Find coupling hotspots
+code_search code god-modules                   # Find overly large modules
+code_search code complexity                    # Find complex functions
+code_search code large-functions               # Find long functions
+code_search code many-clauses                  # Functions with many clauses
+code_search code duplicates                    # Find duplicate signatures
 ```
 
 ### Type Analysis
 ```bash
-code_search accepts <type-pattern>        # Functions accepting a type
-code_search returns <type-pattern>        # Functions returning a type
-code_search struct-usage <struct>         # Where is struct used?
+code_search code accepts <type-pattern>        # Functions accepting a type
+code_search code returns <type-pattern>        # Functions returning a type
+code_search code struct-usage <struct>         # Where is struct used?
 ```
 
 ## Global Flags
@@ -74,19 +74,19 @@ code_search struct-usage <struct>         # Where is struct used?
 
 ### Table (Human-readable)
 ```bash
-code_search location authenticate
+code_search code location authenticate
 # Shows: module, function, file, line in a table
 ```
 
 ### JSON (Programmatic)
 ```bash
-code_search --format json location authenticate
+code_search --format json code location authenticate
 # Returns structured JSON
 ```
 
 ### Toon (Token-efficient for LLMs)
 ```bash
-code_search --format toon location authenticate
+code_search --format toon code location authenticate
 # Returns compact format:
 # results[1]:
 #   module: MyApp.Auth
@@ -100,42 +100,42 @@ code_search --format toon location authenticate
 ### Find and Explore a Function
 ```bash
 # 1. Find it
-code_search location authenticate
+code_search code location authenticate
 
 # 2. See what it calls
-code_search calls-from MyApp.Auth authenticate
+code_search code calls-from MyApp.Auth authenticate
 
 # 3. See what calls it
-code_search calls-to --function authenticate
+code_search code calls-to --function authenticate
 
 # 4. Trace its execution
-code_search trace MyApp.Auth authenticate --depth 2
+code_search code trace MyApp.Auth authenticate --depth 2
 ```
 
 ### Module Impact Analysis
 ```bash
 # 1. What does it contain?
-code_search browse-module MyApp.Payment
+code_search code browse-module MyApp.Payment
 
 # 2. What does it depend on?
-code_search depends-on MyApp.Payment
+code_search code depends-on MyApp.Payment
 
 # 3. What depends on it?
-code_search depended-by MyApp.Payment
+code_search code depended-by MyApp.Payment
 
 # 4. Any circular deps?
-code_search cycles
+code_search code cycles
 ```
 
 ### Code Quality Audit
 ```bash
 # Find all quality issues
-code_search unused
-code_search god-modules
-code_search complexity --limit 20
-code_search large-functions --limit 10
-code_search cycles
-code_search hotspots --kind total --limit 15
+code_search code unused
+code_search code god-modules
+code_search code complexity --limit 20
+code_search code large-functions --limit 10
+code_search code cycles
+code_search code hotspots --kind total --limit 15
 ```
 
 ## Tips
@@ -152,12 +152,12 @@ code_search hotspots --kind total --limit 15
 code_search setup
 
 # Import call graph data (from ex_ast)
-code_search import --file call_graph.json
+code_search code import --file call_graph.json
 ```
 
 ## Need More Help?
 
 ```bash
 code_search --help                    # General help
-code_search <command> --help          # Command-specific help
+code_search code <command> --help          # Command-specific help
 ```

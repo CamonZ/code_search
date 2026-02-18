@@ -6,7 +6,7 @@
 # from the last commit. It:
 # 1. Ensures the project is compiled with debug info
 # 2. Extracts AST data for changed files using ex_ast --git-diff
-# 3. Imports the data into the database using code_search import
+# 3. Imports the data into the database using code_search code import
 #
 # Installation:
 #   cp hooks/post-commit .git/hooks/post-commit
@@ -105,7 +105,7 @@ fi
 # Database path will be auto-resolved to .code_search/surrealdb.rocksdb
 info "Importing data..."
 
-if code_search import --file "${TEMP_JSON}" 2>&1; then
+if code_search code import --file "${TEMP_JSON}" 2>&1; then
     info "Database updated successfully!"
 else
     error "Database import failed"

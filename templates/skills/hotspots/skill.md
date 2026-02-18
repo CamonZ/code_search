@@ -3,7 +3,7 @@
 ## Find Most Called Functions
 
 ```bash
-code_search --format toon hotspots
+code_search --format toon code hotspots
 ```
 
 Output:
@@ -20,7 +20,7 @@ hotspots[20]{function,incoming,module,outgoing,total}:
 ## Find Functions with High Fan-Out
 
 ```bash
-code_search --format toon hotspots --kind outgoing
+code_search --format toon code hotspots --kind outgoing
 ```
 
 Functions that call many other functions - potential god functions to refactor.
@@ -28,13 +28,13 @@ Functions that call many other functions - potential god functions to refactor.
 ## Find Total Connections
 
 ```bash
-code_search --format toon hotspots --kind total
+code_search --format toon code hotspots --kind total
 ```
 
 ## Find Boundary Functions
 
 ```bash
-code_search --format toon hotspots --kind ratio
+code_search --format toon code hotspots --kind ratio
 ```
 
 Functions with high incoming/outgoing ratio - these are API boundaries.
@@ -42,7 +42,7 @@ Functions with high incoming/outgoing ratio - these are API boundaries.
 ## Filter to Specific Module Namespace
 
 ```bash
-code_search --format toon hotspots Phoenix.Router
+code_search --format toon code hotspots Phoenix.Router
 ```
 
 ## Understanding the Output
@@ -55,22 +55,22 @@ code_search --format toon hotspots Phoenix.Router
 
 **Find Core Utilities:**
 ```bash
-code_search --format toon hotspots --kind incoming -l 10
+code_search --format toon code hotspots --kind incoming -l 10
 ```
 
 **Find Complex Functions (high fan-out):**
 ```bash
-code_search --format toon hotspots --kind outgoing -l 10
+code_search --format toon code hotspots --kind outgoing -l 10
 ```
 
 **Find Coupling Hotspots:**
 ```bash
-code_search --format toon hotspots --kind total -l 10
+code_search --format toon code hotspots --kind total -l 10
 ```
 
 **Find Boundary Functions:**
 ```bash
-code_search --format toon hotspots --kind ratio -l 10
+code_search --format toon code hotspots --kind ratio -l 10
 ```
 
 ## Options Reference

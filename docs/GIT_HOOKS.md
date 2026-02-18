@@ -81,7 +81,7 @@ When you make a commit, the post-commit hook:
    - Uses the configured Mix environment
    - Outputs JSON to a temporary file
 
-4. **Updates database**: Runs `code_search import` to update the database
+4. **Updates database**: Runs `code_search code import` to update the database
    - Database path auto-resolves to `.code_search/surrealdb.rocksdb`
    - Uses configured project name if set (optional)
    - Performs upsert operations (updates existing records, inserts new ones)
@@ -224,7 +224,7 @@ mix compile --debug-info
 ex_ast --git-diff HEAD~1 --format json --output changes.json
 
 # Import
-code_search --db call_graph.db import --file changes.json
+code_search --db call_graph.db code import --file changes.json
 ```
 
 Or for a different git reference:
@@ -246,7 +246,7 @@ The same approach works in CI/CD pipelines. Example GitHub Actions workflow:
   run: |
     mix compile --debug-info
     ex_ast --git-diff HEAD~1 --format json --output changes.json
-    code_search --db call_graph.db import --file changes.json
+    code_search --db call_graph.db code import --file changes.json
 ```
 
 ## Performance Characteristics

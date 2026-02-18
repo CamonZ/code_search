@@ -14,7 +14,7 @@ Get a complete overview of all functions, specs, types, and structs in a specifi
 ## Usage
 
 ```bash
-code_search --format toon browse-module <MODULE_OR_FILE> [OPTIONS]
+code_search --format toon code browse-module <MODULE_OR_FILE> [OPTIONS]
 ```
 
 ## Arguments

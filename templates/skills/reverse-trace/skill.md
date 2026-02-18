@@ -3,7 +3,7 @@
 ## Find All Paths to a Function
 
 ```bash
-code_search --format toon reverse-trace Phoenix.Controller render --depth 3
+code_search --format toon code reverse-trace Phoenix.Controller render --depth 3
 ```
 
 Output:
@@ -22,7 +22,7 @@ calls[18]{callee_arity,callee_function,callee_module,caller_function,caller_kind
 ## Deeper Trace
 
 ```bash
-code_search --format toon reverse-trace Ecto.Repo insert --depth 10
+code_search --format toon code reverse-trace Ecto.Repo insert --depth 10
 ```
 
 ## Understanding the Output
@@ -37,7 +37,7 @@ This reveals the call chain: `__catch__ → instrument_render_and_send → rende
 ## Use Case: Finding Entry Points
 
 ```bash
-code_search --format toon reverse-trace MyApp.Repo get --depth 8
+code_search --format toon code reverse-trace MyApp.Repo get --depth 8
 ```
 
 Traces backward to find all controller actions or API endpoints that eventually call `Repo.get`.

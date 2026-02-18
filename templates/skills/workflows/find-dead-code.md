@@ -25,13 +25,13 @@ Identify and safely remove unused code to reduce maintenance burden and improve 
 Private functions that are never called are guaranteed dead:
 ```bash
 # Find all unused private functions
-code_search --format toon unused -p
+code_search --format toon code unused -p
 
 # Exclude compiler-generated functions
-code_search --format toon unused -px
+code_search --format toon code unused -px
 
 # Filter to specific area
-code_search --format toon unused -p MyApp.Legacy
+code_search --format toon code unused -p MyApp.Legacy
 ```
 
 **These are safe to delete** - private functions can only be called from within their module.
@@ -41,10 +41,10 @@ code_search --format toon unused -p MyApp.Legacy
 Public functions might be called from external code:
 ```bash
 # Find unused public functions
-code_search --format toon unused -P
+code_search --format toon code unused -P
 
 # Exclude generated functions (__struct__, __info__, etc.)
-code_search --format toon unused -Px
+code_search --format toon code unused -Px
 ```
 
 **Before deleting**, verify:
@@ -58,7 +58,7 @@ code_search --format toon unused -Px
 Modules with no incoming dependencies might be dead:
 ```bash
 # For each suspicious module, check dependents
-code_search --format toon depended-by MyApp.OldFeature
+code_search --format toon code depended-by MyApp.OldFeature
 
 # If result shows 0 dependents and not a known entry point, likely dead
 ```
@@ -75,10 +75,10 @@ Common false positives:
 Code that's duplicated might indicate dead or consolidatable functions:
 ```bash
 # Find duplicate implementations
-code_search --format toon duplicates
+code_search --format toon code duplicates
 
 # See which modules have most duplication
-code_search --format toon duplicates --by-module
+code_search --format toon code duplicates --by-module
 ```
 
 ### 5. Validate Before Deleting
@@ -86,10 +86,10 @@ code_search --format toon duplicates --by-module
 For each candidate:
 ```bash
 # Double-check no callers
-code_search --format toon calls-to ModuleName function_name
+code_search --format toon code calls-to ModuleName function_name
 
 # Check if it's a boundary/entry point
-code_search --format toon hotspots ModuleName
+code_search --format toon code hotspots ModuleName
 # Functions with 0 incoming but called from outside Elixir won't show here
 ```
 
@@ -97,25 +97,25 @@ code_search --format toon hotspots ModuleName
 
 ```bash
 # 1. Find all unused functions in legacy area
-code_search --format toon unused MyApp.Legacy
+code_search --format toon code unused MyApp.Legacy
 
 # Result shows 12 unused functions:
 # - 8 private (defp) - safe to delete
 # - 4 public (def) - need verification
 
 # 2. Check the private functions
-code_search --format toon unused -p MyApp.Legacy
+code_search --format toon code unused -p MyApp.Legacy
 # Confirmed: 8 private functions never called
 
 # 3. For each public function, verify
-code_search --format toon calls-to MyApp.Legacy old_helper
+code_search --format toon code calls-to MyApp.Legacy old_helper
 # 0 callers - can delete
 
-code_search --format toon calls-to MyApp.Legacy format_data
+code_search --format toon code calls-to MyApp.Legacy format_data
 # 0 internal callers, but check if it's API
 
 # 4. Check if the whole module is orphaned
-code_search --format toon depended-by MyApp.Legacy
+code_search --format toon code depended-by MyApp.Legacy
 # 0 dependents - entire module might be deletable
 
 # 5. Safe to remove:

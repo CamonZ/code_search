@@ -22,13 +22,13 @@ Entry points are typically:
 Find potential entry points:
 ```bash
 # Find controller actions
-code_search --format toon search Controller --kind modules
+code_search --format toon code search Controller --kind modules
 
 # Browse a controller to find actions
-code_search --format toon browse-module MyApp.UserController
+code_search --format toon code browse-module MyApp.UserController
 
 # Find GenServer callbacks
-code_search --format toon location handle_call
+code_search --format toon code location handle_call
 ```
 
 ### 2. Trace Forward from Entry Point
@@ -36,10 +36,10 @@ code_search --format toon location handle_call
 Use `trace` to follow the call chain:
 ```bash
 # Trace 5 levels deep (default)
-code_search --format toon trace MyApp.UserController create
+code_search --format toon code trace MyApp.UserController create
 
 # Trace deeper for complex flows
-code_search --format toon trace MyApp.UserController create --depth 10
+code_search --format toon code trace MyApp.UserController create --depth 10
 ```
 
 **Reading the output:**
@@ -52,17 +52,17 @@ code_search --format toon trace MyApp.UserController create --depth 10
 When you see an interesting callee, dive deeper:
 ```bash
 # What does this specific function call?
-code_search --format toon calls-from MyApp.Accounts create_user
+code_search --format toon code calls-from MyApp.Accounts create_user
 
 # Continue tracing from there
-code_search --format toon trace MyApp.Accounts create_user --depth 5
+code_search --format toon code trace MyApp.Accounts create_user --depth 5
 ```
 
 ### 4. Find the Path Between Two Points
 
 If you know the start and end:
 ```bash
-code_search --format toon path \
+code_search --format toon code path \
   --from-module MyApp.UserController --from-function create \
   --to-module MyApp.Repo --to-function insert
 ```
@@ -74,23 +74,23 @@ This shows exactly how the controller action reaches the database.
 Sometimes it's useful to trace backwards:
 ```bash
 # Who calls this low-level function?
-code_search --format toon reverse-trace MyApp.Repo insert --depth 3
+code_search --format toon code reverse-trace MyApp.Repo insert --depth 3
 
 # Find all callers (single level)
-code_search --format toon calls-to MyApp.Repo insert
+code_search --format toon code calls-to MyApp.Repo insert
 ```
 
 ## Example: Tracing a User Registration Flow
 
 ```bash
 # 1. Find the registration controller
-code_search --format toon search Registration
+code_search --format toon code search Registration
 
 # 2. Browse the controller
-code_search --format toon browse-module MyApp.RegistrationController
+code_search --format toon code browse-module MyApp.RegistrationController
 
 # 3. Trace from the create action
-code_search --format toon trace MyApp.RegistrationController create --depth 8
+code_search --format toon code trace MyApp.RegistrationController create --depth 8
 
 # 4. Output reveals the flow:
 #    Controller.create

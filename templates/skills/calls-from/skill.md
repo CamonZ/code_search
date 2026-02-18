@@ -8,7 +8,7 @@ description: Show what a module/function calls (outgoing edges). Use to understa
 ## All Calls from a Module
 
 ```bash
-code_search --format toon calls-from Phoenix.Endpoint.RenderErrors
+code_search --format toon code calls-from Phoenix.Endpoint.RenderErrors
 ```
 
 Output:
@@ -24,13 +24,13 @@ calls[22]{call_type,callee_arity,callee_function,callee_module,caller_function,c
 ## Calls from a Specific Function
 
 ```bash
-code_search --format toon calls-from Phoenix.Controller render
+code_search --format toon code calls-from Phoenix.Controller render
 ```
 
 ## With Specific Arity
 
 ```bash
-code_search --format toon calls-from Phoenix.Controller render 3
+code_search --format toon code calls-from Phoenix.Controller render 3
 ```
 
 ## Understanding Call Types
@@ -41,7 +41,7 @@ code_search --format toon calls-from Phoenix.Controller render 3
 ## Tracing Error Handling Flow
 
 ```bash
-code_search --format toon calls-from Phoenix.Endpoint.RenderErrors "__catch__"
+code_search --format toon code calls-from Phoenix.Endpoint.RenderErrors "__catch__"
 ```
 
 This shows what happens when an error is caught - the error handling chain.

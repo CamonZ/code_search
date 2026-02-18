@@ -14,7 +14,7 @@ Identify modules that act as architectural boundaries - modules that are heavily
 ## Usage
 
 ```bash
-code_search --format toon boundaries [MODULE] [OPTIONS]
+code_search --format toon code boundaries [MODULE] [OPTIONS]
 ```
 
 ## Arguments
@@ -35,11 +35,11 @@ code_search --format toon boundaries [MODULE] [OPTIONS]
 ## Examples
 
 ```bash
-code_search boundaries                          # Find all boundary modules
-code_search boundaries MyApp.Web                # Filter to MyApp.Web namespace
-code_search boundaries --min-incoming 5         # With minimum 5 incoming calls
-code_search boundaries --min-ratio 2.0          # With minimum 2.0 ratio
-code_search boundaries -l 20                    # Show top 20 boundary modules
+code_search code boundaries                          # Find all boundary modules
+code_search code boundaries MyApp.Web                # Filter to MyApp.Web namespace
+code_search code boundaries --min-incoming 5         # With minimum 5 incoming calls
+code_search code boundaries --min-ratio 2.0          # With minimum 2.0 ratio
+code_search code boundaries -l 20                    # Show top 20 boundary modules
 ```
 
 ## Output Fields (toon format)

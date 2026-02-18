@@ -14,7 +14,7 @@ Group modules by their namespace/prefix to understand how different parts of the
 ## Usage
 
 ```bash
-code_search --format toon clusters [MODULE] [OPTIONS]
+code_search --format toon code clusters [MODULE] [OPTIONS]
 ```
 
 ## Arguments
@@ -35,11 +35,11 @@ code_search --format toon clusters [MODULE] [OPTIONS]
 ## Examples
 
 ```bash
-code_search clusters                      # Show all namespace clusters
-code_search clusters MyApp.Core           # Filter to MyApp.Core namespace
-code_search clusters --depth 2            # Cluster at depth 2 (e.g., MyApp.Accounts)
-code_search clusters --depth 3            # Cluster at depth 3 (e.g., MyApp.Accounts.Auth)
-code_search clusters --show-dependencies  # Include cross-namespace call counts
+code_search code clusters                      # Show all namespace clusters
+code_search code clusters MyApp.Core           # Filter to MyApp.Core namespace
+code_search code clusters --depth 2            # Cluster at depth 2 (e.g., MyApp.Accounts)
+code_search code clusters --depth 3            # Cluster at depth 3 (e.g., MyApp.Accounts.Auth)
+code_search code clusters --show-dependencies  # Include cross-namespace call counts
 ```
 
 ## Output Fields (toon format)

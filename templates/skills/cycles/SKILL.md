@@ -14,7 +14,7 @@ Find circular dependencies in the module graph that can cause compilation issues
 ## Usage
 
 ```bash
-code_search --format toon cycles [MODULE] [OPTIONS]
+code_search --format toon code cycles [MODULE] [OPTIONS]
 ```
 
 ## Arguments
@@ -35,10 +35,10 @@ code_search --format toon cycles [MODULE] [OPTIONS]
 ## Examples
 
 ```bash
-code_search cycles                            # Find all cycles
-code_search cycles MyApp.Core                 # Filter to MyApp.Core namespace
-code_search cycles --max-length 3             # Only show cycles of length <= 3
-code_search cycles --involving MyApp.Accounts # Only cycles involving Accounts
+code_search code cycles                            # Find all cycles
+code_search code cycles MyApp.Core                 # Filter to MyApp.Core namespace
+code_search code cycles --max-length 3             # Only show cycles of length <= 3
+code_search code cycles --involving MyApp.Accounts # Only cycles involving Accounts
 ```
 
 ## Output Fields (toon format)

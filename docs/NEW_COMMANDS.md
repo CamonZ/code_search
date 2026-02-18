@@ -56,7 +56,7 @@ use crate::output::{OutputFormat, Outputable};
 #[derive(Args, Debug)]
 #[command(after_help = "\
 Examples:
-  code_search <name> --arg value    # Example usage")]
+  code_search code <name> --arg value    # Example usage")]
 pub struct <Name>Cmd {
     /// Description of the argument
     #[arg(short, long)]
@@ -148,9 +148,9 @@ impl Outputable for <Name>Result {
 
 See [examples/output_tests.rs.example](./examples/output_tests.rs.example) for a reference showing the snapshot testing pattern. The example includes a helper for generating the actual output values to use in your snapshots.
 
-### 8. Register the command (`src/commands/mod.rs`)
+### 8. Register the command
 
-Add the module declaration and public export:
+Add the module declaration and public export in `src/commands/mod.rs`:
 
 ```rust
 mod <name>;
@@ -158,24 +158,21 @@ mod <name>;
 pub use <name>::<Name>Cmd;
 ```
 
-Add the variant to the `Command` enum:
+Add the variant to the `CodeCommand` enum in `src/commands/code.rs`:
 
 ```rust
 #[derive(Subcommand, Debug)]
 #[enum_dispatch(CommandRunner)]
-pub enum Command {
+pub enum CodeCommand {
     /// Existing commands...
     Import(ImportCmd),
 
     /// Description of your command
     <Name>(<Name>Cmd),
-
-    #[command(external_subcommand)]
-    Unknown(Vec<String>),
 }
 ```
 
-**Note:** The `#[enum_dispatch(CommandRunner)]` attribute is already on the `Command` enum. The `enum_dispatch` crate automatically generates the dispatch logic for all variants. You do NOT need to add a match arm in `Command::run()` - the `CommandRunner` implementation you added to your command's `mod.rs` file (in step 2) is all that's needed!
+**Note:** The top-level `Command` enum in `mod.rs` has only `Setup` and `Code(CodeCommand)`. All code analysis commands are registered in `CodeCommand` (in `code.rs`), not in `Command`. The `#[enum_dispatch(CommandRunner)]` attribute automatically generates dispatch logic for all variants. You do NOT need to add a match arm — the `CommandRunner` implementation you added to your command's `mod.rs` file (in step 2) is all that's needed!
 
 The dispatch is handled entirely by the `enum_dispatch` procedural macro at compile time, which is faster and more maintainable than manual match arms.
 
@@ -184,7 +181,7 @@ The dispatch is handled entirely by the `enum_dispatch` procedural macro at comp
 ```bash
 cargo build
 cargo test
-cargo run -- <name> --help
+cargo run -- code <name> --help
 ```
 
 ## Checklist
@@ -219,7 +216,7 @@ cargo run -- <name> --help
 - [ ] Registered command in `src/commands/mod.rs`
   - [ ] Added module declaration: `mod <name>;`
   - [ ] Added public export: `pub use <name>::<Name>Cmd;`
-  - [ ] Added enum variant to `Command` enum (dispatch is automatic via `#[enum_dispatch(CommandRunner)]`)
+- [ ] Added enum variant to `CodeCommand` in `src/commands/code.rs` (dispatch is automatic via `#[enum_dispatch(CommandRunner)]`)
   - [ ] **No match arm needed** - enum_dispatch handles it automatically!
 - [ ] Verified with `cargo build && cargo test`
 

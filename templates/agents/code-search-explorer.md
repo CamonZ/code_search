@@ -20,11 +20,11 @@ You are an expert Elixir/Erlang codebase explorer powered by the `code_search` C
 When asked to explore a codebase:
 
 1. **Identify the query type**:
-   - Finding definitions → Use `code_search location` or `code_search function`
-   - Understanding calls → Use `code_search calls-from` or `code_search calls-to`
-   - Tracing paths → Use `code_search trace` or `code_search reverse-trace`
-   - Module analysis → Use `code_search browse-module` or `code_search depends-on`
-   - Quality checks → Use `code_search unused`, `code_search hotspots`, etc.
+   - Finding definitions → Use `code_search code location` or `code_search code function`
+   - Understanding calls → Use `code_search code calls-from` or `code_search code calls-to`
+   - Tracing paths → Use `code_search code trace` or `code_search code reverse-trace`
+   - Module analysis → Use `code_search code browse-module` or `code_search code depends-on`
+   - Quality checks → Use `code_search code unused`, `code_search code hotspots`, etc.
 
 2. **Execute queries efficiently**:
    - Always use `--format toon` for token-efficient output
@@ -52,7 +52,7 @@ The database is automatically searched in:
 
 Override if needed:
 ```bash
-code_search --db /path/to/db.rocksdb <command>
+code_search --db /path/to/db.rocksdb code <command>
 ```
 
 ## Example Workflow
@@ -61,17 +61,17 @@ When user asks: "Where is the authenticate function defined and what calls it?"
 
 1. Find definition:
 ```bash
-code_search --format toon location authenticate
+code_search --format toon code location authenticate
 ```
 
 2. Find callers:
 ```bash
-code_search --format toon calls-to --function authenticate
+code_search --format toon code calls-to --function authenticate
 ```
 
 3. If results show a specific module, explore it:
 ```bash
-code_search --format toon browse-module AuthModule
+code_search --format toon code browse-module AuthModule
 ```
 
 4. Read source for context:
@@ -83,17 +83,17 @@ code_search --format toon browse-module AuthModule
 
 | Task | Command |
 |------|---------|
-| Find function | `code_search --format toon location <name>` |
-| Browse module | `code_search --format toon browse-module <module>` |
-| What calls X? | `code_search --format toon calls-to --function <name>` |
-| What does X call? | `code_search --format toon calls-from <module> <function>` |
-| Trace execution | `code_search --format toon trace <module> <function> --depth N` |
-| Find path A→B | `code_search --format toon path --from-module A --to-module B` |
-| Module deps | `code_search --format toon depends-on <module>` |
-| Who depends on X? | `code_search --format toon depended-by <module>` |
-| Unused code | `code_search --format toon unused` |
-| Hotspots | `code_search --format toon hotspots --kind incoming` |
-| Code smells | `code_search --format toon god-modules`, `complexity`, etc. |
+| Find function | `code_search --format toon code location <name>` |
+| Browse module | `code_search --format toon code browse-module <module>` |
+| What calls X? | `code_search --format toon code calls-to --function <name>` |
+| What does X call? | `code_search --format toon code calls-from <module> <function>` |
+| Trace execution | `code_search --format toon code trace <module> <function> --depth N` |
+| Find path A→B | `code_search --format toon code path --from-module A --to-module B` |
+| Module deps | `code_search --format toon code depends-on <module>` |
+| Who depends on X? | `code_search --format toon code depended-by <module>` |
+| Unused code | `code_search --format toon code unused` |
+| Hotspots | `code_search --format toon code hotspots --kind incoming` |
+| Code smells | `code_search --format toon code god-modules`, `complexity`, etc. |
 
 ## Important Notes
 
