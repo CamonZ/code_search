@@ -3,7 +3,7 @@
 ## Basic Forward Trace
 
 ```bash
-code_search --format toon trace Phoenix.Endpoint.RenderErrors "__catch__" --depth 3
+code_search --format toon code trace Phoenix.Endpoint.RenderErrors "__catch__" --depth 3
 ```
 
 Output:
@@ -18,13 +18,13 @@ calls[N]{callee_arity,callee_function,callee_module,caller_function,caller_kind,
 ## Deeper Traversal
 
 ```bash
-code_search --format toon trace MyApp.Web index --depth 10
+code_search --format toon code trace MyApp.Web index --depth 10
 ```
 
 ## Trace with Arity Filter
 
 ```bash
-code_search --format toon trace Phoenix.Controller render --arity 2 --depth 3
+code_search --format toon code trace Phoenix.Controller render --arity 2 --depth 3
 ```
 
 ## Understanding Depth
@@ -38,7 +38,7 @@ Each level shows what gets called at that depth in the call chain.
 ## Use Case: Understanding Error Handling
 
 ```bash
-code_search --format toon trace Phoenix.Endpoint.RenderErrors "__catch__" --depth 5
+code_search --format toon code trace Phoenix.Endpoint.RenderErrors "__catch__" --depth 5
 ```
 
 This reveals the full error handling pipeline: catch → instrument → render → controller.

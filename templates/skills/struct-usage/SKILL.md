@@ -14,7 +14,7 @@ Find all functions that work with a specific struct type, either as input parame
 ## Usage
 
 ```bash
-code_search --format toon struct-usage <PATTERN> [MODULE] [OPTIONS]
+code_search --format toon code struct-usage <PATTERN> [MODULE] [OPTIONS]
 ```
 
 ## Arguments
@@ -35,11 +35,11 @@ code_search --format toon struct-usage <PATTERN> [MODULE] [OPTIONS]
 ## Examples
 
 ```bash
-code_search struct-usage "User.t"             # Find functions using User.t
-code_search struct-usage "Changeset.t"        # Find functions using Changeset.t
-code_search struct-usage "User.t" MyApp       # Filter to module MyApp
-code_search struct-usage "User.t" --by-module # Summarize by module
-code_search struct-usage -r ".*\.t"           # Regex pattern matching
+code_search code struct-usage "User.t"             # Find functions using User.t
+code_search code struct-usage "Changeset.t"        # Find functions using Changeset.t
+code_search code struct-usage "User.t" MyApp       # Filter to module MyApp
+code_search code struct-usage "User.t" --by-module # Summarize by module
+code_search code struct-usage -r ".*\.t"           # Regex pattern matching
 ```
 
 ## Output Fields (toon format)

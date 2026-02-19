@@ -8,7 +8,7 @@ description: Show what calls a module/function (incoming edges). Use to find cal
 ## Find All Callers of a Function
 
 ```bash
-code_search --format toon calls-to Mix.Phoenix copy_from
+code_search --format toon code calls-to Mix.Phoenix copy_from
 ```
 
 Output:
@@ -23,19 +23,19 @@ calls[14]{call_type,callee_arity,callee_function,callee_module,caller_function,c
 ## Find All Callers of a Module
 
 ```bash
-code_search --format toon calls-to Phoenix.Controller
+code_search --format toon code calls-to Phoenix.Controller
 ```
 
 ## Find Callers with Specific Arity
 
 ```bash
-code_search --format toon calls-to Phoenix.Controller render 3
+code_search --format toon code calls-to Phoenix.Controller render 3
 ```
 
 ## Find Internal Recursive Calls
 
 ```bash
-code_search --format toon calls-to Phoenix.Channel reply
+code_search --format toon code calls-to Phoenix.Channel reply
 ```
 
 Output shows `Phoenix.Channel.reply/2` calling itself (clause delegation):

@@ -35,12 +35,12 @@ The codebase must have a call graph extracted and imported:
 2. **Import into database**:
    ```bash
    code_search setup
-   code_search import --file call_graph.json
+   code_search code import --file call_graph.json
    ```
 
 3. **Verify setup**:
    ```bash
-   code_search search ""  # Should return modules if data is imported
+   code_search code search ""  # Should return modules if data is imported
    ```
 
 ## Quick Examples
@@ -51,7 +51,7 @@ The codebase must have a call graph extracted and imported:
 Where is the process_payment function defined?
 ```
 
-**What happens**: Agent runs `code_search --format toon location process_payment` and shows you the file path and line number.
+**What happens**: Agent runs `code_search --format toon code location process_payment` and shows you the file path and line number.
 
 ### Understanding Call Relationships
 
@@ -59,7 +59,7 @@ Where is the process_payment function defined?
 What functions call create_user?
 ```
 
-**What happens**: Agent runs `code_search --format toon calls-to --function create_user` and lists all callers with locations.
+**What happens**: Agent runs `code_search --format toon code calls-to --function create_user` and lists all callers with locations.
 
 ### Tracing Execution Flow
 
@@ -67,7 +67,7 @@ What functions call create_user?
 Trace the execution path from handle_request in ApiController
 ```
 
-**What happens**: Agent runs `code_search --format toon trace ApiController handle_request --depth 3` showing the full call tree.
+**What happens**: Agent runs `code_search --format toon code trace ApiController handle_request --depth 3` showing the full call tree.
 
 ### Module Analysis
 
@@ -75,7 +75,7 @@ Trace the execution path from handle_request in ApiController
 Show me everything in the Authentication module
 ```
 
-**What happens**: Agent runs `code_search --format toon browse-module Authentication` listing all public functions, types, and specs.
+**What happens**: Agent runs `code_search --format toon code browse-module Authentication` listing all public functions, types, and specs.
 
 ### Dependency Analysis
 
@@ -83,7 +83,7 @@ Show me everything in the Authentication module
 What modules does PaymentGateway depend on?
 ```
 
-**What happens**: Agent runs `code_search --format toon depends-on PaymentGateway` showing direct and transitive dependencies.
+**What happens**: Agent runs `code_search --format toon code depends-on PaymentGateway` showing direct and transitive dependencies.
 
 ### Finding Dead Code
 
@@ -91,7 +91,7 @@ What modules does PaymentGateway depend on?
 Find unused functions in this codebase
 ```
 
-**What happens**: Agent runs `code_search --format toon unused` listing functions with zero callers.
+**What happens**: Agent runs `code_search --format toon code unused` listing functions with zero callers.
 
 ### Code Quality Checks
 
@@ -167,17 +167,17 @@ The agent uses `--format toon` for token efficiency, but you can also run comman
 
 - **Table** (default): Human-readable output
   ```bash
-  code_search location authenticate
+  code_search code location authenticate
   ```
 
 - **JSON**: For scripts/tools
   ```bash
-  code_search --format json location authenticate
+  code_search --format json code location authenticate
   ```
 
 - **Toon**: Token-efficient for LLMs (what the agent uses)
   ```bash
-  code_search --format toon location authenticate
+  code_search --format toon code location authenticate
   ```
 
 ## Database Configuration
@@ -189,7 +189,7 @@ Database is automatically searched in this order:
 
 Override with `--db` flag if needed:
 ```bash
-code_search --db /path/to/db.rocksdb <command>
+code_search --db /path/to/db.rocksdb code <command>
 ```
 
 ## Tips for Best Results
@@ -215,17 +215,17 @@ You can also run `code_search` directly:
 ```bash
 # Get help
 code_search --help
-code_search <command> --help
+code_search code <command> --help
 
 # Common queries
-code_search location my_function
-code_search browse-module MyApp.Module
-code_search calls-to --function process
-code_search trace MyModule process --depth 2
-code_search depends-on MyApp.Core
-code_search unused
-code_search hotspots --kind incoming --limit 20
-code_search god-modules
+code_search code location my_function
+code_search code browse-module MyApp.Module
+code_search code calls-to --function process
+code_search code trace MyModule process --depth 2
+code_search code depends-on MyApp.Core
+code_search code unused
+code_search code hotspots --kind incoming --limit 20
+code_search code god-modules
 ```
 
 ## Related Resources
@@ -242,9 +242,9 @@ code_search god-modules
 **Question**: "How does authentication work in this app?"
 
 **Agent workflow**:
-1. `code_search --format toon search auth` → Find auth-related modules
-2. `code_search --format toon browse-module AuthController` → See public interface
-3. `code_search --format toon trace AuthController login` → Follow login flow
+1. `code_search --format toon code search auth` → Find auth-related modules
+2. `code_search --format toon code browse-module AuthController` → See public interface
+3. `code_search --format toon code trace AuthController login` → Follow login flow
 4. Read relevant source files for implementation details
 5. Summarize the authentication flow
 
@@ -253,8 +253,8 @@ code_search god-modules
 **Question**: "Can I safely delete the User.send_notification function?"
 
 **Agent workflow**:
-1. `code_search --format toon calls-to --function send_notification` → Find callers
-2. `code_search --format toon reverse-trace User send_notification` → Full reverse tree
+1. `code_search --format toon code calls-to --function send_notification` → Find callers
+2. `code_search --format toon code reverse-trace User send_notification` → Full reverse tree
 3. Report: "This function is called from 3 places: OrderController, AlertService, and AdminPanel"
 4. User can decide based on impact
 
@@ -263,8 +263,8 @@ code_search god-modules
 **Question**: "What code can I delete from the Reports module?"
 
 **Agent workflow**:
-1. `code_search --format toon unused --module Reports` → Find unused functions
-2. `code_search --format toon browse-module Reports` → Show all functions
+1. `code_search --format toon code unused --module Reports` → Find unused functions
+2. `code_search --format toon code browse-module Reports` → Show all functions
 3. Compare and identify private functions with zero callers
 4. Report candidates for deletion with file paths
 
@@ -274,7 +274,7 @@ code_search god-modules
 - **Solution**: Run `code_search setup` first (creates `.code_search/surrealdb.rocksdb`)
 
 **Issue**: "No results found"
-- **Solution**: Check if data is imported with `code_search search ""`
+- **Solution**: Check if data is imported with `code_search code search ""`
 - **Solution**: Try broader search terms or remove filters
 
 **Issue**: "Too many results"

@@ -3,7 +3,7 @@
 ## Find Path Between Two Functions
 
 ```bash
-code_search --format toon path \
+code_search --format toon code path \
   --from-module MyApp.Web.UserController \
   --from-function create \
   --to-module Ecto.Repo \
@@ -25,7 +25,7 @@ to_module: Ecto.Repo
 ## No Path Found
 
 ```bash
-code_search --format toon path \
+code_search --format toon code path \
   --from-module Phoenix.Channel \
   --from-function join \
   --to-module Mix.Tasks.Compile \
@@ -43,7 +43,7 @@ Empty results means no path exists within the search depth.
 ## With Specific Arities
 
 ```bash
-code_search --format toon path \
+code_search --format toon code path \
   --from-module MyApp.API --from-function handle --from-arity 2 \
   --to-module MyApp.Repo --to-function get --to-arity 2 \
   --depth 15

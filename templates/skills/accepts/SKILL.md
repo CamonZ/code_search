@@ -14,7 +14,7 @@ Find functions that take certain types as input parameters. Use this to understa
 ## Usage
 
 ```bash
-code_search --format toon accepts <PATTERN> [MODULE] [OPTIONS]
+code_search --format toon code accepts <PATTERN> [MODULE] [OPTIONS]
 ```
 
 ## Arguments
@@ -34,10 +34,10 @@ code_search --format toon accepts <PATTERN> [MODULE] [OPTIONS]
 ## Examples
 
 ```bash
-code_search accepts "User.t"              # Find functions accepting User.t
-code_search accepts "map()"               # Find functions accepting maps
-code_search accepts "User.t" MyApp        # Filter to module MyApp
-code_search accepts -r "list\(.*\)"       # Regex pattern matching
+code_search code accepts "User.t"              # Find functions accepting User.t
+code_search code accepts "map()"               # Find functions accepting maps
+code_search code accepts "User.t" MyApp        # Filter to module MyApp
+code_search code accepts -r "list\(.*\)"       # Regex pattern matching
 ```
 
 ## Output Fields (toon format)

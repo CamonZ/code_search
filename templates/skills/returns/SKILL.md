@@ -14,7 +14,7 @@ Find functions that return values of certain types. Use this to understand what 
 ## Usage
 
 ```bash
-code_search --format toon returns <PATTERN> [MODULE] [OPTIONS]
+code_search --format toon code returns <PATTERN> [MODULE] [OPTIONS]
 ```
 
 ## Arguments
@@ -34,10 +34,10 @@ code_search --format toon returns <PATTERN> [MODULE] [OPTIONS]
 ## Examples
 
 ```bash
-code_search returns "User.t"              # Find functions returning User.t
-code_search returns "nil"                 # Find functions returning nil
-code_search returns "{:error" MyApp       # Filter to module MyApp
-code_search returns -r "list\(.*\)"       # Regex pattern matching
+code_search code returns "User.t"              # Find functions returning User.t
+code_search code returns "nil"                 # Find functions returning nil
+code_search code returns "{:error" MyApp       # Filter to module MyApp
+code_search code returns -r "list\(.*\)"       # Regex pattern matching
 ```
 
 ## Output Fields (toon format)

@@ -14,7 +14,7 @@ Identify code duplication to find opportunities for refactoring and consolidatio
 ## Usage
 
 ```bash
-code_search --format toon duplicates [MODULE] [OPTIONS]
+code_search --format toon code duplicates [MODULE] [OPTIONS]
 ```
 
 ## Arguments
@@ -36,11 +36,11 @@ code_search --format toon duplicates [MODULE] [OPTIONS]
 ## Examples
 
 ```bash
-code_search duplicates                       # Find all duplicate functions
-code_search duplicates MyApp                 # Filter to specific module
-code_search duplicates --by-module           # Rank modules by duplication
-code_search duplicates --exact               # Use exact source matching
-code_search duplicates --exclude-generated   # Exclude macro-generated functions
+code_search code duplicates                       # Find all duplicate functions
+code_search code duplicates MyApp                 # Filter to specific module
+code_search code duplicates --by-module           # Rank modules by duplication
+code_search code duplicates --exact               # Use exact source matching
+code_search code duplicates --exclude-generated   # Exclude macro-generated functions
 ```
 
 ## Output Fields (toon format)

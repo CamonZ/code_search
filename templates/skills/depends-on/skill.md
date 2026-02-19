@@ -3,7 +3,7 @@
 ## Find Module Dependencies
 
 ```bash
-code_search --format toon depends-on Phoenix.Channel
+code_search --format toon code depends-on Phoenix.Channel
 ```
 
 Output:
@@ -15,7 +15,7 @@ dependencies[1]{call_count,module,project}:
 ## Find Dependencies of Multiple Modules
 
 ```bash
-code_search --format toon depends-on 'Phoenix\.Controller.*' --regex
+code_search --format toon code depends-on 'Phoenix\.Controller.*' --regex
 ```
 
 ## Understanding the Output
@@ -29,7 +29,7 @@ Higher call counts indicate stronger coupling.
 
 Check what a core module depends on:
 ```bash
-code_search --format toon depends-on MyApp.Accounts
+code_search --format toon code depends-on MyApp.Accounts
 ```
 
 This reveals:

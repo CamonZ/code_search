@@ -14,7 +14,7 @@ Identify functions that are too long or complex based on line count. Use this to
 ## Usage
 
 ```bash
-code_search --format toon large-functions [MODULE] [OPTIONS]
+code_search --format toon code large-functions [MODULE] [OPTIONS]
 ```
 
 ## Arguments
@@ -35,11 +35,11 @@ code_search --format toon large-functions [MODULE] [OPTIONS]
 ## Examples
 
 ```bash
-code_search large-functions                     # Find functions with 50+ lines
-code_search large-functions MyApp.Web           # Filter to MyApp.Web namespace
-code_search large-functions --min-lines 100     # Find functions with 100+ lines
-code_search large-functions --include-generated # Include macro-generated functions
-code_search large-functions -l 20               # Show top 20 largest functions
+code_search code large-functions                     # Find functions with 50+ lines
+code_search code large-functions MyApp.Web           # Filter to MyApp.Web namespace
+code_search code large-functions --min-lines 100     # Find functions with 100+ lines
+code_search code large-functions --include-generated # Include macro-generated functions
+code_search code large-functions -l 20               # Show top 20 largest functions
 ```
 
 ## Output Fields (toon format)

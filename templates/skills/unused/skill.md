@@ -3,7 +3,7 @@
 ## Find All Unused Functions
 
 ```bash
-code_search --format toon unused
+code_search --format toon code unused
 ```
 
 Output:
@@ -19,7 +19,7 @@ functions[10]{arity,file,kind,line,module,name,project}:
 ## Find Unused Public Functions
 
 ```bash
-code_search --format toon unused -P
+code_search --format toon code unused -P
 ```
 
 These are potential entry points or dead API surface.
@@ -27,7 +27,7 @@ These are potential entry points or dead API surface.
 ## Find Orphan Private Functions
 
 ```bash
-code_search --format toon unused -p
+code_search --format toon code unused -p
 ```
 
 Private functions that are never called are definitely dead code.
@@ -35,7 +35,7 @@ Private functions that are never called are definitely dead code.
 ## Exclude Generated Functions
 
 ```bash
-code_search --format toon unused -Px
+code_search --format toon code unused -Px
 ```
 
 Filters out `__struct__`, `__using__`, `__before_compile__`, etc.
@@ -43,7 +43,7 @@ Filters out `__struct__`, `__using__`, `__before_compile__`, etc.
 ## Filter to Specific Module
 
 ```bash
-code_search --format toon unused MyApp.Accounts
+code_search --format toon code unused MyApp.Accounts
 ```
 
 ## Understanding Results

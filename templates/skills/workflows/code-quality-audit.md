@@ -26,13 +26,13 @@ Systematically assess codebase health by identifying architectural issues, compl
 Cycles create maintenance nightmares:
 ```bash
 # Find all circular dependencies
-code_search --format toon cycles
+code_search --format toon code cycles
 
 # Limit to shorter cycles (more problematic)
-code_search --format toon cycles --max-length 3
+code_search --format toon code cycles --max-length 3
 
 # Check if a specific module is involved in cycles
-code_search --format toon cycles --involving MyApp.Core
+code_search --format toon code cycles --involving MyApp.Core
 ```
 
 **Red flags**: Any cycles, especially short ones (2-3 modules).
@@ -42,13 +42,13 @@ code_search --format toon cycles --involving MyApp.Core
 Modules doing too much:
 ```bash
 # Find modules with many functions and high connectivity
-code_search --format toon god-modules
+code_search --format toon code god-modules
 
 # Adjust thresholds for your codebase
-code_search --format toon god-modules --min-functions 30 --min-total 20
+code_search --format toon code god-modules --min-functions 30 --min-total 20
 
 # Filter to specific namespace
-code_search --format toon god-modules MyApp.Core
+code_search --format toon code god-modules MyApp.Core
 ```
 
 **Red flags**: Modules with 50+ functions or 30+ total connections.
@@ -58,16 +58,16 @@ code_search --format toon god-modules MyApp.Core
 Functions that are hard to understand:
 ```bash
 # Find functions with high complexity scores
-code_search --format toon complexity --min 10
+code_search --format toon code complexity --min 10
 
 # Find deeply nested functions
-code_search --format toon complexity --min-depth 4
+code_search --format toon code complexity --min-depth 4
 
 # Find large functions by line count
-code_search --format toon large-functions --min-lines 50
+code_search --format toon code large-functions --min-lines 50
 
 # Find functions with many pattern-match clauses
-code_search --format toon many-clauses --min-clauses 8
+code_search --format toon code many-clauses --min-clauses 8
 ```
 
 **Red flags**: Complexity > 15, nesting > 4, lines > 100, clauses > 10.
@@ -77,13 +77,13 @@ code_search --format toon many-clauses --min-clauses 8
 Find over-connected code:
 ```bash
 # Most called functions (might be over-used)
-code_search --format toon hotspots --kind incoming -l 20
+code_search --format toon code hotspots --kind incoming -l 20
 
 # Functions that call too many things (god functions)
-code_search --format toon hotspots --kind outgoing -l 20
+code_search --format toon code hotspots --kind outgoing -l 20
 
 # Total connectivity hotspots
-code_search --format toon hotspots --kind total -l 20
+code_search --format toon code hotspots --kind total -l 20
 ```
 
 **Red flags**: Functions with > 20 incoming or > 10 outgoing calls.
@@ -93,14 +93,14 @@ code_search --format toon hotspots --kind total -l 20
 Verify layer separation:
 ```bash
 # Find boundary modules (high fan-in, low fan-out)
-code_search --format toon boundaries
+code_search --format toon code boundaries
 
 # Analyze module clusters
-code_search --format toon clusters --show-dependencies
+code_search --format toon code clusters --show-dependencies
 
 # Check a specific module's position
-code_search --format toon depends-on MyApp.Web.UserController
-code_search --format toon depended-by MyApp.Web.UserController
+code_search --format toon code depends-on MyApp.Web.UserController
+code_search --format toon code depended-by MyApp.Web.UserController
 ```
 
 **Red flags**: Controllers depending on many modules, data layer with high fan-out.
@@ -110,16 +110,16 @@ code_search --format toon depended-by MyApp.Web.UserController
 Code that can be removed:
 ```bash
 # Unused functions
-code_search --format toon unused -x
+code_search --format toon code unused -x
 
 # Focus on definitely-dead private functions
-code_search --format toon unused -px
+code_search --format toon code unused -px
 
 # Find duplicated code
-code_search --format toon duplicates
+code_search --format toon code duplicates
 
 # Modules with most duplication
-code_search --format toon duplicates --by-module
+code_search --format toon code duplicates --by-module
 ```
 
 **Red flags**: > 5% unused functions, significant duplication.
@@ -131,31 +131,31 @@ Run all checks and compile results:
 ```bash
 # 1. Cycles
 echo "=== CIRCULAR DEPENDENCIES ==="
-code_search --format toon cycles --max-length 4
+code_search --format toon code cycles --max-length 4
 
 # 2. God Modules
 echo "=== GOD MODULES ==="
-code_search --format toon god-modules -l 10
+code_search --format toon code god-modules -l 10
 
 # 3. Complexity
 echo "=== COMPLEX FUNCTIONS ==="
-code_search --format toon complexity --min 10 -l 10
+code_search --format toon code complexity --min 10 -l 10
 
 # 4. Large Functions
 echo "=== LARGE FUNCTIONS ==="
-code_search --format toon large-functions --min-lines 75 -l 10
+code_search --format toon code large-functions --min-lines 75 -l 10
 
 # 5. Coupling Hotspots
 echo "=== COUPLING HOTSPOTS ==="
-code_search --format toon hotspots --kind total -l 10
+code_search --format toon code hotspots --kind total -l 10
 
 # 6. Unused Code
 echo "=== UNUSED CODE ==="
-code_search --format toon unused -px -l 20
+code_search --format toon code unused -px -l 20
 
 # 7. Duplicates
 echo "=== DUPLICATES ==="
-code_search --format toon duplicates -l 10
+code_search --format toon code duplicates -l 10
 ```
 
 ## Interpreting Results

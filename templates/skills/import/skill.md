@@ -3,7 +3,7 @@
 ## Basic Import
 
 ```bash
-code_search --format toon import --file extracted_trace.json
+code_search --format toon code import --file extracted_trace.json
 ```
 
 Output:
@@ -23,13 +23,13 @@ types_imported: 27
 Replace all existing data:
 
 ```bash
-code_search --format toon import --file call_graph.json --clear
+code_search --format toon code import --file call_graph.json --clear
 ```
 
 ## Import to Specific Database
 
 ```bash
-code_search --db /path/to/my.db --format toon import --file call_graph.json
+code_search --db /path/to/my.db --format toon code import --file call_graph.json
 ```
 
 ## Expected JSON Structure

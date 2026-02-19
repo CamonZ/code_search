@@ -3,7 +3,7 @@
 ## Find Modules by Name
 
 ```bash
-code_search --format toon search Phoenix
+code_search --format toon code search Phoenix
 ```
 
 Output:
@@ -20,7 +20,7 @@ modules[69]{name,source}:
 ## Find Functions by Pattern
 
 ```bash
-code_search --format toon search render --kind functions
+code_search --format toon code search render --kind functions
 ```
 
 Output:
@@ -34,7 +34,7 @@ functions[12]{arity,module,name,return_type}:
 ## Regex Search for Module Prefix
 
 ```bash
-code_search --format toon search '^Phoenix\.Channel' --regex
+code_search --format toon code search '^Phoenix\.Channel' --regex
 ```
 
 Output:
@@ -48,7 +48,7 @@ modules[3]{name,source}:
 ## Search with Limit
 
 ```bash
-code_search --format toon search Controller --limit 5
+code_search --format toon code search Controller --limit 5
 ```
 
 ## Options Reference

@@ -3,7 +3,7 @@
 ## Get Function Signature
 
 ```bash
-code_search --format toon function Phoenix.Controller render
+code_search --format toon code function Phoenix.Controller render
 ```
 
 Output:
@@ -16,7 +16,7 @@ functions[2]{args,arity,module,name,project,return_type}:
 ## Filter by Arity
 
 ```bash
-code_search --format toon function Phoenix.Controller render --arity 2
+code_search --format toon code function Phoenix.Controller render --arity 2
 ```
 
 Output:
@@ -28,7 +28,7 @@ functions[1]{args,arity,module,name,project,return_type}:
 ## Regex Search for Multiple Functions
 
 ```bash
-code_search --format toon function Phoenix.Controller 'put_.*' --regex
+code_search --format toon code function Phoenix.Controller 'put_.*' --regex
 ```
 
 ## Understanding the Output
