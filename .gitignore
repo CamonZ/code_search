@@ -24,9 +24,9 @@ surrealdb.rocksdb
 INPUT_FORMAT.md
 docs/tickets
 /tickets/
-.claude
-scratch
-/AGENTS.md
+/.claude
+/scratch
 /.mcp.json
 /opencode.jsonc
 src/fixtures/test.db
+.DS_Store

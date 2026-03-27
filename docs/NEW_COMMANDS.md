@@ -27,7 +27,7 @@ src/commands/<name>/
 └── models.rs      # (optional) Data models
 ```
 
-See [TESTING_STRATEGY.md](./TESTING_STRATEGY.md) for details on the test macros and when to use them.
+See [testing-strategy.md](./testing-strategy.md) for details on the test macros and when to use them.
 
 ## Step-by-Step Recipe
 
@@ -81,7 +81,7 @@ impl CommandRunner for <Name>Cmd {
 
 ### 3. Add CLI tests (`cli_tests.rs`)
 
-See [examples/cli_tests.rs.example](./examples/cli_tests.rs.example) for a reference showing the available test patterns. Refer to [TESTING_STRATEGY.md](./TESTING_STRATEGY.md) for details on when to use each macro.
+See [examples/cli_tests.rs.example](./examples/cli_tests.rs.example) for a reference showing the available test patterns. Refer to [testing-strategy.md](./testing-strategy.md) for details on when to use each macro.
 
 ### 4. Implement Query Logic (`src/queries/<name>.rs`)
 
@@ -194,7 +194,7 @@ cargo run -- code <name> --help
   - [ ] Added imports: `std::error::Error`, `db::backend::Database`
   - [ ] Added imports: `crate::commands::{CommandRunner, Execute}`, `crate::output::{OutputFormat, Outputable}`
   - [ ] Implemented `impl CommandRunner for <Name>Cmd` with `run()` method
-- [ ] Created `cli_tests.rs` with test macros (see [TESTING_STRATEGY.md](./TESTING_STRATEGY.md))
+- [ ] Created `cli_tests.rs` with test macros (see [testing-strategy.md](./testing-strategy.md))
   - [ ] Required argument tests (`cli_required_arg_test!`)
   - [ ] Option tests (`cli_option_test!`)
   - [ ] Limit validation tests (`cli_limit_tests!`)
