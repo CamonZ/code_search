@@ -195,6 +195,27 @@ mod tests {
         empty_field: function_modules,
     }
 
+    // Boundary test: when zero functions match, total_functions must be None (not Some(0)).
+    // This kills the mutant that replaces > with >= in SearchResult::from_functions.
+    crate::execute_test! {
+        test_name: test_search_functions_no_match_total_is_none,
+        fixture: populated_db,
+        cmd: SearchCmd {
+            pattern: "^xyz_nonexistent$".to_string(),
+            kind: SearchKind::Functions,
+            common: CommonArgs {
+                regex: true,
+                limit: 100,
+            },
+        },
+        assertions: |result| {
+            assert_eq!(result.kind, "functions");
+            assert!(result.function_modules.is_empty(), "Should have no function modules");
+            assert_eq!(result.total_functions, None,
+                "total_functions must be None when zero functions match, not Some(0)");
+        },
+    }
+
     // =========================================================================
     // Filter tests
     // =========================================================================
@@ -280,5 +301,131 @@ mod tests {
 
         let result = cmd.execute(&*populated_db);
         assert!(result.is_ok(), "Should accept any pattern in non-regex mode: {:?}", result.err());
+    }
+
+    // =========================================================================
+    // CommandRunner::run() integration tests
+    // =========================================================================
+
+    #[rstest]
+    fn test_run_functions_produces_formatted_output(populated_db: Box<dyn db::backend::Database>) {
+        use crate::commands::CommandRunner;
+        use crate::output::OutputFormat;
+
+        let cmd = SearchCmd {
+            pattern: ".*user.*".to_string(),
+            kind: SearchKind::Functions,
+            common: CommonArgs {
+                regex: true,
+                limit: 100,
+            },
+        };
+        let output = cmd
+            .run(&*populated_db, OutputFormat::Table)
+            .expect("run should succeed");
+
+        assert!(!output.is_empty(), "run() should return non-empty output");
+        assert!(
+            output.contains("Search: .*user.* (functions)"),
+            "Table output should contain header, got: {}",
+            output
+        );
+        assert!(
+            output.contains("Functions (4)"),
+            "Table should contain function count, got: {}",
+            output
+        );
+        assert!(
+            output.contains("get_user/1"),
+            "Table should show get_user/1, got: {}",
+            output
+        );
+    }
+
+    #[rstest]
+    fn test_run_modules_produces_formatted_output(populated_db: Box<dyn db::backend::Database>) {
+        use crate::commands::CommandRunner;
+        use crate::output::OutputFormat;
+
+        let cmd = SearchCmd {
+            pattern: "MyApp.Accounts".to_string(),
+            kind: SearchKind::Modules,
+            common: CommonArgs {
+                regex: false,
+                limit: 100,
+            },
+        };
+        let output = cmd
+            .run(&*populated_db, OutputFormat::Table)
+            .expect("run should succeed");
+
+        assert!(
+            output.contains("Search: MyApp.Accounts (modules)"),
+            "Table output should contain header, got: {}",
+            output
+        );
+        assert!(
+            output.contains("Modules (1):"),
+            "Table should contain module count, got: {}",
+            output
+        );
+        assert!(
+            output.contains("MyApp.Accounts"),
+            "Table should show matching module, got: {}",
+            output
+        );
+    }
+
+    #[rstest]
+    fn test_run_empty_functions_produces_no_results(populated_db: Box<dyn db::backend::Database>) {
+        use crate::commands::CommandRunner;
+        use crate::output::OutputFormat;
+
+        let cmd = SearchCmd {
+            pattern: "^xyz_nonexistent$".to_string(),
+            kind: SearchKind::Functions,
+            common: CommonArgs {
+                regex: true,
+                limit: 100,
+            },
+        };
+        let output = cmd
+            .run(&*populated_db, OutputFormat::Table)
+            .expect("run should succeed");
+
+        assert!(
+            output.contains("Search: ^xyz_nonexistent$ (functions)"),
+            "Header should contain queried pattern, got: {}",
+            output
+        );
+        assert!(
+            output.contains("No results found."),
+            "Empty result should show empty message, got: {}",
+            output
+        );
+    }
+
+    #[rstest]
+    fn test_run_json_format(populated_db: Box<dyn db::backend::Database>) {
+        use crate::commands::CommandRunner;
+        use crate::output::OutputFormat;
+
+        let cmd = SearchCmd {
+            pattern: ".*user.*".to_string(),
+            kind: SearchKind::Functions,
+            common: CommonArgs {
+                regex: true,
+                limit: 100,
+            },
+        };
+        let output = cmd
+            .run(&*populated_db, OutputFormat::Json)
+            .expect("run should succeed");
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&output).expect("Should produce valid JSON");
+        assert_eq!(parsed["pattern"], ".*user.*");
+        assert_eq!(parsed["kind"], "functions");
+        assert_eq!(parsed["total_functions"], 4);
     }
 }
