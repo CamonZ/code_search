@@ -167,5 +167,11 @@ mod tests {
         let unknown: Vec<String> = vec![];
         let result = unknown.run(&*db, OutputFormat::Table);
         assert!(result.is_err(), "Unknown command with empty args should return an error");
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("Unknown command"),
+            "Error should mention 'Unknown command', got: {}",
+            err
+        );
     }
 }
