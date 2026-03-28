@@ -1,6 +1,13 @@
 mod execute;
 mod output;
 
+#[cfg(test)]
+mod cli_tests;
+#[cfg(test)]
+mod execute_tests;
+#[cfg(test)]
+mod output_tests;
+
 use std::error::Error;
 
 use clap::Args;
