@@ -62,6 +62,15 @@ mod tests {
         expected: 50,
     }
 
+    crate::cli_option_test! {
+        command: "reverse-trace",
+        variant: ReverseTrace,
+        test_name: test_with_regex,
+        args: ["MyApp\\..*", "get_.*", "--regex"],
+        field: common.regex,
+        expected: true,
+    }
+
     // =========================================================================
     // Limit validation tests
     // =========================================================================
