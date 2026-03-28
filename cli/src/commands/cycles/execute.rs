@@ -91,7 +91,7 @@ impl Execute for CyclesCmd {
 }
 
 /// Find all cycles starting from each node in the graph using DFS
-fn find_all_cycles(graph: &HashMap<String, Vec<String>>, all_modules: &HashSet<String>) -> Vec<Cycle> {
+pub(crate) fn find_all_cycles(graph: &HashMap<String, Vec<String>>, all_modules: &HashSet<String>) -> Vec<Cycle> {
     let mut cycles = Vec::new();
 
     for start_node in all_modules {
@@ -128,7 +128,7 @@ fn dfs_find_cycles(
     }
 
     // Prevent infinite recursion on the same node in the current path
-    if new_path.len() > 1 && path.contains(&current.to_string()) {
+    if !path.is_empty() && path.contains(&current.to_string()) {
         return cycles;
     }
 
@@ -144,7 +144,7 @@ fn dfs_find_cycles(
 }
 
 /// Remove duplicate cycles (same modules in different orders/rotations)
-fn deduplicate_cycles(cycles: Vec<Cycle>) -> Vec<Cycle> {
+pub(crate) fn deduplicate_cycles(cycles: Vec<Cycle>) -> Vec<Cycle> {
     let mut unique = Vec::new();
     let mut seen = HashSet::new();
 
