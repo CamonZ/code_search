@@ -310,6 +310,62 @@ mod tests {
     }
 
     #[test]
+    fn test_call_format_incoming_same_module() {
+        let call = Call {
+            caller: FunctionRef::with_definition(
+                "MyModule",
+                "caller_func",
+                1,
+                "def",
+                "/path/to/my_module.ex",
+                10,
+                30,
+            ),
+            callee: FunctionRef::with_definition(
+                "MyModule",
+                "callee_func",
+                2,
+                "defp",
+                "/path/to/my_module.ex",
+                40,
+                50,
+            ),
+            line: 25,
+            call_type: None,
+            depth: None,
+        };
+
+        assert_eq!(
+            call.format_incoming("MyModule", "/path/to/my_module.ex"),
+            "← @ L25 caller_func/1 [def] (L10:30)"
+        );
+    }
+
+    #[test]
+    fn test_call_format_incoming_different_module() {
+        let call = Call {
+            caller: FunctionRef::with_definition(
+                "OtherModule",
+                "other_func",
+                0,
+                "def",
+                "/path/to/other.ex",
+                5,
+                15,
+            ),
+            callee: FunctionRef::new("MyModule", "my_func", 1),
+            line: 12,
+            call_type: None,
+            depth: None,
+        };
+
+        assert_eq!(
+            call.format_incoming("MyModule", "/path/to/my_module.ex"),
+            "← @ L12 OtherModule.other_func/0 [def] (other.ex:L5:15)"
+        );
+    }
+
+    #[test]
     fn test_is_struct_call() {
         let struct_call = Call {
             caller: FunctionRef::new("MyModule", "func", 1),
