@@ -332,6 +332,84 @@ mod tests {
     use super::*;
     use rstest::rstest;
 
+    // =========================================================================
+    // Mock Value and Row implementations for unit testing
+    // =========================================================================
+
+    /// A mock Value for unit tests that can hold any of the supported types.
+    #[derive(Debug, Clone)]
+    enum MockValue {
+        Str(String),
+        Int(i64),
+        Float(f64),
+        Bool(bool),
+        /// Represents a value whose type doesn't match what the extractor expects
+        None,
+    }
+
+    impl Value for MockValue {
+        fn as_str(&self) -> Option<&str> {
+            match self {
+                MockValue::Str(s) => Some(s.as_str()),
+                _ => None,
+            }
+        }
+
+        fn as_i64(&self) -> Option<i64> {
+            match self {
+                MockValue::Int(i) => Some(*i),
+                _ => None,
+            }
+        }
+
+        fn as_f64(&self) -> Option<f64> {
+            match self {
+                MockValue::Float(f) => Some(*f),
+                _ => None,
+            }
+        }
+
+        fn as_bool(&self) -> Option<bool> {
+            match self {
+                MockValue::Bool(b) => Some(*b),
+                _ => None,
+            }
+        }
+
+        fn as_array(&self) -> Option<Vec<&dyn Value>> {
+            None
+        }
+
+        fn as_thing_id(&self) -> Option<&dyn Value> {
+            None
+        }
+    }
+
+    /// A mock Row for unit tests that holds a vector of MockValues.
+    struct MockRow {
+        values: Vec<MockValue>,
+    }
+
+    impl MockRow {
+        fn new(values: Vec<MockValue>) -> Self {
+            Self { values }
+        }
+    }
+
+    impl Row for MockRow {
+        fn get(&self, index: usize) -> Option<&dyn Value> {
+            self.values.get(index).map(|v| v as &dyn Value)
+        }
+
+        fn len(&self) -> usize {
+            self.values.len()
+        }
+    }
+
+    // =========================================================================
+    // escape_string tests (existing)
+    // =========================================================================
+
     #[rstest]
     fn test_escape_string_basic() {
         assert_eq!(escape_string("hello"), "hello");
@@ -345,6 +423,341 @@ mod tests {
     #[rstest]
     fn test_escape_string_with_backslash() {
         assert_eq!(escape_string(r"path\to\file"), r"path\\to\\file");
+    }
+
+    // =========================================================================
+    // escape_string_for_quote tests
+    // =========================================================================
+
+    #[rstest]
+    fn test_escape_string_for_quote_normal_string_unchanged() {
+        // Normal ASCII text should pass through unchanged
+        assert_eq!(escape_string_for_quote("hello world", '"'), "hello world");
+    }
+
+    #[rstest]
+    fn test_escape_string_for_quote_escapes_quote_char() {
+        // The specified quote character must be escaped
+        assert_eq!(
+            escape_string_for_quote(r#"say "hi""#, '"'),
+            r#"say \"hi\""#
+        );
+        assert_eq!(
+            escape_string_for_quote("it's here", '\''),
+            r"it\'s here"
+        );
+    }
+
+    #[rstest]
+    fn test_escape_string_for_quote_null_byte() {
+        // Null byte (\0) must be escaped as \u0000
+        let input = "before\0after";
+        let result = escape_string_for_quote(input, '"');
+        assert_eq!(result, "before\\u0000after");
+    }
+
+    #[rstest]
+    fn test_escape_string_for_quote_control_chars() {
+        // Control characters (other than \n, \r, \t) must be escaped as \uXXXX.
+        // BEL (0x07) is a control char that is not \n, \r, or \t.
+        let bel = '\x07';
+        let input = format!("a{}b", bel);
+        let result = escape_string_for_quote(&input, '"');
+        assert_eq!(result, "a\\u0007b");
+    }
+
+    #[rstest]
+    fn test_escape_string_for_quote_control_char_or_null_both_branches() {
+        // This tests that the `||` in `c.is_control() || c == '\0'` works:
+        // \x01 is a control char AND is not '\0' -- exercises `is_control()` path
+        // \0 is both a control char and the explicit '\0' check
+        let input_ctrl = "\x01";
+        assert_eq!(
+            escape_string_for_quote(input_ctrl, '"'),
+            "\\u0001",
+            "Control char (SOH) should be escaped"
+        );
+
+        let input_null = "\0";
+        assert_eq!(
+            escape_string_for_quote(input_null, '"'),
+            "\\u0000",
+            "Null byte should be escaped"
+        );
+    }
+
+    #[rstest]
+    fn test_escape_string_for_quote_newline_tab_cr() {
+        // \n, \r, \t have their own dedicated escape sequences
+        assert_eq!(escape_string_for_quote("a\nb", '"'), "a\\nb");
+        assert_eq!(escape_string_for_quote("a\rb", '"'), "a\\rb");
+        assert_eq!(escape_string_for_quote("a\tb", '"'), "a\\tb");
+    }
+
+    #[rstest]
+    fn test_escape_string_for_quote_mixed_content() {
+        // Mix of normal chars, quote chars, backslashes, control chars
+        let input = "path\\to\x00\"file\"\n";
+        let result = escape_string_for_quote(input, '"');
+        assert_eq!(result, "path\\\\to\\u0000\\\"file\\\"\\n");
+    }
+
+    #[rstest]
+    fn test_escape_string_for_quote_empty_string() {
+        assert_eq!(escape_string_for_quote("", '"'), "");
+        assert_eq!(escape_string_for_quote("", '\''), "");
+    }
+
+    // =========================================================================
+    // escape_string_single tests
+    // =========================================================================
+
+    #[rstest]
+    fn test_escape_string_single_normal_text() {
+        // Normal text should pass through unchanged
+        assert_eq!(escape_string_single("hello world"), "hello world");
+    }
+
+    #[rstest]
+    fn test_escape_string_single_escapes_single_quotes() {
+        // Single quotes must be escaped
+        assert_eq!(escape_string_single("it's"), r"it\'s");
+    }
+
+    #[rstest]
+    fn test_escape_string_single_preserves_double_quotes() {
+        // Double quotes should NOT be escaped (only single quotes are)
+        assert_eq!(escape_string_single(r#"say "hi""#), r#"say "hi""#);
+    }
+
+    #[rstest]
+    fn test_escape_string_single_backslash() {
+        assert_eq!(escape_string_single(r"a\b"), r"a\\b");
+    }
+
+    #[rstest]
+    fn test_escape_string_single_control_chars() {
+        assert_eq!(escape_string_single("a\nb"), "a\\nb");
+        assert_eq!(escape_string_single("a\x07b"), "a\\u0007b");
+    }
+
+    #[rstest]
+    fn test_escape_string_single_empty() {
+        assert_eq!(escape_string_single(""), "");
+    }
+
+    #[rstest]
+    fn test_escape_string_single_mixed() {
+        // Mix of single quotes, backslashes, newlines
+        let input = "it's a \\path\n";
+        let result = escape_string_single(input);
+        assert_eq!(result, r"it\'s a \\path\n");
+    }
+
+    // =========================================================================
+    // extract_bool tests
+    // =========================================================================
+
+    #[rstest]
+    fn test_extract_bool_true_value() {
+        let val = MockValue::Bool(true);
+        assert_eq!(extract_bool(&val, false), true);
+    }
+
+    #[rstest]
+    fn test_extract_bool_false_value() {
+        let val = MockValue::Bool(false);
+        assert_eq!(extract_bool(&val, true), false);
+    }
+
+    #[rstest]
+    fn test_extract_bool_missing_returns_default_true() {
+        // When value is not a bool, default should be returned
+        let val = MockValue::None;
+        assert_eq!(extract_bool(&val, true), true);
+    }
+
+    #[rstest]
+    fn test_extract_bool_missing_returns_default_false() {
+        let val = MockValue::None;
+        assert_eq!(extract_bool(&val, false), false);
+    }
+
+    #[rstest]
+    fn test_extract_bool_wrong_type_returns_default() {
+        // A string value is not a bool, should return default
+        let val = MockValue::Str("true".to_string());
+        assert_eq!(extract_bool(&val, false), false);
+    }
+
+    // =========================================================================
+    // extract_f64 tests
+    // =========================================================================
+
+    #[rstest]
+    fn test_extract_f64_positive_value() {
+        let val = MockValue::Float(3.14);
+        assert_eq!(extract_f64(&val, 0.0), 3.14);
+    }
+
+    #[rstest]
+    fn test_extract_f64_negative_value() {
+        let val = MockValue::Float(-2.5);
+        assert_eq!(extract_f64(&val, 0.0), -2.5);
+    }
+
+    #[rstest]
+    fn test_extract_f64_zero_value() {
+        let val = MockValue::Float(0.0);
+        // When the value IS 0.0, it should return 0.0 even if default is different
+        assert_eq!(extract_f64(&val, 99.9), 0.0);
+    }
+
+    #[rstest]
+    fn test_extract_f64_missing_returns_default() {
+        let val = MockValue::None;
+        assert_eq!(extract_f64(&val, 42.0), 42.0);
+    }
+
+    #[rstest]
+    fn test_extract_f64_wrong_type_returns_default() {
+        let val = MockValue::Str("3.14".to_string());
+        assert_eq!(extract_f64(&val, -1.0), -1.0);
+    }
+
+    // =========================================================================
+    // extract_call_from_row_trait tests
+    // =========================================================================
+
+    /// Build a standard layout matching the standard_headers() column order.
+    fn standard_layout() -> CallRowLayout {
+        CallRowLayout::from_headers(&standard_headers()).unwrap()
+    }
+
+    /// Build a MockRow with all 11 required fields populated for a valid call.
+    fn valid_call_row() -> MockRow {
+        // Column order: caller_module(0), caller_name(1), caller_arity(2),
+        //   caller_kind(3), caller_start_line(4), caller_end_line(5),
+        //   callee_module(6), callee_function(7), callee_arity(8),
+        //   file(9), call_line(10)
+        MockRow::new(vec![
+            MockValue::Str("MyApp.Controller".to_string()), // caller_module
+            MockValue::Str("index".to_string()),            // caller_name
+            MockValue::Int(2),                              // caller_arity
+            MockValue::Str("def".to_string()),              // caller_kind
+            MockValue::Int(10),                             // caller_start_line
+            MockValue::Int(30),                             // caller_end_line
+            MockValue::Str("MyApp.Repo".to_string()),       // callee_module
+            MockValue::Str("get".to_string()),              // callee_function
+            MockValue::Int(1),                              // callee_arity
+            MockValue::Str("lib/my_app/controller.ex".to_string()), // file
+            MockValue::Int(25),                             // call_line
+        ])
+    }
+
+    #[rstest]
+    fn test_extract_call_from_row_trait_valid_row() {
+        let layout = standard_layout();
+        let row = valid_call_row();
+
+        let call = extract_call_from_row_trait(&row, &layout);
+        assert!(call.is_some(), "Valid row should produce Some(Call)");
+
+        let call = call.unwrap();
+        assert_eq!(call.caller.module.as_ref(), "MyApp.Controller");
+        assert_eq!(call.caller.name.as_ref(), "index");
+        assert_eq!(call.caller.arity, 2);
+        assert_eq!(call.caller.kind.as_deref(), Some("def"));
+        assert_eq!(call.caller.start_line, Some(10));
+        assert_eq!(call.caller.end_line, Some(30));
+        assert_eq!(
+            call.caller.file.as_deref(),
+            Some("lib/my_app/controller.ex")
+        );
+
+        assert_eq!(call.callee.module.as_ref(), "MyApp.Repo");
+        assert_eq!(call.callee.name.as_ref(), "get");
+        assert_eq!(call.callee.arity, 1);
+
+        assert_eq!(call.line, 25);
+        assert!(call.call_type.is_none());
+        assert!(call.depth.is_none());
+    }
+
+    #[rstest]
+    fn test_extract_call_from_row_trait_missing_caller_module_returns_none() {
+        let layout = standard_layout();
+        // Replace caller_module (index 0) with None to simulate missing required field
+        let row = MockRow::new(vec![
+            MockValue::None,                                // caller_module - missing
+            MockValue::Str("index".to_string()),            // caller_name
+            MockValue::Int(2),                              // caller_arity
+            MockValue::Str("def".to_string()),              // caller_kind
+            MockValue::Int(10),                             // caller_start_line
+            MockValue::Int(30),                             // caller_end_line
+            MockValue::Str("MyApp.Repo".to_string()),       // callee_module
+            MockValue::Str("get".to_string()),              // callee_function
+            MockValue::Int(1),                              // callee_arity
+            MockValue::Str("lib/controller.ex".to_string()), // file
+            MockValue::Int(25),                             // call_line
+        ]);
+
+        let call = extract_call_from_row_trait(&row, &layout);
+        assert!(call.is_none(), "Missing caller_module should return None");
+    }
+
+    #[rstest]
+    fn test_extract_call_from_row_trait_missing_callee_name_returns_none() {
+        let layout = standard_layout();
+        let row = MockRow::new(vec![
+            MockValue::Str("MyApp.Controller".to_string()), // caller_module
+            MockValue::Str("index".to_string()),            // caller_name
+            MockValue::Int(2),                              // caller_arity
+            MockValue::Str("def".to_string()),              // caller_kind
+            MockValue::Int(10),                             // caller_start_line
+            MockValue::Int(30),                             // caller_end_line
+            MockValue::Str("MyApp.Repo".to_string()),       // callee_module
+            MockValue::None,                                // callee_function - missing
+            MockValue::Int(1),                              // callee_arity
+            MockValue::Str("lib/controller.ex".to_string()), // file
+            MockValue::Int(25),                             // call_line
+        ]);
+
+        let call = extract_call_from_row_trait(&row, &layout);
+        assert!(
+            call.is_none(),
+            "Missing callee function name should return None"
+        );
+    }
+
+    #[rstest]
+    fn test_extract_call_from_row_trait_missing_file_returns_none() {
+        let layout = standard_layout();
+        let row = MockRow::new(vec![
+            MockValue::Str("MyApp.Controller".to_string()),
+            MockValue::Str("index".to_string()),
+            MockValue::Int(2),
+            MockValue::Str("def".to_string()),
+            MockValue::Int(10),
+            MockValue::Int(30),
+            MockValue::Str("MyApp.Repo".to_string()),
+            MockValue::Str("get".to_string()),
+            MockValue::Int(1),
+            MockValue::None, // file - missing
+            MockValue::Int(25),
+        ]);
+
+        let call = extract_call_from_row_trait(&row, &layout);
+        assert!(call.is_none(), "Missing file should return None");
+    }
+
+    #[rstest]
+    fn test_extract_call_from_row_trait_empty_row_returns_none() {
+        let layout = standard_layout();
+        let row = MockRow::new(vec![]);
+
+        let call = extract_call_from_row_trait(&row, &layout);
+        assert!(call.is_none(), "Empty row should return None");
     }
 
     // CallRowLayout::from_headers tests
