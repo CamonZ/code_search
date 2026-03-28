@@ -141,4 +141,52 @@ mod tests {
         },
     }
 
+    // =========================================================================
+    // CommandRunner::run() integration test (kills run() -> Ok("xyzzy") and
+    // Ok(String::new()) mutants on mod.rs:56)
+    // =========================================================================
+
+    #[rstest]
+    fn test_run_returns_formatted_output(populated_db: Box<dyn db::backend::Database>) {
+        use crate::commands::CommandRunner;
+        use crate::output::OutputFormat;
+
+        let cmd = ComplexityCmd {
+            min: 1,
+            min_depth: 0,
+            exclude_generated: false,
+            module: None,
+            common: CommonArgs {
+                regex: false,
+                limit: 100,
+            },
+        };
+        let output = cmd.run(&*populated_db, OutputFormat::Table).expect("run should succeed");
+        assert!(output.contains("Complexity"), "run() output should contain the header");
+        assert!(output.contains("MyApp."), "run() output should contain module names");
+    }
+
+    #[rstest]
+    fn test_run_empty_result_contains_empty_message(populated_db: Box<dyn db::backend::Database>) {
+        use crate::commands::CommandRunner;
+        use crate::output::OutputFormat;
+
+        let cmd = ComplexityCmd {
+            min: 9999,
+            min_depth: 0,
+            exclude_generated: false,
+            module: None,
+            common: CommonArgs {
+                regex: false,
+                limit: 100,
+            },
+        };
+        let output = cmd.run(&*populated_db, OutputFormat::Table).expect("run should succeed");
+        assert!(
+            output.contains("No functions found with the specified complexity thresholds."),
+            "run() with high threshold should show empty message, got: {}",
+            output
+        );
+    }
+
 }
