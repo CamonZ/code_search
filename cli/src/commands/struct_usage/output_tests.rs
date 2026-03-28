@@ -142,6 +142,80 @@ MyApp.Accounts                     1        2     2";
     }
 
     // =========================================================================
+    // Truncation boundary tests - module name exactly at column width (28)
+    // =========================================================================
+
+    // "MyApp.Accounts.SubModuleXXYY" is exactly 28 chars — should NOT be truncated
+    const AT_BOUNDARY_TABLE: &str = "\
+Modules using \"SomeType\"
+
+Found 1 module(s) (1 function(s)):
+
+Module                      Accepts  Returns  Total
+──────────────────────────────────────────────────
+MyApp.Accounts.SubModuleXXYY       1        0     1";
+
+    // "MyApp.Accounts.SubModuleXXYYZ" is 29 chars — should be truncated with ellipsis
+    const OVER_BOUNDARY_TABLE: &str = "\
+Modules using \"SomeType\"
+
+Found 1 module(s) (1 function(s)):
+
+Module                      Accepts  Returns  Total
+──────────────────────────────────────────────────
+MyApp.Accounts.SubModuleXXY\u{2026}       1        0     1";
+
+    /// Module name with exactly 28 characters (the column width) should NOT be truncated
+    #[fixture]
+    fn at_boundary_module() -> StructUsageOutput {
+        let name = "MyApp.Accounts.SubModuleXXYY".to_string(); // exactly 28 chars
+        assert_eq!(name.len(), 28);
+        StructUsageOutput::ByModule(StructModulesResult {
+            struct_pattern: "SomeType".to_string(),
+            total_modules: 1,
+            total_functions: 1,
+            modules: vec![ModuleStructUsage {
+                name,
+                accepts_count: 1,
+                returns_count: 0,
+                total: 1,
+            }],
+        })
+    }
+
+    /// Module name with 29 characters (one over column width) SHOULD be truncated
+    #[fixture]
+    fn over_boundary_module() -> StructUsageOutput {
+        let name = "MyApp.Accounts.SubModuleXXYYZ".to_string(); // 29 chars
+        assert_eq!(name.len(), 29);
+        StructUsageOutput::ByModule(StructModulesResult {
+            struct_pattern: "SomeType".to_string(),
+            total_modules: 1,
+            total_functions: 1,
+            modules: vec![ModuleStructUsage {
+                name,
+                accepts_count: 1,
+                returns_count: 0,
+                total: 1,
+            }],
+        })
+    }
+
+    crate::output_table_test! {
+        test_name: test_by_module_name_at_boundary,
+        fixture: at_boundary_module,
+        fixture_type: StructUsageOutput,
+        expected: AT_BOUNDARY_TABLE,
+    }
+
+    crate::output_table_test! {
+        test_name: test_by_module_name_over_boundary,
+        fixture: over_boundary_module,
+        fixture_type: StructUsageOutput,
+        expected: OVER_BOUNDARY_TABLE,
+    }
+
+    // =========================================================================
     // JSON format tests
     // =========================================================================
 

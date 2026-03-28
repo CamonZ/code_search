@@ -318,4 +318,164 @@ mod tests {
             _ => panic!("Expected Detailed output"),
         }
     }
+
+    // =========================================================================
+    // Sort order tests - kills mutant: replace == with != in build_struct_modules_result
+    // =========================================================================
+
+    // This test calls build_struct_modules_result directly with synthetic data
+    // designed so the mutant (== to !=) produces a detectably wrong order.
+    //
+    // With the mutant, the sort comparator applies alphabetical ordering when
+    // totals DIFFER (instead of when they're equal). So a module with a higher
+    // total but later alphabetical position would be sorted wrong.
+    //
+    // Setup:
+    //   "Zebra" has 3 functions (highest total, alphabetically last)
+    //   "Alpha" has 2 functions (tied, alphabetically first)
+    //   "Beta"  has 2 functions (tied, alphabetically second)
+    //
+    // Correct order (total desc, then alpha): Zebra(3), Alpha(2), Beta(2)
+    // Mutant order  (alpha when !=, stable when ==): Alpha(2), Beta(2), Zebra(3)
+    #[test]
+    fn test_by_module_equal_totals_sort_alphabetically() {
+        use db::queries::struct_usage::StructUsageEntry;
+        use super::super::execute::build_struct_modules_result;
+
+        let entries = vec![
+            // 3 unique functions in "Zebra" (highest total, alphabetically last)
+            StructUsageEntry {
+                project: "test".into(),
+                module: "Zebra".into(),
+                name: "z_func1".into(),
+                arity: 1,
+                inputs_string: "t()".into(),
+                return_string: "t()".into(),
+                line: 1,
+            },
+            StructUsageEntry {
+                project: "test".into(),
+                module: "Zebra".into(),
+                name: "z_func2".into(),
+                arity: 1,
+                inputs_string: "t()".into(),
+                return_string: "t()".into(),
+                line: 2,
+            },
+            StructUsageEntry {
+                project: "test".into(),
+                module: "Zebra".into(),
+                name: "z_func3".into(),
+                arity: 1,
+                inputs_string: "t()".into(),
+                return_string: "t()".into(),
+                line: 3,
+            },
+            // 2 unique functions in "Alpha" (tied with Beta, alphabetically first)
+            StructUsageEntry {
+                project: "test".into(),
+                module: "Alpha".into(),
+                name: "a_func1".into(),
+                arity: 1,
+                inputs_string: "t()".into(),
+                return_string: "t()".into(),
+                line: 10,
+            },
+            StructUsageEntry {
+                project: "test".into(),
+                module: "Alpha".into(),
+                name: "a_func2".into(),
+                arity: 1,
+                inputs_string: "t()".into(),
+                return_string: "t()".into(),
+                line: 11,
+            },
+            // 2 unique functions in "Beta" (tied with Alpha, alphabetically second)
+            StructUsageEntry {
+                project: "test".into(),
+                module: "Beta".into(),
+                name: "b_func1".into(),
+                arity: 1,
+                inputs_string: "t()".into(),
+                return_string: "t()".into(),
+                line: 20,
+            },
+            StructUsageEntry {
+                project: "test".into(),
+                module: "Beta".into(),
+                name: "b_func2".into(),
+                arity: 1,
+                inputs_string: "t()".into(),
+                return_string: "t()".into(),
+                line: 21,
+            },
+        ];
+
+        let result = build_struct_modules_result("t()".into(), entries);
+
+        assert_eq!(result.modules.len(), 3, "Should have 3 modules");
+
+        // Zebra has the highest total (3), must be first despite being last alphabetically
+        assert_eq!(result.modules[0].name, "Zebra");
+        assert_eq!(result.modules[0].total, 3);
+
+        // Alpha and Beta are tied at 2; alphabetical tiebreaker puts Alpha before Beta
+        assert_eq!(result.modules[1].name, "Alpha");
+        assert_eq!(result.modules[1].total, 2);
+        assert_eq!(result.modules[2].name, "Beta");
+        assert_eq!(result.modules[2].total, 2);
+    }
+
+    // =========================================================================
+    // Integration test through run() — asserts on formatted output
+    // =========================================================================
+
+    #[rstest]
+    fn test_run_produces_formatted_output(populated_db: Box<dyn db::backend::Database>) {
+        use crate::commands::CommandRunner;
+        use crate::output::OutputFormat;
+
+        let cmd = StructUsageCmd {
+            pattern: "user()".to_string(),
+            module: None,
+            by_module: false,
+            common: CommonArgs {
+                regex: false,
+                limit: 100,
+            },
+        };
+
+        let output = cmd.run(&*populated_db, OutputFormat::Table)
+            .expect("run() should succeed");
+
+        // Verify the output contains the expected header and module
+        assert!(output.contains("Functions using \"user()\""), "Should contain header");
+        assert!(output.contains("MyApp.Accounts:"), "Should contain module name");
+        assert!(output.contains("get_user/1"), "Should contain function name");
+    }
+
+    #[rstest]
+    fn test_run_by_module_produces_formatted_output(populated_db: Box<dyn db::backend::Database>) {
+        use crate::commands::CommandRunner;
+        use crate::output::OutputFormat;
+
+        let cmd = StructUsageCmd {
+            pattern: "user()".to_string(),
+            module: None,
+            by_module: true,
+            common: CommonArgs {
+                regex: false,
+                limit: 100,
+            },
+        };
+
+        let output = cmd.run(&*populated_db, OutputFormat::Table)
+            .expect("run() should succeed");
+
+        // Verify the output contains the expected header and table structure
+        assert!(output.contains("Modules using \"user()\""), "Should contain header");
+        assert!(output.contains("MyApp.Accounts"), "Should contain module name");
+        assert!(output.contains("Accepts"), "Should contain table header");
+        assert!(output.contains("Returns"), "Should contain table header");
+    }
 }
