@@ -35,6 +35,33 @@ MyApp.Users:
   create_user/1 [def] (lib/my_app/users.ex)
     L5:12";
 
+    const PATTERN_TABLE: &str = "\
+Location: MyApp.Accounts.get_user
+
+Found 1 clause(s) in 1 function(s) across 1 module(s):
+
+MyApp.Accounts:
+  get_user/1 [def] (lib/my_app/accounts.ex)
+    L10:15 (:ok, user)";
+
+    const GUARD_TABLE: &str = "\
+Location: MyApp.Accounts.get_user
+
+Found 1 clause(s) in 1 function(s) across 1 module(s):
+
+MyApp.Accounts:
+  get_user/1 [def] (lib/my_app/accounts.ex)
+    L10:15 when is_integer(id)";
+
+    const PATTERN_AND_GUARD_TABLE: &str = "\
+Location: MyApp.Accounts.get_user
+
+Found 1 clause(s) in 1 function(s) across 1 module(s):
+
+MyApp.Accounts:
+  get_user/1 [def] (lib/my_app/accounts.ex)
+    L10:15 (:ok, user) when is_integer(id)";
+
 
     // =========================================================================
     // Fixtures
@@ -69,6 +96,81 @@ MyApp.Users:
                         end_line: 15,
                         pattern: String::new(),
                         guard: String::new(),
+                    }],
+                }],
+            }],
+        }
+    }
+
+    #[fixture]
+    fn pattern_result() -> LocationResult {
+        LocationResult {
+            module_pattern: "MyApp.Accounts".to_string(),
+            function_pattern: "get_user".to_string(),
+            total_clauses: 1,
+            modules: vec![LocationModule {
+                name: "MyApp.Accounts".to_string(),
+                functions: vec![LocationFunction {
+                    name: "get_user".to_string(),
+                    arity: 1,
+                    kind: "def".to_string(),
+                    file: "lib/my_app/accounts.ex".to_string(),
+                    clauses: vec![LocationClause {
+                        line: 10,
+                        start_line: 10,
+                        end_line: 15,
+                        pattern: ":ok, user".to_string(),
+                        guard: String::new(),
+                    }],
+                }],
+            }],
+        }
+    }
+
+    #[fixture]
+    fn guard_result() -> LocationResult {
+        LocationResult {
+            module_pattern: "MyApp.Accounts".to_string(),
+            function_pattern: "get_user".to_string(),
+            total_clauses: 1,
+            modules: vec![LocationModule {
+                name: "MyApp.Accounts".to_string(),
+                functions: vec![LocationFunction {
+                    name: "get_user".to_string(),
+                    arity: 1,
+                    kind: "def".to_string(),
+                    file: "lib/my_app/accounts.ex".to_string(),
+                    clauses: vec![LocationClause {
+                        line: 10,
+                        start_line: 10,
+                        end_line: 15,
+                        pattern: String::new(),
+                        guard: "is_integer(id)".to_string(),
+                    }],
+                }],
+            }],
+        }
+    }
+
+    #[fixture]
+    fn pattern_and_guard_result() -> LocationResult {
+        LocationResult {
+            module_pattern: "MyApp.Accounts".to_string(),
+            function_pattern: "get_user".to_string(),
+            total_clauses: 1,
+            modules: vec![LocationModule {
+                name: "MyApp.Accounts".to_string(),
+                functions: vec![LocationFunction {
+                    name: "get_user".to_string(),
+                    arity: 1,
+                    kind: "def".to_string(),
+                    file: "lib/my_app/accounts.ex".to_string(),
+                    clauses: vec![LocationClause {
+                        line: 10,
+                        start_line: 10,
+                        end_line: 15,
+                        pattern: ":ok, user".to_string(),
+                        guard: "is_integer(id)".to_string(),
                     }],
                 }],
             }],
@@ -165,5 +267,26 @@ MyApp.Users:
         fixture_type: LocationResult,
         expected: db::test_utils::load_output_fixture("location", "empty.toon"),
         format: Toon,
+    }
+
+    crate::output_table_test! {
+        test_name: test_to_table_with_pattern,
+        fixture: pattern_result,
+        fixture_type: LocationResult,
+        expected: PATTERN_TABLE,
+    }
+
+    crate::output_table_test! {
+        test_name: test_to_table_with_guard,
+        fixture: guard_result,
+        fixture_type: LocationResult,
+        expected: GUARD_TABLE,
+    }
+
+    crate::output_table_test! {
+        test_name: test_to_table_with_pattern_and_guard,
+        fixture: pattern_and_guard_result,
+        fixture_type: LocationResult,
+        expected: PATTERN_AND_GUARD_TABLE,
     }
 }
