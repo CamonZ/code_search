@@ -1,0 +1,9 @@
+# Equivalent mutant exclusions.
+#
+# format_entry_details default returns Vec::new(). The mutant replacing it
+# with vec![] is semantically identical (both produce an empty Vec<String>).
+# The non-trivial mutants (vec![String::new()] and vec!["xyzzy".into()])
+# ARE caught by existing snapshot tests on commands that rely on the default.
+exclude_re = [
+    "format_entry_details.* with vec!\\[\\]$",
+]

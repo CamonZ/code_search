@@ -129,3 +129,43 @@ impl CommandRunner for Vec<String> {
         Err(format!("Unknown command: {}", self.first().unwrap_or(&String::new())).into())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_unknown_command_returns_error() {
+        let db = db::backend::open_mem_database().expect("Should open in-memory database");
+        let unknown = vec!["nonexistent".to_string()];
+        let result = unknown.run(&*db, OutputFormat::Table);
+        assert!(result.is_err(), "Unknown command should return an error");
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("Unknown command"),
+            "Error should mention 'Unknown command', got: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_unknown_command_includes_command_name_in_error() {
+        let db = db::backend::open_mem_database().expect("Should open in-memory database");
+        let unknown = vec!["foobar".to_string()];
+        let result = unknown.run(&*db, OutputFormat::Table);
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("foobar"),
+            "Error should include the command name, got: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_unknown_command_empty_args() {
+        let db = db::backend::open_mem_database().expect("Should open in-memory database");
+        let unknown: Vec<String> = vec![];
+        let result = unknown.run(&*db, OutputFormat::Table);
+        assert!(result.is_err(), "Unknown command with empty args should return an error");
+    }
+}

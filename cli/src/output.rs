@@ -184,3 +184,176 @@ where
         format_module_table(self, &self.items, self.total_items)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use db::types::ModuleGroup;
+
+    // A minimal entry type for testing the default trait methods
+    #[derive(Debug, serde::Serialize)]
+    struct TestEntry {
+        name: String,
+    }
+
+    impl TableFormatter for ModuleGroupResult<TestEntry> {
+        type Entry = TestEntry;
+
+        fn format_header(&self) -> String {
+            format!("Test: {}", self.module_pattern)
+        }
+
+        fn format_empty_message(&self) -> String {
+            "No entries.".to_string()
+        }
+
+        fn format_summary(&self, total: usize, module_count: usize) -> String {
+            format!("Found {} entries in {} modules:", total, module_count)
+        }
+
+        fn format_module_header(&self, module_name: &str, _module_file: &str) -> String {
+            module_name.to_string()
+        }
+
+        fn format_entry(&self, entry: &TestEntry, _module_name: &str, _module_file: &str) -> String {
+            entry.name.clone()
+        }
+    }
+
+    #[test]
+    fn test_format_entry_details_default_returns_empty_vec() {
+        let result = ModuleGroupResult::<TestEntry> {
+            module_pattern: "test".to_string(),
+            function_pattern: None,
+            total_items: 1,
+            items: vec![ModuleGroup {
+                name: "TestModule".to_string(),
+                file: "test.ex".to_string(),
+                entries: vec![TestEntry { name: "entry1".to_string() }],
+                function_count: None,
+            }],
+        };
+
+        let details = result.format_entry_details(
+            &result.items[0].entries[0],
+            "TestModule",
+            "test.ex",
+        );
+        assert!(details.is_empty(), "Default format_entry_details should return empty vec");
+    }
+
+    #[test]
+    fn test_format_module_table_without_details() {
+        let result = ModuleGroupResult::<TestEntry> {
+            module_pattern: "test".to_string(),
+            function_pattern: None,
+            total_items: 1,
+            items: vec![ModuleGroup {
+                name: "TestModule".to_string(),
+                file: "test.ex".to_string(),
+                entries: vec![TestEntry { name: "entry1".to_string() }],
+                function_count: None,
+            }],
+        };
+
+        let table = result.to_table();
+        // The output should contain the entry but no detail lines (indented with 4 spaces)
+        assert!(table.contains("  entry1"), "Should contain entry");
+        assert!(!table.contains("    "), "Should not contain detail lines (4-space indent)");
+    }
+
+    #[test]
+    fn test_format_module_header_with_entries_default_delegates() {
+        let result = ModuleGroupResult::<TestEntry> {
+            module_pattern: "test".to_string(),
+            function_pattern: None,
+            total_items: 1,
+            items: vec![ModuleGroup {
+                name: "TestModule".to_string(),
+                file: "test.ex".to_string(),
+                entries: vec![TestEntry { name: "entry1".to_string() }],
+                function_count: None,
+            }],
+        };
+
+        let header_with = result.format_module_header_with_entries(
+            "TestModule",
+            "test.ex",
+            &result.items[0].entries,
+        );
+        let header_without = result.format_module_header("TestModule", "test.ex");
+        assert_eq!(header_with, header_without, "Default format_module_header_with_entries should delegate to format_module_header");
+    }
+
+    #[test]
+    fn test_blank_after_summary_default() {
+        let result = ModuleGroupResult::<TestEntry> {
+            module_pattern: "test".to_string(),
+            function_pattern: None,
+            total_items: 0,
+            items: vec![],
+        };
+        assert!(result.blank_after_summary(), "Default blank_after_summary should return true");
+    }
+
+    #[test]
+    fn test_blank_before_module_default() {
+        let result = ModuleGroupResult::<TestEntry> {
+            module_pattern: "test".to_string(),
+            function_pattern: None,
+            total_items: 0,
+            items: vec![],
+        };
+        assert!(!result.blank_before_module(), "Default blank_before_module should return false");
+    }
+
+    #[test]
+    fn test_format_module_table_empty() {
+        let result = ModuleGroupResult::<TestEntry> {
+            module_pattern: "test".to_string(),
+            function_pattern: None,
+            total_items: 0,
+            items: vec![],
+        };
+
+        let table = result.to_table();
+        assert!(table.contains("No entries."), "Empty result should show empty message");
+    }
+
+    #[test]
+    fn test_format_output_json() {
+        let result = ModuleGroupResult::<TestEntry> {
+            module_pattern: "test".to_string(),
+            function_pattern: None,
+            total_items: 1,
+            items: vec![ModuleGroup {
+                name: "TestModule".to_string(),
+                file: "test.ex".to_string(),
+                entries: vec![TestEntry { name: "entry1".to_string() }],
+                function_count: None,
+            }],
+        };
+
+        let json = result.format(OutputFormat::Json);
+        let parsed: serde_json::Value = serde_json::from_str(&json).expect("Should produce valid JSON");
+        assert_eq!(parsed["module_pattern"], "test");
+    }
+
+    #[test]
+    fn test_format_output_toon() {
+        let result = ModuleGroupResult::<TestEntry> {
+            module_pattern: "test".to_string(),
+            function_pattern: None,
+            total_items: 1,
+            items: vec![ModuleGroup {
+                name: "TestModule".to_string(),
+                file: "test.ex".to_string(),
+                entries: vec![TestEntry { name: "entry1".to_string() }],
+                function_count: None,
+            }],
+        };
+
+        let toon = result.format(OutputFormat::Toon);
+        assert!(!toon.is_empty(), "Toon output should not be empty");
+    }
+}
