@@ -113,7 +113,7 @@ impl Execute for ClustersCmd {
                     let key = (caller_ns, callee_ns);
                     *cross_deps.entry(key).or_insert(0) += 1;
                 }
-            } else if caller_in_filter && !callee_in_filter {
+            } else if caller_in_filter {
                 // Same namespace but callee outside filter - count as outgoing
                 *outgoing_calls.entry(caller_ns.clone()).or_insert(0) += 1;
             }
@@ -128,7 +128,7 @@ impl Execute for ClustersCmd {
 
             // Cohesion: internal / (internal + outgoing + incoming)
             let total_interactions = internal + outgoing + incoming;
-            let cohesion = if total_interactions > 0 {
+            let cohesion = if total_interactions != 0 {
                 internal as f64 / total_interactions as f64
             } else {
                 0.0
@@ -137,7 +137,7 @@ impl Execute for ClustersCmd {
             // Instability: outgoing / (incoming + outgoing)
             // 0 = stable (depended upon), 1 = unstable (depends on others)
             let external_total = incoming + outgoing;
-            let instability = if external_total > 0 {
+            let instability = if external_total != 0 {
                 outgoing as f64 / external_total as f64
             } else {
                 0.0
