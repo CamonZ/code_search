@@ -151,6 +151,85 @@ mod tests {
         assert!(output.contains("..."));
     }
 
+    /// Boundary test for hash truncation: a 20-char hash must NOT be truncated.
+    /// Catches the `> replaced with >=` mutant at output.rs:23.
+    #[test]
+    fn test_hash_exactly_20_chars_not_truncated() {
+        // Exactly 20 characters -- should NOT be truncated
+        let hash_20 = "12345678901234567890";
+        assert_eq!(hash_20.len(), 20);
+
+        let result = DuplicatesResult {
+            total_groups: 1,
+            total_duplicates: 2,
+            groups: vec![DuplicateGroup {
+                hash: hash_20.to_string(),
+                functions: vec![
+                    DuplicateFunctionEntry {
+                        module: "A".to_string(),
+                        name: "f".to_string(),
+                        arity: 0,
+                        line: 1,
+                        file: "a.ex".to_string(),
+                    },
+                    DuplicateFunctionEntry {
+                        module: "B".to_string(),
+                        name: "f".to_string(),
+                        arity: 0,
+                        line: 2,
+                        file: "b.ex".to_string(),
+                    },
+                ],
+            }],
+        };
+
+        let output = result.to_table();
+        // The full 20-char hash should appear in the output (hash:XXXX...) format
+        assert!(output.contains(hash_20),
+            "A 20-char hash should not be truncated, full hash should appear in output");
+    }
+
+    /// Boundary test for hash truncation: a 21-char hash MUST be truncated.
+    /// Catches `> replaced with ==` and `> replaced with <` mutants at output.rs:23.
+    #[test]
+    fn test_hash_21_chars_is_truncated() {
+        // Exactly 21 characters -- should be truncated
+        let hash_21 = "123456789012345678901";
+        assert_eq!(hash_21.len(), 21);
+
+        let result = DuplicatesResult {
+            total_groups: 1,
+            total_duplicates: 2,
+            groups: vec![DuplicateGroup {
+                hash: hash_21.to_string(),
+                functions: vec![
+                    DuplicateFunctionEntry {
+                        module: "A".to_string(),
+                        name: "f".to_string(),
+                        arity: 0,
+                        line: 1,
+                        file: "a.ex".to_string(),
+                    },
+                    DuplicateFunctionEntry {
+                        module: "B".to_string(),
+                        name: "f".to_string(),
+                        arity: 0,
+                        line: 2,
+                        file: "b.ex".to_string(),
+                    },
+                ],
+            }],
+        };
+
+        let output = result.to_table();
+        // The full 21-char hash should NOT appear
+        assert!(!output.contains(hash_21),
+            "A 21-char hash should be truncated");
+        // First 17 chars + "..." should appear
+        assert!(output.contains(&hash_21[..17]),
+            "Truncated hash should contain first 17 chars");
+    }
+
     #[test]
     fn test_format_json() {
         let result = DuplicatesResult {
