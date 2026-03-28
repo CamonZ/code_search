@@ -164,11 +164,160 @@ impl Execute for TraceCmd {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use db::types::FunctionRef;
 
     #[test]
     fn test_empty_trace() {
         let result = TraceResult::empty("TestModule".to_string(), "test_func".to_string(), 5, db::TraceDirection::Forward);
         assert_eq!(result.total_items, 0);
         assert_eq!(result.entries.len(), 0);
+    }
+
+    /// Helper to build a Call at a given depth with caller and callee details.
+    fn make_call(
+        caller_module: &str,
+        caller_name: &str,
+        caller_arity: i64,
+        callee_module: &str,
+        callee_name: &str,
+        callee_arity: i64,
+        line: i64,
+        depth: i64,
+    ) -> Call {
+        Call {
+            caller: FunctionRef::new(caller_module, caller_name, caller_arity),
+            callee: FunctionRef::new(callee_module, callee_name, callee_arity),
+            line,
+            call_type: None,
+            depth: Some(depth),
+        }
+    }
+
+    // =========================================================================
+    // Deduplication tests for depth-1 conditional (lines 52-60)
+    // These kill mutants where == is replaced with != and && with ||
+    // =========================================================================
+
+    /// Duplicate calls at depth 1 with identical (module, function, arity) must
+    /// produce exactly one entry. Kills mutants: `== -> !=` on depth, module,
+    /// function, and arity checks (lines 53-56), plus `&& -> ||` on line 60.
+    #[test]
+    fn test_duplicate_calls_at_depth_1_are_deduplicated() {
+        let calls = vec![
+            make_call("Start", "go", 0, "Target", "run", 1, 10, 1),
+            make_call("Start", "go", 0, "Target", "run", 1, 15, 1), // duplicate
+        ];
+        let result = build_trace_result("Start".into(), "go".into(), 5, calls);
+        // Root + exactly 1 callee (the duplicate should be filtered out)
+        assert_eq!(result.entries.len(), 2, "duplicate depth-1 call should be deduplicated");
+        assert_eq!(result.total_items, 1);
+        assert_eq!(result.entries[1].module, "Target");
+        assert_eq!(result.entries[1].function, "run");
+        assert_eq!(result.entries[1].arity, 1);
+    }
+
+    /// Two calls at depth 1 that differ ONLY in module must produce two entries.
+    /// Kills mutant: `&& -> ||` on the module comparison (line 54).
+    #[test]
+    fn test_different_module_at_depth_1_not_deduplicated() {
+        let calls = vec![
+            make_call("Start", "go", 0, "Alpha", "run", 1, 10, 1),
+            make_call("Start", "go", 0, "Beta", "run", 1, 15, 1),
+        ];
+        let result = build_trace_result("Start".into(), "go".into(), 5, calls);
+        // Root + 2 distinct callees
+        assert_eq!(result.entries.len(), 3, "different modules should produce separate entries");
+        assert_eq!(result.total_items, 2);
+        assert_eq!(result.entries[1].module, "Alpha");
+        assert_eq!(result.entries[2].module, "Beta");
+    }
+
+    /// Two calls at depth 1 that differ ONLY in function name must produce two
+    /// entries. Kills mutant: `&& -> ||` on the function comparison (line 55).
+    #[test]
+    fn test_different_function_at_depth_1_not_deduplicated() {
+        let calls = vec![
+            make_call("Start", "go", 0, "Target", "run", 1, 10, 1),
+            make_call("Start", "go", 0, "Target", "walk", 1, 15, 1),
+        ];
+        let result = build_trace_result("Start".into(), "go".into(), 5, calls);
+        assert_eq!(result.entries.len(), 3, "different functions should produce separate entries");
+        assert_eq!(result.total_items, 2);
+        assert_eq!(result.entries[1].function, "run");
+        assert_eq!(result.entries[2].function, "walk");
+    }
+
+    /// Two calls at depth 1 that differ ONLY in arity must produce two entries.
+    /// Kills mutant: `== -> !=` on the arity comparison (line 56).
+    #[test]
+    fn test_different_arity_at_depth_1_not_deduplicated() {
+        let calls = vec![
+            make_call("Start", "go", 0, "Target", "run", 1, 10, 1),
+            make_call("Start", "go", 0, "Target", "run", 2, 15, 1),
+        ];
+        let result = build_trace_result("Start".into(), "go".into(), 5, calls);
+        assert_eq!(result.entries.len(), 3, "different arities should produce separate entries");
+        assert_eq!(result.total_items, 2);
+        assert_eq!(result.entries[1].arity, 1);
+        assert_eq!(result.entries[2].arity, 2);
+    }
+
+    /// Multiple distinct callees at depth 1 followed by a duplicate. Ensures the
+    /// `|| -> &&` mutant on line 59 is killed: that mutant causes
+    /// `seen_at_depth.insert(usize::MAX)` to block subsequent new entries after the
+    /// first one.
+    #[test]
+    fn test_multiple_distinct_callees_at_depth_1() {
+        let calls = vec![
+            make_call("Start", "go", 0, "Alpha", "a", 0, 10, 1),
+            make_call("Start", "go", 0, "Beta", "b", 0, 20, 1),
+            make_call("Start", "go", 0, "Gamma", "c", 0, 30, 1),
+            make_call("Start", "go", 0, "Alpha", "a", 0, 40, 1), // duplicate of first
+        ];
+        let result = build_trace_result("Start".into(), "go".into(), 5, calls);
+        // Root + 3 distinct callees (Alpha, Beta, Gamma); the duplicate Alpha is filtered
+        assert_eq!(result.entries.len(), 4, "should have root + 3 distinct callees");
+        assert_eq!(result.total_items, 3);
+    }
+
+    // =========================================================================
+    // Integration: run() through formatted output
+    // =========================================================================
+
+    /// Test build_trace_result with a full call chain (depth 1 + depth 2) to verify
+    /// the result metadata is correctly assembled and can be formatted.
+    #[test]
+    fn test_build_trace_result_formats_through_output() {
+        use crate::output::Outputable;
+
+        let calls = vec![
+            make_call("Start", "go", 0, "Mid", "step", 1, 10, 1),
+            make_call("Mid", "step", 1, "End", "done", 0, 20, 2),
+        ];
+        let result = build_trace_result("Start".into(), "go".into(), 5, calls);
+
+        assert_eq!(result.module, "Start");
+        assert_eq!(result.function, "go");
+        assert_eq!(result.max_depth, 5);
+        assert!(matches!(result.direction, TraceDirection::Forward));
+        assert_eq!(result.total_items, 2);
+        assert_eq!(result.entries.len(), 3); // root + 2 callees
+
+        let table = result.to_table();
+        assert!(table.contains("Trace from: Start.go"), "output should include header");
+        assert!(table.contains("Found 2 call(s) in chain:"), "output should include count");
+        assert!(table.contains("Mid.step/1"), "output should include depth-1 callee");
+        assert!(table.contains("End.done/0"), "output should include depth-2 callee");
+    }
+
+    /// Verify that an empty call list returns an empty TraceResult (via the early return).
+    #[test]
+    fn test_empty_calls_returns_empty_result() {
+        let result = build_trace_result("Mod".into(), "func".into(), 3, vec![]);
+        assert_eq!(result.total_items, 0);
+        assert!(result.entries.is_empty());
+        assert_eq!(result.module, "Mod");
+        assert_eq!(result.function, "func");
+        assert_eq!(result.max_depth, 3);
     }
 }
