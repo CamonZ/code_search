@@ -273,6 +273,55 @@ mod tests {
     }
 
     // =========================================================================
+    // Name filter with structs
+    // =========================================================================
+
+    crate::execute_test! {
+        test_name: test_browse_module_name_filter_includes_matching_structs,
+        fixture: structs_db,
+        cmd: BrowseModuleCmd {
+            module_or_file: "MyApp\\..*".to_string(),
+            kind: Some(DefinitionKind::Structs),
+            name: Some("User".to_string()),
+            common: CommonArgs {
+                regex: true,
+                limit: 100,
+            },
+        },
+        assertions: |result| {
+            // Only MyApp.User should match the name filter "User"
+            assert_eq!(result.definitions.len(), 1, "Only one struct should match name filter");
+            if let Definition::Struct { name, .. } = &result.definitions[0] {
+                assert_eq!(name, "MyApp.User", "Matched struct should be MyApp.User");
+            } else {
+                panic!("Expected struct definition");
+            }
+        },
+    }
+
+    crate::execute_test! {
+        test_name: test_browse_module_name_filter_excludes_non_matching_structs,
+        fixture: structs_db,
+        cmd: BrowseModuleCmd {
+            module_or_file: "MyApp\\..*".to_string(),
+            kind: Some(DefinitionKind::Structs),
+            name: Some("User".to_string()),
+            common: CommonArgs {
+                regex: true,
+                limit: 100,
+            },
+        },
+        assertions: |result| {
+            // MyApp.Post and MyApp.Comment should be excluded
+            let names: Vec<&str> = result.definitions.iter().filter_map(|d| {
+                if let Definition::Struct { name, .. } = d { Some(name.as_str()) } else { None }
+            }).collect();
+            assert!(!names.contains(&"MyApp.Post"), "Post should not match name filter 'User'");
+            assert!(!names.contains(&"MyApp.Comment"), "Comment should not match name filter 'User'");
+        },
+    }
+
+    // =========================================================================
     // No match / empty result tests
     // =========================================================================
 

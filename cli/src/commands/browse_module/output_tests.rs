@@ -54,6 +54,28 @@ Found 1 definition(s):
 
 ";
 
+    const ARGS_ONLY_TABLE: &str = "\
+Definitions in MyApp.Accounts
+
+Found 1 definition(s):
+
+  MyApp.Accounts:
+    L10-15  [def] get_user/1
+           (integer())
+
+";
+
+    const RETURN_TYPE_ONLY_TABLE: &str = "\
+Definitions in MyApp.Accounts
+
+Found 1 definition(s):
+
+  MyApp.Accounts:
+    L10-15  [def] get_user/1
+            User.t() | nil
+
+";
+
     // =========================================================================
     // Fixtures
     // =========================================================================
@@ -152,6 +174,52 @@ Found 1 definition(s):
     }
 
     #[fixture]
+    fn args_only_result() -> BrowseModuleResult {
+        BrowseModuleResult {
+            search_term: "MyApp.Accounts".to_string(),
+            kind_filter: None,
+            total_items: 1,
+            definitions: vec![Definition::Function {
+                module: "MyApp.Accounts".to_string(),
+                file: "lib/accounts.ex".to_string(),
+                name: "get_user".to_string(),
+                arity: 1,
+                line: 10,
+                start_line: 10,
+                end_line: 15,
+                kind: "def".to_string(),
+                args: "(integer())".to_string(),
+                return_type: String::new(),
+                pattern: String::new(),
+                guard: String::new(),
+            }],
+        }
+    }
+
+    #[fixture]
+    fn return_type_only_result() -> BrowseModuleResult {
+        BrowseModuleResult {
+            search_term: "MyApp.Accounts".to_string(),
+            kind_filter: None,
+            total_items: 1,
+            definitions: vec![Definition::Function {
+                module: "MyApp.Accounts".to_string(),
+                file: "lib/accounts.ex".to_string(),
+                name: "get_user".to_string(),
+                arity: 1,
+                line: 10,
+                start_line: 10,
+                end_line: 15,
+                kind: "def".to_string(),
+                args: String::new(),
+                return_type: "User.t() | nil".to_string(),
+                pattern: String::new(),
+                guard: String::new(),
+            }],
+        }
+    }
+
+    #[fixture]
     fn struct_result() -> BrowseModuleResult {
         BrowseModuleResult {
             search_term: "MyApp.User".to_string(),
@@ -208,6 +276,20 @@ Found 1 definition(s):
         fixture: struct_result,
         fixture_type: BrowseModuleResult,
         expected: STRUCT_TABLE,
+    }
+
+    crate::output_table_test! {
+        test_name: test_to_table_args_only,
+        fixture: args_only_result,
+        fixture_type: BrowseModuleResult,
+        expected: ARGS_ONLY_TABLE,
+    }
+
+    crate::output_table_test! {
+        test_name: test_to_table_return_type_only,
+        fixture: return_type_only_result,
+        fixture_type: BrowseModuleResult,
+        expected: RETURN_TYPE_ONLY_TABLE,
     }
 
     // =========================================================================
