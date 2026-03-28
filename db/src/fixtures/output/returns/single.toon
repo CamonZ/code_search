@@ -1,0 +1,7 @@
+function_pattern: user()
+items[1]:
+  - entries[1]{arity,line,name,return_type}:
+    1,10,get_user,"{:ok, user()}, {:error, :not_found}"
+    name: MyApp.Accounts
+module_pattern: *
+total_items: 1
