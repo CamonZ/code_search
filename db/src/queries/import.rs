@@ -1607,4 +1607,255 @@ mod tests {
         assert_eq!(incoming, 0, "helper should have incoming_call_count=0");
         assert_eq!(outgoing, 0, "helper should have outgoing_call_count=0");
     }
+
+    /// Test create_schema actually creates tables in the DB (not just returns default)
+    ///
+    /// Kills mutant: create_schema -> Ok(Default::default())
+    /// by verifying the wrapper populates created/already_existed from real DB state.
+    #[test]
+    fn test_create_schema_creates_tables_in_db() {
+        let db = crate::open_mem_db().unwrap();
+
+        // First call: all tables should be newly created
+        let result = create_schema(&*db).unwrap();
+        assert!(
+            !result.created.is_empty(),
+            "First create_schema call should report created tables"
+        );
+
+        // Second call: all tables should already exist (none newly created)
+        let result2 = create_schema(&*db).unwrap();
+        assert!(
+            !result2.already_existed.is_empty(),
+            "Second create_schema call should report already_existed tables"
+        );
+        assert!(
+            result2.created.is_empty(),
+            "Second create_schema call should not create any new tables"
+        );
+    }
+
+    /// Test import_json_str actually persists data to the database
+    ///
+    /// Kills mutant: import_json_str -> Ok(Default::default())
+    /// by querying the DB after import to confirm records exist.
+    #[test]
+    fn test_import_json_str_persists_data() {
+        let db = crate::open_mem_db().unwrap();
+
+        let json = r#"{
+            "specs": {
+                "MyApp.Accounts": [
+                    {"name": "get_user", "arity": 1, "line": 10, "kind": "spec", "clauses": [{"full": "@spec get_user(integer()) :: user()", "input_strings": ["integer()"], "return_strings": ["user()"]}]}
+                ]
+            },
+            "function_locations": {
+                "MyApp.Accounts": {
+                    "get_user/1:10": {
+                        "name": "get_user",
+                        "arity": 1,
+                        "file": "lib/accounts.ex",
+                        "kind": "def",
+                        "line": 10,
+                        "start_line": 10,
+                        "end_line": 15,
+                        "complexity": 3
+                    }
+                }
+            },
+            "calls": [],
+            "structs": {
+                "MyApp.User": {
+                    "fields": [
+                        {"field": "name", "default": "nil", "required": true}
+                    ]
+                }
+            },
+            "types": {}
+        }"#;
+
+        let result = import_json_str(&*db, json).unwrap();
+        assert!(
+            result.functions_imported > 0,
+            "Should report functions imported"
+        );
+
+        // Verify functions actually exist in the DB
+        let rows = db
+            .execute_query("SELECT name FROM functions", QueryParams::new())
+            .unwrap();
+        assert!(
+            !rows.rows().is_empty(),
+            "Functions should be persisted in the database"
+        );
+
+        // Verify clauses actually exist in the DB
+        let rows = db
+            .execute_query("SELECT function_name FROM clauses", QueryParams::new())
+            .unwrap();
+        assert!(
+            !rows.rows().is_empty(),
+            "Clauses should be persisted in the database"
+        );
+
+        // Verify structs (fields) actually exist in the DB
+        let rows = db
+            .execute_query("SELECT name FROM fields", QueryParams::new())
+            .unwrap();
+        assert!(
+            !rows.rows().is_empty(),
+            "Fields should be persisted in the database"
+        );
+    }
+
+    /// Test clear_project_data actually removes records from the database
+    ///
+    /// Kills mutant: clear_project_data -> Ok(())
+    /// by asserting record counts are zero after clearing.
+    #[test]
+    fn test_clear_project_data_removes_all_records() {
+        let db = crate::open_mem_db().unwrap();
+        crate::queries::schema::create_schema(&*db).unwrap();
+
+        let json = r#"{
+            "specs": {
+                "MyApp.Accounts": [
+                    {"name": "get_user", "arity": 1, "line": 10, "kind": "spec", "clauses": [{"full": "@spec", "input_strings": [], "return_strings": []}]}
+                ]
+            },
+            "function_locations": {
+                "MyApp.Accounts": {
+                    "get_user/1:10": {
+                        "name": "get_user",
+                        "arity": 1,
+                        "file": "lib/accounts.ex",
+                        "kind": "def",
+                        "line": 10,
+                        "start_line": 10,
+                        "end_line": 15
+                    }
+                }
+            },
+            "calls": [],
+            "structs": {
+                "MyApp.User": {
+                    "fields": [
+                        {"field": "name", "default": "nil", "required": true}
+                    ]
+                }
+            },
+            "types": {
+                "MyApp.Accounts": [
+                    {"name": "user", "kind": "type", "params": [], "line": 5, "definition": "@type user() :: map()"}
+                ]
+            }
+        }"#;
+
+        let graph: CallGraph = serde_json::from_str(json).unwrap();
+        import_modules(&*db, &graph).unwrap();
+        import_functions(&*db, &graph).unwrap();
+        import_function_locations(&*db, &graph).unwrap();
+        import_specs(&*db, &graph).unwrap();
+        import_structs(&*db, &graph).unwrap();
+        import_types(&*db, &graph).unwrap();
+        create_has_clause_relationships(&*db, &graph).unwrap();
+        create_has_field_relationships(&*db, &graph).unwrap();
+
+        // Verify data was imported for key tables
+        let rows = db
+            .execute_query("SELECT * FROM modules", QueryParams::new())
+            .unwrap();
+        assert!(
+            !rows.rows().is_empty(),
+            "Modules should exist before clearing"
+        );
+        let rows = db
+            .execute_query("SELECT * FROM functions", QueryParams::new())
+            .unwrap();
+        assert!(
+            !rows.rows().is_empty(),
+            "Functions should exist before clearing"
+        );
+
+        // Clear all data
+        clear_project_data(&*db).unwrap();
+
+        // Verify all tables are now empty
+        let tables = [
+            "modules",
+            "functions",
+            "clauses",
+            "specs",
+            "types",
+            "fields",
+            "has_clause",
+            "has_field",
+        ];
+        for table in tables {
+            let query = format!("SELECT * FROM {}", table);
+            let rows = db.execute_query(&query, QueryParams::new()).unwrap();
+            assert!(
+                rows.rows().is_empty(),
+                "Table '{}' should be empty after clear_project_data",
+                table
+            );
+        }
+    }
+
+    /// Test create_has_clause_relationships persists relationships in the DB
+    ///
+    /// Kills mutant: create_has_clause_relationships -> Ok(1)
+    /// by querying the has_clause table to verify the relationship was actually created.
+    #[test]
+    fn test_create_has_clause_relationships_persists_in_db() {
+        let db = crate::open_mem_db().unwrap();
+        crate::queries::schema::create_schema(&*db).unwrap();
+
+        let json = r#"{
+            "specs": {},
+            "function_locations": {
+                "MyApp.Accounts": {
+                    "get_user/1:10": {
+                        "name": "get_user",
+                        "arity": 1,
+                        "file": "lib/accounts.ex",
+                        "kind": "def",
+                        "line": 10,
+                        "start_line": 10,
+                        "end_line": 15
+                    },
+                    "get_user/1:20": {
+                        "name": "get_user",
+                        "arity": 1,
+                        "file": "lib/accounts.ex",
+                        "kind": "def",
+                        "line": 20,
+                        "start_line": 20,
+                        "end_line": 25
+                    }
+                }
+            },
+            "calls": [],
+            "structs": {},
+            "types": {}
+        }"#;
+
+        let graph: CallGraph = serde_json::from_str(json).unwrap();
+        import_modules(&*db, &graph).unwrap();
+        import_functions(&*db, &graph).unwrap();
+        import_function_locations(&*db, &graph).unwrap();
+
+        let count = create_has_clause_relationships(&*db, &graph).unwrap();
+        assert_eq!(count, 2, "Should create 2 has_clause relationships");
+
+        // Verify the relationships actually exist in the DB
+        let rows = db
+            .execute_query("SELECT * FROM has_clause", QueryParams::new())
+            .unwrap();
+        assert_eq!(
+            rows.rows().len(),
+            2,
+            "has_clause table should contain 2 relationship records"
+        );
+    }
 }
