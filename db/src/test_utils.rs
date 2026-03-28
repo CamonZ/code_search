@@ -2,11 +2,11 @@
 //!
 //! This module provides common helpers for setting up test databases with fixture data.
 
-#[cfg(feature = "test-utils")]
+#[cfg(any(test, feature = "test-utils"))]
 use std::io::Write;
 
 use crate::backend::Database;
-#[cfg(feature = "test-utils")]
+#[cfg(any(test, feature = "test-utils"))]
 use tempfile::NamedTempFile;
 
 use crate::db::open_mem_db;
@@ -17,7 +17,7 @@ use crate::queries::import::import_json_str;
 /// Create a temporary file containing the given content.
 ///
 /// Used to create JSON files for importing test data.
-#[cfg(feature = "test-utils")]
+#[cfg(any(test, feature = "test-utils"))]
 pub fn create_temp_json_file(content: &str) -> NamedTempFile {
     let mut file = NamedTempFile::new().expect("Failed to create temp file");
     file.write_all(content.as_bytes())
@@ -2381,5 +2381,103 @@ mod surrealdb_fixture_tests {
 
         assert_eq!(spec_rows.len(), 9, "Should have 9 spec entries");
         assert_eq!(callback_rows.len(), 3, "Should have 3 callback entries");
+    }
+
+    // =========================================================================
+    // Tests for test infrastructure helpers
+    // =========================================================================
+
+    #[test]
+    fn test_create_temp_json_file_writes_content() {
+        let content = r#"{"modules": [{"name": "TestModule"}]}"#;
+        let file = create_temp_json_file(content);
+
+        // Read back and verify the content was actually written
+        let read_back = std::fs::read_to_string(file.path())
+            .expect("Should be able to read temp file");
+        assert_eq!(read_back, content, "File content should match what was written");
+    }
+
+    #[test]
+    fn test_load_output_fixture_returns_nonempty_content() {
+        let content = load_output_fixture("search", "modules.toon");
+
+        // The fixture must return actual file content, not an empty string
+        assert!(
+            !content.is_empty(),
+            "load_output_fixture should return non-empty content"
+        );
+        // Verify it contains plausible fixture data (not a placeholder like "xyzzy")
+        assert!(
+            content.len() > 10,
+            "Fixture content should be meaningful, got {} bytes",
+            content.len()
+        );
+    }
+
+    // =========================================================================
+    // Tests verifying insert_defines actually inserts data
+    // =========================================================================
+
+    #[test]
+    fn test_insert_defines_creates_relationship() {
+        let db = open_mem_db().expect("Failed to create in-memory database");
+        schema::create_schema(&*db).expect("Failed to create schema");
+
+        // Insert prerequisite nodes
+        insert_module(&*db, "TestModule").expect("Failed to insert module");
+        insert_function(&*db, "TestModule", "my_func", 1)
+            .expect("Failed to insert function");
+
+        // Insert the defines relationship
+        insert_defines(&*db, "TestModule", "functions", "TestModule⟩,⟨my_func⟩,⟨1")
+            .expect("insert_defines should succeed");
+
+        // Query to verify the relationship was actually created
+        let result = db
+            .execute_query_no_params("SELECT * FROM defines")
+            .expect("Should be able to query defines");
+
+        let rows = result.rows();
+        assert_eq!(
+            rows.len(),
+            1,
+            "insert_defines should have created exactly 1 relationship, got {}",
+            rows.len()
+        );
+    }
+
+    // =========================================================================
+    // Tests verifying insert_has_clause actually inserts data
+    // =========================================================================
+
+    #[test]
+    fn test_insert_has_clause_creates_relationship() {
+        let db = open_mem_db().expect("Failed to create in-memory database");
+        schema::create_schema(&*db).expect("Failed to create schema");
+
+        // Insert prerequisite nodes
+        insert_module(&*db, "TestModule").expect("Failed to insert module");
+        insert_function(&*db, "TestModule", "my_func", 1)
+            .expect("Failed to insert function");
+        insert_clause(&*db, "TestModule", "my_func", 1, 10, "lib/test.ex", "def", 1, 1)
+            .expect("Failed to insert clause");
+
+        // Insert the has_clause relationship
+        insert_has_clause(&*db, "TestModule", "my_func", 1, 10)
+            .expect("insert_has_clause should succeed");
+
+        // Query to verify the relationship was actually created
+        let result = db
+            .execute_query_no_params("SELECT * FROM has_clause")
+            .expect("Should be able to query has_clause");
+
+        let rows = result.rows();
+        assert_eq!(
+            rows.len(),
+            1,
+            "insert_has_clause should have created exactly 1 relationship, got {}",
+            rows.len()
+        );
     }
 }

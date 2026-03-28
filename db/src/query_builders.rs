@@ -293,6 +293,54 @@ mod tests {
     }
 
     // =========================================================================
+    // build_with_regex tests — ensure && vs || on supports_regex/use_regex
+    // =========================================================================
+
+    #[test]
+    fn test_build_with_regex_both_true_produces_regex() {
+        // supports_regex=true AND use_regex=true -> regex_matches
+        let builder = OptionalConditionBuilder::new("function", "function_pattern")
+            .with_regex();
+        assert_eq!(
+            builder.build_with_regex(true, true),
+            "regex_matches(function, $function_pattern)"
+        );
+    }
+
+    #[test]
+    fn test_build_with_regex_supports_false_use_true_produces_exact() {
+        // supports_regex=false AND use_regex=true -> exact match (not regex)
+        // This is the critical case: if && were replaced with ||, this would
+        // incorrectly produce regex_matches instead of exact match.
+        let builder = OptionalConditionBuilder::new("function", "function_pattern");
+        assert_eq!(
+            builder.build_with_regex(true, true),
+            "function == $function_pattern"
+        );
+    }
+
+    #[test]
+    fn test_build_with_regex_supports_true_use_false_produces_exact() {
+        // supports_regex=true AND use_regex=false -> exact match
+        let builder = OptionalConditionBuilder::new("function", "function_pattern")
+            .with_regex();
+        assert_eq!(
+            builder.build_with_regex(true, false),
+            "function == $function_pattern"
+        );
+    }
+
+    #[test]
+    fn test_build_with_regex_both_false_produces_exact() {
+        // supports_regex=false AND use_regex=false -> exact match
+        let builder = OptionalConditionBuilder::new("function", "function_pattern");
+        assert_eq!(
+            builder.build_with_regex(true, false),
+            "function == $function_pattern"
+        );
+    }
+
+    // =========================================================================
     // Regex validation tests
     // =========================================================================
 
