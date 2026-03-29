@@ -3,6 +3,8 @@
 #[cfg(test)]
 mod tests {
     use super::super::PathCmd;
+    use crate::commands::CommandRunner;
+    use crate::output::OutputFormat;
     use rstest::{fixture, rstest};
 
     crate::shared_fixture! {
@@ -29,6 +31,13 @@ mod tests {
             limit: 10,
         },
         assertions: |result| {
+            // Assert metadata fields are populated from the command
+            assert_eq!(result.from_module, "MyApp.Controller");
+            assert_eq!(result.from_function, "index");
+            assert_eq!(result.to_module, "MyApp.Accounts");
+            assert_eq!(result.to_function, "list_users");
+            assert_eq!(result.max_depth, 10);
+            // Assert path structure
             assert_eq!(result.paths.len(), 1);
             assert_eq!(result.paths[0].steps.len(), 1);
             assert_eq!(result.paths[0].steps[0].caller_module, "MyApp.Controller");
@@ -192,6 +201,45 @@ mod tests {
             limit: 10,
         },
         empty_field: paths,
+    }
+
+    // =========================================================================
+    // run() integration test (CommandRunner trait)
+    // =========================================================================
+
+    #[rstest]
+    fn test_run_produces_formatted_output(populated_db: Box<dyn db::backend::Database>) {
+        let cmd = PathCmd {
+            from_module: "MyApp.Controller".to_string(),
+            from_function: "index".to_string(),
+            from_arity: 2,
+            to_module: "MyApp.Accounts".to_string(),
+            to_function: "list_users".to_string(),
+            to_arity: 0,
+            depth: 10,
+            limit: 10,
+        };
+        let output = cmd
+            .run(&*populated_db, OutputFormat::Table)
+            .expect("run() should succeed");
+
+        // Verify the header contains the from/to metadata
+        assert!(
+            output.contains("Path from: MyApp.Controller.index to: MyApp.Accounts.list_users"),
+            "Output should contain path header, got: {output}"
+        );
+
+        // Verify max depth is shown
+        assert!(
+            output.contains("Max depth: 10"),
+            "Output should contain max depth, got: {output}"
+        );
+
+        // Verify a path was found
+        assert!(
+            output.contains("Found 1 path(s):"),
+            "Output should report found paths, got: {output}"
+        );
     }
 
 }

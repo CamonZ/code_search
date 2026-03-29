@@ -1,6 +1,11 @@
 mod execute;
 mod output;
 
+#[cfg(test)]
+mod execute_tests;
+#[cfg(test)]
+mod output_tests;
+
 use db::backend::Database;
 use std::error::Error;
 

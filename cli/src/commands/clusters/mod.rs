@@ -1,5 +1,7 @@
 mod execute;
+mod execute_tests;
 mod output;
+mod output_tests;
 
 use std::error::Error;
 

@@ -69,3 +69,137 @@ where
     items.sort_by(sort_cmp);
     deduplicate_retain(items, dedup_key);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // =========================================================================
+    // deduplicate_retain tests
+    // =========================================================================
+
+    #[test]
+    fn deduplicate_retain_removes_duplicates_preserving_order() {
+        let mut items = vec![1, 2, 3, 2, 1, 4, 3, 5];
+        deduplicate_retain(&mut items, |x| *x);
+        assert_eq!(items, vec![1, 2, 3, 4, 5]);
+    }
+
+    #[test]
+    fn deduplicate_retain_keeps_first_occurrence() {
+        // Pairs of (key, value) - dedup by key, verify first value survives
+        let mut items = vec![(1, "first"), (2, "a"), (1, "second"), (2, "b")];
+        deduplicate_retain(&mut items, |x| x.0);
+        assert_eq!(items, vec![(1, "first"), (2, "a")]);
+    }
+
+    #[test]
+    fn deduplicate_retain_all_duplicates() {
+        let mut items = vec![7, 7, 7, 7];
+        deduplicate_retain(&mut items, |x| *x);
+        assert_eq!(items, vec![7]);
+    }
+
+    #[test]
+    fn deduplicate_retain_no_duplicates() {
+        let mut items = vec![1, 2, 3, 4];
+        deduplicate_retain(&mut items, |x| *x);
+        assert_eq!(items, vec![1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn deduplicate_retain_empty_input() {
+        let mut items: Vec<i32> = vec![];
+        deduplicate_retain(&mut items, |x| *x);
+        assert!(items.is_empty());
+    }
+
+    #[test]
+    fn deduplicate_retain_single_element() {
+        let mut items = vec![42];
+        deduplicate_retain(&mut items, |x| *x);
+        assert_eq!(items, vec![42]);
+    }
+
+    #[test]
+    fn deduplicate_retain_with_custom_key() {
+        // Dedup by string length, keeping first occurrence of each length
+        let mut items = vec!["hi", "hey", "go", "bye", "ok", "hello"];
+        deduplicate_retain(&mut items, |s| s.len());
+        assert_eq!(items, vec!["hi", "hey", "hello"]);
+    }
+
+    // =========================================================================
+    // sort_and_deduplicate tests
+    // =========================================================================
+
+    #[test]
+    fn sort_and_deduplicate_sorts_and_removes_duplicates() {
+        let mut items = vec![3, 1, 2, 3, 1, 4];
+        sort_and_deduplicate(&mut items, |a, b| a.cmp(b), |x| *x);
+        assert_eq!(items, vec![1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn sort_and_deduplicate_verifies_ordering() {
+        let mut items = vec![5, 3, 1, 4, 2];
+        sort_and_deduplicate(&mut items, |a, b| a.cmp(b), |x| *x);
+        assert_eq!(items, vec![1, 2, 3, 4, 5]);
+    }
+
+    #[test]
+    fn sort_and_deduplicate_verifies_dedup_after_sort() {
+        // Sort descending, dedup by value
+        let mut items = vec![1, 3, 2, 3, 1, 2];
+        sort_and_deduplicate(&mut items, |a, b| b.cmp(a), |x| *x);
+        assert_eq!(items, vec![3, 2, 1]);
+    }
+
+    #[test]
+    fn sort_and_deduplicate_with_different_sort_and_dedup_keys() {
+        // Tuples: sort by second field, dedup by first field
+        let mut items = vec![
+            ("a", 3),
+            ("b", 1),
+            ("a", 2),
+            ("c", 4),
+            ("b", 5),
+        ];
+        sort_and_deduplicate(
+            &mut items,
+            |a, b| a.1.cmp(&b.1),
+            |x| x.0,
+        );
+        // After sort by .1: ("b",1), ("a",2), ("a",3), ("c",4), ("b",5)
+        // After dedup by .0: ("b",1), ("a",2), ("c",4)
+        assert_eq!(items, vec![("b", 1), ("a", 2), ("c", 4)]);
+    }
+
+    #[test]
+    fn sort_and_deduplicate_empty_input() {
+        let mut items: Vec<i32> = vec![];
+        sort_and_deduplicate(&mut items, |a, b| a.cmp(b), |x| *x);
+        assert!(items.is_empty());
+    }
+
+    #[test]
+    fn sort_and_deduplicate_single_element() {
+        let mut items = vec![42];
+        sort_and_deduplicate(&mut items, |a, b| a.cmp(b), |x| *x);
+        assert_eq!(items, vec![42]);
+    }
+
+    #[test]
+    fn sort_and_deduplicate_all_duplicates() {
+        let mut items = vec![5, 5, 5, 5];
+        sort_and_deduplicate(&mut items, |a, b| a.cmp(b), |x| *x);
+        assert_eq!(items, vec![5]);
+    }
+
+    #[test]
+    fn sort_and_deduplicate_no_duplicates() {
+        let mut items = vec![3, 1, 2];
+        sort_and_deduplicate(&mut items, |a, b| a.cmp(b), |x| *x);
+        assert_eq!(items, vec![1, 2, 3]);
+    }
+}

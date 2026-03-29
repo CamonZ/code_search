@@ -51,3 +51,25 @@ impl TraceResult {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_empty_stores_module_and_function() {
+        let result = TraceResult::empty(
+            "MyModule".to_string(),
+            "my_func".to_string(),
+            5,
+            TraceDirection::Backward,
+        );
+
+        assert_eq!(result.module, "MyModule");
+        assert_eq!(result.function, "my_func");
+        assert_eq!(result.max_depth, 5);
+        assert!(matches!(result.direction, TraceDirection::Backward));
+        assert_eq!(result.total_items, 0);
+        assert!(result.entries.is_empty());
+    }
+}

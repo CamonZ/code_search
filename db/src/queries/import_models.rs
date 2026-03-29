@@ -143,3 +143,53 @@ pub struct TypeDef {
     pub params: Vec<String>,
     pub definition: String,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Test default_complexity returns 1, not 0
+    ///
+    /// Kills mutant: default_complexity -> 0
+    /// by deserializing a FunctionLocation without a complexity field
+    /// and asserting the default is 1.
+    #[test]
+    fn test_default_complexity_is_one() {
+        let json = r#"{
+            "name": "get_user",
+            "arity": 1,
+            "file": "lib/accounts.ex",
+            "kind": "def",
+            "line": 10,
+            "start_line": 10,
+            "end_line": 15
+        }"#;
+
+        let loc: FunctionLocation = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            loc.complexity, 1,
+            "Default complexity should be 1, not 0"
+        );
+    }
+
+    /// Test that explicit complexity value overrides the default
+    #[test]
+    fn test_explicit_complexity_overrides_default() {
+        let json = r#"{
+            "name": "complex_func",
+            "arity": 2,
+            "file": "lib/complex.ex",
+            "kind": "def",
+            "line": 20,
+            "start_line": 20,
+            "end_line": 40,
+            "complexity": 7
+        }"#;
+
+        let loc: FunctionLocation = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            loc.complexity, 7,
+            "Explicit complexity should be preserved"
+        );
+    }
+}

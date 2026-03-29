@@ -66,36 +66,3 @@ impl Execute for BoundariesCmd {
         })
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rstest::fixture;
-    use tempfile::NamedTempFile;
-
-    #[fixture]
-    fn test_db() -> NamedTempFile {
-        NamedTempFile::new().unwrap()
-    }
-
-    #[test]
-    fn test_boundaries_execute_creates_result_with_boundary_kind() {
-        // This test verifies the execute method creates a result with kind_filter set to "boundary"
-        // Full integration tests would require a real database with call graph data
-        // For now, we test the structure and defaults
-        let _cmd = BoundariesCmd {
-            min_incoming: 5,
-            min_ratio: 2.0,
-            module: None,
-            common: crate::commands::CommonArgs {
-                regex: false,
-                limit: 50,
-            },
-        };
-
-        // The execute method would call find_hotspots and filter results
-        // We verify the command struct is created correctly
-        assert_eq!(_cmd.min_incoming, 5);
-        assert_eq!(_cmd.min_ratio, 2.0);
-    }
-}

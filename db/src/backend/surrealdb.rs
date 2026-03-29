@@ -625,4 +625,114 @@ mod tests {
         assert!(empty_row.is_empty(), "Empty row should be empty");
         assert_eq!(empty_row.len(), 0, "Empty row length should be 0");
     }
+
+    // ==================== Array Value Impl Tests ====================
+    // These test the Value trait impl for surrealdb::sql::Array, ensuring
+    // scalar extraction methods correctly return None for array values.
+
+    #[test]
+    fn test_array_value_as_str_returns_none() {
+        let arr = surrealdb::sql::Array::from(vec![
+            surrealdb::sql::Value::Strand("hello".into()),
+        ]);
+        let val: &dyn Value = &arr;
+        assert_eq!(val.as_str(), None, "Array as_str should return None");
+    }
+
+    #[test]
+    fn test_array_value_as_i64_returns_none() {
+        let arr = surrealdb::sql::Array::from(vec![
+            surrealdb::sql::Value::Number(42.into()),
+        ]);
+        let val: &dyn Value = &arr;
+        assert_eq!(val.as_i64(), None, "Array as_i64 should return None");
+    }
+
+    #[test]
+    fn test_array_value_as_f64_returns_none() {
+        let arr = surrealdb::sql::Array::from(vec![
+            surrealdb::sql::Value::Number(3.14.into()),
+        ]);
+        let val: &dyn Value = &arr;
+        assert_eq!(val.as_f64(), None, "Array as_f64 should return None");
+    }
+
+    #[test]
+    fn test_array_value_as_bool_returns_none() {
+        let arr = surrealdb::sql::Array::from(vec![
+            surrealdb::sql::Value::Bool(true),
+        ]);
+        let val: &dyn Value = &arr;
+        assert_eq!(val.as_bool(), None, "Array as_bool should return None");
+    }
+
+    #[test]
+    fn test_array_value_as_array_returns_elements() {
+        let arr = surrealdb::sql::Array::from(vec![
+            surrealdb::sql::Value::Strand("a".into()),
+            surrealdb::sql::Value::Strand("b".into()),
+        ]);
+        let val: &dyn Value = &arr;
+        let elements = val.as_array().expect("Array as_array should return Some");
+        assert_eq!(elements.len(), 2);
+        assert_eq!(elements[0].as_str(), Some("a"));
+        assert_eq!(elements[1].as_str(), Some("b"));
+    }
+
+    // ==================== QueryResult into_rows with Data Tests ====================
+
+    #[test]
+    fn test_into_rows_returns_actual_rows() {
+        let db = SurrealDatabase::open_mem().expect("Failed to open database");
+
+        // Create a table and insert data so we get actual rows back
+        db.execute_query(
+            "DEFINE TABLE items SCHEMAFULL; \
+             DEFINE FIELD name ON items TYPE string; \
+             DEFINE FIELD count ON items TYPE int;",
+            QueryParams::new(),
+        )
+        .expect("Failed to create schema");
+
+        db.execute_query(
+            "CREATE items SET name = 'alpha', count = 1;",
+            QueryParams::new(),
+        )
+        .expect("Failed to insert first row");
+
+        db.execute_query(
+            "CREATE items SET name = 'beta', count = 2;",
+            QueryParams::new(),
+        )
+        .expect("Failed to insert second row");
+
+        // Query back the rows
+        let result = db
+            .execute_query("SELECT name, count FROM items ORDER BY count;", QueryParams::new())
+            .expect("Failed to query items");
+
+        // Verify headers exist
+        let headers = result.headers();
+        assert!(headers.contains(&"name".to_string()), "Headers should contain 'name'");
+        assert!(headers.contains(&"count".to_string()), "Headers should contain 'count'");
+
+        // Consume via into_rows and verify content
+        let rows = result.into_rows();
+        assert_eq!(rows.len(), 2, "into_rows should return 2 rows");
+
+        // Verify first row content
+        let name_idx = 1; // 'name' comes after 'count' in BTreeMap order
+        let count_idx = 0;
+        let first = &rows[0];
+        assert_eq!(
+            first.get(count_idx).and_then(|v| v.as_i64()),
+            Some(1),
+            "First row count should be 1"
+        );
+        assert_eq!(
+            first.get(name_idx).and_then(|v| v.as_str()),
+            Some("alpha"),
+            "First row name should be 'alpha'"
+        );
+    }
 }

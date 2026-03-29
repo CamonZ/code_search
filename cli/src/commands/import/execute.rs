@@ -226,4 +226,87 @@ mod tests {
         let result = cmd.execute(&*db);
         assert!(result.is_err());
     }
+
+    // =========================================================================
+    // execute() via ImportCmd with temp file (kills execute -> Ok(Default::default()))
+    // =========================================================================
+
+    #[rstest]
+    fn test_execute_imports_from_file(json_file: NamedTempFile) {
+        let db = open_mem_db().expect("Failed to create in-memory db");
+        let cmd = ImportCmd {
+            file: json_file.path().to_path_buf(),
+            clear: false,
+        };
+        let result = cmd.execute(&*db).expect("Execute should succeed");
+
+        assert!(!result.cleared, "cleared should be false when --clear is not set");
+        assert_eq!(result.modules_imported, 2);
+        assert_eq!(result.functions_imported, 1);
+        assert_eq!(result.calls_imported, 1);
+        assert_eq!(result.structs_imported, 2);
+        assert_eq!(result.function_locations_imported, 1);
+    }
+
+    #[rstest]
+    fn test_execute_clear_flag_is_reflected(json_file: NamedTempFile) {
+        let db = open_mem_db().expect("Failed to create in-memory db");
+
+        // Import without clear
+        let cmd_no_clear = ImportCmd {
+            file: json_file.path().to_path_buf(),
+            clear: false,
+        };
+        let result = cmd_no_clear.execute(&*db).expect("Execute should succeed");
+        assert!(!result.cleared, "cleared should be false when clear=false");
+
+        // Import with clear
+        let cmd_clear = ImportCmd {
+            file: json_file.path().to_path_buf(),
+            clear: true,
+        };
+        let result = cmd_clear.execute(&*db).expect("Execute should succeed");
+        assert!(result.cleared, "cleared should be true when clear=true");
+    }
+
+    // =========================================================================
+    // CommandRunner::run() integration tests (kills run() -> Ok(String::new())
+    // and run() -> Ok("xyzzy".into()) mutants on mod.rs)
+    // =========================================================================
+
+    #[rstest]
+    fn test_run_returns_formatted_table_output(json_file: NamedTempFile) {
+        use crate::commands::CommandRunner;
+        use crate::output::OutputFormat;
+
+        let cmd = ImportCmd {
+            file: json_file.path().to_path_buf(),
+            clear: false,
+        };
+        let output = cmd.run(&*open_mem_db().expect("db"), OutputFormat::Table)
+            .expect("run should succeed");
+
+        assert!(!output.is_empty(), "run() should return non-empty output");
+        assert!(output.contains("Import Summary"), "Table output should contain header");
+        assert!(output.contains("Modules: 2"), "Table output should contain module count");
+        assert!(output.contains("Functions: 1"), "Table output should contain function count");
+    }
+
+    #[rstest]
+    fn test_run_json_produces_valid_output(json_file: NamedTempFile) {
+        use crate::commands::CommandRunner;
+        use crate::output::OutputFormat;
+
+        let cmd = ImportCmd {
+            file: json_file.path().to_path_buf(),
+            clear: false,
+        };
+        let output = cmd.run(&*open_mem_db().expect("db"), OutputFormat::Json)
+            .expect("run should succeed");
+
+        let parsed: serde_json::Value = serde_json::from_str(&output)
+            .expect("run() JSON output should be valid JSON");
+        assert_eq!(parsed["modules_imported"], 2);
+        assert_eq!(parsed["functions_imported"], 1);
+    }
 }

@@ -187,8 +187,12 @@ pub(crate) fn trace_calls_impl(
         }
     }
 
-    // Deduplicate calls - same (caller, callee) pair should only appear once
-    // Keep the one with the smallest depth
+    Ok(dedup_calls(all_calls))
+}
+
+/// Deduplicate calls so that each (caller, callee) pair appears only once,
+/// keeping the entry with the smallest depth.
+pub(crate) fn dedup_calls(all_calls: Vec<Call>) -> Vec<Call> {
     let mut seen: std::collections::HashMap<(String, String), usize> =
         std::collections::HashMap::new();
     let mut deduped_calls: Vec<Call> = Vec::new();
@@ -216,7 +220,7 @@ pub(crate) fn trace_calls_impl(
         }
     }
 
-    Ok(deduped_calls)
+    deduped_calls
 }
 
 /// Extract a FunctionRef from a SurrealDB function object.
@@ -990,6 +994,323 @@ mod tests {
         assert!(
             depths.iter().all(|&d| d == 1),
             "All calls should be at depth 1 when starting from all functions"
+        );
+    }
+
+    /// Build a minimal call graph fixture where call_line, clause_start, and
+    /// clause_end are all distinct values.  This lets us verify that each edge-query
+    /// column is read from the correct header position (kills == → != mutants on
+    /// lines 148-150) and that the clause line info is propagated to the caller
+    /// FunctionRef (kills delete-field mutants on lines 173-174).
+    fn build_distinct_line_info_db() -> Box<dyn crate::backend::Database> {
+        use crate::backend::QueryParams;
+        use crate::db::open_mem_db;
+        use crate::queries::schema;
+
+        let db = open_mem_db().expect("Failed to create in-memory database");
+        schema::create_schema(&*db).expect("Failed to create schema");
+
+        // Two modules
+        db.execute_query(
+            "CREATE modules:[$name] SET name = $name, file = '', source = 'test';",
+            QueryParams::new().with_str("name", "Mod.Caller"),
+        )
+        .unwrap();
+        db.execute_query(
+            "CREATE modules:[$name] SET name = $name, file = '', source = 'test';",
+            QueryParams::new().with_str("name", "Mod.Callee"),
+        )
+        .unwrap();
+
+        // Two functions: Caller.do_work/1 (start_line 10) and Callee.helper/1 (start_line 50)
+        db.execute_query(
+            r#"CREATE functions:["Mod.Caller", "do_work", 1] SET
+                module_name = "Mod.Caller", name = "do_work", arity = 1,
+                kind = "def", file = "lib/caller.ex", start_line = 10;"#,
+            QueryParams::new(),
+        )
+        .unwrap();
+        db.execute_query(
+            r#"CREATE functions:["Mod.Callee", "helper", 1] SET
+                module_name = "Mod.Callee", name = "helper", arity = 1,
+                kind = "def", file = "lib/callee.ex", start_line = 50;"#,
+            QueryParams::new(),
+        )
+        .unwrap();
+
+        // Clause for the caller with *distinct* start_line and end_line.
+        // Clause key = line 30 (the call site), but start_line = 20, end_line = 40.
+        db.execute_query(
+            r#"CREATE clauses:["Mod.Caller", "do_work", 1, 30] SET
+                module_name = "Mod.Caller", function_name = "do_work", arity = 1,
+                line = 30,
+                source_file = "lib/caller.ex", source_file_absolute = "",
+                kind = "def",
+                start_line = 20,
+                end_line = 40,
+                pattern = "", guard = NONE,
+                source_sha = "", ast_sha = "",
+                complexity = 1, max_nesting_depth = 1,
+                generated_by = NONE, macro_source = NONE;"#,
+            QueryParams::new(),
+        )
+        .unwrap();
+        db.execute_query(
+            r#"RELATE functions:["Mod.Caller", "do_work", 1]
+               ->has_clause->
+               clauses:["Mod.Caller", "do_work", 1, 30];"#,
+            QueryParams::new(),
+        )
+        .unwrap();
+
+        // Clause for the callee (needed for graph completeness)
+        db.execute_query(
+            r#"CREATE clauses:["Mod.Callee", "helper", 1, 50] SET
+                module_name = "Mod.Callee", function_name = "helper", arity = 1,
+                line = 50,
+                source_file = "lib/callee.ex", source_file_absolute = "",
+                kind = "def",
+                start_line = 50, end_line = 60,
+                pattern = "", guard = NONE,
+                source_sha = "", ast_sha = "",
+                complexity = 1, max_nesting_depth = 1,
+                generated_by = NONE, macro_source = NONE;"#,
+            QueryParams::new(),
+        )
+        .unwrap();
+        db.execute_query(
+            r#"RELATE functions:["Mod.Callee", "helper", 1]
+               ->has_clause->
+               clauses:["Mod.Callee", "helper", 1, 50];"#,
+            QueryParams::new(),
+        )
+        .unwrap();
+
+        // Call edge: Caller.do_work/1 -> Callee.helper/1 at line 30.
+        // caller_clause_id points to clause at line 30 which has start_line=20, end_line=40.
+        // So: call_line=30, clause_start=20, clause_end=40 — all distinct.
+        db.execute_query(
+            r#"RELATE functions:["Mod.Caller", "do_work", 1]
+               ->calls->
+               functions:["Mod.Callee", "helper", 1]
+               SET call_type = "remote", caller_kind = "def",
+                   file = "lib/caller.ex", line = 30,
+                   caller_clause_id = clauses:["Mod.Caller", "do_work", 1, 30];"#,
+            QueryParams::new(),
+        )
+        .unwrap();
+
+        db
+    }
+
+    #[test]
+    fn test_trace_edge_query_reads_correct_header_columns() {
+        // Verifies lines 148-150: each == comparison on header names
+        // maps to the correct column index.  If any == is flipped to !=,
+        // the wrong column would be read and these assertions fail.
+        //
+        // Fixture values:  call_line = 30, clause_start = 20, clause_end = 40
+        // All three are distinct, so swapping any column is detectable.
+        let db = build_distinct_line_info_db();
+
+        let result = trace_calls(
+            &*db,
+            "Mod.Caller",
+            "do_work",
+            None,
+            false,
+            1,
+            100,
+        )
+        .expect("Trace should succeed");
+
+        assert_eq!(result.len(), 1, "Should find exactly 1 call");
+        let call = &result[0];
+
+        // call.line comes from the "call_line" column (line 148)
+        assert_eq!(call.line, 30, "call.line should be 30 (the call_line column)");
+
+        // caller.start_line comes from the "clause_start" column (line 149)
+        assert_eq!(
+            call.caller.start_line,
+            Some(20),
+            "caller.start_line should be 20 (the clause_start column)"
+        );
+
+        // caller.end_line comes from the "clause_end" column (line 150)
+        assert_eq!(
+            call.caller.end_line,
+            Some(40),
+            "caller.end_line should be 40 (the clause_end column)"
+        );
+    }
+
+    #[test]
+    fn test_trace_caller_start_line_from_clause_not_function() {
+        // Verifies line 173: start_line on FunctionRef is overwritten with
+        // clause data.  If the field assignment is deleted, the caller keeps
+        // the function's start_line (10) instead of the clause's (20).
+        let db = build_distinct_line_info_db();
+
+        let result = trace_calls(
+            &*db,
+            "Mod.Caller",
+            "do_work",
+            None,
+            false,
+            1,
+            100,
+        )
+        .expect("Trace should succeed");
+
+        assert_eq!(result.len(), 1);
+        let call = &result[0];
+
+        // The function's start_line is 10, but the clause's start_line is 20.
+        // Line 173 sets: start_line: clause_start.or(caller.start_line)
+        // If the field is deleted, caller keeps function's start_line = 10.
+        assert_ne!(
+            call.caller.start_line,
+            Some(10),
+            "start_line should come from clause (20), not function (10)"
+        );
+        assert_eq!(
+            call.caller.start_line,
+            Some(20),
+            "start_line should be clause's start_line = 20"
+        );
+    }
+
+    #[test]
+    fn test_trace_caller_end_line_from_clause_not_none() {
+        // Verifies line 174: end_line on FunctionRef is set from clause data.
+        // If the field assignment is deleted, the caller keeps end_line = None
+        // (since extract_function_ref_from_object sets end_line = None).
+        let db = build_distinct_line_info_db();
+
+        let result = trace_calls(
+            &*db,
+            "Mod.Caller",
+            "do_work",
+            None,
+            false,
+            1,
+            100,
+        )
+        .expect("Trace should succeed");
+
+        assert_eq!(result.len(), 1);
+        let call = &result[0];
+
+        // extract_function_ref_from_object always sets end_line = None.
+        // Line 174 sets: end_line: clause_end.or(caller.end_line)
+        // If deleted, caller keeps None. Our clause has end_line = 40.
+        assert!(
+            call.caller.end_line.is_some(),
+            "end_line should be set from clause data, not None"
+        );
+        assert_eq!(
+            call.caller.end_line,
+            Some(40),
+            "end_line should be clause's end_line = 40"
+        );
+    }
+
+    /// Helper: build a Call with the given caller/callee names, depth, and line.
+    /// Module is always "M", arity is always 1, and other fields are defaults.
+    fn make_call(caller: &str, callee: &str, depth: i64, line: i64) -> Call {
+        Call {
+            caller: FunctionRef {
+                module: Rc::from("M"),
+                name: Rc::from(caller),
+                arity: 1,
+                kind: None,
+                file: None,
+                start_line: None,
+                end_line: None,
+                args: None,
+                return_type: None,
+            },
+            callee: FunctionRef {
+                module: Rc::from("M"),
+                name: Rc::from(callee),
+                arity: 1,
+                kind: None,
+                file: None,
+                start_line: None,
+                end_line: None,
+                args: None,
+                return_type: None,
+            },
+            line,
+            call_type: None,
+            depth: Some(depth),
+        }
+    }
+
+    #[test]
+    fn test_trace_dedup_keeps_smallest_depth() {
+        // Kills mutant: replace < with == in dedup_calls.
+        //
+        // Input order: the LARGER depth (5) appears FIRST, then the smaller (2).
+        //
+        // With <:  2 < 5 is true  -> replacement fires, depth 2 wins.
+        // With ==: 2 == 5 is false -> no replacement, depth 5 stays. FAILS assertion.
+        let calls = vec![
+            make_call("X", "Y", 5, 100),
+            make_call("A", "B", 1, 10),  // unique edge, not a duplicate
+            make_call("X", "Y", 2, 200),
+        ];
+
+        let result = dedup_calls(calls);
+
+        assert_eq!(result.len(), 2, "Should have 2 unique edges after dedup");
+
+        let xy = result
+            .iter()
+            .find(|c| c.caller.name.as_ref() == "X" && c.callee.name.as_ref() == "Y")
+            .expect("Should find (X, Y) edge");
+
+        assert_eq!(
+            xy.depth,
+            Some(2),
+            "Dedup must keep the entry with depth 2 (the minimum), not 5"
+        );
+    }
+
+    #[test]
+    fn test_trace_depth_boundary_at_exact_max() {
+        // Kills mutant: replace < with <= in dedup_calls.
+        //
+        // When two entries have the SAME depth but different `line` values,
+        // the < operator yields false (no replacement), so the first entry wins.
+        // The <= mutant yields true (replacement happens), so the second entry wins.
+        //
+        // We assert the first entry's `line` is preserved to distinguish the two.
+        let calls = vec![
+            make_call("X", "Y", 3, 100),  // first occurrence: line 100
+            make_call("A", "B", 1, 10),   // unique edge
+            make_call("X", "Y", 3, 999),  // same edge, same depth, different line
+        ];
+
+        let result = dedup_calls(calls);
+
+        assert_eq!(result.len(), 2, "Should have 2 unique edges after dedup");
+
+        let xy = result
+            .iter()
+            .find(|c| c.caller.name.as_ref() == "X" && c.callee.name.as_ref() == "Y")
+            .expect("Should find (X, Y) edge");
+
+        assert_eq!(
+            xy.depth,
+            Some(3),
+            "Both entries have depth 3, so depth should be 3"
+        );
+        assert_eq!(
+            xy.line, 100,
+            "With equal depths, the first-seen entry (line=100) must be kept; \
+             if < were replaced with <=, the second entry (line=999) would win"
         );
     }
 }

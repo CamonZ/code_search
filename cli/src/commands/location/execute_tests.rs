@@ -39,6 +39,8 @@ mod tests {
         };
         let result = cmd.execute(&*populated_db).expect("Execute should succeed");
 
+        assert_eq!(result.module_pattern, "MyApp.Accounts", "module_pattern should match input");
+        assert_eq!(result.function_pattern, "get_user", "function_pattern should match input");
         assert_eq!(result.modules.len(), 1);
         assert_eq!(result.modules[0].name, "MyApp.Accounts");
         assert_eq!(result.modules[0].functions.len(), 1);
@@ -46,6 +48,7 @@ mod tests {
         let func = &result.modules[0].functions[0];
         assert_eq!(func.name, "get_user");
         assert_eq!(func.arity, 1);
+        assert_eq!(func.kind, "def");
         assert_eq!(func.file, "lib/my_app/accounts.ex");
         assert_eq!(func.clauses[0].start_line, 10);
     }
@@ -108,6 +111,8 @@ mod tests {
         };
         let result = cmd.execute(&*populated_db).expect("Execute should succeed");
 
+        assert_eq!(result.module_pattern, "", "module_pattern should be empty when no module given");
+        assert_eq!(result.function_pattern, "get_user", "function_pattern should match input");
         // get_user/1 has 2 clauses, get_user/2 has 1 clause = 3 total
         assert_eq!(result.total_clauses, 3);
         assert_eq!(result.modules.len(), 1);
@@ -250,5 +255,96 @@ mod tests {
         // Verify we can construct a file:line format
         assert!(func.file.ends_with(".ex"), "File should be .ex: {}", func.file);
         assert!(func.clauses[0].start_line > 0);
+    }
+
+    // =========================================================================
+    // CommandRunner::run() integration tests
+    // =========================================================================
+
+    #[rstest]
+    fn test_run_produces_formatted_output(populated_db: Box<dyn db::backend::Database>) {
+        use crate::commands::CommandRunner;
+        use crate::output::OutputFormat;
+
+        let cmd = LocationCmd {
+            module: Some("MyApp.Accounts".to_string()),
+            function: "get_user".to_string(),
+            arity: Some(1),
+            common: CommonArgs {
+                regex: false,
+                limit: 100,
+            },
+        };
+        let output = cmd
+            .run(&*populated_db, OutputFormat::Table)
+            .expect("run should succeed");
+
+        assert!(!output.is_empty(), "run() should return non-empty output");
+        assert!(
+            output.contains("Location: MyApp.Accounts.get_user"),
+            "Table output should contain header"
+        );
+        assert!(
+            output.contains("MyApp.Accounts:"),
+            "Table should contain module name"
+        );
+        assert!(
+            output.contains("get_user/1"),
+            "Table should contain function name/arity"
+        );
+    }
+
+    #[rstest]
+    fn test_run_empty_produces_correct_output(populated_db: Box<dyn db::backend::Database>) {
+        use crate::commands::CommandRunner;
+        use crate::output::OutputFormat;
+
+        let cmd = LocationCmd {
+            module: Some("NonExistent".to_string()),
+            function: "foo".to_string(),
+            arity: None,
+            common: CommonArgs {
+                regex: false,
+                limit: 100,
+            },
+        };
+        let output = cmd
+            .run(&*populated_db, OutputFormat::Table)
+            .expect("run should succeed");
+
+        assert!(
+            output.contains("Location: NonExistent.foo"),
+            "Header should contain queried patterns"
+        );
+        assert!(
+            output.contains("No locations found."),
+            "Empty result should show empty message"
+        );
+    }
+
+    #[rstest]
+    fn test_run_json_format(populated_db: Box<dyn db::backend::Database>) {
+        use crate::commands::CommandRunner;
+        use crate::output::OutputFormat;
+
+        let cmd = LocationCmd {
+            module: Some("MyApp.Accounts".to_string()),
+            function: "get_user".to_string(),
+            arity: Some(1),
+            common: CommonArgs {
+                regex: false,
+                limit: 100,
+            },
+        };
+        let output = cmd
+            .run(&*populated_db, OutputFormat::Json)
+            .expect("run should succeed");
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&output).expect("run() JSON output should be valid JSON");
+        assert_eq!(parsed["module_pattern"], "MyApp.Accounts");
+        assert_eq!(parsed["function_pattern"], "get_user");
+        assert!(parsed["modules"].is_array());
+        assert!(parsed["total_clauses"].as_u64().unwrap() > 0, "total_clauses should be positive");
     }
 }

@@ -341,64 +341,114 @@ fn parse_single_field(field_str: &str) -> Option<(String, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use db::types::{Call, FunctionRef};
 
-    // Type formatting tests
+    // =========================================================================
+    // Helper to build Call fixtures
+    // =========================================================================
+
+    fn make_call(
+        caller_module: &str,
+        caller_name: &str,
+        caller_arity: i64,
+        callee_module: &str,
+        callee_name: &str,
+        callee_arity: i64,
+        line: i64,
+    ) -> Call {
+        Call {
+            caller: FunctionRef::new(caller_module, caller_name, caller_arity),
+            callee: FunctionRef::new(callee_module, callee_name, callee_arity),
+            line,
+            call_type: None,
+            depth: None,
+        }
+    }
+
+    // =========================================================================
+    // parse_single_field tests
+    // =========================================================================
+
     #[test]
-    fn test_format_simple_struct_type() {
-        let input = "@type t() :: %{__struct__: MyApp.User, name: String.t(), age: integer()}";
-        let result = format_type_definition(input);
-
-        assert!(result.contains("%MyApp.User{"));
-        assert!(result.contains("name: String.t()"));
-        assert!(result.contains("age: integer()"));
+    fn test_parse_single_field_valid() {
+        let result = parse_single_field("name: String.t()");
+        assert_eq!(
+            result,
+            Some(("name".to_string(), "String.t()".to_string()))
+        );
     }
 
     #[test]
-    fn test_format_struct_with_nested_types() {
-        let input = "@type t() :: %{__struct__: TradeGym.DataImporter, executions: list(), open_positions: list(), reason: String.t() | nil, status: :ok | :error}";
-        let result = format_type_definition(input);
-
-        assert!(result.contains("%TradeGym.DataImporter{"));
-        assert!(result.contains("executions: list()"));
-        assert!(result.contains("open_positions: list()"));
-        assert!(result.contains("reason: String.t() | nil"));
-        assert!(result.contains("status: :ok | :error"));
+    fn test_parse_single_field_empty_string() {
+        assert_eq!(parse_single_field(""), None);
     }
 
     #[test]
-    fn test_format_empty_struct() {
-        let input = "@type t() :: %{__struct__: MyApp.Empty}";
-        let result = format_type_definition(input);
-
-        // Empty struct should remain compact
-        assert!(result.contains("%MyApp.Empty{}"));
+    fn test_parse_single_field_whitespace_only() {
+        assert_eq!(parse_single_field("   "), None);
     }
 
     #[test]
-    fn test_non_struct_type_unchanged() {
-        let input = "@type user_id() :: integer()";
-        let result = format_type_definition(input);
+    fn test_parse_single_field_no_colon() {
+        assert_eq!(parse_single_field("no_colon_here"), None);
+    }
 
-        assert_eq!(result, input);
+    /// Catches the known mutant: `||` replaced with `&&` at line 334.
+    /// When name is empty but type is present, it must return None.
+    #[test]
+    fn test_parse_single_field_empty_name_nonempty_type() {
+        // ": integer()" has an empty name before the colon
+        assert_eq!(parse_single_field(": integer()"), None);
+    }
+
+    /// Catches the known mutant: `||` replaced with `&&` at line 334.
+    /// When type is empty but name is present, it must return None.
+    #[test]
+    fn test_parse_single_field_nonempty_name_empty_type() {
+        // "name:" has a name but empty type after the colon
+        assert_eq!(parse_single_field("name:"), None);
     }
 
     #[test]
-    fn test_map_type_unchanged() {
-        let input = "@type options() :: %{name: String.t(), age: integer()}";
-        let result = format_type_definition(input);
-
-        // Regular maps (without __struct__) should remain unchanged
-        assert_eq!(result, input);
+    fn test_parse_single_field_both_empty() {
+        // ":" has both empty name and empty type
+        assert_eq!(parse_single_field(":"), None);
     }
 
     #[test]
-    fn test_format_struct_with_complex_types() {
-        let input = "@type t() :: %{__struct__: MyApp.State, callbacks: list({atom(), function()}), data: map()}";
-        let result = format_type_definition(input);
+    fn test_parse_single_field_trims_whitespace() {
+        let result = parse_single_field("  name  :  String.t()  ");
+        assert_eq!(
+            result,
+            Some(("name".to_string(), "String.t()".to_string()))
+        );
+    }
 
-        assert!(result.contains("%MyApp.State{"));
-        assert!(result.contains("callbacks: list({atom(), function()})"));
-        assert!(result.contains("data: map()"));
+    #[test]
+    fn test_parse_single_field_colon_in_type() {
+        // The first colon is the separator; subsequent colons are part of the type
+        let result = parse_single_field("key: Keyword.t(:atom)");
+        assert_eq!(
+            result,
+            Some(("key".to_string(), "Keyword.t(:atom)".to_string()))
+        );
+    }
+
+    // =========================================================================
+    // parse_type_fields tests
+    // =========================================================================
+
+    #[test]
+    fn test_parse_type_fields_empty() {
+        let fields = parse_type_fields("");
+        assert!(fields.is_empty());
+    }
+
+    #[test]
+    fn test_parse_type_fields_single_field() {
+        let fields = parse_type_fields("name: String.t()");
+        assert_eq!(fields.len(), 1);
+        assert_eq!(fields[0], ("name".to_string(), "String.t()".to_string()));
     }
 
     #[test]
@@ -432,6 +482,123 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_type_fields_with_nested_braces() {
+        let input = "data: %{key: value}, count: integer()";
+        let fields = parse_type_fields(input);
+
+        assert_eq!(fields.len(), 2);
+        assert_eq!(fields[0], ("data".to_string(), "%{key: value}".to_string()));
+        assert_eq!(fields[1], ("count".to_string(), "integer()".to_string()));
+    }
+
+    #[test]
+    fn test_parse_type_fields_with_nested_brackets() {
+        let input = "items: [integer()], name: atom()";
+        let fields = parse_type_fields(input);
+
+        assert_eq!(fields.len(), 2);
+        assert_eq!(fields[0], ("items".to_string(), "[integer()]".to_string()));
+        assert_eq!(fields[1], ("name".to_string(), "atom()".to_string()));
+    }
+
+    #[test]
+    fn test_parse_type_fields_skips_invalid_fields() {
+        // An entry with no colon should be skipped
+        let input = "valid_field: integer(), no_colon_here, another: atom()";
+        let fields = parse_type_fields(input);
+
+        assert_eq!(fields.len(), 2);
+        assert_eq!(fields[0].0, "valid_field");
+        assert_eq!(fields[1].0, "another");
+    }
+
+    // =========================================================================
+    // Type formatting tests
+    // =========================================================================
+
+    #[test]
+    fn test_format_simple_struct_type() {
+        let input = "@type t() :: %{__struct__: MyApp.User, name: String.t(), age: integer()}";
+        let result = format_type_definition(input);
+
+        assert!(result.contains("%MyApp.User{"));
+        assert!(result.contains("name: String.t()"));
+        assert!(result.contains("age: integer()"));
+    }
+
+    #[test]
+    fn test_format_struct_returns_owned() {
+        let input = "@type t() :: %{__struct__: MyApp.User, name: String.t()}";
+        let result = format_type_definition(input);
+        // The result should be an owned (transformed) value
+        assert!(matches!(result, Cow::Owned(_)));
+    }
+
+    #[test]
+    fn test_format_non_struct_returns_borrowed() {
+        let input = "@type user_id() :: integer()";
+        let result = format_type_definition(input);
+        // The result should be borrowed (unchanged)
+        assert!(matches!(result, Cow::Borrowed(_)));
+    }
+
+    #[test]
+    fn test_format_struct_with_nested_types() {
+        let input = "@type t() :: %{__struct__: TradeGym.DataImporter, executions: list(), open_positions: list(), reason: String.t() | nil, status: :ok | :error}";
+        let result = format_type_definition(input);
+
+        assert!(result.contains("%TradeGym.DataImporter{"));
+        assert!(result.contains("executions: list()"));
+        assert!(result.contains("open_positions: list()"));
+        assert!(result.contains("reason: String.t() | nil"));
+        assert!(result.contains("status: :ok | :error"));
+    }
+
+    #[test]
+    fn test_format_empty_struct() {
+        let input = "@type t() :: %{__struct__: MyApp.Empty}";
+        let result = format_type_definition(input);
+
+        // Empty struct should remain compact
+        assert!(result.contains("%MyApp.Empty{}"));
+    }
+
+    #[test]
+    fn test_format_empty_struct_no_fields() {
+        let input = "@type t() :: %{__struct__: MyApp.Empty}";
+        let result = format_type_definition(input);
+        // Should NOT contain newlines since there are no fields
+        assert!(!result.contains('\n'));
+    }
+
+    #[test]
+    fn test_non_struct_type_unchanged() {
+        let input = "@type user_id() :: integer()";
+        let result = format_type_definition(input);
+
+        assert_eq!(result, input);
+    }
+
+    #[test]
+    fn test_map_type_unchanged() {
+        let input = "@type options() :: %{name: String.t(), age: integer()}";
+        let result = format_type_definition(input);
+
+        // Regular maps (without __struct__) should remain unchanged
+        assert_eq!(result, input);
+    }
+
+    #[test]
+    fn test_format_struct_with_complex_types() {
+        let input = "@type t() :: %{__struct__: MyApp.State, callbacks: list({atom(), function()}), data: map()}";
+        let result = format_type_definition(input);
+
+        assert!(result.contains("%MyApp.State{"));
+        assert!(result.contains("callbacks: list({atom(), function()})"));
+        assert!(result.contains("data: map()"));
+    }
+
+    #[test]
     fn test_opaque_type_unchanged() {
         let input = "@opaque state() :: %{internal: map()}";
         let result = format_type_definition(input);
@@ -448,12 +615,46 @@ mod tests {
         assert!(result.contains("data: term()"));
     }
 
-    // Grouping tests
+    #[test]
+    fn test_format_struct_multiline_indentation() {
+        let input = "@type t() :: %{__struct__: M, a: integer(), b: atom()}";
+        let result = format_type_definition(input);
+        // Each field should be indented with 2 spaces
+        assert!(result.contains("  a: integer()"));
+        assert!(result.contains("  b: atom()"));
+    }
+
+    #[test]
+    fn test_format_struct_with_single_field() {
+        let input = "@type t() :: %{__struct__: MyApp.One, field: integer()}";
+        let result = format_type_definition(input);
+
+        assert!(result.contains("%MyApp.One{"));
+        assert!(result.contains("field: integer()"));
+    }
+
+    #[test]
+    fn test_try_format_struct_type_returns_none_for_non_struct() {
+        assert!(try_format_struct_type("just a plain type").is_none());
+    }
+
+    #[test]
+    fn test_try_format_struct_type_returns_some_for_struct() {
+        let result = try_format_struct_type("%{__struct__: MyApp.Foo, x: integer()}");
+        assert!(result.is_some());
+        let formatted = result.unwrap();
+        assert!(formatted.contains("%MyApp.Foo{"));
+    }
+
+    // =========================================================================
+    // group_by_module tests
+    // =========================================================================
+
     #[test]
     fn test_group_by_module_empty() {
         let items: Vec<(String, i32)> = vec![];
         let result = group_by_module(items, |(module, item)| (module, item));
-        assert_eq!(result.len(), 0);
+        assert!(result.is_empty());
     }
 
     #[test]
@@ -467,6 +668,7 @@ mod tests {
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].name, "math");
         assert_eq!(result[0].entries.len(), 3);
+        assert_eq!(result[0].entries, vec![1, 2, 3]);
     }
 
     #[test]
@@ -485,7 +687,423 @@ mod tests {
         assert_eq!(result[1].name, "math");
         assert_eq!(result[2].name, "string");
         // Verify items are grouped correctly
-        assert_eq!(result[1].entries.len(), 2); // math has 2 items
-        assert_eq!(result[2].entries.len(), 2); // string has 2 items
+        assert_eq!(result[0].entries, vec![4]); // list has 1 item
+        assert_eq!(result[1].entries, vec![1, 3]); // math has 2 items
+        assert_eq!(result[2].entries, vec![2, 5]); // string has 2 items
+    }
+
+    #[test]
+    fn test_group_by_module_file_defaults_to_empty() {
+        let items = vec![("mod_a".to_string(), 42)];
+        let result = group_by_module(items, |(module, item)| (module, item));
+        assert_eq!(result[0].file, "");
+    }
+
+    #[test]
+    fn test_group_by_module_function_count_is_none() {
+        let items = vec![("mod_a".to_string(), 42)];
+        let result = group_by_module(items, |(module, item)| (module, item));
+        assert!(result[0].function_count.is_none());
+    }
+
+    #[test]
+    fn test_group_by_module_transform_modifies_entries() {
+        // The transform can reshape the data
+        let items = vec![
+            ("m".to_string(), 10),
+            ("m".to_string(), 20),
+        ];
+        let result = group_by_module(items, |(module, val)| (module, val * 2));
+        assert_eq!(result[0].entries, vec![20, 40]);
+    }
+
+    #[test]
+    fn test_group_by_module_transform_assigns_module() {
+        // The transform can remap module names
+        let items = vec![1, 2, 3];
+        let result = group_by_module(items, |val| {
+            let module = if val <= 2 { "small" } else { "big" };
+            (module.to_string(), val)
+        });
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].name, "big");
+        assert_eq!(result[0].entries, vec![3]);
+        assert_eq!(result[1].name, "small");
+        assert_eq!(result[1].entries, vec![1, 2]);
+    }
+
+    // =========================================================================
+    // group_by_module_with_file tests
+    // =========================================================================
+
+    #[test]
+    fn test_group_by_module_with_file_empty() {
+        let items: Vec<i32> = vec![];
+        let result: Vec<ModuleGroup<i32>> =
+            group_by_module_with_file(items, |_| ("mod".to_string(), 0, "file".to_string()));
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_group_by_module_with_file_tracks_file() {
+        let items = vec![
+            ("mod_a".to_string(), 1, "file_a.ex".to_string()),
+        ];
+        let result = group_by_module_with_file(items, |(module, item, file)| (module, item, file));
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "mod_a");
+        assert_eq!(result[0].file, "file_a.ex");
+        assert_eq!(result[0].entries, vec![1]);
+    }
+
+    #[test]
+    fn test_group_by_module_with_file_first_file_wins() {
+        // When multiple items share a module, the file from the first item is used
+        // (because or_insert_with only inserts on the first encounter)
+        let items = vec![
+            ("mod_a".to_string(), 1, "first.ex".to_string()),
+            ("mod_a".to_string(), 2, "second.ex".to_string()),
+        ];
+        let result = group_by_module_with_file(items, |(module, item, file)| (module, item, file));
+        assert_eq!(result[0].file, "first.ex");
+        assert_eq!(result[0].entries, vec![1, 2]);
+    }
+
+    #[test]
+    fn test_group_by_module_with_file_multiple_modules() {
+        let items = vec![
+            ("b_mod".to_string(), 1, "b.ex".to_string()),
+            ("a_mod".to_string(), 2, "a.ex".to_string()),
+            ("b_mod".to_string(), 3, "b.ex".to_string()),
+        ];
+        let result = group_by_module_with_file(items, |(module, item, file)| (module, item, file));
+        assert_eq!(result.len(), 2);
+        // BTreeMap sorts alphabetically
+        assert_eq!(result[0].name, "a_mod");
+        assert_eq!(result[0].file, "a.ex");
+        assert_eq!(result[0].entries, vec![2]);
+        assert_eq!(result[1].name, "b_mod");
+        assert_eq!(result[1].file, "b.ex");
+        assert_eq!(result[1].entries, vec![1, 3]);
+    }
+
+    #[test]
+    fn test_group_by_module_with_file_function_count_is_none() {
+        let items = vec![("mod".to_string(), 1, "f.ex".to_string())];
+        let result = group_by_module_with_file(items, |(m, i, f)| (m, i, f));
+        assert!(result[0].function_count.is_none());
+    }
+
+    // =========================================================================
+    // group_calls tests
+    // =========================================================================
+
+    #[test]
+    fn test_group_calls_empty() {
+        let calls: Vec<Call> = vec![];
+        let (total, groups) = group_calls(
+            calls,
+            |c| c.caller.module.to_string(),
+            |c| c.caller.name.to_string(),
+            |a, b| a.line.cmp(&b.line),
+            |c| (c.callee.module.to_string(), c.callee.name.to_string()),
+            |key, calls| (key, calls.len()),
+            |_module, _map| String::new(),
+        );
+        assert_eq!(total, 0);
+        assert!(groups.is_empty());
+    }
+
+    #[test]
+    fn test_group_calls_single_module_single_key() {
+        let calls = vec![
+            make_call("ModA", "func1", 1, "ModB", "target", 0, 10),
+            make_call("ModA", "func1", 1, "ModC", "other", 0, 20),
+        ];
+        let (total, groups) = group_calls(
+            calls,
+            |c| c.caller.module.to_string(),
+            |c| c.caller.name.to_string(),
+            |a, b| a.line.cmp(&b.line),
+            |c| (c.callee.module.to_string(), c.callee.name.to_string()),
+            |key, calls| (key, calls.len()),
+            |_module, _map| String::new(),
+        );
+        assert_eq!(total, 2);
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].name, "ModA");
+        assert_eq!(groups[0].entries.len(), 1); // one key: "func1"
+        assert_eq!(groups[0].entries[0], ("func1".to_string(), 2));
+    }
+
+    #[test]
+    fn test_group_calls_multiple_modules() {
+        let calls = vec![
+            make_call("ModA", "func1", 1, "Target", "t", 0, 10),
+            make_call("ModB", "func2", 1, "Target", "t", 0, 20),
+            make_call("ModA", "func1", 1, "Target", "t2", 0, 30),
+        ];
+        let (total, groups) = group_calls(
+            calls,
+            |c| c.caller.module.to_string(),
+            |c| c.caller.name.to_string(),
+            |a, b| a.line.cmp(&b.line),
+            |c| (c.callee.module.to_string(), c.callee.name.to_string()),
+            |key, calls| (key, calls.len()),
+            |_module, _map| String::new(),
+        );
+        assert_eq!(total, 3);
+        assert_eq!(groups.len(), 2);
+        // BTreeMap sorts: ModA before ModB
+        assert_eq!(groups[0].name, "ModA");
+        assert_eq!(groups[1].name, "ModB");
+    }
+
+    #[test]
+    fn test_group_calls_multiple_keys_per_module() {
+        let calls = vec![
+            make_call("ModA", "func1", 1, "Target", "t1", 0, 10),
+            make_call("ModA", "func2", 2, "Target", "t2", 0, 20),
+        ];
+        let (total, groups) = group_calls(
+            calls,
+            |c| c.caller.module.to_string(),
+            |c| c.caller.name.to_string(),
+            |a, b| a.line.cmp(&b.line),
+            |c| c.callee.name.to_string(),
+            |key, calls| (key, calls.len()),
+            |_module, _map| String::new(),
+        );
+        assert_eq!(total, 2);
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].entries.len(), 2); // two keys: func1, func2
+    }
+
+    #[test]
+    fn test_group_calls_deduplicates() {
+        // Two calls from the same function to the same target should be deduped
+        let calls = vec![
+            make_call("ModA", "func1", 1, "Target", "same", 0, 10),
+            make_call("ModA", "func1", 1, "Target", "same", 0, 20),
+        ];
+        let (total, groups) = group_calls(
+            calls,
+            |c| c.caller.module.to_string(),
+            |c| c.caller.name.to_string(),
+            |a, b| a.line.cmp(&b.line),
+            |c| (c.callee.module.to_string(), c.callee.name.to_string()),
+            |key, calls| (key, calls.len()),
+            |_module, _map| String::new(),
+        );
+        // After dedup, only 1 remains
+        assert_eq!(total, 1);
+        assert_eq!(groups[0].entries[0], ("func1".to_string(), 1));
+    }
+
+    #[test]
+    fn test_group_calls_sorts_by_line() {
+        let calls = vec![
+            make_call("ModA", "func1", 1, "Target", "t1", 0, 30),
+            make_call("ModA", "func1", 1, "Target", "t2", 0, 10),
+            make_call("ModA", "func1", 1, "Target", "t3", 0, 20),
+        ];
+        let (_total, groups) = group_calls(
+            calls,
+            |c| c.caller.module.to_string(),
+            |c| c.caller.name.to_string(),
+            |a, b| a.line.cmp(&b.line),
+            |c| c.callee.name.to_string(), // unique dedup keys
+            |_key, calls| calls.iter().map(|c| c.line).collect::<Vec<_>>(),
+            |_module, _map| String::new(),
+        );
+        // Calls should be sorted by line
+        assert_eq!(groups[0].entries[0], vec![10, 20, 30]);
+    }
+
+    #[test]
+    fn test_group_calls_file_fn_is_used() {
+        let calls = vec![
+            make_call("ModA", "func1", 1, "Target", "t", 0, 10),
+        ];
+        let (_total, groups) = group_calls(
+            calls,
+            |c| c.caller.module.to_string(),
+            |c| c.caller.name.to_string(),
+            |a, b| a.line.cmp(&b.line),
+            |c| c.callee.name.to_string(),
+            |key, _calls| key,
+            |module, _map| format!("{}.ex", module.to_lowercase()),
+        );
+        assert_eq!(groups[0].file, "moda.ex");
+    }
+
+    #[test]
+    fn test_group_calls_function_count_is_none() {
+        let calls = vec![
+            make_call("ModA", "func1", 1, "Target", "t", 0, 10),
+        ];
+        let (_total, groups) = group_calls(
+            calls,
+            |c| c.caller.module.to_string(),
+            |c| c.caller.name.to_string(),
+            |a, b| a.line.cmp(&b.line),
+            |c| c.callee.name.to_string(),
+            |key, _calls| key,
+            |_module, _map| String::new(),
+        );
+        assert!(groups[0].function_count.is_none());
+    }
+
+    #[test]
+    fn test_group_calls_total_counts_after_dedup() {
+        // 3 calls, but 2 share a dedup key, so total should be 2
+        let calls = vec![
+            make_call("ModA", "func1", 1, "Target", "dup", 0, 10),
+            make_call("ModA", "func1", 1, "Target", "dup", 0, 20),
+            make_call("ModA", "func1", 1, "Target", "unique", 0, 30),
+        ];
+        let (total, _groups) = group_calls(
+            calls,
+            |c| c.caller.module.to_string(),
+            |c| c.caller.name.to_string(),
+            |a, b| a.line.cmp(&b.line),
+            |c| (c.callee.module.to_string(), c.callee.name.to_string()),
+            |key, calls| (key, calls.len()),
+            |_module, _map| String::new(),
+        );
+        assert_eq!(total, 2);
+    }
+
+    // =========================================================================
+    // convert_to_module_groups tests
+    // =========================================================================
+
+    #[test]
+    fn test_convert_to_module_groups_empty() {
+        let by_module: BTreeMap<String, BTreeMap<String, Vec<Call>>> = BTreeMap::new();
+        let groups: Vec<ModuleGroup<(String, usize)>> = convert_to_module_groups(
+            by_module,
+            |key, calls| (key, calls.len()),
+            |_module, _map| String::new(),
+        );
+        assert!(groups.is_empty());
+    }
+
+    #[test]
+    fn test_convert_to_module_groups_single_module() {
+        let mut by_module: BTreeMap<String, BTreeMap<String, Vec<Call>>> = BTreeMap::new();
+        let mut funcs = BTreeMap::new();
+        funcs.insert(
+            "func1".to_string(),
+            vec![make_call("ModA", "func1", 1, "Target", "t", 0, 10)],
+        );
+        by_module.insert("ModA".to_string(), funcs);
+
+        let groups = convert_to_module_groups(
+            by_module,
+            |key, calls| (key, calls.len()),
+            |_module, _map| String::new(),
+        );
+
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].name, "ModA");
+        assert_eq!(groups[0].entries.len(), 1);
+        assert_eq!(groups[0].entries[0], ("func1".to_string(), 1));
+    }
+
+    #[test]
+    fn test_convert_to_module_groups_multiple_modules_sorted() {
+        let mut by_module: BTreeMap<String, BTreeMap<String, Vec<Call>>> = BTreeMap::new();
+        for name in &["Zeta", "Alpha", "Mid"] {
+            let mut funcs = BTreeMap::new();
+            funcs.insert("f".to_string(), vec![]);
+            by_module.insert(name.to_string(), funcs);
+        }
+
+        let groups = convert_to_module_groups(
+            by_module,
+            |key, _calls| key,
+            |_module, _map| String::new(),
+        );
+
+        assert_eq!(groups.len(), 3);
+        assert_eq!(groups[0].name, "Alpha");
+        assert_eq!(groups[1].name, "Mid");
+        assert_eq!(groups[2].name, "Zeta");
+    }
+
+    #[test]
+    fn test_convert_to_module_groups_file_strategy_used() {
+        let mut by_module: BTreeMap<String, BTreeMap<String, Vec<Call>>> = BTreeMap::new();
+        let mut funcs = BTreeMap::new();
+        funcs.insert("f".to_string(), vec![]);
+        by_module.insert("MyModule".to_string(), funcs);
+
+        let groups = convert_to_module_groups(
+            by_module,
+            |key, _calls| key,
+            |module, _map| format!("lib/{}.ex", module.to_lowercase()),
+        );
+
+        assert_eq!(groups[0].file, "lib/mymodule.ex");
+    }
+
+    #[test]
+    fn test_convert_to_module_groups_function_count_is_none() {
+        let mut by_module: BTreeMap<String, BTreeMap<String, Vec<Call>>> = BTreeMap::new();
+        let mut funcs = BTreeMap::new();
+        funcs.insert("f".to_string(), vec![]);
+        by_module.insert("Mod".to_string(), funcs);
+
+        let groups = convert_to_module_groups(
+            by_module,
+            |key, _calls| key,
+            |_module, _map| String::new(),
+        );
+        assert!(groups[0].function_count.is_none());
+    }
+
+    #[test]
+    fn test_convert_to_module_groups_multiple_entries_per_module() {
+        let mut by_module: BTreeMap<String, BTreeMap<String, Vec<Call>>> = BTreeMap::new();
+        let mut funcs = BTreeMap::new();
+        funcs.insert("alpha".to_string(), vec![]);
+        funcs.insert("beta".to_string(), vec![]);
+        funcs.insert("gamma".to_string(), vec![]);
+        by_module.insert("Mod".to_string(), funcs);
+
+        let groups = convert_to_module_groups(
+            by_module,
+            |key, _calls| key,
+            |_module, _map| String::new(),
+        );
+
+        assert_eq!(groups[0].entries.len(), 3);
+        // BTreeMap sorts keys
+        assert_eq!(groups[0].entries[0], "alpha");
+        assert_eq!(groups[0].entries[1], "beta");
+        assert_eq!(groups[0].entries[2], "gamma");
+    }
+
+    #[test]
+    fn test_convert_to_module_groups_entry_builder_receives_calls() {
+        let mut by_module: BTreeMap<String, BTreeMap<String, Vec<Call>>> = BTreeMap::new();
+        let mut funcs = BTreeMap::new();
+        funcs.insert(
+            "f".to_string(),
+            vec![
+                make_call("Mod", "f", 1, "T", "a", 0, 10),
+                make_call("Mod", "f", 1, "T", "b", 0, 20),
+            ],
+        );
+        by_module.insert("Mod".to_string(), funcs);
+
+        let groups = convert_to_module_groups(
+            by_module,
+            |_key, calls| calls.len(),
+            |_module, _map| String::new(),
+        );
+
+        assert_eq!(groups[0].entries[0], 2);
     }
 }

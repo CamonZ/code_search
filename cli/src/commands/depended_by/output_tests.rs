@@ -36,6 +36,33 @@ MyApp.Service:
   fetch/1 [def] (service.ex:L10:20):
     → @ L15 get/2";
 
+    const EMPTY_KIND_TABLE: &str = "\
+Modules that depend on: MyApp.Repo
+
+Found 1 call(s) from 1 module(s):
+
+MyApp.Service:
+  fetch/1 (service.ex:L10:20):
+    → @ L15 get/2";
+
+    const NO_SLASH_FILE_TABLE: &str = "\
+Modules that depend on: MyApp.Repo
+
+Found 1 call(s) from 1 module(s):
+
+MyApp.Service:
+  fetch/1 [def] (service.ex:L10:20):
+    → @ L15 get/2";
+
+    const MULTIPLE_TARGETS_TABLE: &str = "\
+Modules that depend on: MyApp.Repo
+
+Found 2 call(s) from 1 module(s):
+
+MyApp.Service:
+  fetch/1 [def] (service.ex:L10:20):
+    → @ L15 get/2
+    → @ L18 all/1";
 
     // =========================================================================
     // Fixtures
@@ -72,6 +99,94 @@ MyApp.Service:
                         arity: 2,
                         line: 15,
                     }],
+                }],
+                function_count: None,
+            }],
+        }
+    }
+
+    #[fixture]
+    fn empty_kind_result() -> ModuleGroupResult<DependentCaller> {
+        ModuleGroupResult {
+            module_pattern: "MyApp.Repo".to_string(),
+            function_pattern: None,
+            total_items: 1,
+            items: vec![ModuleGroup {
+                name: "MyApp.Service".to_string(),
+                file: String::new(),
+                entries: vec![DependentCaller {
+                    function: "fetch".to_string(),
+                    arity: 1,
+                    kind: String::new(),
+                    start_line: 10,
+                    end_line: 20,
+                    file: "lib/service.ex".to_string(),
+                    targets: vec![DependentTarget {
+                        function: "get".to_string(),
+                        arity: 2,
+                        line: 15,
+                    }],
+                }],
+                function_count: None,
+            }],
+        }
+    }
+
+    #[fixture]
+    fn no_slash_file_result() -> ModuleGroupResult<DependentCaller> {
+        ModuleGroupResult {
+            module_pattern: "MyApp.Repo".to_string(),
+            function_pattern: None,
+            total_items: 1,
+            items: vec![ModuleGroup {
+                name: "MyApp.Service".to_string(),
+                file: String::new(),
+                entries: vec![DependentCaller {
+                    function: "fetch".to_string(),
+                    arity: 1,
+                    kind: "def".to_string(),
+                    start_line: 10,
+                    end_line: 20,
+                    file: "service.ex".to_string(),
+                    targets: vec![DependentTarget {
+                        function: "get".to_string(),
+                        arity: 2,
+                        line: 15,
+                    }],
+                }],
+                function_count: None,
+            }],
+        }
+    }
+
+    #[fixture]
+    fn multiple_targets_result() -> ModuleGroupResult<DependentCaller> {
+        ModuleGroupResult {
+            module_pattern: "MyApp.Repo".to_string(),
+            function_pattern: None,
+            total_items: 2,
+            items: vec![ModuleGroup {
+                name: "MyApp.Service".to_string(),
+                file: String::new(),
+                entries: vec![DependentCaller {
+                    function: "fetch".to_string(),
+                    arity: 1,
+                    kind: "def".to_string(),
+                    start_line: 10,
+                    end_line: 20,
+                    file: "lib/service.ex".to_string(),
+                    targets: vec![
+                        DependentTarget {
+                            function: "get".to_string(),
+                            arity: 2,
+                            line: 15,
+                        },
+                        DependentTarget {
+                            function: "all".to_string(),
+                            arity: 1,
+                            line: 18,
+                        },
+                    ],
                 }],
                 function_count: None,
             }],
@@ -172,5 +287,26 @@ MyApp.Service:
         fixture_type: ModuleGroupResult<DependentCaller>,
         expected: db::test_utils::load_output_fixture("depended_by", "empty.toon"),
         format: Toon,
+    }
+
+    crate::output_table_test! {
+        test_name: test_to_table_empty_kind,
+        fixture: empty_kind_result,
+        fixture_type: ModuleGroupResult<DependentCaller>,
+        expected: EMPTY_KIND_TABLE,
+    }
+
+    crate::output_table_test! {
+        test_name: test_to_table_no_slash_file,
+        fixture: no_slash_file_result,
+        fixture_type: ModuleGroupResult<DependentCaller>,
+        expected: NO_SLASH_FILE_TABLE,
+    }
+
+    crate::output_table_test! {
+        test_name: test_to_table_multiple_targets,
+        fixture: multiple_targets_result,
+        fixture_type: ModuleGroupResult<DependentCaller>,
+        expected: MULTIPLE_TARGETS_TABLE,
     }
 }

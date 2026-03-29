@@ -325,4 +325,96 @@ mod tests {
         );
         assert_eq!(result.total_items, 0);
     }
+
+    // =========================================================================
+    // CommandRunner::run() integration tests
+    // =========================================================================
+
+    #[rstest]
+    fn test_run_produces_formatted_output(populated_db: Box<dyn db::backend::Database>) {
+        use crate::commands::CommandRunner;
+        use crate::output::OutputFormat;
+
+        let cmd = UnusedCmd {
+            module: None,
+            private_only: false,
+            public_only: false,
+            exclude_generated: false,
+            common: CommonArgs {
+                regex: false,
+                limit: 100,
+            },
+        };
+        let output = cmd
+            .run(&*populated_db, OutputFormat::Table)
+            .expect("run should succeed");
+
+        assert!(!output.is_empty(), "run() should return non-empty output");
+        assert!(
+            output.contains("Unused functions"),
+            "Table output should contain header, got:\n{}",
+            output
+        );
+        assert!(
+            output.contains("Found 16 unused function(s) in"),
+            "Table should contain summary with 16 functions, got:\n{}",
+            output
+        );
+    }
+
+    #[rstest]
+    fn test_run_empty_produces_correct_output(populated_db: Box<dyn db::backend::Database>) {
+        use crate::commands::CommandRunner;
+        use crate::output::OutputFormat;
+
+        let cmd = UnusedCmd {
+            module: Some("NonExistent".to_string()),
+            private_only: false,
+            public_only: false,
+            exclude_generated: false,
+            common: CommonArgs {
+                regex: false,
+                limit: 100,
+            },
+        };
+        let output = cmd
+            .run(&*populated_db, OutputFormat::Table)
+            .expect("run should succeed");
+
+        assert!(
+            output.contains("Unused functions"),
+            "Header should be present"
+        );
+        assert!(
+            output.contains("No unused functions found."),
+            "Empty result should show empty message, got:\n{}",
+            output
+        );
+    }
+
+    #[rstest]
+    fn test_run_json_format(populated_db: Box<dyn db::backend::Database>) {
+        use crate::commands::CommandRunner;
+        use crate::output::OutputFormat;
+
+        let cmd = UnusedCmd {
+            module: None,
+            private_only: false,
+            public_only: false,
+            exclude_generated: false,
+            common: CommonArgs {
+                regex: false,
+                limit: 100,
+            },
+        };
+        let output = cmd
+            .run(&*populated_db, OutputFormat::Json)
+            .expect("run should succeed");
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&output).expect("run() JSON output should be valid JSON");
+        assert_eq!(parsed["module_pattern"], "*");
+        assert!(parsed["items"].is_array());
+        assert_eq!(parsed["total_items"], 16);
+    }
 }

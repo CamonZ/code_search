@@ -137,4 +137,34 @@ mod tests {
         let input = "integer() | binary()";
         assert_eq!(simplify_structs(input), input);
     }
+
+    // =========================================================================
+    // truncate_module_name tests - boundary conditions
+    // =========================================================================
+
+    #[test]
+    fn test_truncate_short_name() {
+        assert_eq!(truncate_module_name("MyApp", 28), "MyApp");
+    }
+
+    #[test]
+    fn test_truncate_name_exactly_at_max_width() {
+        // A name with exactly max_width characters should NOT be truncated
+        let name = "A".repeat(28);
+        assert_eq!(name.len(), 28);
+        let result = truncate_module_name(&name, 28);
+        assert_eq!(result, name, "Name exactly at max_width should not be truncated");
+    }
+
+    #[test]
+    fn test_truncate_name_one_over_max_width() {
+        // A name with max_width + 1 characters SHOULD be truncated
+        let name = "A".repeat(29);
+        assert_eq!(name.len(), 29);
+        let result = truncate_module_name(&name, 28);
+        // Display width is 28 chars (27 ASCII + 1 ellipsis char), byte length is 30 due to UTF-8 ellipsis
+        assert_eq!(result.chars().count(), 28, "Truncated result should be exactly max_width chars");
+        assert!(result.ends_with('…'), "Truncated name should end with ellipsis");
+        assert_eq!(result, format!("{}…", "A".repeat(27)));
+    }
 }

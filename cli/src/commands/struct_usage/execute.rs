@@ -73,7 +73,7 @@ fn build_usage_info_result(
 }
 
 /// Build aggregated result from flat StructUsageEntry list
-fn build_struct_modules_result(pattern: String, entries: Vec<StructUsageEntry>) -> StructModulesResult {
+pub(crate) fn build_struct_modules_result(pattern: String, entries: Vec<StructUsageEntry>) -> StructModulesResult {
     // Aggregate by module, tracking which functions accept vs return
     let mut module_map: BTreeMap<String, HashSet<String>> = BTreeMap::new();
     let mut module_accepts: BTreeMap<String, HashSet<String>> = BTreeMap::new();

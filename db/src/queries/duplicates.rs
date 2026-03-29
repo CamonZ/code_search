@@ -140,6 +140,96 @@ mod tests {
         crate::test_utils::surreal_call_graph_db_complex()
     }
 
+    // Build a database with additional edge-case clauses for mutation testing.
+    //
+    // Adds clauses that exercise the compound filter on line 82 and the
+    // duplicate-count threshold on line 105:
+    //
+    // - Clauses with one empty field (module, name, or file) that share a
+    //   duplicate hash — these must be excluded by the && filter. If any &&
+    //   is mutated to ||, these rows leak through and change result counts.
+    //
+    // - A clause with a unique hash that appears exactly once — this must be
+    //   excluded by the `> 1` threshold. If `>` is mutated to `>=`, this
+    //   singleton leaks through.
+    fn get_db_with_edge_cases() -> Box<dyn crate::backend::Database> {
+        let db = get_db();
+
+        // Clause with non-empty ast_sha but EMPTY module_name.
+        // Shares ast_hash_001 so it would form a "triple" if not filtered out.
+        // Catches && -> || between !hash.is_empty() and !module.is_empty().
+        db.execute_query(
+            r#"CREATE clauses:["", "phantom_no_module", 1, 200] SET
+                module_name = "", function_name = "phantom_no_module", arity = 1,
+                line = 200,
+                source_file = "lib/phantom.ex", source_file_absolute = "",
+                kind = "def",
+                start_line = 200, end_line = 200,
+                pattern = "", guard = NONE,
+                source_sha = "", ast_sha = "ast_hash_001",
+                complexity = 1, max_nesting_depth = 1,
+                generated_by = NONE, macro_source = NONE;"#,
+            QueryParams::new(),
+        )
+        .expect("Failed to insert clause with empty module");
+
+        // Clause with non-empty ast_sha but EMPTY function_name.
+        // Shares ast_hash_001 so it would form a "triple" if not filtered out.
+        // Catches && -> || between !module.is_empty() and !name.is_empty().
+        db.execute_query(
+            r#"CREATE clauses:["MyApp.Phantom", "", 1, 201] SET
+                module_name = "MyApp.Phantom", function_name = "", arity = 1,
+                line = 201,
+                source_file = "lib/phantom.ex", source_file_absolute = "",
+                kind = "def",
+                start_line = 201, end_line = 201,
+                pattern = "", guard = NONE,
+                source_sha = "", ast_sha = "ast_hash_001",
+                complexity = 1, max_nesting_depth = 1,
+                generated_by = NONE, macro_source = NONE;"#,
+            QueryParams::new(),
+        )
+        .expect("Failed to insert clause with empty name");
+
+        // Clause with non-empty ast_sha but EMPTY source_file.
+        // Shares ast_hash_001 so it would form a "triple" if not filtered out.
+        // Catches && -> || between !name.is_empty() and !file.is_empty().
+        db.execute_query(
+            r#"CREATE clauses:["MyApp.Phantom", "phantom_no_file", 1, 202] SET
+                module_name = "MyApp.Phantom", function_name = "phantom_no_file", arity = 1,
+                line = 202,
+                source_file = "", source_file_absolute = "",
+                kind = "def",
+                start_line = 202, end_line = 202,
+                pattern = "", guard = NONE,
+                source_sha = "", ast_sha = "ast_hash_001",
+                complexity = 1, max_nesting_depth = 1,
+                generated_by = NONE, macro_source = NONE;"#,
+            QueryParams::new(),
+        )
+        .expect("Failed to insert clause with empty file");
+
+        // Clause with a UNIQUE ast_sha (appears only once) and all fields populated.
+        // Tests the > 1 threshold on line 105 — a singleton must be excluded.
+        // If > is mutated to >=, this row leaks into results.
+        db.execute_query(
+            r#"CREATE clauses:["MyApp.Phantom", "singleton_fn", 1, 203] SET
+                module_name = "MyApp.Phantom", function_name = "singleton_fn", arity = 1,
+                line = 203,
+                source_file = "lib/phantom.ex", source_file_absolute = "",
+                kind = "def",
+                start_line = 203, end_line = 203,
+                pattern = "", guard = NONE,
+                source_sha = "", ast_sha = "unique_hash_only_one",
+                complexity = 1, max_nesting_depth = 1,
+                generated_by = NONE, macro_source = NONE;"#,
+            QueryParams::new(),
+        )
+        .expect("Failed to insert singleton clause");
+
+        db
+    }
+
     // ===== Basic functionality tests =====
 
     #[test]
@@ -417,5 +507,116 @@ mod tests {
 
         // Source hashes should be src_hash_001
         assert!(source_hashes.iter().all(|h| *h == "src_hash_001"));
+    }
+
+    // ===== Mutation-killing tests for compound filter (line 82) =====
+    //
+    // Line 82: if !hash.is_empty() && !module.is_empty() && !name.is_empty() && !file.is_empty()
+    //
+    // Each test inserts a clause where exactly one field is empty while the others
+    // (including the hash) are non-empty and match an existing duplicate hash.
+    // The clause must be filtered OUT by the && chain. If any && is mutated to ||,
+    // the clause leaks through and the result count increases, failing the assertion.
+
+    #[test]
+    fn test_find_duplicates_excludes_clause_with_empty_module() {
+        let db = get_db_with_edge_cases();
+        let result =
+            find_duplicates(&*db, None, false, false, false).expect("Query should succeed");
+
+        // Empty-module clause shares ast_hash_001 but must be filtered out.
+        // Result count must be unchanged: still 4 (2 for ast_hash_001 + 2 for ast_hash_002).
+        assert_eq!(
+            result.len(),
+            4,
+            "Clause with empty module must be excluded from duplicates"
+        );
+
+        // No result should have an empty module
+        for dup in &result {
+            assert!(
+                !dup.module.is_empty(),
+                "No duplicate should have an empty module: {:?}",
+                dup
+            );
+        }
+    }
+
+    #[test]
+    fn test_find_duplicates_excludes_clause_with_empty_name() {
+        let db = get_db_with_edge_cases();
+        let result =
+            find_duplicates(&*db, None, false, false, false).expect("Query should succeed");
+
+        // Empty-name clause shares ast_hash_001 but must be filtered out.
+        assert_eq!(
+            result.len(),
+            4,
+            "Clause with empty name must be excluded from duplicates"
+        );
+
+        // No result should have an empty name
+        for dup in &result {
+            assert!(
+                !dup.name.is_empty(),
+                "No duplicate should have an empty name: {:?}",
+                dup
+            );
+        }
+    }
+
+    #[test]
+    fn test_find_duplicates_excludes_clause_with_empty_file() {
+        let db = get_db_with_edge_cases();
+        let result =
+            find_duplicates(&*db, None, false, false, false).expect("Query should succeed");
+
+        // Empty-file clause shares ast_hash_001 but must be filtered out.
+        assert_eq!(
+            result.len(),
+            4,
+            "Clause with empty file must be excluded from duplicates"
+        );
+
+        // No result should have an empty file
+        for dup in &result {
+            assert!(
+                !dup.file.is_empty(),
+                "No duplicate should have an empty file: {:?}",
+                dup
+            );
+        }
+    }
+
+    // ===== Mutation-killing test for duplicate threshold (line 105) =====
+    //
+    // Line 105: .filter(|item| hash_counts.get(&item.hash).map_or(false, |count| *count > 1))
+    //
+    // A hash appearing exactly once must NOT be included. If > is mutated to >=,
+    // the singleton leaks through.
+
+    #[test]
+    fn test_find_duplicates_excludes_singleton_hash() {
+        let db = get_db_with_edge_cases();
+        let result =
+            find_duplicates(&*db, None, false, false, false).expect("Query should succeed");
+
+        // The singleton clause has unique_hash_only_one which appears exactly once.
+        // It must NOT appear in results — only hashes with count > 1 qualify.
+        assert_eq!(
+            result.len(),
+            4,
+            "Singleton hash (count=1) must not appear in duplicates"
+        );
+
+        assert!(
+            !result.iter().any(|d| d.hash == "unique_hash_only_one"),
+            "A hash that appears only once must not be in duplicates"
+        );
+
+        assert!(
+            !result.iter().any(|d| d.name == "singleton_fn"),
+            "singleton_fn must not appear in duplicates"
+        );
     }
 }

@@ -158,6 +158,92 @@ mod tests {
     }
 
     // =========================================================================
+    // Direction verification tests
+    // =========================================================================
+
+    /// Verify that calls_from returns outgoing calls (caller → callee direction).
+    ///
+    /// If CallDirection::From were swapped to CallDirection::To, this test would fail
+    /// because the result would contain 5 incoming calls to Repo rather than 3 outgoing.
+    #[rstest]
+    fn test_calls_from_returns_outgoing_direction(populated_db: Box<dyn db::backend::Database>) {
+        // MyApp.Repo makes 3 outgoing calls:
+        // - Repo.get/2 → Repo.query/2
+        // - Repo.all/1 → Repo.query/2
+        // - Repo.insert/1 → Service.get_context/1
+        //
+        // Calls TO MyApp.Repo would be 5 (a different count):
+        // - Accounts.get_user/1 → Repo.get/2
+        // - Accounts.list_users/0 → Repo.all/1
+        // - Repo.get/2 → Repo.query/2
+        // - Repo.all/1 → Repo.query/2
+        // - Logger.log_query/2 → Repo.insert/1
+        let cmd = CallsFromCmd {
+            module: "MyApp.Repo".to_string(),
+            function: None,
+            arity: None,
+            common: CommonArgs {
+                regex: false,
+                limit: 100,
+            },
+        };
+        let result = cmd.execute(&*populated_db).expect("Execute should succeed");
+
+        // With CallDirection::From, MyApp.Repo has 3 outgoing calls.
+        // With CallDirection::To (wrong), it would have 5 incoming calls.
+        assert_eq!(
+            result.total_items, 3,
+            "MyApp.Repo should have exactly 3 outgoing calls (not 5 incoming)"
+        );
+
+        // Verify the grouped module is the caller module (MyApp.Repo)
+        assert_eq!(result.items.len(), 1, "Should have exactly 1 module group");
+        assert_eq!(
+            result.items[0].name, "MyApp.Repo",
+            "Module group should be the caller module"
+        );
+
+        // Verify the entries are caller functions from Repo
+        let func_names: HashSet<_> = result.items[0]
+            .entries
+            .iter()
+            .map(|f| f.name.as_str())
+            .collect();
+        assert!(
+            func_names.contains("get"),
+            "Should contain caller function 'get'"
+        );
+        assert!(
+            func_names.contains("all"),
+            "Should contain caller function 'all'"
+        );
+        assert!(
+            func_names.contains("insert"),
+            "Should contain caller function 'insert'"
+        );
+
+        // Verify each entry has callee info (outgoing target), not caller info
+        let mut callee_targets: HashSet<(String, String, i64)> = HashSet::new();
+        for func in &result.items[0].entries {
+            for call in &func.calls {
+                callee_targets.insert((
+                    call.callee.module.to_string(),
+                    call.callee.name.to_string(),
+                    call.callee.arity,
+                ));
+            }
+        }
+        assert!(
+            callee_targets.contains(&("MyApp.Repo".to_string(), "query".to_string(), 2)),
+            "Should contain outgoing target Repo.query/2"
+        );
+        assert!(
+            callee_targets.contains(&("MyApp.Service".to_string(), "get_context".to_string(), 1)),
+            "Should contain outgoing target Service.get_context/1"
+        );
+    }
+
+    // =========================================================================
     // Filter tests
     // =========================================================================
 
@@ -174,5 +260,97 @@ mod tests {
         };
         let result = cmd.execute(&*populated_db).expect("Execute should succeed");
         assert_eq!(result.total_items, 1, "Limit should restrict to 1 call");
+    }
+
+    // =========================================================================
+    // CommandRunner::run() integration tests
+    // =========================================================================
+
+    #[rstest]
+    fn test_run_produces_formatted_output(populated_db: Box<dyn db::backend::Database>) {
+        use crate::commands::CommandRunner;
+        use crate::output::OutputFormat;
+
+        let cmd = CallsFromCmd {
+            module: "MyApp.Accounts".to_string(),
+            function: None,
+            arity: None,
+            common: CommonArgs {
+                regex: false,
+                limit: 100,
+            },
+        };
+        let output = cmd
+            .run(&*populated_db, OutputFormat::Table)
+            .expect("run should succeed");
+
+        assert!(!output.is_empty(), "run() should return non-empty output");
+        assert!(
+            output.contains("Calls from: MyApp.Accounts"),
+            "Table output should contain header, got:\n{}",
+            output
+        );
+        assert!(
+            output.contains("MyApp.Accounts"),
+            "Table should contain caller module name"
+        );
+        assert!(
+            output.contains("Found 4 call(s):"),
+            "Table should contain summary with 4 calls, got:\n{}",
+            output
+        );
+    }
+
+    #[rstest]
+    fn test_run_empty_produces_correct_output(populated_db: Box<dyn db::backend::Database>) {
+        use crate::commands::CommandRunner;
+        use crate::output::OutputFormat;
+
+        let cmd = CallsFromCmd {
+            module: "NonExistent".to_string(),
+            function: None,
+            arity: None,
+            common: CommonArgs {
+                regex: false,
+                limit: 100,
+            },
+        };
+        let output = cmd
+            .run(&*populated_db, OutputFormat::Table)
+            .expect("run should succeed");
+
+        assert!(
+            output.contains("Calls from: NonExistent"),
+            "Header should contain queried module"
+        );
+        assert!(
+            output.contains("No calls found."),
+            "Empty result should show empty message"
+        );
+    }
+
+    #[rstest]
+    fn test_run_json_format(populated_db: Box<dyn db::backend::Database>) {
+        use crate::commands::CommandRunner;
+        use crate::output::OutputFormat;
+
+        let cmd = CallsFromCmd {
+            module: "MyApp.Accounts".to_string(),
+            function: None,
+            arity: None,
+            common: CommonArgs {
+                regex: false,
+                limit: 100,
+            },
+        };
+        let output = cmd
+            .run(&*populated_db, OutputFormat::Json)
+            .expect("run should succeed");
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&output).expect("run() JSON output should be valid JSON");
+        assert_eq!(parsed["module_pattern"], "MyApp.Accounts");
+        assert!(parsed["items"].is_array());
+        assert_eq!(parsed["total_items"], 4);
     }
 }
